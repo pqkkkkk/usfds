@@ -1,0 +1,41 @@
+cleansing:
+  drop_duplicates: true
+  missing_value_strategy: !!python/object/apply:usfds_core.domain.schemas.preprocessing_config.MissingValueStrategy
+  - drop
+  fill_value: null
+  outlier_clipping: false
+  outlier_lower_percentile: 0.01
+  outlier_upper_percentile: 0.99
+split:
+  time_column: Time
+  target_column: Class
+  test_size: 0.2
+  val_size: null
+feature_engineering:
+  time_col: Time
+  amount_col: Amount
+  enable_amount_ratios: true
+  enable_hour_of_day: true
+  enable_velocity_features: false
+  customer_id_col: null
+  velocity_windows:
+  - 1
+  - 24
+  - 168
+transformation:
+  numeric_columns: []
+  categorical_columns: []
+  scaler: !!python/object/apply:usfds_core.domain.schemas.preprocessing_config.ScalerType
+  - robust
+  categorical_encoder: !!python/object/apply:usfds_core.domain.schemas.preprocessing_config.CategoricalEncoderType
+  - one_hot
+dim_reduction:
+  method: !!python/object/apply:usfds_core.domain.schemas.preprocessing_config.DimReductionType
+  - none
+  n_components: 10
+  k_features: 15
+resampling:
+  method: !!python/object/apply:usfds_core.domain.schemas.preprocessing_config.ResamplingStrategy
+  - none
+  sampling_strategy: auto
+  random_state: 42

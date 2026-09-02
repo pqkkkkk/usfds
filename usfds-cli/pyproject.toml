@@ -1,0 +1,31 @@
+[project]
+name = "usfds-cli"
+version = "0.1.0"
+description = "Command Line Interface for Unified Stream Fraud Detection System (USFDS)"
+authors = [
+    {name = "pqkkkk", email = "22120174@student.hcmus.edu.vn"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+
+[tool.poetry]
+packages = [{include = "usfds_cli", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+usfds-core = {path = "../usfds-core", develop = true}
+usfds-infra = {path = "../usfds-infra", develop = true}
+typer = "^0.15.0"
+rich = "^13.9.0"
+pyyaml = "^6.0.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+
+[tool.poetry.scripts]
+usfds = "usfds_cli.main:app"
+usfds-cli = "usfds_cli.main:app"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

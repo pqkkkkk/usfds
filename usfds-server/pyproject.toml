@@ -1,0 +1,27 @@
+[project]
+name = "usfds-server"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "pqkkkk",email = "22120174@student.hcmus.edu.vn"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+
+[tool.poetry]
+packages = [{include = "usfds_server", from = "src"}]
+
+[tool.poetry.scripts]
+usfds-server = "src.usfds_server.api:run_server"
+
+[tool.poetry.dependencies]
+fastapi = "^0.100.0"
+# Development dependencies
+usfds-core = {path = "../usfds-core", develop = true}
+usfds-infra = {path = "../usfds-infra", develop = true}
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
