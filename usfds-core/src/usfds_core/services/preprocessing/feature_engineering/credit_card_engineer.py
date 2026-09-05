@@ -26,10 +26,28 @@ class CreditCardFeatureEngineer(BaseFeatureEngineer):
             return None
         if col_name in df.columns:
             return col_name
-        # Case-insensitive fallback
+
+        def normalize_str(s: str) -> str:
+            return str(s).lower().replace("_", "").replace(" ", "").replace("-", "")
+
+        target = normalize_str(col_name)
         for c in df.columns:
-            if c.lower() == col_name.lower():
-                return c
+            if normalize_str(c) == target:
+                return str(c)
+
+        # Common aliases fallback
+        aliases = {
+            "timestamp": ["time", "datetime", "date_time", "tx_time"],
+            "time": ["timestamp", "datetime", "date_time", "tx_time"],
+            "amount": ["amt", "tx_amount", "transaction_amount"],
+            "user_id": ["customer_id", "client_id", "account_id"],
+            "customer_id": ["user_id", "client_id", "account_id"],
+        }
+        for alias in aliases.get(col_name.lower(), []):
+            alias_norm = normalize_str(alias)
+            for c in df.columns:
+                if normalize_str(c) == alias_norm:
+                    return str(c)
         return None
 
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y: Optional[Any] = None) -> "CreditCardFeatureEngineer":
@@ -58,8 +76,6 @@ class CreditCardFeatureEngineer(BaseFeatureEngineer):
                     dt_series = pd.to_datetime(time_series, errors="coerce")
                     if not dt_series.isna().all():
                         X_out["hour_of_day"] = dt_series.dt.hour + (dt_series.dt.minute / 60.0)
-                        # Drop raw string datetime column so it doesn't break PCA / ML estimators
-                        X_out = X_out.drop(columns=[t_col])
 
         # 2. Amount to mean ratio
         if self.add_ratio and self.mean_amount_ is not None and self.amount_col:
