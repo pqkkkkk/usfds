@@ -16,7 +16,7 @@ class TestTemporalDataSplitter(unittest.TestCase):
     def test_temporal_order_preservation(self):
         config = SplitConfig(time_column="Time", target_column="Class", test_size=0.3)
         splitter = TemporalDataSplitter(config)
-        X_train, X_test, y_train, y_test = splitter.split(self.df)
+        X_train, X_test, y_train, y_test = splitter.split_features_target(self.df)
 
         # Total 10 rows: 70% train = 7 rows, 30% test = 3 rows
         self.assertEqual(len(X_train), 7)
@@ -29,12 +29,26 @@ class TestTemporalDataSplitter(unittest.TestCase):
         self.assertEqual(list(X_train["Time"]), [10, 20, 30, 40, 50, 60, 70])
         self.assertEqual(list(X_test["Time"]), [80, 90, 100])
 
+    def test_split_train_test(self):
+        config = SplitConfig(time_column="Time", target_column="Class", test_size=0.3)
+        splitter = TemporalDataSplitter(config)
+        train_df, test_df = splitter.split_train_test(self.df)
+
+        self.assertEqual(len(train_df), 7)
+        self.assertEqual(len(test_df), 3)
+        # Verify Class column is retained in both
+        self.assertIn("Class", train_df.columns)
+        self.assertIn("Class", test_df.columns)
+        self.assertEqual(list(train_df["Time"]), [10, 20, 30, 40, 50, 60, 70])
+        self.assertEqual(list(test_df["Time"]), [80, 90, 100])
+
     def test_missing_target_column_raises_error(self):
         config = SplitConfig(time_column="Time", target_column="NonExistentTarget", test_size=0.2)
         splitter = TemporalDataSplitter(config)
         with self.assertRaises(ValueError):
-            splitter.split(self.df)
+            splitter.split_features_target(self.df)
 
 
 if __name__ == "__main__":
     unittest.main()
+
