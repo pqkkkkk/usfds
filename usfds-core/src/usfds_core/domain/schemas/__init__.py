@@ -25,6 +25,8 @@ from usfds_core.domain.schemas.preprocessing_config import (
     SystemColumn,
     TransformationConfig,
 )
+from usfds_core.domain.schemas.training_config import TrainingRunConfig
+from usfds_core.domain.schemas.training_payload import TrainingRunPayload, TrainingRunResult
 
 __all__ = [
     "ArtifactOutputKey",
@@ -50,5 +52,8 @@ __all__ = [
     "DimReductionConfig",
     "ResamplingConfig",
     "PreprocessingConfig",
+    "TrainingRunConfig",
+    "TrainingRunPayload",
+    "TrainingRunResult",
 ]
 

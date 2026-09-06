@@ -14,6 +14,12 @@ Executes:
    - Transforms all predictive categorical features (One-Hot / Ordinal encoding).
    - Preserves all predictive features without dropping any.
    - Saves train_processed.parquet, test_processed.parquet, and fitted_pipeline.joblib.
+
+3. Stage MODEL_TRAINING (TrainingRunExecutor):
+   - Loads processed training and evaluation data directly from local storage.
+   - Fits selected ML algorithm (Random Forest / XGBoost).
+   - Computes fraud-focused evaluation metrics (Accuracy, Precision, Recall, F1, F2, ROC-AUC, PR-AUC, Confusion Matrix).
+   - Exports serialized model artifacts (.joblib / .json) and saves to persistent storage.
 """
 
 import argparse
@@ -48,8 +54,10 @@ from usfds_core.domain.schemas.preprocessing_config import (
     SplitConfig,
     TransformationConfig,
 )
+from usfds_core.domain.schemas.training_payload import TrainingRunPayload
 from usfds_core.services.preprocessing.feature_engineering_service import FeatureEngineeringExecutionService
 from usfds_core.services.preprocessing.preprocessing_service import PreprocessingExecutionService
+from usfds_core.services.training.executor import TrainingRunExecutor
 from usfds_core.storage.base_storage import IFileStorage
 
 
@@ -156,6 +164,43 @@ def parse_arguments() -> argparse.Namespace:
         default=None,
         help="Optional limit on number of input rows (useful for fast testing)",
     )
+    # Stage 3: Model Training Arguments
+    parser.add_argument(
+        "--model",
+        type=str,
+        choices=["random_forest", "xgboost"],
+        default="random_forest",
+        help="Algorithm to train (default: random_forest; options: random_forest, xgboost)",
+    )
+    parser.add_argument(
+        "--n-estimators",
+        type=int,
+        default=100,
+        help="Number of trees/estimators for the model (default: 100)",
+    )
+    parser.add_argument(
+        "--max-depth",
+        type=int,
+        default=None,
+        help="Maximum depth of trees (default: None)",
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.1,
+        help="Learning rate for XGBoost (default: 0.1)",
+    )
+    parser.add_argument(
+        "--target-col",
+        type=str,
+        default="label",
+        help="Target column name in dataset (default: label)",
+    )
+    parser.add_argument(
+        "--skip-training",
+        action="store_true",
+        help="If set, only run feature engineering and preprocessing stages without model training",
+    )
     return parser.parse_args()
 
 
@@ -165,18 +210,27 @@ def main():
     output_dir = Path(args.output_dir).resolve()
 
     print("=" * 80)
-    print("USFDS PREPROCESSING & FEATURE ENGINEERING PIPELINE (END-TO-END)")
+    print("USFDS END-TO-END PIPELINE: FEATURE ENGINEERING -> PREPROCESSING -> TRAINING")
     print("=" * 80)
-    print(f"Input Data File : {data_path}")
-    print(f"Storage Dir     : {output_dir}")
-    print(f"Test Size       : {args.test_size}")
-    print(f"Scaler          : {args.scaler}")
-    print(f"Encoder         : {args.encoder}")
-    print(f"Dim Reduction   : {args.dim_reduction}")
-    print(f"Resampling      : {args.resampling}")
-    print(f"Velocity Features: {args.enable_velocity}")
+    print(f"Input Data File   : {data_path}")
+    print(f"Storage Dir       : {output_dir}")
+    print(f"Test Size         : {args.test_size}")
+    print(f"Scaler            : {args.scaler}")
+    print(f"Encoder           : {args.encoder}")
+    print(f"Dim Reduction     : {args.dim_reduction}")
+    print(f"Resampling        : {args.resampling}")
+    print(f"Velocity Features : {args.enable_velocity}")
+    if not args.skip_training:
+        print(f"Model Algorithm   : {args.model}")
+        print(f"N Estimators      : {args.n_estimators}")
+        print(f"Max Depth         : {args.max_depth}")
+        if args.model == "xgboost":
+            print(f"Learning Rate     : {args.learning_rate}")
+        print(f"Target Column     : {args.target_col}")
+    else:
+        print("Model Training    : SKIPPED (--skip-training)")
     if args.max_rows:
-        print(f"Max Rows Limit  : {args.max_rows}")
+        print(f"Max Rows Limit    : {args.max_rows:,}")
     print("=" * 80)
 
     if not data_path.is_file():
@@ -323,11 +377,10 @@ def main():
     test_proc_df = pd.read_parquet(io.BytesIO(test_proc_bytes))
 
     print("\n" + "=" * 80)
-    print("PIPELINE EXECUTION SUMMARY")
+    print("INTERMEDIATE DATASET INSPECTION")
     print("=" * 80)
     print(f"Train Matrix Shape : {train_proc_df.shape} (rows, columns)")
     print(f"Test Matrix Shape  : {test_proc_df.shape} (rows, columns)")
-    print(f"Total Execution Time: {stage1_duration + stage2_duration:.2f} seconds")
     print("\nFeature Columns in Processed Output:")
     print(list(train_proc_df.columns))
 
@@ -337,7 +390,106 @@ def main():
     print("\nClass distribution in processed train dataset:")
     print(train_proc_df["label"].value_counts().to_dict())
 
-    print("\n[SUCCESS] End-to-end pipeline finished cleanly.")
+    # --------------------------------------------------------------------------
+    # STAGE 3: MODEL TRAINING & EVALUATION (TrainingRunExecutor)
+    # --------------------------------------------------------------------------
+    stage3_duration = 0.0
+    training_result = None
+
+    if not args.skip_training:
+        print("\n" + "-" * 80)
+        print(f"STAGE 3: MODEL TRAINING & EVALUATION ({args.model.upper()})")
+        print("-" * 80)
+        stage3_start = time.time()
+
+        hyperparameters = {}
+        if args.n_estimators is not None:
+            hyperparameters["n_estimators"] = args.n_estimators
+        if args.max_depth is not None:
+            hyperparameters["max_depth"] = args.max_depth
+        if args.model in ["xgboost", "xgb"] and args.learning_rate is not None:
+            hyperparameters["learning_rate"] = args.learning_rate
+
+        run_id = uuid4()
+        model_id = uuid4()
+
+        payload = TrainingRunPayload(
+            run_id=run_id,
+            model_id=model_id,
+            model_name=args.model,
+            execution_type="BUILTIN",
+            train_storage_path=prep_artifact.output_paths["train"],
+            test_storage_path=prep_artifact.output_paths["test"],
+            target_column=args.target_col,
+            hyperparameters=hyperparameters,
+        )
+
+        training_executor = TrainingRunExecutor(file_storage=storage)
+        print(f"Executing TrainingRunExecutor.run() [Run ID: {run_id}]...")
+        print(f"Algorithm         : {args.model}")
+        print(f"Target Column     : {payload.target_column}")
+        print(f"Train Storage Path: {payload.train_storage_path}")
+        print(f"Test Storage Path : {payload.test_storage_path}")
+        print(f"Hyperparameters   : {hyperparameters}")
+
+        training_result = training_executor.run(payload)
+        stage3_duration = time.time() - stage3_start
+
+        if not training_result.is_success:
+            print(f"\n[ERROR] Model training failed: {training_result.error_message}")
+            sys.exit(1)
+
+        print(f" Stage 3 Completed in {stage3_duration:.2f}s")
+        print(f" Model Run ID       : {training_result.run_id}")
+        print(f" Model Artifact URI : {training_result.artifact_uri}")
+        print(f" Model SHA256       : {training_result.checksum_sha256}")
+        print(f" Framework          : {training_result.framework}")
+
+        print("\n" + "=" * 80)
+        print(f"MODEL EVALUATION METRICS ({args.model.upper()})")
+        print("=" * 80)
+        metrics = training_result.metrics
+        metric_labels = {
+            "accuracy": "Accuracy",
+            "precision": "Precision",
+            "recall": "Recall",
+            "f1_score": "F1-Score",
+            "f2_score": "F2-Score (Fraud-weighted)",
+            "roc_auc": "ROC-AUC",
+            "pr_auc": "PR-AUC (Average Precision)",
+        }
+        for k, label in metric_labels.items():
+            if k in metrics and metrics[k] is not None:
+                val = metrics[k]
+                print(f" {label:<28} : {val:.6f} ({val * 100:.2f}%)")
+
+        cm = metrics.get("confusion_matrix")
+        if isinstance(cm, dict):
+            print(f"\n Confusion Matrix Breakdown:")
+            print(f"   - True Negatives  (TN)  : {cm.get('tn', 0):,}")
+            print(f"   - False Positives (FP)  : {cm.get('fp', 0):,}")
+            print(f"   - False Negatives (FN)  : {cm.get('fn', 0):,}")
+            print(f"   - True Positives  (TP)  : {cm.get('tp', 0):,}")
+
+    # --------------------------------------------------------------------------
+    # END-TO-END PIPELINE SUMMARY
+    # --------------------------------------------------------------------------
+    total_duration = stage1_duration + stage2_duration + stage3_duration
+    print("\n" + "=" * 80)
+    print("END-TO-END PIPELINE EXECUTION SUMMARY")
+    print("=" * 80)
+    print(f"Stage 1 (Feature Engineering) : {stage1_duration:.2f}s | Output: {fe_artifact.storage_path}")
+    print(f"  -> Rows: {fe_artifact.row_count:,}, Columns: {fe_artifact.column_count}")
+    print(f"Stage 2 (Preprocessing)       : {stage2_duration:.2f}s | Output: {prep_artifact.storage_path}")
+    print(f"  -> Train Matrix: {train_proc_df.shape}, Test Matrix: {test_proc_df.shape}")
+    if training_result and training_result.is_success:
+        m = training_result.metrics
+        print(f"Stage 3 (Model Training)      : {stage3_duration:.2f}s | Model: {training_result.artifact_uri}")
+        print(f"  -> Algorithm: {args.model}, F1: {m.get('f1_score', 0):.4f}, PR-AUC: {m.get('pr_auc', 0):.4f}, ROC-AUC: {m.get('roc_auc', 0):.4f}")
+    else:
+        print("Stage 3 (Model Training)      : SKIPPED")
+    print(f"Total Pipeline Execution Time : {total_duration:.2f}s")
+    print("\n[SUCCESS] All pipeline stages executed successfully.")
     print("=" * 80)
 
 

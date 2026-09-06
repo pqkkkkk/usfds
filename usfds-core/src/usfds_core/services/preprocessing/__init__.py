@@ -26,6 +26,10 @@ from usfds_core.services.preprocessing.transformations import (
     RobustScaler,
     StandardScaler,
 )
+from usfds_core.services.preprocessing.workspace import (
+    FeatureEngineeringWorkspace,
+    PreprocessingWorkspace,
+)
 
 __all__ = [
     "BaseDataCleanser",
@@ -53,4 +57,6 @@ __all__ = [
     "PreprocessingPipelineBuilder",
     "PreprocessingExecutionService",
     "FeatureEngineeringExecutionService",
+    "FeatureEngineeringWorkspace",
+    "PreprocessingWorkspace",
 ]

@@ -61,6 +61,13 @@ class TrainingRunStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
+class ExecutionType(StrEnum):
+    """Execution environment and packaging mechanism of a model."""
+    BUILTIN = "BUILTIN"          # Concrete class built into usfds-core
+    SCRIPT = "SCRIPT"            # Independent python script executed via subprocess
+    DOCKER_IMAGE = "DOCKER_IMAGE"# Containerized job (Docker / Kubernetes)
+
+
 class ModelVersionStatus(StrEnum):
     """Lifecycle status of a model version in the Model Registry."""
     DRAFT = "DRAFT"

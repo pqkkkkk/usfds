@@ -182,16 +182,17 @@ class TestModelEntities(unittest.TestCase):
         self.assertEqual(run.status, TrainingRunStatus.COMPLETED)
         self.assertEqual(run.accuracy, 0.9982)
 
-        dataset_id = uuid4()
+        artifact_id = uuid4()
         run_dataset = RunDataset(
             run_id=run.run_id,
-            dataset_id=dataset_id,
+            dataset_artifact_id=artifact_id,
             dataset_role=DatasetRole.TRAIN,
             sample_count=80000,
             usage_percentage=80.0,
         )
         self.assertTrue(is_dataclass(run_dataset))
         self.assertEqual(run_dataset.dataset_role, DatasetRole.TRAIN)
+        self.assertEqual(run_dataset.dataset_artifact_id, artifact_id)
         self.assertEqual(run_dataset.sample_count, 80000)
 
 
