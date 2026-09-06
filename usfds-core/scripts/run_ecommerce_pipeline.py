@@ -215,8 +215,10 @@ def main():
     dataset_id = uuid4()
     mapped_artifact = DatasetArtifact(
         dataset_id=dataset_id,
-        storage_path=effective_data_path,
+        storage_path=str(Path(effective_data_path).parent),
+        output_paths={"mapped": effective_data_path},
         pipeline_stage=PipelineStage.MAPPED,
+        validation_status=ValidationStatus.PASSED,
     )
 
     fe_config = FeatureEngineeringConfig(
@@ -251,15 +253,15 @@ def main():
     print(f" Artifact ID           : {fe_artifact.artifact_id}")
     print(f" Pipeline Stage        : {fe_artifact.pipeline_stage.value}")
     print(f" Validation Status     : {fe_artifact.validation_status.value}")
-    print(f" Train Storage Path    : {fe_artifact.storage_path}")
-    print(f" Test Storage Path     : {fe_artifact.test_storage_path}")
-    print(f" Pipeline Transformers : {fe_artifact.pipeline_artifact_path}")
+    print(f" Train Storage Path    : {fe_artifact.output_paths.get('train', fe_artifact.storage_path)}")
+    print(f" Test Storage Path     : {fe_artifact.output_paths.get('test')}")
+    print(f" Pipeline Transformers : {fe_artifact.output_paths.get('fitted_engineers')}")
     print(f" Train Rows            : {fe_artifact.row_count:,}")
     print(f" Column Count          : {fe_artifact.column_count}")
     print(f" Validation Report     : {fe_artifact.validation_report}")
 
     # Inspect enriched columns
-    train_enriched_bytes = storage.read_bytes(fe_artifact.storage_path)
+    train_enriched_bytes = storage.read_bytes(fe_artifact.output_paths["train"])
     train_enriched_df = pd.read_parquet(io.BytesIO(train_enriched_bytes))
     print(f"\n[Stage 1 Enriched Features Preview]")
     print(f"Columns in enriched train set: {list(train_enriched_df.columns)}")
@@ -307,17 +309,17 @@ def main():
     print(f" Artifact ID           : {prep_artifact.artifact_id}")
     print(f" Pipeline Stage        : {prep_artifact.pipeline_stage.value}")
     print(f" Validation Status     : {prep_artifact.validation_status.value}")
-    print(f" Train Processed Path  : {prep_artifact.storage_path}")
-    print(f" Test Processed Path   : {prep_artifact.test_storage_path}")
-    print(f" Fitted Pipeline Model : {prep_artifact.pipeline_artifact_path}")
+    print(f" Train Processed Path  : {prep_artifact.output_paths.get('train')}")
+    print(f" Test Processed Path   : {prep_artifact.output_paths.get('test')}")
+    print(f" Fitted Pipeline Model : {prep_artifact.output_paths.get('pipeline')}")
     print(f" Train Rows            : {prep_artifact.row_count:,}")
     print(f" Total Features + Target: {prep_artifact.column_count}")
     print(f" Validation Report     : {prep_artifact.validation_report}")
 
     # Inspect processed datasets
-    train_proc_bytes = storage.read_bytes(prep_artifact.storage_path)
+    train_proc_bytes = storage.read_bytes(prep_artifact.output_paths["train"])
     train_proc_df = pd.read_parquet(io.BytesIO(train_proc_bytes))
-    test_proc_bytes = storage.read_bytes(prep_artifact.test_storage_path)
+    test_proc_bytes = storage.read_bytes(prep_artifact.output_paths["test"])
     test_proc_df = pd.read_parquet(io.BytesIO(test_proc_bytes))
 
     print("\n" + "=" * 80)

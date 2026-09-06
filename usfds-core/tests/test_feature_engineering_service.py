@@ -41,7 +41,8 @@ class TestFeatureEngineeringExecutionService(unittest.TestCase):
         self.service = FeatureEngineeringExecutionService(self.storage)
         self.parent_artifact = DatasetArtifact(
             dataset_id=uuid4(),
-            storage_path="datasets/mapped/mapped_dataset.parquet",
+            storage_path="datasets/mapped",
+            output_paths={"mapped": "datasets/mapped/mapped_dataset.parquet"},
             pipeline_stage=PipelineStage.MAPPED,
         )
 
@@ -68,7 +69,7 @@ class TestFeatureEngineeringExecutionService(unittest.TestCase):
 
         pq_buffer = io.BytesIO()
         self.mapped_df.to_parquet(pq_buffer, index=False)
-        self.storage.save_bytes(self.parent_artifact.storage_path, pq_buffer.getvalue())
+        self.storage.save_bytes(self.parent_artifact.output_paths["mapped"], pq_buffer.getvalue())
 
     def test_execute_feature_engineering_config(self):
         fe_config = FeatureEngineeringConfig(
@@ -101,20 +102,26 @@ class TestFeatureEngineeringExecutionService(unittest.TestCase):
         self.assertEqual(result.created_by, "ml_engineer")
 
         # Storage paths
-        self.assertIn("train_enriched.parquet", result.storage_path)
-        self.assertIsNotNone(result.test_storage_path)
-        self.assertIn("test_enriched.parquet", result.test_storage_path)
-        self.assertIn("fitted_feature_engineers.joblib", result.pipeline_artifact_path)
-        self.assertTrue(self.storage.exists(result.storage_path))
-        self.assertTrue(self.storage.exists(result.test_storage_path))
-        self.assertTrue(self.storage.exists(result.pipeline_artifact_path))
+        self.assertEqual(
+            result.storage_path,
+            f"datasets/{self.parent_artifact.dataset_id}/artifacts/{result.artifact_id}",
+        )
+        self.assertIn("train", result.output_paths)
+        self.assertIn("test", result.output_paths)
+        self.assertIn("fitted_engineers", result.output_paths)
+        self.assertIn("train_enriched.parquet", result.output_paths["train"])
+        self.assertIn("test_enriched.parquet", result.output_paths["test"])
+        self.assertIn("fitted_feature_engineers.joblib", result.output_paths["fitted_engineers"])
+        self.assertTrue(self.storage.exists(result.output_paths["train"]))
+        self.assertTrue(self.storage.exists(result.output_paths["test"]))
+        self.assertTrue(self.storage.exists(result.output_paths["fitted_engineers"]))
 
         # Check train parquet content
-        train_pq_bytes = self.storage.read_bytes(result.storage_path)
+        train_pq_bytes = self.storage.read_bytes(result.output_paths["train"])
         train_df = pd.read_parquet(io.BytesIO(train_pq_bytes))
 
         # Check test parquet content
-        test_pq_bytes = self.storage.read_bytes(result.test_storage_path)
+        test_pq_bytes = self.storage.read_bytes(result.output_paths["test"])
         test_df = pd.read_parquet(io.BytesIO(test_pq_bytes))
 
         # Verify row counts (10 rows, test_size=0.2 -> 8 train, 2 test)
@@ -161,19 +168,58 @@ class TestFeatureEngineeringExecutionService(unittest.TestCase):
     def test_empty_dataset_handling(self):
         empty_artifact = DatasetArtifact(
             dataset_id=uuid4(),
-            storage_path="datasets/empty.parquet",
+            storage_path="datasets/empty",
+            output_paths={"mapped": "datasets/empty/mapped.parquet"},
             pipeline_stage=PipelineStage.MAPPED,
         )
         empty_df = pd.DataFrame()
         buf = io.BytesIO()
         empty_df.to_parquet(buf, index=False)
-        self.storage.save_bytes(empty_artifact.storage_path, buf.getvalue())
+        self.storage.save_bytes(empty_artifact.output_paths["mapped"], buf.getvalue())
 
         fe_config = FeatureEngineeringConfig()
         result = self.service.execute(empty_artifact, fe_config)
 
         self.assertEqual(result.validation_status, ValidationStatus.FAILED)
         self.assertIn("empty", result.validation_report["error"])
+
+    def test_invalid_parent_stage_raises_error(self):
+        invalid_artifact = DatasetArtifact(
+            dataset_id=uuid4(),
+            storage_path="datasets/raw",
+            output_paths={"raw": "datasets/raw/data.csv"},
+            pipeline_stage=PipelineStage.RAW,
+        )
+        fe_config = FeatureEngineeringConfig()
+        with self.assertRaises(ValueError) as ctx:
+            self.service.execute(invalid_artifact, fe_config)
+        self.assertIn("expects parent artifact at stage MAPPED", str(ctx.exception))
+
+    def test_failed_parent_status_raises_error(self):
+        failed_artifact = DatasetArtifact(
+            dataset_id=uuid4(),
+            storage_path="datasets/mapped",
+            output_paths={"mapped": "datasets/mapped/mapped_dataset.parquet"},
+            pipeline_stage=PipelineStage.MAPPED,
+            validation_status=ValidationStatus.FAILED,
+        )
+        fe_config = FeatureEngineeringConfig()
+        with self.assertRaises(ValueError) as ctx:
+            self.service.execute(failed_artifact, fe_config)
+        self.assertIn("validation status FAILED", str(ctx.exception))
+
+    def test_missing_mapped_file_in_storage_raises_error(self):
+        missing_file_artifact = DatasetArtifact(
+            dataset_id=uuid4(),
+            storage_path="datasets/mapped",
+            output_paths={"mapped": "datasets/mapped/non_existent.parquet"},
+            pipeline_stage=PipelineStage.MAPPED,
+            validation_status=ValidationStatus.PASSED,
+        )
+        fe_config = FeatureEngineeringConfig()
+        with self.assertRaises(ValueError) as ctx:
+            self.service.execute(missing_file_artifact, fe_config)
+        self.assertIn("Mapped dataset file not found", str(ctx.exception))
 
 
 class TestVelocityFeatureEngineer(unittest.TestCase):

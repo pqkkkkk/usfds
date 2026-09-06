@@ -124,6 +124,11 @@ class TestDatasetEntities(unittest.TestCase):
             parent_artifact_id=artifact1.artifact_id,
             pipeline_stage=PipelineStage.PRE_PROCESSED,
             storage_path="s3://fds-bucket/processed/cc_tx_2026_preprocessed.parquet",
+            output_paths={
+                "train": "s3://fds-bucket/processed/train.parquet",
+                "test": "s3://fds-bucket/processed/test.parquet",
+                "pipeline": "s3://fds-bucket/processed/pipeline.joblib",
+            },
             checksum_sha256="abc123sha",
             validation_status=ValidationStatus.PASSED,
             validation_report={"missing_values_handled": 120, "outliers_removed": 15},
@@ -133,6 +138,7 @@ class TestDatasetEntities(unittest.TestCase):
         self.assertEqual(artifact2.parent_artifact_id, artifact1.artifact_id)
         self.assertEqual(artifact2.pipeline_stage, PipelineStage.PRE_PROCESSED)
         self.assertEqual(artifact2.validation_status, ValidationStatus.PASSED)
+        self.assertEqual(artifact2.output_paths["train"], "s3://fds-bucket/processed/train.parquet")
 
 
 class TestModelEntities(unittest.TestCase):

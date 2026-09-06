@@ -8,6 +8,10 @@ import pandas as pd
 
 from usfds_core.domain.entities.dataset import DatasetArtifact
 from usfds_core.domain.entities.enums import PipelineStage, ValidationStatus
+from usfds_core.domain.schemas.artifact_output import (
+    ArtifactOutputKey,
+    validate_stage_outputs,
+)
 from usfds_core.domain.schemas.preprocessing_config import FeatureEngineeringConfig
 from usfds_core.services.preprocessing.cleansers.standard_cleanser import StandardDataCleanser
 from usfds_core.services.preprocessing.feature_engineering.credit_card_engineer import CreditCardFeatureEngineer
@@ -53,13 +57,14 @@ class FeatureEngineeringExecutionService:
     ) -> DatasetArtifact:
         """Executes the Feature Engineering pipeline stage.
 
-        1. Loads mapped dataset from parent_artifact.storage_path.
-        2. Splits dataset chronologically into train and test sets to prevent future data leakage.
-        3. Cleanses train set, learning imputation values and clipping bounds. Cleanses test set using train stats.
-        4. Fits and transforms domain feature engineers (cyclical hour, amount ratios, velocity rolling windows).
-        5. Saves train_enriched.parquet and test_enriched.parquet to storage.
-        6. Persists fitted feature engineering transformers (.joblib).
-        7. Returns immutable DatasetArtifact with stage FEATURE_ENGINEERED.
+        1. Validates parent_artifact is strictly at stage MAPPED with valid output_paths["mapped"].
+        2. Loads mapped dataset strictly from parent_artifact.output_paths["mapped"].
+        3. Splits dataset chronologically into train and test sets to prevent future data leakage.
+        4. Cleanses train set, learning imputation values and clipping bounds. Cleanses test set using train stats.
+        5. Fits and transforms domain feature engineers (cyclical hour, amount ratios, velocity rolling windows).
+        6. Saves train_enriched.parquet and test_enriched.parquet to storage.
+        7. Persists fitted feature engineering transformers (.joblib).
+        8. Returns immutable DatasetArtifact with stage FEATURE_ENGINEERED.
         """
         # Resolve config
         if not isinstance(config, FeatureEngineeringConfig):
@@ -70,14 +75,36 @@ class FeatureEngineeringExecutionService:
             )
         fe_config = config
 
-        # 1. Load Dataset from Storage
-        df = self._load_dataframe(parent_artifact.storage_path)
+        # 0. Validate Parent Artifact
+        if parent_artifact.pipeline_stage != PipelineStage.MAPPED:
+            raise ValueError(
+                f"FeatureEngineeringExecutionService expects parent artifact at stage MAPPED, "
+                f"got '{parent_artifact.pipeline_stage}'."
+            )
+
+        if parent_artifact.validation_status == ValidationStatus.FAILED:
+            raise ValueError(
+                f"Parent artifact '{parent_artifact.artifact_id}' has validation status FAILED."
+            )
+
+        validate_stage_outputs(PipelineStage.MAPPED, parent_artifact.output_paths)
+
+        # 1. Resolve and Load Dataset
+        input_file_path = parent_artifact.output_paths.get(ArtifactOutputKey.MAPPED.value)
+        if not input_file_path or not self.file_storage.exists(input_file_path):
+            raise ValueError(
+                f"Mapped dataset file not found in storage at '{input_file_path}' "
+                f"(output_paths={parent_artifact.output_paths})."
+            )
+
+        df = self._load_dataframe(input_file_path)
         if df.empty:
             return DatasetArtifact(
                 dataset_id=parent_artifact.dataset_id,
                 parent_artifact_id=parent_artifact.artifact_id,
                 pipeline_stage=PipelineStage.FEATURE_ENGINEERED,
                 storage_path="",
+                output_paths={},
                 checksum_sha256="",
                 validation_status=ValidationStatus.FAILED,
                 validation_report={"error": "Loaded dataset is empty."},
@@ -94,6 +121,7 @@ class FeatureEngineeringExecutionService:
                 parent_artifact_id=parent_artifact.artifact_id,
                 pipeline_stage=PipelineStage.FEATURE_ENGINEERED,
                 storage_path="",
+                output_paths={},
                 checksum_sha256="",
                 validation_status=ValidationStatus.FAILED,
                 validation_report={"error": "Chronological split resulted in 0 training records."},
@@ -114,6 +142,7 @@ class FeatureEngineeringExecutionService:
                 parent_artifact_id=parent_artifact.artifact_id,
                 pipeline_stage=PipelineStage.FEATURE_ENGINEERED,
                 storage_path="",
+                output_paths={},
                 checksum_sha256="",
                 validation_status=ValidationStatus.FAILED,
                 validation_report={
@@ -212,14 +241,20 @@ class FeatureEngineeringExecutionService:
         # 7. Create Schema Snapshot and DatasetArtifact
         schema_snapshot = {str(col): str(dtype) for col, dtype in train_enriched.dtypes.items()}
 
+        output_paths = {
+            ArtifactOutputKey.TRAIN.value: train_storage_path,
+            ArtifactOutputKey.FITTED_ENGINEERS.value: fe_pipeline_path,
+        }
+        if test_storage_path:
+            output_paths[ArtifactOutputKey.TEST.value] = test_storage_path
+
         return DatasetArtifact(
             artifact_id=new_artifact_id,
             dataset_id=parent_artifact.dataset_id,
             parent_artifact_id=parent_artifact.artifact_id,
             pipeline_stage=PipelineStage.FEATURE_ENGINEERED,
-            storage_path=train_storage_path,
-            test_storage_path=test_storage_path,
-            pipeline_artifact_path=fe_pipeline_path,
+            storage_path=base_storage_dir,
+            output_paths=output_paths,
             checksum_sha256=train_checksum,
             schema_snapshot=schema_snapshot,
             row_count=len(train_enriched),

@@ -8,6 +8,11 @@ import pandas as pd
 
 from usfds_core.domain.entities.dataset import DatasetArtifact
 from usfds_core.domain.entities.enums import PipelineStage, ValidationStatus
+from usfds_core.domain.schemas.artifact_output import (
+    ArtifactOutputKey,
+    PreprocessedStageOutputs,
+    validate_stage_outputs,
+)
 from usfds_core.domain.schemas.preprocessing_config import (
     NON_ML_COLUMNS,
     PreprocessingConfig,
@@ -38,19 +43,23 @@ class PreprocessingExecutionService:
 
         try:
             if storage_path.endswith(".parquet") or storage_path.endswith(".pq"):
-                return pd.read_parquet(buffer)
+                df = pd.read_parquet(buffer)
             elif storage_path.endswith(".csv") or storage_path.endswith(".txt"):
-                return pd.read_csv(buffer)
+                df = pd.read_csv(buffer)
             elif storage_path.endswith(".json"):
-                return pd.read_json(buffer)
+                df = pd.read_json(buffer)
             else:
                 try:
-                    return pd.read_parquet(buffer)
+                    df = pd.read_parquet(buffer)
                 except Exception:
                     buffer.seek(0)
-                    return pd.read_csv(buffer)
+                    df = pd.read_csv(buffer)
         except pd.errors.EmptyDataError:
             raise ValueError("Loaded dataset is empty.")
+
+        if df.empty:
+            raise ValueError("Loaded dataset is empty.")
+        return df
 
     def _resolve_target_col(self, df: pd.DataFrame, target_col_name: str) -> str:
         """Resolves target column with alias matching (label, Class, target, is_fraud)."""
@@ -103,8 +112,8 @@ class PreprocessingExecutionService:
     ) -> DatasetArtifact:
         """Executes ML Preprocessing & Transformation pipeline stage.
 
-        1. Loads train data from parent_artifact.storage_path.
-        2. Loads test data from parent_artifact.test_storage_path.
+        1. Loads train data from parent_artifact.output_paths["train"].
+        2. Loads test data from parent_artifact.output_paths["test"].
            (Throws ValueError if test dataset is missing or empty, as PRE_PROCESSED strictly requires both sets).
         3. Separates features and target label.
         4. Drops non-predictive identifiers/metadata columns (event_id, timestamp, user_id).
@@ -113,32 +122,38 @@ class PreprocessingExecutionService:
         7. Persists train_processed.parquet, test_processed.parquet, and fitted_pipeline.joblib.
         8. Returns immutable DatasetArtifact with stage PRE_PROCESSED.
         """
-        # 1. Load Train Dataset from Stage FEATURE_ENGINEERED
-        train_df = self._load_dataframe(parent_artifact.storage_path)
-        if train_df.empty:
-            return DatasetArtifact(
-                dataset_id=parent_artifact.dataset_id,
-                parent_artifact_id=parent_artifact.artifact_id,
-                pipeline_stage=PipelineStage.PRE_PROCESSED,
-                storage_path="",
-                checksum_sha256="",
-                validation_status=ValidationStatus.FAILED,
-                validation_report={"error": "Loaded training dataset is empty."},
-                created_by=user_name,
+        # 0. Validate Parent Artifact Stage & Contract
+        if parent_artifact.pipeline_stage != PipelineStage.FEATURE_ENGINEERED:
+            raise ValueError(
+                f"PreprocessingExecutionService expects parent artifact at stage FEATURE_ENGINEERED, "
+                f"got '{parent_artifact.pipeline_stage}'."
             )
 
-        # 2. Verify and Load Test Dataset from Stage FEATURE_ENGINEERED
-        if not parent_artifact.test_storage_path or not self.file_storage.exists(parent_artifact.test_storage_path):
+        if parent_artifact.validation_status == ValidationStatus.FAILED:
             raise ValueError(
-                f"Missing test dataset in parent artifact (test_storage_path={parent_artifact.test_storage_path}). "
+                f"Parent artifact '{parent_artifact.artifact_id}' has validation status FAILED."
+            )
+
+        validate_stage_outputs(PipelineStage.FEATURE_ENGINEERED, parent_artifact.output_paths)
+
+        # 1. Verify train and test storage paths exist upfront
+        train_storage_path = parent_artifact.output_paths.get(ArtifactOutputKey.TRAIN.value)
+        if not train_storage_path or not self.file_storage.exists(train_storage_path):
+            raise ValueError(
+                f"Missing train dataset in parent artifact (output_paths={parent_artifact.output_paths}). "
+                "Stage PRE_PROCESSED strictly requires an enriched train dataset produced from stage FEATURE_ENGINEERED."
+            )
+
+        test_storage_path = parent_artifact.output_paths.get(ArtifactOutputKey.TEST.value)
+        if not test_storage_path or not self.file_storage.exists(test_storage_path):
+            raise ValueError(
+                f"Missing test dataset in parent artifact (output_paths={parent_artifact.output_paths}). "
                 "Stage PRE_PROCESSED strictly requires an enriched test dataset produced from stage FEATURE_ENGINEERED."
             )
 
-        test_df = self._load_dataframe(parent_artifact.test_storage_path)
-        if test_df.empty:
-            raise ValueError(
-                "Loaded test dataset is empty. A non-empty test dataset from stage FEATURE_ENGINEERED is required."
-            )
+        # 2. Load train and test datasets
+        train_df = self._load_dataframe(train_storage_path)
+        test_df = self._load_dataframe(test_storage_path)
 
         # 3. Extract Target Label
         target_col = self._resolve_target_col(train_df, config.split.target_column)
@@ -193,6 +208,7 @@ class PreprocessingExecutionService:
             "train_rows": len(train_processed_df),
             "test_rows": len(test_processed_df),
             "feature_columns": [c for c in train_processed_df.columns if c != target_col],
+            "target_column": target_col,
             "dropped_identifier_columns": cols_to_drop,
         }
 
@@ -206,14 +222,19 @@ class PreprocessingExecutionService:
         # 9. Build Schema Snapshot and return immutable DatasetArtifact
         schema_snapshot = {str(col): str(dtype) for col, dtype in train_processed_df.dtypes.items()}
 
+        stage_outputs = PreprocessedStageOutputs(
+            train=data_storage_path,
+            test=test_storage_path,
+            pipeline=pipeline_storage_path,
+        )
+
         return DatasetArtifact(
             artifact_id=new_artifact_id,
             dataset_id=parent_artifact.dataset_id,
             parent_artifact_id=parent_artifact.artifact_id,
             pipeline_stage=PipelineStage.PRE_PROCESSED,
-            storage_path=data_storage_path,
-            pipeline_artifact_path=pipeline_storage_path,
-            test_storage_path=test_storage_path,
+            storage_path=base_storage_dir,
+            output_paths=stage_outputs.to_output_paths(),
             checksum_sha256=data_checksum,
             schema_snapshot=schema_snapshot,
             row_count=len(train_processed_df),

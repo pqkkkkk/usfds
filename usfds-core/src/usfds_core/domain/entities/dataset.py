@@ -36,8 +36,7 @@ class DatasetArtifact:
     column_count: Optional[int] = None
     validation_status: Optional[Union[ValidationStatus, str]] = "pending"
     validation_report: Optional[Dict[str, Any]] = None
-    pipeline_artifact_path: Optional[str] = None
-    test_storage_path: Optional[str] = None
+    output_paths: Dict[str, str] = field(default_factory=dict)
     created_by: Optional[str] = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 

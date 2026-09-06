@@ -32,9 +32,9 @@ def render_artifact_summary(artifact: DatasetArtifact, output_report_path: Optio
     table.add_row("Validation Status", f"[bold green]{artifact.validation_status.value}[/bold green]" if artifact.validation_status.value == "PASSED" else f"[bold yellow]{artifact.validation_status.value}[/bold yellow]")
     table.add_row("Train Rows (Processed)", f"{artifact.row_count:,}" if artifact.row_count is not None else "N/A")
     table.add_row("Column Count (Processed)", str(artifact.column_count or "N/A"))
-    table.add_row("Train Data Storage Path", f"[bold green]{artifact.storage_path}[/bold green]")
-    table.add_row("Test Data Storage Path", f"[bold green]{artifact.test_storage_path or 'N/A'}[/bold green]")
-    table.add_row("Fitted Pipeline Storage Path", f"[bold green]{artifact.pipeline_artifact_path or 'N/A'}[/bold green]")
+    table.add_row("Base Storage Path", f"[bold green]{artifact.storage_path}[/bold green]")
+    for k, v in artifact.output_paths.items():
+        table.add_row(f"Output ({k})", f"[bold green]{v}[/bold green]")
     table.add_row("SHA-256 Checksum", str(artifact.checksum_sha256 or "N/A"))
     table.add_row("Created By", str(artifact.created_by or "system"))
     table.add_row("Created At", artifact.created_at.strftime("%Y-%m-%d %H:%M:%S UTC"))
