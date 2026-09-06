@@ -22,6 +22,7 @@ from usfds_core.domain.schemas.preprocessing_config import (
     SplitConfig,
     TransformationConfig,
 )
+from usfds_core.services.preprocessing.feature_engineering_service import FeatureEngineeringExecutionService
 from usfds_core.services.preprocessing.preprocessing_service import PreprocessingExecutionService
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_cli.utils.config_loader import dump_template_config, load_preprocessing_config
@@ -199,18 +200,25 @@ def run_preprocessing(
         artifact_id=uuid.uuid4(),
         dataset_id=dataset_id,
         parent_artifact_id=None,
-        pipeline_stage=PipelineStage.RAW,
-        storage_path=input_storage_path,
+        pipeline_stage=PipelineStage.MAPPED,
+        storage_path=str(input_file.parent.resolve()),
+        output_paths={"mapped": input_storage_path},
         validation_status=ValidationStatus.PASSED,
         created_by=user_name,
     )
 
-    # 4. Execute preprocessing service with progress animation
-    service = PreprocessingExecutionService(file_storage=storage)
+    # 4. Execute end-to-end preprocessing pipeline with progress animation
+    fe_service = FeatureEngineeringExecutionService(file_storage=storage)
+    prep_service = PreprocessingExecutionService(file_storage=storage)
     with console.status("[bold green]Executing Preprocessing Pipeline...[/bold green]", spinner="dots"):
         try:
-            processed_artifact = service.execute(
+            fe_artifact = fe_service.execute(
                 parent_artifact=parent_artifact,
+                config=config.feature_engineering,
+                user_name=user_name,
+            )
+            processed_artifact = prep_service.execute(
+                parent_artifact=fe_artifact,
                 config=config,
                 user_name=user_name,
             )
@@ -227,7 +235,7 @@ def run_preprocessing(
             "parent_artifact_id": str(processed_artifact.parent_artifact_id),
             "pipeline_stage": processed_artifact.pipeline_stage.value,
             "storage_path": processed_artifact.storage_path,
-            "pipeline_artifact_path": processed_artifact.pipeline_artifact_path,
+            "output_paths": processed_artifact.output_paths,
             "checksum_sha256": processed_artifact.checksum_sha256,
             "row_count": processed_artifact.row_count,
             "column_count": processed_artifact.column_count,

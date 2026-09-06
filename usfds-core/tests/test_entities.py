@@ -124,6 +124,11 @@ class TestDatasetEntities(unittest.TestCase):
             parent_artifact_id=artifact1.artifact_id,
             pipeline_stage=PipelineStage.PRE_PROCESSED,
             storage_path="s3://fds-bucket/processed/cc_tx_2026_preprocessed.parquet",
+            output_paths={
+                "train": "s3://fds-bucket/processed/train.parquet",
+                "test": "s3://fds-bucket/processed/test.parquet",
+                "pipeline": "s3://fds-bucket/processed/pipeline.joblib",
+            },
             checksum_sha256="abc123sha",
             validation_status=ValidationStatus.PASSED,
             validation_report={"missing_values_handled": 120, "outliers_removed": 15},
@@ -133,6 +138,7 @@ class TestDatasetEntities(unittest.TestCase):
         self.assertEqual(artifact2.parent_artifact_id, artifact1.artifact_id)
         self.assertEqual(artifact2.pipeline_stage, PipelineStage.PRE_PROCESSED)
         self.assertEqual(artifact2.validation_status, ValidationStatus.PASSED)
+        self.assertEqual(artifact2.output_paths["train"], "s3://fds-bucket/processed/train.parquet")
 
 
 class TestModelEntities(unittest.TestCase):
@@ -176,16 +182,17 @@ class TestModelEntities(unittest.TestCase):
         self.assertEqual(run.status, TrainingRunStatus.COMPLETED)
         self.assertEqual(run.accuracy, 0.9982)
 
-        dataset_id = uuid4()
+        artifact_id = uuid4()
         run_dataset = RunDataset(
             run_id=run.run_id,
-            dataset_id=dataset_id,
+            dataset_artifact_id=artifact_id,
             dataset_role=DatasetRole.TRAIN,
             sample_count=80000,
             usage_percentage=80.0,
         )
         self.assertTrue(is_dataclass(run_dataset))
         self.assertEqual(run_dataset.dataset_role, DatasetRole.TRAIN)
+        self.assertEqual(run_dataset.dataset_artifact_id, artifact_id)
         self.assertEqual(run_dataset.sample_count, 80000)
 
 
