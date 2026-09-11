@@ -92,3 +92,13 @@ class DeploymentEnvironment(StrEnum):
     DEVELOPMENT = "DEVELOPMENT"
     STAGING = "STAGING"
     PRODUCTION = "PRODUCTION"
+
+
+class DetectionJobStatus(StrEnum):
+    """Lifecycle status of a batch fraud detection job execution."""
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+

@@ -1,10 +1,11 @@
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
-from usfds_core.domain.entities.detection import Deployment, Rule
+from usfds_core.domain.entities.detection import Deployment, DetectionJob, Pipeline, Rule
 from usfds_core.domain.entities.enums import (
     DataClassification,
     DatasetRole,
     DeploymentEnvironment,
     DeploymentStatus,
+    DetectionJobStatus,
     ExecutionType,
     ModelVersionStatus,
     PipelineStage,
@@ -29,6 +30,7 @@ __all__ = [
     "ModelVersionStatus",
     "DeploymentStatus",
     "DeploymentEnvironment",
+    "DetectionJobStatus",
     # System Entities
     "User",
     "Project",
@@ -42,5 +44,8 @@ __all__ = [
     "RunDataset",
     # Detection Entities
     "Deployment",
+    "Pipeline",
     "Rule",
+    "DetectionJob",
 ]
+
