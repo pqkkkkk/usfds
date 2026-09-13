@@ -28,6 +28,7 @@ class BaseDataCleanser(ABC):
         df: pd.DataFrame,
         time_col: Optional[str] = None,
         amount_col: Optional[str] = None,
+        target_col: Optional[str] = None,
     ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         """Learns cleansing parameters (mean/median, outlier bounds) on train data and cleans it."""
         cleaned_df, _, report = self.clean_and_validate(df)
@@ -38,6 +39,7 @@ class BaseDataCleanser(ABC):
         df: pd.DataFrame,
         time_col: Optional[str] = None,
         amount_col: Optional[str] = None,
+        target_col: Optional[str] = None,
     ) -> pd.DataFrame:
         """Cleans test or inference data using learned parameters without leakage."""
         cleaned_df, _, _ = self.clean_and_validate(df)

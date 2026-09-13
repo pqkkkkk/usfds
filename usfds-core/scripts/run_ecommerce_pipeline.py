@@ -107,7 +107,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=str,
-        default=str(PROJECT_ROOT / "storage_output"),
+        default=str(workspace_root / "storage_output"),
         help="Base directory to save pipeline artifacts (default: usfds-core/storage_output)",
     )
     parser.add_argument(
@@ -164,7 +164,60 @@ def parse_arguments() -> argparse.Namespace:
         default=None,
         help="Optional limit on number of input rows (useful for fast testing)",
     )
+    # Stage 1: Cleansing Arguments
+    parser.add_argument(
+        "--drop-columns",
+        type=str,
+        default=None,
+        help="Comma-separated list of column names to drop during data cleansing (e.g. 'unneeded_col,legacy_id')",
+    )
+    parser.add_argument(
+        "--drop-null-threshold",
+        type=float,
+        default=None,
+        help="Threshold ratio (0.0 to 1.0) of null/empty values above which a column is dropped automatically (e.g. 0.5 for >50%%)",
+    )
+    parser.add_argument(
+        "--missing-strategy",
+        type=str,
+        choices=["impute", "drop", "none", "mean", "median", "constant"],
+        default="impute",
+        help="Strategy for missing values in Stage 1 cleansing (default: impute; options: impute, drop, none, mean, median, constant)",
+    )
+    parser.add_argument(
+        "--num-impute-strategy",
+        type=str,
+        choices=["constant", "median", "mean", "none"],
+        default="constant",
+        help="Imputation strategy for numerical columns (default: constant)",
+    )
+    parser.add_argument(
+        "--num-fill-value",
+        type=float,
+        default=-999.0,
+        help="Constant fill value for numerical columns when imputing (default: -999.0)",
+    )
+    parser.add_argument(
+        "--cat-impute-strategy",
+        type=str,
+        choices=["constant", "mode", "none"],
+        default="constant",
+        help="Imputation strategy for categorical columns (default: constant)",
+    )
+    parser.add_argument(
+        "--cat-fill-value",
+        type=str,
+        default="missing",
+        help="Constant fill value for categorical columns when imputing (default: 'missing')",
+    )
     # Stage 3: Model Training Arguments
+    parser.add_argument(
+        "--class-weight",
+        type=str,
+        choices=["none", "balanced", "balanced_subsample"],
+        default="balanced",
+        help="Class weight strategy for Random Forest / XGBoost (default: balanced; options: none, balanced, balanced_subsample)",
+    )
     parser.add_argument(
         "--model",
         type=str,
@@ -220,8 +273,17 @@ def main():
     print(f"Dim Reduction     : {args.dim_reduction}")
     print(f"Resampling        : {args.resampling}")
     print(f"Velocity Features : {args.enable_velocity}")
+    if args.drop_columns:
+        print(f"Drop Columns      : {args.drop_columns}")
+    if args.drop_null_threshold is not None:
+        print(f"Drop Null Thresh  : {args.drop_null_threshold}")
+    print(f"Missing Strategy  : {args.missing_strategy}")
+    if args.missing_strategy in ("impute", "constant", "mean", "median"):
+        print(f"  Num Impute Strat: {args.num_impute_strategy} (fill_val={args.num_fill_value})")
+        print(f"  Cat Impute Strat: {args.cat_impute_strategy} (fill_val='{args.cat_fill_value}')")
     if not args.skip_training:
         print(f"Model Algorithm   : {args.model}")
+        print(f"Class Weight      : {args.class_weight}")
         print(f"N Estimators      : {args.n_estimators}")
         print(f"Max Depth         : {args.max_depth}")
         if args.model == "xgboost":
@@ -275,6 +337,7 @@ def main():
         validation_status=ValidationStatus.PASSED,
     )
 
+    drop_cols = [c.strip() for c in args.drop_columns.split(",") if c.strip()] if args.drop_columns else []
     fe_config = FeatureEngineeringConfig(
         split=SplitConfig(
             time_column="timestamp",
@@ -283,14 +346,20 @@ def main():
         ),
         cleansing=CleansingConfig(
             drop_duplicates=True,
-            missing_value_strategy=MissingValueStrategy.MEDIAN,
+            missing_value_strategy=args.missing_strategy,
+            num_impute_strategy=args.num_impute_strategy,
+            num_fill_value=args.num_fill_value,
+            cat_impute_strategy=args.cat_impute_strategy,
+            cat_fill_value=args.cat_fill_value,
+            drop_columns=drop_cols,
+            drop_null_threshold=args.drop_null_threshold,
         ),
         time_col="timestamp",
         amount_col="amount",
-        user_id_col="user_id",
-        enable_amount_ratios=True,
-        enable_hour_of_day=True,
-        enable_velocity_features=args.enable_velocity,
+        user_id_col=None,
+        enable_amount_ratios=False,
+        enable_hour_of_day=False,
+        enable_velocity_features=False,
         velocity_windows=[1, 24] if args.enable_velocity else [],
     )
 
@@ -342,6 +411,7 @@ def main():
         ),
         dim_reduction=DimReductionConfig(
             method=DimReductionType(args.dim_reduction),
+            n_components=50
         ),
         resampling=ResamplingConfig(
             method=ResamplingStrategy(
@@ -409,6 +479,16 @@ def main():
             hyperparameters["max_depth"] = args.max_depth
         if args.model in ["xgboost", "xgb"] and args.learning_rate is not None:
             hyperparameters["learning_rate"] = args.learning_rate
+        if args.model in ["random_forest", "rf"] and args.class_weight and args.class_weight != "none":
+            hyperparameters["class_weight"] = args.class_weight
+        elif args.model in ["xgboost", "xgb"] and args.class_weight and args.class_weight != "none":
+            if "label" in train_proc_df.columns:
+                counts = train_proc_df["label"].value_counts()
+                pos_count = counts.get(1, 0)
+                neg_count = counts.get(0, 0)
+                if pos_count > 0:
+                    scale_pos = float(neg_count / pos_count)
+                    hyperparameters["scale_pos_weight"] = round(scale_pos, 2)
 
         run_id = uuid4()
         model_id = uuid4()

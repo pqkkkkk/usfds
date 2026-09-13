@@ -12,10 +12,12 @@ from usfds_core.domain.schemas.preprocessing_config import (
     CleansingConfig,
     DataMappingConfig,
     DimReductionConfig,
+    CategoricalImputationStrategy,
     DimReductionType,
     FeatureEngineeringConfig,
     MissingValueStrategy,
     NON_ML_COLUMNS,
+    NumericalImputationStrategy,
     PreprocessingConfig,
     ResamplingConfig,
     ResamplingStrategy,
@@ -25,11 +27,14 @@ from usfds_core.domain.schemas.preprocessing_config import (
     SystemColumn,
     TransformationConfig,
 )
+from usfds_core.domain.schemas.dataset_eda import DatasetEdaSummary, FieldEdaSummary
 from usfds_core.domain.schemas.inference_payload import BatchInferencePayload, BatchInferenceResult
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
 from usfds_core.domain.schemas.training_payload import TrainingRunPayload, TrainingRunResult
 
 __all__ = [
+    "FieldEdaSummary",
+    "DatasetEdaSummary",
     "ArtifactOutputKey",
     "RawStageOutputs",
     "MappedStageOutputs",
@@ -41,6 +46,8 @@ __all__ = [
     "SystemColumn",
     "SupportedTimeFormat",
     "MissingValueStrategy",
+    "NumericalImputationStrategy",
+    "CategoricalImputationStrategy",
     "ScalerType",
     "CategoricalEncoderType",
     "DimReductionType",

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from usfds_core.domain.entities.dataset import DatasetArtifact
@@ -16,4 +16,9 @@ class IDatasetArtifactRepository(ABC):
     @abstractmethod
     def get_by_id(self, artifact_id: UUID) -> Optional[DatasetArtifact]:
         """Retrieve a DatasetArtifact by its ID."""
+        pass
+
+    @abstractmethod
+    def list_by_dataset(self, dataset_id: UUID) -> List[DatasetArtifact]:
+        """List all artifacts for a given dataset."""
         pass

@@ -22,12 +22,14 @@ from usfds_core.services.preprocessing.workspace import FeatureEngineeringWorksp
 from usfds_core.storage.base_storage import IFileStorage
 
 
-class FeatureEngineeringExecutionService:
-    """Orchestrates chronological splitting, stateful data cleansing, and domain feature engineering.
+class LeakedFeatureEngineeringExecutionService:
+    """EXPERIMENTAL SERVICE: Orchestrates data cleansing BEFORE chronological splitting.
 
-    Produces business-semantic enriched datasets (train_enriched.parquet, test_enriched.parquet)
-    at stage FEATURE_ENGINEERED, maintaining raw transaction identifiers (event_id, timestamp,
-    amount, user_id) alongside behavioral features for downstream Rule Engine and ML models.
+    INTENTIONAL DATA LEAKAGE:
+    Calculates imputation statistics (mean, median, mode) and outlier bounds on the ENTIRE dataset
+    (including future evaluation data) BEFORE splitting into train and test sets.
+    Used for academic research and thesis experiments to quantify the risk and performance impact
+    of lookahead bias and data leakage compared to the proper split-first pipeline.
     """
 
     def __init__(self, file_storage: IFileStorage):
@@ -72,12 +74,12 @@ class FeatureEngineeringExecutionService:
         config: FeatureEngineeringConfig,
         user_name: str = "system",
     ) -> DatasetArtifact:
-        """Executes the Feature Engineering pipeline stage.
+        """Executes the Feature Engineering pipeline stage with INTENTIONAL DATA LEAKAGE.
 
         1. Validates parent_artifact is strictly at stage MAPPED with valid output_paths["mapped"].
         2. Loads mapped dataset strictly from parent_artifact.output_paths["mapped"].
-        3. Splits dataset chronologically into train and test sets to prevent future data leakage.
-        4. Cleanses train set, learning imputation values and clipping bounds. Cleanses test set using train stats.
+        3. Cleanses ENTIRE dataset (fit_clean on ALL records), calculating imputation statistics across train+test.
+        4. Splits cleansed dataset chronologically into train and test sets (LEAKAGE OCCURRED).
         5. Fits and transforms domain feature engineers (cyclical hour, amount ratios, velocity rolling windows).
         6. Saves train_enriched.parquet and test_enriched.parquet to storage.
         7. Persists fitted feature engineering transformers (.joblib).
@@ -86,7 +88,7 @@ class FeatureEngineeringExecutionService:
         # Resolve config
         if not isinstance(config, FeatureEngineeringConfig):
             raise TypeError(
-                f"FeatureEngineeringExecutionService.execute expects FeatureEngineeringConfig, "
+                f"LeakedFeatureEngineeringExecutionService.execute expects FeatureEngineeringConfig, "
                 f"got {type(config).__name__}. If you are using PreprocessingConfig, "
                 "please pass `config.feature_engineering`."
             )
@@ -95,7 +97,7 @@ class FeatureEngineeringExecutionService:
         # 0. Validate Parent Artifact
         if parent_artifact.pipeline_stage != PipelineStage.MAPPED:
             raise ValueError(
-                f"FeatureEngineeringExecutionService expects parent artifact at stage MAPPED, "
+                f"LeakedFeatureEngineeringExecutionService expects parent artifact at stage MAPPED, "
                 f"got '{parent_artifact.pipeline_stage}'."
             )
 
@@ -139,37 +141,20 @@ class FeatureEngineeringExecutionService:
                     created_by=user_name,
                 )
 
-            # 2. Chronological Splitting (executed first to prevent data leakage)
-            splitter = TemporalDataSplitter(fe_config.split)
-            train_df, test_df = splitter.split_train_test(df)
-
-            if len(train_df) == 0:
-                return DatasetArtifact(
-                    dataset_id=parent_artifact.dataset_id,
-                    parent_artifact_id=parent_artifact.artifact_id,
-                    pipeline_stage=PipelineStage.FEATURE_ENGINEERED,
-                    storage_path="",
-                    output_paths={},
-                    checksum_sha256="",
-                    validation_status=ValidationStatus.FAILED,
-                    validation_report={"error": "Chronological split resulted in 0 training records."},
-                    created_by=user_name,
-                )
-
-            # 3. Stateful Cleansing (fit on train, apply to test)
+            # 2. Stateful Cleansing on ENTIRE dataset BEFORE splitting (DATA LEAKAGE POINT)
             cleanser = StandardDataCleanser(fe_config.cleansing)
-            train_clean, val_report = cleanser.fit_clean(
-                train_df,
+            cleansed_df, val_report = cleanser.fit_clean(
+                df,
                 time_col=fe_config.time_col,
                 amount_col=fe_config.amount_col,
                 target_col=fe_config.split.target_column,
             )
 
-            if len(train_clean) == 0 or len(train_clean.columns) == 0:
+            if len(cleansed_df) == 0 or len(cleansed_df.columns) == 0:
                 err_msg = (
-                    "All training columns were dropped during data cleansing."
-                    if len(train_clean.columns) == 0
-                    else "All training records were dropped during data cleansing."
+                    "All columns were dropped during data cleansing."
+                    if len(cleansed_df.columns) == 0
+                    else "All records were dropped during data cleansing."
                 )
                 return DatasetArtifact(
                     dataset_id=parent_artifact.dataset_id,
@@ -186,16 +171,22 @@ class FeatureEngineeringExecutionService:
                     created_by=user_name,
                 )
 
-            test_clean = (
-                cleanser.clean(
-                    test_df,
-                    time_col=fe_config.time_col,
-                    amount_col=fe_config.amount_col,
-                    target_col=fe_config.split.target_column,
+            # 3. Chronological Splitting AFTER cleansing has leaked global statistics
+            splitter = TemporalDataSplitter(fe_config.split)
+            train_clean, test_clean = splitter.split_train_test(cleansed_df)
+
+            if len(train_clean) == 0:
+                return DatasetArtifact(
+                    dataset_id=parent_artifact.dataset_id,
+                    parent_artifact_id=parent_artifact.artifact_id,
+                    pipeline_stage=PipelineStage.FEATURE_ENGINEERED,
+                    storage_path="",
+                    output_paths={},
+                    checksum_sha256="",
+                    validation_status=ValidationStatus.FAILED,
+                    validation_report={"error": "Chronological split resulted in 0 training records."},
+                    created_by=user_name,
                 )
-                if len(test_df) > 0
-                else test_df.copy()
-            )
 
             # 4. Feature Engineering
             train_enriched = train_clean
@@ -244,6 +235,7 @@ class FeatureEngineeringExecutionService:
             val_report["engineered_features"] = engineered_features
             val_report["train_rows"] = len(train_enriched)
             val_report["test_rows"] = len(test_enriched)
+            val_report["data_leakage_injected"] = True
 
             # 5. Save Outputs to Workspace
             train_enriched.to_parquet(workspace.train_enriched_path, index=False)
@@ -304,4 +296,4 @@ class FeatureEngineeringExecutionService:
             workspace.cleanup()
 
 
-__all__ = ["FeatureEngineeringExecutionService"]
+__all__ = ["LeakedFeatureEngineeringExecutionService"]
