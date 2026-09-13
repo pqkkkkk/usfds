@@ -8,7 +8,22 @@ class MissingValueStrategy(StrEnum):
     MEAN = "mean"
     MEDIAN = "median"
     CONSTANT = "constant"
+    IMPUTE = "impute"
     NONE = "none"
+
+
+class NumericalImputationStrategy(StrEnum):
+    NONE = "none"
+    MEAN = "mean"
+    MEDIAN = "median"
+    CONSTANT = "constant"
+
+
+class CategoricalImputationStrategy(StrEnum):
+    NONE = "none"
+    MODE = "mode"
+    MOST_FREQUENT = "most_frequent"
+    CONSTANT = "constant"
 
 
 class ScalerType(StrEnum):
@@ -91,10 +106,24 @@ class CleansingConfig(BaseModel):
     drop_duplicates: bool = True
     missing_value_strategy: Union[MissingValueStrategy, str] = MissingValueStrategy.DROP
     fill_value: Optional[Any] = None
+    num_impute_strategy: Optional[Union[NumericalImputationStrategy, str]] = None
+    num_fill_value: Optional[float] = -999.0
+    cat_impute_strategy: Optional[Union[CategoricalImputationStrategy, str]] = None
+    cat_fill_value: Optional[str] = "missing"
     outlier_clipping: bool = False
     outlier_lower_percentile: float = 0.01
     outlier_upper_percentile: float = 0.99
     time_format: Optional[str] = SupportedTimeFormat.AUTO.value
+    drop_columns: List[str] = Field(
+        default_factory=list,
+        description="Explicit list of column names to drop during data cleansing.",
+    )
+    drop_null_threshold: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Ratio threshold (0.0 to 1.0) of null or empty/whitespace values. Columns with missing ratio exceeding this value are automatically dropped.",
+    )
 
 
 class SplitConfig(BaseModel):

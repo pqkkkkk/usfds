@@ -64,6 +64,18 @@ class TestPreprocessingConfigContracts(unittest.TestCase):
         self.assertEqual(full_map["ip_addr"], "ip")
         self.assertEqual(full_map["card_brand"], "card_type")
 
+    def test_cleansing_config_defaults_and_drop_options(self):
+        default_cfg = CleansingConfig()
+        self.assertEqual(default_cfg.drop_columns, [])
+        self.assertIsNone(default_cfg.drop_null_threshold)
+
+        custom_cfg = CleansingConfig(
+            drop_columns=["id", "notes"],
+            drop_null_threshold=0.6,
+        )
+        self.assertEqual(custom_cfg.drop_columns, ["id", "notes"])
+        self.assertEqual(custom_cfg.drop_null_threshold, 0.6)
+
     def test_feature_engineering_config_defaults(self):
         config = FeatureEngineeringConfig()
         self.assertIsInstance(config.split, SplitConfig)

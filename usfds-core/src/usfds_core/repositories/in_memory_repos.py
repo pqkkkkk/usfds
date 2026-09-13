@@ -4,10 +4,11 @@ from usfds_core.repositories.pipeline_repo import IPipelineRepository
 from typing import Dict, List, Optional, Union
 from uuid import UUID
 
-from usfds_core.domain.entities.dataset import DatasetArtifact
+from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
 from usfds_core.domain.entities.enums import DatasetRole
 from usfds_core.domain.entities.model import Model, ModelVersion, RunDataset, TrainingRun
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
+from usfds_core.repositories.base_dataset_repo import IDatasetRepository
 from usfds_core.repositories.base_model_repo import IModelRepository
 from usfds_core.repositories.base_model_version_repo import IModelVersionRepository
 from usfds_core.repositories.base_training_run_repo import ITrainingRunRepository
@@ -97,6 +98,23 @@ class InMemoryModelVersionRepository(IModelVersionRepository):
         return [v for v in self._versions.values() if v.model_id == model_id]
 
 
+class InMemoryDatasetRepository(IDatasetRepository):
+    """In-memory store for datasets."""
+
+    def __init__(self):
+        self._datasets: Dict[UUID, Dataset] = {}
+
+    def save(self, dataset: Dataset) -> Dataset:
+        self._datasets[dataset.dataset_id] = dataset
+        return dataset
+
+    def get_by_id(self, dataset_id: UUID) -> Optional[Dataset]:
+        return self._datasets.get(dataset_id)
+
+    def list_by_project(self, project_id: UUID) -> List[Dataset]:
+        return [d for d in self._datasets.values() if d.project_id == project_id]
+
+
 class InMemoryDatasetArtifactRepository(IDatasetArtifactRepository):
     """In-memory store for dataset artifacts."""
 
@@ -109,6 +127,9 @@ class InMemoryDatasetArtifactRepository(IDatasetArtifactRepository):
 
     def get_by_id(self, artifact_id: UUID) -> Optional[DatasetArtifact]:
         return self._artifacts.get(artifact_id)
+
+    def list_by_dataset(self, dataset_id: UUID) -> List[DatasetArtifact]:
+        return [a for a in self._artifacts.values() if a.dataset_id == dataset_id]
 
 class InMemoryPipelineRepository(IPipelineRepository):
     """In-memory store for Pipeline domain entities."""

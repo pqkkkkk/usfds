@@ -12,6 +12,9 @@ from usfds_core.services.preprocessing.feature_engineering import (
     VelocityFeatureEngineer,
 )
 from usfds_core.services.preprocessing.feature_engineering_service import FeatureEngineeringExecutionService
+from usfds_core.services.preprocessing.leaked_feature_engineering_service import (
+    LeakedFeatureEngineeringExecutionService,
+)
 from usfds_core.services.preprocessing.pipeline_builder import PreprocessingPipelineBuilder
 from usfds_core.services.preprocessing.preprocessing_service import PreprocessingExecutionService
 from usfds_core.services.preprocessing.resampling import BaseResampler, ResamplerFactory
@@ -57,6 +60,7 @@ __all__ = [
     "PreprocessingPipelineBuilder",
     "PreprocessingExecutionService",
     "FeatureEngineeringExecutionService",
+    "LeakedFeatureEngineeringExecutionService",
     "FeatureEngineeringWorkspace",
     "PreprocessingWorkspace",
 ]
