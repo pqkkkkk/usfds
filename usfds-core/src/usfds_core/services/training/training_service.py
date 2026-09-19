@@ -144,6 +144,13 @@ class TrainingOrchestrationService:
             run.f1_score = result.metrics.get("f1_score")
             run.loss = result.metrics.get("loss")
             run.custom_metrics = result.metrics
+            run.metrics_path = getattr(result, "metrics_uri", None)
+            run.eval_predictions_path = getattr(result, "eval_predictions_uri", None)
+
+            rec = result.metrics.get("recommended_thresholds", {})
+            if isinstance(rec, dict) and "best_f1" in rec and isinstance(rec["best_f1"], dict):
+                run.recommended_threshold = rec["best_f1"].get("threshold")
+
 
             # Auto-increment semver
             next_semver = self._resolve_next_semver(run.model_id)
@@ -155,11 +162,12 @@ class TrainingOrchestrationService:
                 artifact_uri=result.artifact_uri or "",
                 checksum_sha256=result.checksum_sha256,
                 framework=result.framework,
+                decision_threshold=run.recommended_threshold if run.recommended_threshold is not None else 0.5,
                 status=ModelVersionStatus.CANDIDATE,
             )
             self.model_version_repo.save(model_version)
             run.version_id = model_version.version_id
-            logger.info(f"Training run {run.run_id} succeeded. Registered ModelVersion {next_semver}.")
+            logger.info(f"Training run {run.run_id} succeeded. Registered ModelVersion {next_semver} with threshold {model_version.decision_threshold}.")
         else:
             run.status = TrainingRunStatus.FAILED
             run.error_message = result.error_message

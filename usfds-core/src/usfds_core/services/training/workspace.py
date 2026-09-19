@@ -61,6 +61,11 @@ class TrainingRunWorkspace:
         """Path to the output metrics JSON file."""
         return self.output_dir / "metrics.json"
 
+    @property
+    def eval_predictions_path(self) -> Path:
+        """Path to the evaluation predictions parquet file containing (y_true, y_prob)."""
+        return self.output_dir / "eval_predictions.parquet"
+
     def initialize(self) -> None:
         """Ensure all required input and output subdirectories exist."""
         (self.input_dir / "data").mkdir(parents=True, exist_ok=True)

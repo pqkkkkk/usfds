@@ -17,6 +17,9 @@
 # • OFFICIAL SOURCES: Poetry documentation and community best practices
 
 docs/
+storage_output/
+usfds-web/
+datasets/
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 # BUILD ARTIFACTS & DISTRIBUTION
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••

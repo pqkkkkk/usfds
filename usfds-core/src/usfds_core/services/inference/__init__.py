@@ -11,11 +11,13 @@ from usfds_core.services.inference.executor import (
     run_feature_transformations,
 )
 from usfds_core.services.inference.inference_service import InferenceService
+from usfds_core.services.inference.scoring_service import ModelScorer
 from usfds_core.services.inference.workspace import InferenceWorkspace
 
 __all__ = [
     "InferenceService",
     "InferenceWorkspace",
+    "ModelScorer",
     "BatchInferenceExecutor",
     "IBatchInferenceDispatcher",
     "SynchronousBatchDispatcher",

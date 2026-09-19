@@ -25,5 +25,8 @@ class TrainingRunResult(BaseModel):
     artifact_uri: Optional[str] = None
     checksum_sha256: Optional[str] = None
     framework: str = "scikit-learn"
+    metrics_uri: Optional[str] = None
+    eval_predictions_uri: Optional[str] = None
     error_message: Optional[str] = None
     duration_seconds: Optional[int] = None
+
