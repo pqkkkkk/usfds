@@ -6,7 +6,7 @@ import io
 import logging
 from pathlib import Path
 import time
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 import joblib
 import numpy as np
 import pandas as pd
@@ -16,6 +16,7 @@ from usfds_core.domain.schemas.inference_payload import (
     BatchInferenceResult,
 )
 from usfds_core.domain.schemas.preprocessing_config import NON_ML_COLUMNS
+from usfds_core.services.inference.scoring_service import ModelScorer
 from usfds_core.services.inference.workspace import InferenceWorkspace
 from usfds_core.storage.base_storage import IFileStorage
 
@@ -194,13 +195,9 @@ class BatchInferenceExecutor:
                 prepared_df, fitted_engineers, preprocessing_pipeline, model
             )
 
-            # 5. Model predictions
-            preds = model.predict(X)
-            if hasattr(model, "predict_proba"):
-                probs = model.predict_proba(X)
-                fraud_probs = probs[:, 1] if probs.shape[1] >= 2 else probs[:, 0]
-            else:
-                fraud_probs = preds.astype(float)
+            # 5. Model predictions using configurable decision threshold
+            threshold = getattr(payload, "decision_threshold", 0.5) or 0.5
+            preds, fraud_probs = ModelScorer.predict_with_probabilities(model, X, threshold=threshold)
 
             # 6. Preserve identifiers and append prediction columns
             result_df = prepared_df.copy()

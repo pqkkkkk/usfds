@@ -3,6 +3,7 @@ import json
 import logging
 from typing import Any, Dict, Tuple
 import joblib
+import numpy as np
 import pandas as pd
 
 from usfds_core.services.training.evaluators.metric_evaluator import MetricEvaluator
@@ -86,6 +87,17 @@ class BuiltinModelTrainer(BaseTrainer, ABC):
         metrics = MetricEvaluator.evaluate(y_eval, y_pred, y_prob)
 
         workspace.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Persist test predictions for threshold tuning and cost curve analysis
+        try:
+            df_eval_pred = pd.DataFrame({
+                "y_true": np.asarray(y_eval),
+                "y_prob": np.asarray(y_prob) if y_prob is not None else np.asarray(y_pred, dtype=float),
+            })
+            df_eval_pred.to_parquet(workspace.eval_predictions_path, index=False)
+        except Exception as e:
+            logger.warning(f"Failed to save eval_predictions.parquet: {e}")
+
         with open(workspace.metrics_path, "w", encoding="utf-8") as f:
             json.dump(metrics, f, indent=2)
 

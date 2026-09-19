@@ -42,6 +42,7 @@ class ModelVersion:
     artifact_size_mb: Optional[float] = None
     checksum_sha256: Optional[str] = None
     framework: Optional[str] = None
+    decision_threshold: float = 0.5
     status: Union[ModelVersionStatus, str] = ModelVersionStatus.DRAFT
     registered_by: Optional[str] = None
     registered_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -60,6 +61,8 @@ class TrainingRun:
     recall_score: Optional[float] = None
     f1_score: Optional[float] = None
     loss: Optional[float] = None
+    default_threshold: float = 0.5
+    recommended_threshold: Optional[float] = None
     hyperparameters: Optional[Dict[str, Any]] = None
     custom_metrics: Optional[Dict[str, Any]] = None
     compute_target: Optional[str] = "local"
@@ -69,7 +72,10 @@ class TrainingRun:
     completed_at: Optional[datetime] = None
     duration_seconds: Optional[int] = None
     logs_path: Optional[str] = None
+    metrics_path: Optional[str] = None
+    eval_predictions_path: Optional[str] = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 
 @dataclass

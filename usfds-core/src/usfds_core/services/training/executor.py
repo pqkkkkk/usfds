@@ -85,6 +85,22 @@ class TrainingRunExecutor:
                     main_artifact_uri = storage_uri
                     main_checksum = hashlib.sha256(artifact_bytes).hexdigest()
 
+            # Upload metrics.json to persistent storage
+            metrics_uri = None
+            if workspace.metrics_path.exists():
+                with open(workspace.metrics_path, "rb") as mf:
+                    metrics_bytes = mf.read()
+                metrics_uri = f"models/{payload.model_id}/runs/{payload.run_id}/metrics.json"
+                self.file_storage.save_bytes(metrics_uri, metrics_bytes)
+
+            # Upload eval_predictions.parquet to persistent storage
+            eval_predictions_uri = None
+            if workspace.eval_predictions_path.exists():
+                with open(workspace.eval_predictions_path, "rb") as epf:
+                    eval_pred_bytes = epf.read()
+                eval_predictions_uri = f"models/{payload.model_id}/runs/{payload.run_id}/eval_predictions.parquet"
+                self.file_storage.save_bytes(eval_predictions_uri, eval_pred_bytes)
+
             # Determine framework
             framework = (
                 "xgboost"
@@ -100,8 +116,11 @@ class TrainingRunExecutor:
                 artifact_uri=main_artifact_uri,
                 checksum_sha256=main_checksum,
                 framework=framework,
+                metrics_uri=metrics_uri,
+                eval_predictions_uri=eval_predictions_uri,
                 duration_seconds=duration,
             )
+
 
         except Exception as ex:
             logger.error(f"Training run {payload.run_id} failed: {ex}", exc_info=True)

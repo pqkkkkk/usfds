@@ -25,6 +25,7 @@ from usfds_core.services.inference.executor import (
     prepare_and_validate_input,
     run_feature_transformations,
 )
+from usfds_core.services.inference.scoring_service import ModelScorer
 from usfds_core.services.inference.workspace import InferenceWorkspace
 from usfds_core.storage.base_storage import IFileStorage
 
@@ -159,13 +160,14 @@ class InferenceService:
                 prepared_df, fitted_engineers, preprocessing_pipeline, model
             )
 
-            # 5. Predict
-            pred = int(model.predict(X)[0])
-            if hasattr(model, "predict_proba"):
-                probs = model.predict_proba(X)[0]
-                fraud_prob = float(probs[1]) if len(probs) >= 2 else float(probs[0])
-            else:
-                fraud_prob = float(pred)
+            # 5. Predict using model's configured decision threshold
+            threshold = 0.5
+            if pipeline.model_version and hasattr(pipeline.model_version, "decision_threshold"):
+                threshold = getattr(pipeline.model_version, "decision_threshold", 0.5) or 0.5
+
+            preds, fraud_probs = ModelScorer.predict_with_probabilities(model, X, threshold=threshold)
+            pred = int(preds[0])
+            fraud_prob = float(fraud_probs[0])
 
             latency_ms = round((time.time() - start_time) * 1000, 2)
 
@@ -188,6 +190,7 @@ class InferenceService:
         input_path: str,
         job_name: Optional[str] = None,
         user_name: Optional[str] = None,
+        decision_threshold: Optional[float] = None,
     ) -> DetectionJob:
         """Pre-dispatch phase for batch inference:
         1. Validates deployment and extracts pipeline lineage.
@@ -201,6 +204,7 @@ class InferenceService:
             input_path: Storage path or URI of the input dataset uploaded to storage.
             job_name: Optional custom name for the detection job.
             user_name: Identifier of user initiating the job.
+            decision_threshold: Optional override for model decision threshold.
 
         Returns:
             The created DetectionJob entity.
@@ -245,7 +249,15 @@ class InferenceService:
         if self.detection_job_repo:
             self.detection_job_repo.save(job)
 
-        # 4. Assemble BatchInferencePayload
+        # 4. Resolve decision threshold from ModelVersion or ad-hoc parameter
+        effective_threshold = decision_threshold
+        if effective_threshold is None:
+            if pipeline.model_version and hasattr(pipeline.model_version, "decision_threshold"):
+                effective_threshold = getattr(pipeline.model_version, "decision_threshold", 0.5) or 0.5
+            else:
+                effective_threshold = 0.5
+
+        # 5. Assemble BatchInferencePayload
         payload = BatchInferencePayload(
             job_id=job.job_id,
             project_id=project_id,
@@ -255,8 +267,10 @@ class InferenceService:
             fe_artifact_path=fe_path,
             prep_artifact_path=prep_path,
             model_artifact_uri=model_uri,
+            decision_threshold=effective_threshold,
             column_mapping=column_mapping,
         )
+
 
         # 5. Update status to RUNNING
         job.status = DetectionJobStatus.RUNNING

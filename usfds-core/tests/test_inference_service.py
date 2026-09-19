@@ -18,6 +18,7 @@ from usfds_core.repositories.in_memory_repos import (
     InMemoryDetectionJobRepository,
     InMemoryPipelineRepository,
 )
+from usfds_core.services.inference.dispatchers.base_dispatcher import IBatchInferenceDispatcher
 from usfds_core.services.inference.dispatchers.local_dispatcher import (
     LocalProcessBatchDispatcher,
     SynchronousBatchDispatcher,
@@ -98,9 +99,13 @@ class TestInferenceServiceWithRealStorageOutput(unittest.TestCase):
         cls.mapped_csv_path = cls.repo_root / "datasets" / "e-commerce-fraud-detection-dataset" / "mapped.csv"
         cls.raw_csv_path = cls.repo_root / "datasets" / "e-commerce-fraud-detection-dataset" / "raw.csv"
 
+        if not cls.mapped_csv_path.exists() or not cls.raw_csv_path.exists():
+            raise unittest.SkipTest("Integration dataset files not found at datasets/e-commerce-fraud-detection-dataset")
+
         # Create small test samples (50 rows) for fast batch inference testing
         cls.sample_mapped_path = cls.storage_output_dir / "sample_batch_mapped.csv"
         df_mapped = pd.read_csv(cls.mapped_csv_path, nrows=50)
+
         df_mapped.to_csv(cls.sample_mapped_path, index=False)
 
         cls.sample_raw_path = cls.storage_output_dir / "sample_batch_raw.csv"

@@ -44,17 +44,28 @@ class TestBuiltinModelTrainer(unittest.TestCase):
         self.assertIn("accuracy", metrics)
         self.assertIn("f1_score", metrics)
         self.assertIn("confusion_matrix", metrics)
+        self.assertIn("threshold_tuning_grid", metrics)
+        self.assertIn("recommended_thresholds", metrics)
 
         # Verify model artifact produced
         model_file = self.workspace.model_dir / "model.joblib"
         self.assertTrue(model_file.exists())
         self.assertGreater(model_file.stat().st_size, 0)
 
+        # Verify eval_predictions.parquet produced
+        self.assertTrue(self.workspace.eval_predictions_path.exists())
+        df_eval_pred = pd.read_parquet(self.workspace.eval_predictions_path)
+        self.assertIn("y_true", df_eval_pred.columns)
+        self.assertIn("y_prob", df_eval_pred.columns)
+        self.assertEqual(len(df_eval_pred), 20)
+
         # Verify metrics.json
         self.assertTrue(self.workspace.metrics_path.exists())
         with open(self.workspace.metrics_path, "r") as f:
             saved_metrics = json.load(f)
         self.assertEqual(saved_metrics["accuracy"], metrics["accuracy"])
+        self.assertIn("threshold_tuning_grid", saved_metrics)
+        self.assertIn("roc_curve", saved_metrics)
 
     def test_xgboost_training(self):
         trainer = XGBoostTrainer()
@@ -67,10 +78,13 @@ class TestBuiltinModelTrainer(unittest.TestCase):
         self.assertIn("accuracy", metrics)
         self.assertIn("f1_score", metrics)
         self.assertIn("roc_auc", metrics)
+        self.assertIn("threshold_tuning_grid", metrics)
 
         # Verify model artifacts
         self.assertTrue((self.workspace.model_dir / "model.joblib").exists())
         self.assertTrue(self.workspace.metrics_path.exists())
+        self.assertTrue(self.workspace.eval_predictions_path.exists())
+
 
     def test_factory_creation(self):
         rf_trainer = ModelTrainerFactory.create_trainer("BUILTIN", "random_forest")
