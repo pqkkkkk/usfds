@@ -6,6 +6,7 @@ from usfds_core.domain.entities.enums import (
     DeploymentEnvironment,
     DeploymentStatus,
     DetectionJobStatus,
+    InvestigationStatus,
     ExecutionType,
     ModelVersionStatus,
     PipelineStage,
@@ -14,6 +15,7 @@ from usfds_core.domain.entities.enums import (
     TrainingRunStatus,
     ValidationStatus,
 )
+from usfds_core.domain.entities.investigation import InvestigationCase
 from usfds_core.domain.entities.model import Model, ModelVersion, RunDataset, TrainingRun
 from usfds_core.domain.entities.system import Project, User
 
@@ -31,6 +33,7 @@ __all__ = [
     "DeploymentStatus",
     "DeploymentEnvironment",
     "DetectionJobStatus",
+    "InvestigationStatus",
     # System Entities
     "User",
     "Project",
@@ -47,5 +50,6 @@ __all__ = [
     "Pipeline",
     "Rule",
     "DetectionJob",
+    "InvestigationCase",
 ]
 

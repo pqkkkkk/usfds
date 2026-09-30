@@ -29,6 +29,14 @@ from usfds_core.domain.schemas.preprocessing_config import (
 )
 from usfds_core.domain.schemas.dataset_eda import DatasetEdaSummary, FieldEdaSummary
 from usfds_core.domain.schemas.inference_payload import BatchInferencePayload, BatchInferenceResult
+from usfds_core.domain.schemas.investigation_schemas import (
+    CaseSummary,
+    FeatureContribution,
+    FeatureExplanation,
+    RelatedCase,
+    SARDraftPayload,
+    UserBaselineProfile,
+)
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
 from usfds_core.domain.schemas.training_payload import TrainingRunPayload, TrainingRunResult
 
@@ -65,6 +73,13 @@ __all__ = [
     "TrainingRunResult",
     "BatchInferencePayload",
     "BatchInferenceResult",
+    # Investigation Schemas
+    "CaseSummary",
+    "FeatureContribution",
+    "FeatureExplanation",
+    "UserBaselineProfile",
+    "RelatedCase",
+    "SARDraftPayload",
 ]
 
 

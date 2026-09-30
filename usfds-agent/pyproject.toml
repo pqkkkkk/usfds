@@ -1,0 +1,29 @@
+[project]
+name = "usfds-agent"
+version = "0.1.0"
+description = "AI Agent Module for USFDS Fraud Investigation and Reporting"
+authors = [
+    {name = "pqkkkk", email = "22120174@student.hcmus.edu.vn"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+
+[tool.poetry]
+packages = [{include = "usfds_agent", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12"
+google-adk = ">=0.1.0"
+google-genai = ">=0.1.0"
+python-dotenv = ">=1.0.0"
+usfds-core = {path = "../usfds-core", develop = true}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

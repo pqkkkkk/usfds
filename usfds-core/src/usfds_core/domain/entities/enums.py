@@ -102,3 +102,12 @@ class DetectionJobStatus(StrEnum):
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
 
+
+class InvestigationStatus(StrEnum):
+    """Lifecycle and resolution status of a fraud case investigation."""
+    PENDING = "PENDING"
+    UNDER_INVESTIGATION = "UNDER_INVESTIGATION"
+    CONFIRMED_FRAUD = "CONFIRMED_FRAUD"
+    FALSE_POSITIVE = "FALSE_POSITIVE"
+    CLOSED = "CLOSED"
+
