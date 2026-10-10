@@ -12,8 +12,9 @@ requires-python = ">=3.12"
 packages = [{include = "usfds_infra", from = "src"}]
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = ">=3.12"
 usfds-core = {path = "../usfds-core", develop = true}
+sqlalchemy = "^2.0.36"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
