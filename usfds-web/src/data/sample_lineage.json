@@ -1,0 +1,33 @@
+{
+    "dataset_id": "57e490a7-7f73-4ecd-a425-eb83c6474134",
+    "nodes": [
+        {
+            "id": "64e920a4-5550-46b2-8024-a9e51040e9e0",
+            "stage": "RAW",
+            "created_at": "2026-10-10T07:24:01.542361",
+            "parent_id": null
+        },
+        {
+            "id": "4e4ded64-14aa-43b1-8ce4-3e6143271249",
+            "stage": "MAPPED",
+            "created_at": "2026-10-10T07:28:29.677562",
+            "parent_id": "64e920a4-5550-46b2-8024-a9e51040e9e0"
+        },
+        {
+            "id": "7aba0419-95a4-48f5-b1ec-59de5c049b0d",
+            "stage": "MAPPED",
+            "created_at": "2026-10-10T08:52:43.547689",
+            "parent_id": "64e920a4-5550-46b2-8024-a9e51040e9e0"
+        }
+    ],
+    "edges": [
+        {
+            "source": "64e920a4-5550-46b2-8024-a9e51040e9e0",
+            "target": "4e4ded64-14aa-43b1-8ce4-3e6143271249"
+        },
+        {
+            "source": "64e920a4-5550-46b2-8024-a9e51040e9e0",
+            "target": "7aba0419-95a4-48f5-b1ec-59de5c049b0d"
+        }
+    ]
+}

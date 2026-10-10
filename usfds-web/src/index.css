@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Three-Layer Token Architecture from docs/ui-ux-design/base.md */
+  --primitives-slate-950: #020617;
+  --primitives-slate-900: #0f172a;
+  --primitives-slate-850: #111827;
+  --primitives-slate-800: #1e293b;
+  --primitives-slate-700: #334155;
+  --primitives-slate-600: #475569;
+  --primitives-slate-500: #64748b;
+  --primitives-slate-400: #94a3b8;
+  --primitives-slate-300: #cbd5e1;
+  --primitives-slate-100: #f1f5f9;
+  --primitives-slate-50:  #f8fafc;
+
+  --primitives-blue-500:    #3b82f6;
+  --primitives-blue-600:    #2563eb;
+  --primitives-emerald-400: #34d399;
+  --primitives-emerald-500: #10b981;
+  --primitives-amber-400:   #fbbf24;
+  --primitives-amber-500:   #f59e0b;
+  --primitives-red-500:     #ef4444;
+  --primitives-red-600:     #dc2626;
+  --primitives-purple-400:  #a78bfa;
+  --primitives-purple-500:  #8b5cf6;
+
+  /* Semantic Tokens */
+  --color-background:         var(--primitives-slate-950);
+  --color-surface:            var(--primitives-slate-900);
+  --color-surface-elevated:   var(--primitives-slate-800);
+  --color-border:             var(--primitives-slate-700);
+  --color-border-subtle:      rgba(255, 255, 255, 0.08);
+  --color-border-focus:       var(--primitives-blue-500);
+
+  --color-text-primary:       var(--primitives-slate-50);
+  --color-text-secondary:     var(--primitives-slate-400);
+  --color-text-muted:         var(--primitives-slate-500);
+
+  --color-primary:            var(--primitives-blue-500);
+  --color-accent:             var(--primitives-emerald-500);
+
+  /* Component Layout Tokens */
+  --topbar-height:            56px;
+  --sidebar-width:            240px;
+  --sidebar-collapsed-width:  64px;
+  --bottombar-height:         28px;
+}
+
+@layer base {
+  body {
+    @apply bg-dark-950 text-slate-100 font-sans antialiased selection:bg-brand-500 selection:text-white h-screen overflow-hidden;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Financial and code numbers: Tabular nums alignment */
+  .tabular-nums, code, pre, .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Custom Scrollbar - High density dark style */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #020617;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Focus indicator ring standard (WCAG AA) */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  box-shadow: 0 0 0 2px #020617, 0 0 0 4px #3b82f6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
