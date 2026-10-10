@@ -27,7 +27,10 @@ from usfds_core.domain.schemas.preprocessing_config import (
     SystemColumn,
     TransformationConfig,
 )
-from usfds_core.domain.schemas.dataset_eda import DatasetEdaSummary, FieldEdaSummary
+from usfds_core.domain.schemas.dataset_profiling import (
+    DatasetEdaSummary,
+    FieldEdaSummary,
+)
 from usfds_core.domain.schemas.inference_payload import BatchInferencePayload, BatchInferenceResult
 from usfds_core.domain.schemas.investigation_schemas import (
     CaseSummary,

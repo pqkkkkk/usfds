@@ -19,8 +19,27 @@ class IDatasetRepository(ABC):
         pass
 
     @abstractmethod
+    def get_by_name(self, project_id: UUID, dataset_name: str) -> Optional[Dataset]:
+        """Retrieve a Dataset entity by its name within a project."""
+        pass
+
+    @abstractmethod
     def list_by_project(self, project_id: UUID) -> List[Dataset]:
         """List all datasets belonging to a given project."""
+        pass
+
+    @abstractmethod
+    def list_all(
+        self,
+        project_id: Optional[UUID] = None,
+        search: Optional[str] = None,
+    ) -> List[Dataset]:
+        """List datasets with optional filtering by project or search query."""
+        pass
+
+    @abstractmethod
+    def delete(self, dataset_id: UUID) -> bool:
+        """Delete a dataset by ID. Returns True if deleted, False otherwise."""
         pass
 
 
