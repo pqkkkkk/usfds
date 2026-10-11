@@ -1,15 +1,14 @@
 import { useState } from 'react';
-import { Topbar } from './components/layout/Topbar';
-import { Sidebar } from './components/layout/Sidebar';
-import { OmnisearchModal } from './components/layout/OmnisearchModal';
-import { InspectorDrawer } from './components/layout/InspectorDrawer';
-import { DataManagementModule } from './components/modules/DataManagementModule';
-import { ModelTrainingModule } from './components/modules/ModelTrainingModule';
-import { RuleEngineModule } from './components/modules/RuleEngineModule';
-import { DetectionJobModule } from './components/modules/DetectionJobModule';
-import { InvestigationModule } from './components/modules/InvestigationModule';
-import { InsightReportModule } from './components/modules/InsightReportModule';
-import type { AppModule, Project } from './types/navigation';
+import { Topbar, Sidebar, OmnisearchModal, InspectorDrawer } from '@/components';
+import {
+  DataManagementPage,
+  ModelTrainingPage,
+  RuleEnginePage,
+  DetectionJobPage,
+  InvestigationPage,
+  InsightReportPage,
+} from '@/pages';
+import type { AppModule, Project } from '@/types';
 
 const MOCK_PROJECTS: Project[] = [
   { id: 'proj-ecom-2026', name: 'E-Commerce Fraud 2026', description: 'Real-time card & transaction fraud detection' },
@@ -22,7 +21,7 @@ export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isOmnisearchOpen, setIsOmnisearchOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project>(MOCK_PROJECTS[0]);
-  
+
   // Inspector drawer state
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorItem, setInspectorItem] = useState<any>(null);
@@ -35,7 +34,7 @@ export function App() {
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-dark-950 text-slate-100 font-sans">
-      {/* 1. Topbar (56px) - Project Switcher & Global Omnisearch */}
+      {/* 1. Topbar */}
       <Topbar
         projects={MOCK_PROJECTS}
         currentProject={currentProject}
@@ -56,32 +55,32 @@ export function App() {
         {/* Main Viewport: Render the selected module */}
         <main className="flex-1 flex flex-col overflow-hidden bg-dark-950 relative">
           {activeModule === 'data-management' && (
-            <DataManagementModule onOpenInspector={handleOpenInspector} />
+            <DataManagementPage onOpenInspector={handleOpenInspector} />
           )}
 
           {activeModule === 'model-management' && (
-            <ModelTrainingModule />
+            <ModelTrainingPage />
           )}
 
           {activeModule === 'rule-management' && (
-            <RuleEngineModule />
+            <RuleEnginePage />
           )}
 
           {activeModule === 'detection' && (
-            <DetectionJobModule />
+            <DetectionJobPage />
           )}
 
           {activeModule === 'investigation' && (
-            <InvestigationModule />
+            <InvestigationPage />
           )}
 
           {activeModule === 'insight-report' && (
-            <InsightReportModule />
+            <InsightReportPage />
           )}
         </main>
       </div>
 
-      {/* 3. Slide-over Inspector Drawer (Detail view) */}
+      {/* 3. Slide-over Inspector Drawer */}
       <InspectorDrawer
         isOpen={inspectorOpen}
         onClose={() => setInspectorOpen(false)}

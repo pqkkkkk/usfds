@@ -31,7 +31,7 @@ export const InspectorDrawer = ({
   children,
   footerActions,
   width = 'lg',
-}) => {
+}: InspectorDrawerProps) => {
   const drawerRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape key
@@ -47,7 +47,7 @@ export const InspectorDrawer = ({
 
   if (!isOpen) return null;
 
-  const widthClasses = {
+  const widthClasses: Record<'md' | 'lg' | 'xl', string> = {
     md: 'w-[420px]',
     lg: 'w-[520px]',
     xl: 'w-[640px]',

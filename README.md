@@ -1,4 +1,4 @@
-# USFDS (Universal Software Fault Detection System)
+# USFDS (US Fraud Detection System)
 
 ## 1. Overview
 **USFDS** is a machine learning–driven platform designed for detecting credit card transaction fraud. The system provides an end-to-end workflow covering dataset management, automated feature preprocessing, model training, evaluation, batch detection, and explainability, investigation, related insight generation & reporting.
