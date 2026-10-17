@@ -18,8 +18,10 @@ The repository is organized into modular packages under the `usfds-*` prefix:
 ---
 
 ## 3. Architecture: Local Desktop Application
-Unlike traditional distributed client-server systems, **USFDS is architected as a standalone, local-first Desktop Application**:
+USFDS support both local application development and deployment as client-server architecture. 
 
+
+With standalone desktop application architecture:
 ```
 +-----------------------------------------------------------+
 |                    User's Local Machine                   |
@@ -43,9 +45,27 @@ Unlike traditional distributed client-server systems, **USFDS is architected as 
 +-----------------------------------------------------------+
 ```
 
-### Key Architectural Highlights:
-- **Local-First & Offline Execution**: The entire system runs locally on the user's machine without requiring external cloud services, remote DBMS, or internet connectivity.
-- **Embedded Persistence**:
-  - **Database (SQLite)**: Persists application state, run configurations, and metrics in a single file database with Write-Ahead Logging (WAL) for concurrent reads/writes.
-  - **Storage (Filesystem)**: Manages datasets, checkpoints, and serialized model artifacts directly on the host file system.
-- **Embedded Engine**: `usfds-server` acts as a local sidecar engine communicating with the UI over local loopback (`127.0.0.1`), ensuring zero remote data leakage and full utilization of local hardware (CPU/GPU).
+With client-server architecture:
+```
++-----------------------------------------------------------+
+|                   Client-server                           |
+|                                                           |
+|   +--------------------+         +--------------------+   |
+|   |     usfds-web      |  HTTP   |    usfds-server    |   |
+|   | (Frontend Client)  |<------->| (FastAPI Backend)  |   |
+|   +--------------------+         +---------+----------+   |
+|                                            |              |
+|                                   +--------+--------+     |
+|                                   |   usfds-infra   |     |
+|                                   +----+-------+----+     |
+|                                        |       |          |
+|                    +-------------------+       +----+     |
+|                    |                                |     |
+|            +-------v-------+               +--------v--+  |
+|            | PostgreSQL    |               |   Cloud   |  |
+|            |               |               | Storage   |  |
+|            |               |               | (S3, R2,  |  |
+|            |               |               | MinIO)    |  |
+|            +---------------+               +------------+ |
++-----------------------------------------------------------+
+```

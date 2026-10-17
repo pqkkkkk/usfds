@@ -58,6 +58,11 @@ export interface LineageCanvasNode extends LineageRawNode {
   level: number;
 }
 
+export interface LineageCanvasEdge {
+  sourceNode: LineageCanvasNode;
+  targetNode: LineageCanvasNode;
+}
+
 export interface DatasetEntity {
   id: string;
   name: string;

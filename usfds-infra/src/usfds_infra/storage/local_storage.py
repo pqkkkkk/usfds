@@ -46,10 +46,13 @@ class LocalFileStorage(IFileStorage):
         return target.is_file()
 
     def delete(self, file_path: str) -> bool:
-        """Delete a file if it exists. Returns True if deleted, False if not found."""
+        """Delete a file or directory if it exists. Returns True if deleted, False if not found."""
         target = self._resolve_path(file_path)
         if target.is_file():
             target.unlink()
+            return True
+        if target.is_dir():
+            shutil.rmtree(target, ignore_errors=True)
             return True
         return False
 

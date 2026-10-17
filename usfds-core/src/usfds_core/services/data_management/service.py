@@ -102,10 +102,37 @@ class DataManagementService:
         return artifact
 
     def delete_dataset(self, dataset_id: UUID) -> None:
-        """Deletes a dataset and removes its associated metadata."""
+        """Deletes a dataset, removes its physical storage files/directories, and deletes associated metadata."""
         dataset = self.dataset_repo.get_by_id(dataset_id)
         if not dataset:
             raise ValueError(f"Dataset '{dataset_id}' không tồn tại.")
+
+        # 1. Clean up individual artifact files from storage
+        try:
+            artifacts = self.artifact_repo.get_by_dataset_id(dataset_id)
+            for artifact in artifacts:
+                paths_to_delete = set()
+                if artifact.storage_path:
+                    paths_to_delete.add(artifact.storage_path)
+                if artifact.output_paths:
+                    for p in artifact.output_paths.values():
+                        if isinstance(p, str):
+                            paths_to_delete.add(p)
+                for path in paths_to_delete:
+                    try:
+                        self.file_storage.delete(path)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        # 2. Also clean up dataset storage directory in storage
+        try:
+            self.file_storage.delete(f"datasets/{dataset_id}")
+        except Exception:
+            pass
+
+        # 3. Delete persisted records
         self.dataset_repo.delete(dataset_id)
 
 

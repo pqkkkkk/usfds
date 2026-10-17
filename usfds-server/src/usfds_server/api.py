@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -33,6 +34,15 @@ app = FastAPI(
     version=settings.app_version,
     description="Backend API server for USFDS desktop and local environments.",
     lifespan=lifespan,
+)
+
+# Enable CORS for desktop and web clients
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -67,6 +77,7 @@ app.include_router(dataset_router)
 
 
 @app.get("/health", tags=["System"])
+@app.get("/api/health", tags=["System"])
 def health_check(
     db: Session = Depends(get_db),
     storage: LocalFileStorage = Depends(get_storage),

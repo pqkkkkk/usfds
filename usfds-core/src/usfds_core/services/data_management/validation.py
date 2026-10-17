@@ -1,4 +1,5 @@
 from dataclasses import asdict, dataclass, field
+import json
 from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
@@ -37,6 +38,7 @@ class DataQualityReport:
 	amount_outliers_ratio: float
 	amount_q999: Optional[float] = None
 	column_metrics: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+	sample_records: List[Dict[str, Any]] = field(default_factory=list)
 	warnings: List[str] = field(default_factory=list)
 	critical_errors: List[str] = field(default_factory=list)
 	recommendations: List[str] = field(default_factory=list)
@@ -248,6 +250,13 @@ class DataQualityValidationService:
 			status = ValidationStatus.FAILED
 			rating = "POOR"
 
+		# Sample records for preview (first 10 rows)
+		sample_records: List[Dict[str, Any]] = []
+		try:
+			sample_records = json.loads(df.head(10).to_json(orient="records", date_format="iso"))
+		except Exception:
+			pass
+
 		return DataQualityReport(
 			quality_score=score,
 			rating=rating,
@@ -266,6 +275,7 @@ class DataQualityValidationService:
 			amount_outliers_ratio=amount_outliers_ratio,
 			amount_q999=amount_q999,
 			column_metrics=column_metrics,
+			sample_records=sample_records,
 			warnings=warnings,
 			critical_errors=critical_errors,
 			recommendations=recommendations,

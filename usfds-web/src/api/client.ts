@@ -1,8 +1,26 @@
 import axios, { AxiosError } from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import type { ApiResponse } from '../types/api';
+import type { ApiResponse } from '@/types';
 
-const DEFAULT_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const getBaseUrl = (): string => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const isFileProtocol = window.location.protocol === 'file:';
+    const isElectron = Boolean(
+      (window as any).electronAPI ||
+      (window as any).process?.versions?.electron ||
+      navigator.userAgent.toLowerCase().includes('electron')
+    );
+    if (isFileProtocol || isElectron) {
+      return 'http://127.0.0.1:8000/api';
+    }
+  }
+  return '/api';
+};
+
+const DEFAULT_BASE_URL = getBaseUrl();
 
 class ApiClient {
   private instance: AxiosInstance;

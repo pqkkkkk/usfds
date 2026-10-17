@@ -20,7 +20,7 @@ docs/
 storage_output/
 datasets/
 poc-models/
-.agent/
+.agents/
 usfds.*
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 # BUILD ARTIFACTS & DISTRIBUTION

@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Topbar, Sidebar, OmnisearchModal, InspectorDrawer } from '@/components';
+import { useState, useMemo } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Topbar, Sidebar, OmnisearchModal } from '@/components';
 import {
   DataManagementPage,
   ModelTrainingPage,
@@ -16,20 +17,37 @@ const MOCK_PROJECTS: Project[] = [
   { id: 'proj-crypto-risk', name: 'Crypto Wallet Risk Scoring', description: 'Blockchain transaction clustering & blacklists' }
 ];
 
+const MODULE_ROUTE_MAP: Record<AppModule, string> = {
+  'data-management': '/datasets',
+  'model-management': '/models',
+  'rule-management': '/rules',
+  'detection': '/detection',
+  'investigation': '/investigation',
+  'insight-report': '/reports',
+};
+
 export function App() {
-  const [activeModule, setActiveModule] = useState<AppModule>('data-management');
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isOmnisearchOpen, setIsOmnisearchOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project>(MOCK_PROJECTS[0]);
 
-  // Inspector drawer state
-  const [inspectorOpen, setInspectorOpen] = useState(false);
-  const [inspectorItem, setInspectorItem] = useState<any>(null);
-  const [inspectorTab, setInspectorTab] = useState('overview');
+  // Determine active module based on current pathname
+  const activeModule: AppModule = useMemo(() => {
+    const path = location.pathname;
+    if (path.startsWith('/models')) return 'model-management';
+    if (path.startsWith('/rules')) return 'rule-management';
+    if (path.startsWith('/detection')) return 'detection';
+    if (path.startsWith('/investigation')) return 'investigation';
+    if (path.startsWith('/reports')) return 'insight-report';
+    return 'data-management';
+  }, [location.pathname]);
 
-  const handleOpenInspector = (item: any) => {
-    setInspectorItem(item);
-    setInspectorOpen(true);
+  const handleSelectModule = (mod: AppModule) => {
+    const targetRoute = MODULE_ROUTE_MAP[mod] || '/datasets';
+    navigate(targetRoute);
   };
 
   return (
@@ -47,95 +65,32 @@ export function App() {
         {/* Sidebar: Lists 6 System Modules */}
         <Sidebar
           activeModule={activeModule}
-          onSelectModule={setActiveModule}
+          onSelectModule={handleSelectModule}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
 
-        {/* Main Viewport: Render the selected module */}
+        {/* Main Viewport: Routes */}
         <main className="flex-1 flex flex-col overflow-hidden bg-dark-950 relative">
-          {activeModule === 'data-management' && (
-            <DataManagementPage onOpenInspector={handleOpenInspector} />
-          )}
-
-          {activeModule === 'model-management' && (
-            <ModelTrainingPage />
-          )}
-
-          {activeModule === 'rule-management' && (
-            <RuleEnginePage />
-          )}
-
-          {activeModule === 'detection' && (
-            <DetectionJobPage />
-          )}
-
-          {activeModule === 'investigation' && (
-            <InvestigationPage />
-          )}
-
-          {activeModule === 'insight-report' && (
-            <InsightReportPage />
-          )}
+          <Routes>
+            <Route path="/datasets/*" element={<DataManagementPage />} />
+            <Route path="/models/*" element={<ModelTrainingPage />} />
+            <Route path="/rules/*" element={<RuleEnginePage />} />
+            <Route path="/detection/*" element={<DetectionJobPage />} />
+            <Route path="/investigation/*" element={<InvestigationPage />} />
+            <Route path="/reports/*" element={<InsightReportPage />} />
+            <Route path="/" element={<Navigate to="/datasets" replace />} />
+            <Route path="*" element={<Navigate to="/datasets" replace />} />
+          </Routes>
         </main>
       </div>
 
-      {/* 3. Slide-over Inspector Drawer */}
-      <InspectorDrawer
-        isOpen={inspectorOpen}
-        onClose={() => setInspectorOpen(false)}
-        title={inspectorItem?.name || 'Artifact Inspector'}
-        subtitle={`Artifact ID: ${inspectorItem?.id || 'N/A'}`}
-        tabs={[
-          { id: 'overview', label: 'Overview' },
-          { id: 'profiling', label: 'Profiling' },
-          { id: 'lineage', label: 'Lineage' },
-          { id: 'schema', label: 'Schema' }
-        ]}
-        activeTab={inspectorTab}
-        onSelectTab={setInspectorTab}
-        footerActions={
-          <button
-            onClick={() => setInspectorOpen(false)}
-            className="px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-750 text-xs text-slate-300 transition"
-          >
-            Close
-          </button>
-        }
-      >
-        {inspectorItem && (
-          <div className="space-y-4 font-mono text-xs">
-            <div className="bg-dark-950 p-3 rounded-lg border border-dark-800 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Pipeline Stage:</span>
-                <span className="text-brand-400 font-bold">{inspectorItem.stage}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Rows:</span>
-                <span className="text-slate-200">{inspectorItem.rows?.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Feature Columns:</span>
-                <span className="text-slate-200">{inspectorItem.features} columns</span>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase font-sans">SHA-256 Checksum</span>
-              <div className="p-2 rounded bg-dark-950 border border-dark-800 text-[11px] text-slate-300 break-all select-all">
-                {inspectorItem.checksum}
-              </div>
-            </div>
-          </div>
-        )}
-      </InspectorDrawer>
-
-      {/* 4. Omnisearch Dialog (Ctrl+K) */}
+      {/* 3. Omnisearch Dialog (Ctrl+K) */}
       <OmnisearchModal
         isOpen={isOmnisearchOpen}
         onClose={() => setIsOmnisearchOpen(false)}
         onNavigateModule={(module) => {
-          setActiveModule(module);
+          handleSelectModule(module);
           setIsOmnisearchOpen(false);
         }}
       />
