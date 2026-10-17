@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
 from typing import Any, Dict
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import uvicorn
@@ -13,6 +16,8 @@ from usfds_server.dependencies import (
     setup_infrastructure,
     teardown_infrastructure,
 )
+from usfds_server.routers import dataset_router
+from usfds_server.schemas.base_response import ApiResponse
 
 
 @asynccontextmanager
@@ -31,8 +36,48 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Enable CORS for desktop and web clients
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=ApiResponse.fail(
+            error=exc.detail if isinstance(exc.detail, str) else str(exc.detail),
+            status_code=exc.status_code,
+        ).model_dump(by_alias=True),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    error_msg = "; ".join(
+        f"{'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}" for err in exc.errors()
+    )
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=ApiResponse.fail(
+            error=error_msg,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            message="Request validation error",
+        ).model_dump(by_alias=True),
+    )
+
+
+# Register routers
+app.include_router(dataset_router)
+
 
 @app.get("/health", tags=["System"])
+@app.get("/api/health", tags=["System"])
 def health_check(
     db: Session = Depends(get_db),
     storage: LocalFileStorage = Depends(get_storage),

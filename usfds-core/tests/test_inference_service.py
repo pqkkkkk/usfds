@@ -99,8 +99,10 @@ class TestInferenceServiceWithRealStorageOutput(unittest.TestCase):
         cls.mapped_csv_path = cls.repo_root / "datasets" / "e-commerce-fraud-detection-dataset" / "mapped.csv"
         cls.raw_csv_path = cls.repo_root / "datasets" / "e-commerce-fraud-detection-dataset" / "raw.csv"
 
-        if not cls.mapped_csv_path.exists() or not cls.raw_csv_path.exists():
-            raise unittest.SkipTest("Integration dataset files not found at datasets/e-commerce-fraud-detection-dataset")
+        if not cls.mapped_csv_path.exists() or not cls.raw_csv_path.exists() or not (cls.storage_output_dir / "datasets").exists():
+            raise unittest.SkipTest("Integration dataset files or trained pipeline artifacts not found at storage_output/datasets")
+
+        cls.storage_output_dir.mkdir(parents=True, exist_ok=True)
 
         # Create small test samples (50 rows) for fast batch inference testing
         cls.sample_mapped_path = cls.storage_output_dir / "sample_batch_mapped.csv"

@@ -111,8 +111,38 @@ class InMemoryDatasetRepository(IDatasetRepository):
     def get_by_id(self, dataset_id: UUID) -> Optional[Dataset]:
         return self._datasets.get(dataset_id)
 
+    def get_by_name(self, project_id: UUID, dataset_name: str) -> Optional[Dataset]:
+        for d in self._datasets.values():
+            if d.project_id == project_id and d.dataset_name == dataset_name:
+                return d
+        return None
+
     def list_by_project(self, project_id: UUID) -> List[Dataset]:
         return [d for d in self._datasets.values() if d.project_id == project_id]
+
+    def list_all(
+        self,
+        project_id: Optional[UUID] = None,
+        search: Optional[str] = None,
+    ) -> List[Dataset]:
+        res = list(self._datasets.values())
+        if project_id:
+            res = [d for d in res if d.project_id == project_id]
+        if search:
+            lower_s = search.lower()
+            res = [
+                d for d in res
+                if (d.dataset_name and lower_s in d.dataset_name.lower())
+                or (d.display_name and lower_s in d.display_name.lower())
+                or (d.description and lower_s in d.description.lower())
+            ]
+        return res
+
+    def delete(self, dataset_id: UUID) -> bool:
+        if dataset_id in self._datasets:
+            del self._datasets[dataset_id]
+            return True
+        return False
 
 
 class InMemoryDatasetArtifactRepository(IDatasetArtifactRepository):

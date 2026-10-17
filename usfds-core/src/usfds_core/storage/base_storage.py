@@ -18,3 +18,7 @@ class IFileStorage(ABC):
     def exists(self, file_path: str) -> bool:
         """Check if a file exists at the given storage path/URI."""
         pass
+
+    def delete(self, file_path: str) -> bool:
+        """Delete a file or directory at the given storage path/URI. Return True if deleted, False otherwise."""
+        return False

@@ -1,14 +1,17 @@
 from typing import List
 import pandas as pd
 
-from usfds_core.domain.schemas.dataset_eda import DatasetEdaSummary, FieldEdaSummary
+from usfds_core.domain.schemas.dataset_profiling import (
+    DatasetProfilingSummary,
+    FieldProfilingSummary,
+)
 
 
-class DatasetEdaService:
-    """Service providing core exploratory data analysis (EDA) and profiling on tabular data."""
+class DataProfilingService:
+    """Service providing core tabular data profiling statistics."""
 
-    def analyze(self, df: pd.DataFrame) -> DatasetEdaSummary:
-        """Analyzes a pandas DataFrame and generates basic EDA profiling statistics.
+    def analyze(self, df: pd.DataFrame) -> DatasetProfilingSummary:
+        """Analyzes a pandas DataFrame and generates basic data profiling statistics.
 
         Metrics calculated:
         - field_count: Total number of fields/columns
@@ -25,7 +28,7 @@ class DatasetEdaService:
         field_names: List[str] = [str(col) for col in df.columns]
         field_count = len(field_names)
 
-        fields: List[FieldEdaSummary] = []
+        fields: List[FieldProfilingSummary] = []
         for col in df.columns:
             series = df[col]
             null_count = int(series.isna().sum())
@@ -40,7 +43,7 @@ class DatasetEdaService:
                 unique_count = int(series.astype(str).nunique(dropna=True))
 
             fields.append(
-                FieldEdaSummary(
+                FieldProfilingSummary(
                     name=str(col),
                     dtype=str(series.dtype),
                     unique_count=unique_count,
@@ -49,12 +52,10 @@ class DatasetEdaService:
                 )
             )
 
-        return DatasetEdaSummary(
+        return DatasetProfilingSummary(
             row_count=row_count,
             field_count=field_count,
             field_names=field_names,
             fields=fields,
         )
 
-
-__all__ = ["DatasetEdaService"]

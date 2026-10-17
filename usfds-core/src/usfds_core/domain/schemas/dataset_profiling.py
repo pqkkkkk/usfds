@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
-class FieldEdaSummary(BaseModel):
+class FieldProfilingSummary(BaseModel):
     """Statistical and profiling summary for an individual dataset field/feature."""
     name: str = Field(..., description="Name of the field/column.")
     dtype: str = Field(..., description="Pandas/Numpy data type of the field.")
@@ -11,14 +11,14 @@ class FieldEdaSummary(BaseModel):
     null_percentage: float = Field(..., description="Percentage of missing values relative to total rows (0.0 - 100.0).")
 
 
-class DatasetEdaSummary(BaseModel):
-    """Exploratory Data Analysis (EDA) summary for an entire dataset."""
+class DatasetProfilingSummary(BaseModel):
+    """Basic data profiling summary for an entire dataset."""
     row_count: int = Field(..., description="Total number of records/rows in the dataset.")
     field_count: int = Field(..., description="Total number of fields/columns in the dataset.")
     field_names: List[str] = Field(..., description="Ordered list of field names.")
-    fields: List[FieldEdaSummary] = Field(..., description="Detailed profile metrics for each field.")
+    fields: List[FieldProfilingSummary] = Field(..., description="Detailed profile metrics for each field.")
 
-    def get_field(self, name: str) -> Optional[FieldEdaSummary]:
+    def get_field(self, name: str) -> Optional[FieldProfilingSummary]:
         """Lookup a field summary by its column name."""
         for field in self.fields:
             if field.name == name:
@@ -26,8 +26,17 @@ class DatasetEdaSummary(BaseModel):
         return None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Serialize EDA summary into dictionary representation."""
+        """Serialize profiling summary into dictionary representation."""
         return self.model_dump()
 
 
-__all__ = ["FieldEdaSummary", "DatasetEdaSummary"]
+# Backward-compatible aliases
+FieldEdaSummary = FieldProfilingSummary
+DatasetEdaSummary = DatasetProfilingSummary
+
+__all__ = [
+    "FieldProfilingSummary",
+    "DatasetProfilingSummary",
+    "FieldEdaSummary",
+    "DatasetEdaSummary",
+]

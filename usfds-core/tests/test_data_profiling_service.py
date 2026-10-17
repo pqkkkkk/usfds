@@ -2,13 +2,11 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from usfds_core.domain.schemas.dataset_eda import DatasetEdaSummary, FieldEdaSummary
-from usfds_core.services.eda.eda_service import DatasetEdaService
-
-
-class TestDatasetEdaService(unittest.TestCase):
+from usfds_core.services.data_management import DataProfilingService
+from usfds_core.domain.schemas.dataset_profiling import DatasetProfilingSummary
+class TestDataProfilingService(unittest.TestCase):
     def setUp(self):
-        self.eda_service = DatasetEdaService()
+        self.eda_service = DataProfilingService()
         self.sample_df = pd.DataFrame({
             "transaction_id": [101, 102, 103, 104, 105, 106, 107, 108, 109, 110],
             "user_id": ["u1", "u2", "u1", "u3", "u2", "u4", "u1", "u5", "u2", "u3"],
@@ -20,7 +18,7 @@ class TestDatasetEdaService(unittest.TestCase):
     def test_basic_eda_metrics(self):
         summary = self.eda_service.analyze(self.sample_df)
 
-        self.assertIsInstance(summary, DatasetEdaSummary)
+        self.assertIsInstance(summary, DatasetProfilingSummary)
         self.assertEqual(summary.row_count, 10)
         self.assertEqual(summary.field_count, 5)
         self.assertEqual(

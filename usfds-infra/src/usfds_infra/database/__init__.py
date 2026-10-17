@@ -1,5 +1,13 @@
 from usfds_infra.database.base import Base, TimestampMixin
 from usfds_infra.database.engine import create_sqlite_engine
+from usfds_infra.database.models import (
+    DatasetArtifactModel,
+    DatasetModel,
+)
+from usfds_infra.database.repositories import (
+    SqliteDatasetArtifactRepository,
+    SqliteDatasetRepository,
+)
 from usfds_infra.database.session import (
     close_db,
     create_session_factory,
@@ -17,4 +25,8 @@ __all__ = [
     "get_db",
     "init_db",
     "close_db",
+    "DatasetModel",
+    "DatasetArtifactModel",
+    "SqliteDatasetRepository",
+    "SqliteDatasetArtifactRepository",
 ]
