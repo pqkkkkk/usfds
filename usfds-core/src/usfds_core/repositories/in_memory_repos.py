@@ -1,8 +1,11 @@
 from usfds_core.domain.entities.detection import Deployment, DetectionJob, Pipeline
 from usfds_core.repositories.base_detection_job_repo import IDetectionJobRepository
 from usfds_core.repositories.pipeline_repo import IPipelineRepository
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
+
+from usfds_core.domain.entities.rule import Rule, RuleVersion
+from usfds_core.repositories.base_rule_repo import IRuleRepository, IRuleVersionRepository
 
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
 from usfds_core.domain.entities.enums import DatasetRole
@@ -322,3 +325,56 @@ class InMemoryDetectionJobRepository(IDetectionJobRepository):
 
     def list_by_project(self, project_id: UUID) -> List[DetectionJob]:
         return [j for j in self._jobs.values() if j.project_id == project_id]
+
+
+class InMemoryRuleRepository(IRuleRepository):
+    """In-memory store for rules."""
+
+    def __init__(self):
+        self._rules: Dict[UUID, Rule] = {}
+
+    def save(self, rule: Rule) -> Rule:
+        self._rules[rule.rule_id] = rule
+        return rule
+
+    def get_by_id(self, rule_id: UUID) -> Optional[Rule]:
+        return self._rules.get(rule_id)
+
+    def get_by_code(self, project_id: UUID, rule_code: str) -> Optional[Rule]:
+        for r in self._rules.values():
+            if r.project_id == project_id and r.rule_code == rule_code:
+                return r
+        return None
+
+    def list_by_project(self, project_id: UUID) -> List[Rule]:
+        return [r for r in self._rules.values() if r.project_id == project_id]
+
+    def delete(self, rule_id: UUID) -> bool:
+        if rule_id in self._rules:
+            del self._rules[rule_id]
+            return True
+        return False
+
+
+class InMemoryRuleVersionRepository(IRuleVersionRepository):
+    """In-memory store for rule versions."""
+
+    def __init__(self):
+        self._versions: Dict[UUID, RuleVersion] = {}
+
+    def save(self, version: RuleVersion) -> RuleVersion:
+        self._versions[version.rule_version_id] = version
+        return version
+
+    def get_by_id(self, rule_version_id: UUID) -> Optional[RuleVersion]:
+        return self._versions.get(rule_version_id)
+
+    def get_latest_version(self, rule_id: UUID) -> Optional[RuleVersion]:
+        versions = [v for v in self._versions.values() if v.rule_id == rule_id]
+        if not versions:
+            return None
+        return max(versions, key=lambda v: v.version_number)
+
+    def list_by_rule(self, rule_id: UUID) -> List[RuleVersion]:
+        versions = [v for v in self._versions.values() if v.rule_id == rule_id]
+        return sorted(versions, key=lambda v: v.version_number)

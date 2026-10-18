@@ -42,16 +42,6 @@ class RiskLevel(StrEnum):
     CRITICAL = "CRITICAL"
 
 
-class RuleType(StrEnum):
-    """Type of fraud detection business rule."""
-    THRESHOLD = "THRESHOLD"
-    ANOMALY_SCORE = "ANOMALY_SCORE"
-    BLACKLIST = "BLACKLIST"
-    WHITELIST = "WHITELIST"
-    COMPOSITE = "COMPOSITE"
-    CUSTOM = "CUSTOM"
-
-
 class TrainingRunStatus(StrEnum):
     """Lifecycle and execution status of a training run."""
     PENDING = "PENDING"
@@ -111,3 +101,30 @@ class InvestigationStatus(StrEnum):
     FALSE_POSITIVE = "FALSE_POSITIVE"
     CLOSED = "CLOSED"
 
+class LogicalOperator(StrEnum):
+    AND = "AND"
+    OR = "OR"
+
+class ComparisonOperator(StrEnum):
+    EQUALS = "=="
+    NOT_EQUALS = "!="
+    GREATER_THAN = ">"
+    GREATER_THAN_OR_EQUAL = ">="
+    LESS_THAN = "<"
+    LESS_THAN_OR_EQUAL = "<="
+    IN = "IN"
+    NOT_IN = "NOT_IN"
+    CONTAINS = "CONTAINS"
+    REGEX = "REGEX"
+    EXISTS = "EXISTS"
+
+class RuleAction(StrEnum):
+    REJECT = "REJECT"           
+    REVIEW = "REVIEW"           
+    ALERT = "ALERT"              
+    ALLOW = "ALLOW"                
+
+class RuleStatus(StrEnum):
+    DRAFT = "DRAFT"              
+    ACTIVE = "ACTIVE"            
+    INACTIVE = "INACTIVE"        
