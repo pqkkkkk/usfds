@@ -9,7 +9,6 @@ from usfds_core.domain.entities.enums import (
     DeploymentEnvironment,
     DeploymentStatus,
     DetectionJobStatus,
-    RuleType,
 )
 
 
@@ -37,16 +36,6 @@ class Pipeline:
     model_version: ModelVersion
     deployment: Deployment
 
-@dataclass
-class Rule:
-    """Represents a business rule for fraud detection within a project."""
-    project_id: UUID
-    rule_name: str
-    rule_type: Union[RuleType, str]
-    rule_id: UUID = field(default_factory=uuid4)
-    rule_condition: Dict[str, Any] = field(default_factory=dict)
-    is_active: bool = True
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass

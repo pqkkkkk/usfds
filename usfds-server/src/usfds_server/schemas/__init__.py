@@ -11,6 +11,17 @@ from usfds_server.schemas.dataset_api_schemas import (
     DatasetPreviewResponse,
 )
 
+from usfds_server.schemas.rule_api_schemas import (
+    CreateRuleRequest,
+    EvaluateRuleRequest,
+    EvaluateRulesRequest,
+    RuleExecutionResultResponse,
+    RuleResponse,
+    RuleVersionResponse,
+    SetRuleStatusRequest,
+    UpdateRuleRequest,
+)
+
 __all__ = [
     "ApiResponse",
     "ImportDatasetRequest",
@@ -22,4 +33,12 @@ __all__ = [
     "LineageGraphResponse",
     "ExportDatasetRequest",
     "DatasetPreviewResponse",
+    "CreateRuleRequest",
+    "UpdateRuleRequest",
+    "SetRuleStatusRequest",
+    "RuleResponse",
+    "RuleVersionResponse",
+    "EvaluateRuleRequest",
+    "EvaluateRulesRequest",
+    "RuleExecutionResultResponse",
 ]

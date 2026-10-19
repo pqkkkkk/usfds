@@ -1,5 +1,6 @@
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
-from usfds_core.domain.entities.detection import Deployment, DetectionJob, Pipeline, Rule
+from usfds_core.domain.entities.detection import Deployment, DetectionJob, Pipeline
+from usfds_core.domain.entities.rule import Rule, RuleVersion
 from usfds_core.domain.entities.enums import (
     DataClassification,
     DatasetRole,
@@ -11,7 +12,6 @@ from usfds_core.domain.entities.enums import (
     ModelVersionStatus,
     PipelineStage,
     RiskLevel,
-    RuleType,
     TrainingRunStatus,
     ValidationStatus,
 )
@@ -26,7 +26,6 @@ __all__ = [
     "ValidationStatus",
     "DataClassification",
     "RiskLevel",
-    "RuleType",
     "TrainingRunStatus",
     "ExecutionType",
     "ModelVersionStatus",
@@ -49,6 +48,7 @@ __all__ = [
     "Deployment",
     "Pipeline",
     "Rule",
+    "RuleVersion",
     "DetectionJob",
     "InvestigationCase",
 ]

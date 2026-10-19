@@ -3,10 +3,14 @@ from usfds_infra.database.engine import create_sqlite_engine
 from usfds_infra.database.models import (
     DatasetArtifactModel,
     DatasetModel,
+    RuleModel,
+    RuleVersionModel,
 )
 from usfds_infra.database.repositories import (
     SqliteDatasetArtifactRepository,
     SqliteDatasetRepository,
+    SqliteRuleRepository,
+    SqliteRuleVersionRepository,
 )
 from usfds_infra.database.session import (
     close_db,
@@ -27,6 +31,10 @@ __all__ = [
     "close_db",
     "DatasetModel",
     "DatasetArtifactModel",
+    "RuleModel",
+    "RuleVersionModel",
     "SqliteDatasetRepository",
     "SqliteDatasetArtifactRepository",
+    "SqliteRuleRepository",
+    "SqliteRuleVersionRepository",
 ]
