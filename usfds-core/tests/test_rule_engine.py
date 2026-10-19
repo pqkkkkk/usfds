@@ -143,7 +143,7 @@ class TestRuleExecutor(unittest.TestCase):
             rule_id=rule2.rule_id,
             version_number=1,
             condition={">": [{"var": "enriched.tx_count_1h"}, 5]},
-            action=RuleAction.ALERT,
+            action=RuleAction.REVIEW,
         )
 
         ctx = RuleExecutionContext(
@@ -162,7 +162,7 @@ class TestRuleExecutor(unittest.TestCase):
         # Rule 2
         self.assertTrue(results[1].is_triggered)
         self.assertEqual(results[1].rule_code, "R_SUSPICIOUS_VELOCITY")
-        self.assertEqual(results[1].action, RuleAction.ALERT)
+        self.assertEqual(results[1].action, RuleAction.REVIEW)
 
     def test_context_flat_fallback(self):
         # Test rules that use flat keys {"var": "amount"} instead of {"var": "mapped.amount"}

@@ -18,6 +18,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.104.1",
     "axios": "^1.20.0",
+    "json-logic-js": "^2.0.5",
     "lucide-react": "^1.45.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -25,6 +26,7 @@
     "recharts": "^3.10.1"
   },
   "devDependencies": {
+    "@types/json-logic-js": "^2.0.8",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

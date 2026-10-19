@@ -49,7 +49,22 @@ class RuleManager:
         rule_id = uuid4()
         now = datetime.now(timezone.utc)
 
-        # 1. Create initial version (Version 1)
+        # 1. Save Rule container first (so rule_id exists for foreign key constraint)
+        rule = Rule(
+            rule_id=rule_id,
+            project_id=proj_uuid,
+            rule_code=rule_code,
+            name=name,
+            description=description,
+            status=status,
+            current_version_id=None,
+            created_by=created_by,
+            created_at=now,
+            updated_at=now,
+        )
+        saved_rule = self._rule_repo.save(rule)
+
+        # 2. Save initial version (Version 1) referencing saved rule_id
         initial_version = RuleVersion(
             rule_id=rule_id,
             version_number=1,
@@ -61,20 +76,9 @@ class RuleManager:
         )
         saved_version = self._version_repo.save(initial_version)
 
-        # 2. Create Rule container pointing to initial version
-        rule = Rule(
-            rule_id=rule_id,
-            project_id=proj_uuid,
-            rule_code=rule_code,
-            name=name,
-            description=description,
-            status=status,
-            current_version_id=saved_version.rule_version_id,
-            created_by=created_by,
-            created_at=now,
-            updated_at=now,
-        )
-        saved_rule = self._rule_repo.save(rule)
+        # 3. Update Rule container pointing to initial version
+        saved_rule.current_version_id = saved_version.rule_version_id
+        saved_rule = self._rule_repo.save(saved_rule)
 
         return saved_rule, saved_version
 

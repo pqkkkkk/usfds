@@ -13,6 +13,7 @@ export default {
           900: '#0b1120', // Surface Panel
           850: '#0f172a', // Card / Surface
           800: '#1e293b', // Surface Elevated / Modal / Dropdown
+          750: '#1e293b', // Dark Border (avoid white fallback)
           700: '#334155', // Border Primary
           600: '#475569', // Border Subtle / DAG Edge
           500: '#64748b', // Text Muted / Placeholder

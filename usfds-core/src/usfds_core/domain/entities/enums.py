@@ -120,8 +120,7 @@ class ComparisonOperator(StrEnum):
 
 class RuleAction(StrEnum):
     REJECT = "REJECT"           
-    REVIEW = "REVIEW"           
-    ALERT = "ALERT"              
+    REVIEW = "REVIEW"                     
     ALLOW = "ALLOW"                
 
 class RuleStatus(StrEnum):

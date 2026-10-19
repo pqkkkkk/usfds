@@ -3,10 +3,14 @@ from fastapi import Depends
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from usfds_core.services.data_management.service import DataManagementService
+from usfds_core.services.rule_engine.executor import RuleExecutor
+from usfds_core.services.rule_engine.manager import RuleManager
 
 from usfds_infra.database import (
     SqliteDatasetArtifactRepository,
     SqliteDatasetRepository,
+    SqliteRuleRepository,
+    SqliteRuleVersionRepository,
     close_db,
     create_session_factory,
     create_sqlite_engine,
@@ -77,6 +81,26 @@ def get_dataset_repo(session: Session = Depends(get_db)) -> SqliteDatasetReposit
 def get_artifact_repo(session: Session = Depends(get_db)) -> SqliteDatasetArtifactRepository:
     return SqliteDatasetArtifactRepository(session)
 
+
+def get_rule_repo(session: Session = Depends(get_db)) -> SqliteRuleRepository:
+    return SqliteRuleRepository(session)
+
+
+def get_rule_version_repo(session: Session = Depends(get_db)) -> SqliteRuleVersionRepository:
+    return SqliteRuleVersionRepository(session)
+
+
+def get_rule_manager(
+    rule_repo: SqliteRuleRepository = Depends(get_rule_repo),
+    version_repo: SqliteRuleVersionRepository = Depends(get_rule_version_repo),
+) -> RuleManager:
+    return RuleManager(rule_repo=rule_repo, version_repo=version_repo)
+
+
+def get_rule_executor() -> RuleExecutor:
+    return RuleExecutor()
+
+
 def get_data_management_service(
     dataset_repo: SqliteDatasetRepository = Depends(get_dataset_repo),
     artifact_repo: SqliteDatasetArtifactRepository = Depends(get_artifact_repo),
@@ -96,6 +120,10 @@ __all__ = [
     "get_db",
     "get_dataset_repo",
     "get_artifact_repo",
+    "get_rule_repo",
+    "get_rule_version_repo",
+    "get_rule_manager",
+    "get_rule_executor",
     "get_data_management_service",
     "get_validation_service",
     "get_raw_ingestion_service",

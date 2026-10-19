@@ -87,6 +87,15 @@ class ApiClient {
     }
   }
 
+  public async patch<T = any>(url: string, data?: unknown, params?: Record<string, any>, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+    try {
+      const response = await this.instance.patch<ApiResponse<T> | T>(url, data, { ...config, params });
+      return this.normalizeResponse<T>(response.data);
+    } catch (err: any) {
+      return { success: false, data: null as unknown as T, error: err.message };
+    }
+  }
+
   public async delete<T = any>(url: string, params?: Record<string, any>, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
       const response = await this.instance.delete<ApiResponse<T> | T>(url, { ...config, params });
