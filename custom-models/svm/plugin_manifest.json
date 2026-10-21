@@ -1,0 +1,35 @@
+{
+  "model_name": "custom_linear_svm",
+  "display_name": "Custom Calibrated Linear SVM (CSV Plugin)",
+  "description": "User-imported Support Vector Machine plugin consuming CSV files and persisting its own preprocessing pipeline.",
+  "framework": "scikit-learn",
+  "data_modality": "tabular",
+  "data_format": "csv",
+  "entrypoint": "main.py",
+  "required_columns": [
+    "amount",
+    "account_age_days"
+  ],
+  "default_hyperparameters": {
+    "C": 0.5,
+    "max_iter": 500
+  },
+  "dry_run_hyperparameters": {
+    "C": 0.5,
+    "max_iter": 50
+  },
+  "hyperparameter_schema": {
+    "C": {
+      "type": "float",
+      "min": 0.001,
+      "max": 50.0,
+      "default": 0.5
+    },
+    "max_iter": {
+      "type": "int",
+      "min": 20,
+      "max": 5000,
+      "default": 500
+    }
+  }
+}

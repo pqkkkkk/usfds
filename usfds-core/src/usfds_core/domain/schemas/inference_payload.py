@@ -12,8 +12,8 @@ class BatchInferencePayload(BaseModel):
     deployment_id: UUID
     input_path: str
     output_storage_path: str
-    fe_artifact_path: str
-    prep_artifact_path: str
+    fe_artifact_path: Optional[str] = None
+    prep_artifact_path: Optional[str] = None
     model_artifact_uri: str
     decision_threshold: float = 0.5
     column_mapping: Dict[str, str] = Field(default_factory=dict)

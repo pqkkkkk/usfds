@@ -29,12 +29,12 @@ class Deployment:
 
 @dataclass
 class Pipeline:
-    raw_dataset_artifact: DatasetArtifact
-    mapped_dataset_artifact: DatasetArtifact
-    feature_engineered_dataset_artifact: DatasetArtifact
-    preprocessed_dataset_artifact: DatasetArtifact
-    model_version: ModelVersion
-    deployment: Deployment
+    raw_dataset_artifact: Optional[DatasetArtifact] = None
+    mapped_dataset_artifact: Optional[DatasetArtifact] = None
+    feature_engineered_dataset_artifact: Optional[DatasetArtifact] = None
+    preprocessed_dataset_artifact: Optional[DatasetArtifact] = None
+    model_version: Optional[ModelVersion] = None
+    deployment: Optional[Deployment] = None
 
 
 

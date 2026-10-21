@@ -1,3 +1,5 @@
+from google.genai._interactions.types import Model
+from usfds_core import ExecutionType
 from datetime import datetime, timezone
 import logging
 from typing import Optional
@@ -55,9 +57,10 @@ class TrainingOrchestrationService:
         if not artifact:
             raise ValueError(f"DatasetArtifact with ID {config.dataset_artifact_id} not found.")
 
-        if artifact.pipeline_stage != PipelineStage.PRE_PROCESSED:
+        allowed_stages = (PipelineStage.FEATURE_ENGINEERED, PipelineStage.PRE_PROCESSED)
+        if artifact.pipeline_stage not in allowed_stages:
             raise ValueError(
-                f"Training requires a PRE_PROCESSED dataset artifact, but received '{artifact.pipeline_stage}'."
+                f"Training requires a FEATURE_ENGINEERED or PRE_PROCESSED dataset artifact, but received '{artifact.pipeline_stage}'."
             )
 
         if artifact.validation_status == ValidationStatus.FAILED:
@@ -66,14 +69,14 @@ class TrainingOrchestrationService:
             )
 
         output_paths = artifact.output_paths or {}
-        train_storage_path = output_paths.get("train")
+        train_storage_path = output_paths.get("train") or output_paths.get("train_enriched")
         if not train_storage_path:
-            raise ValueError("Preprocessed dataset artifact must specify an output path for 'train'.")
-        test_storage_path = output_paths.get("test")
+            raise ValueError("Dataset artifact must specify an output path for 'train'.")
+        test_storage_path = output_paths.get("test") or output_paths.get("test_enriched")
 
         # 3. Extract target column from validation report
         val_report = artifact.validation_report or {}
-        target_column = val_report.get("target_column", "is_fraud")
+        target_column = val_report.get("target_column", "label")
 
         # 4. Merge hyperparameters
         default_params = model.default_hyperparameters or {}
@@ -193,3 +196,12 @@ class TrainingOrchestrationService:
             return f"{latest.semver}.1"
         except Exception:
             return "1.0.0"
+
+    def register_plugged_model(
+        self,
+        model_artifact_path: str,
+        execution_type: ExecutionType,
+        user_name: str = "system",
+    ) -> Model:
+        # TODO: Implement plugged model registration
+        pass

@@ -62,6 +62,11 @@ class TrainingRunWorkspace:
         return self.output_dir / "metrics.json"
 
     @property
+    def plugin_src_dir(self) -> Path:
+        """Directory holding extracted user plugin source code for this run."""
+        return self.run_dir / "src"
+
+    @property
     def eval_predictions_path(self) -> Path:
         """Path to the evaluation predictions parquet file containing (y_true, y_prob)."""
         return self.output_dir / "eval_predictions.parquet"
@@ -70,6 +75,7 @@ class TrainingRunWorkspace:
         """Ensure all required input and output subdirectories exist."""
         (self.input_dir / "data").mkdir(parents=True, exist_ok=True)
         self.model_dir.mkdir(parents=True, exist_ok=True)
+        self.plugin_src_dir.mkdir(parents=True, exist_ok=True)
 
     def cleanup(self) -> None:
         """Clean up the run workspace directory and all its contents."""
