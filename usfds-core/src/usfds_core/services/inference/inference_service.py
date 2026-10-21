@@ -1,5 +1,6 @@
 """USFDS Inference Service for Online and Batch Fraud Detection Inference.
 Orchestrates online real-time scoring and dispatches batch inference jobs.
+Supports both Built-in models and custom Plugin Model Bundles (model_bundle.zip).
 """
 
 from datetime import datetime, timezone
@@ -22,6 +23,8 @@ from usfds_core.repositories.pipeline_repo import IPipelineRepository
 from usfds_core.services.inference.dispatchers.base_dispatcher import IBatchInferenceDispatcher
 from usfds_core.services.inference.executor import (
     BatchInferenceExecutor,
+    apply_domain_feature_engineers,
+    execute_plugin_bundle_inference,
     prepare_and_validate_input,
     run_feature_transformations,
 )
@@ -77,40 +80,56 @@ class InferenceService:
         self,
         workspace: InferenceWorkspace,
         pipeline: Pipeline,
-    ) -> Tuple[Any, Any, Any]:
-        """Downloads and deserializes all required pipeline artifacts into the workspace."""
-        # 1. Feature Engineering transformers (.joblib)
-        fe_path = pipeline.feature_engineered_dataset_artifact.output_paths.get("fitted_engineers")
-        if not fe_path:
-            raise FileNotFoundError(
-                f"Missing 'fitted_engineers' in feature_engineered_dataset_artifact output_paths: "
-                f"{pipeline.feature_engineered_dataset_artifact.output_paths}"
-            )
-        fe_bytes = self._read_bytes(fe_path)
-        with open(workspace.fitted_engineers_path, "wb") as f:
-            f.write(fe_bytes)
-        fitted_engineers = joblib.load(workspace.fitted_engineers_path)
+    ) -> Tuple[Optional[Any], Optional[Any], Any]:
+        """Downloads and deserializes required pipeline artifacts into the workspace."""
+        # 1. Feature Engineering transformers (.joblib), optional if input is already FEATURE_ENGINEERED
+        fitted_engineers = None
+        if (
+            pipeline.feature_engineered_dataset_artifact
+            and pipeline.feature_engineered_dataset_artifact.output_paths
+        ):
+            fe_path = pipeline.feature_engineered_dataset_artifact.output_paths.get("fitted_engineers")
+            if fe_path:
+                fe_bytes = self._read_bytes(fe_path)
+                with open(workspace.fitted_engineers_path, "wb") as f:
+                    f.write(fe_bytes)
+                fitted_engineers = joblib.load(workspace.fitted_engineers_path)
 
-        # 2. Preprocessing pipeline (.joblib)
-        prep_path = pipeline.preprocessed_dataset_artifact.output_paths.get("pipeline")
-        if not prep_path:
-            raise FileNotFoundError(
-                f"Missing 'pipeline' in preprocessed_dataset_artifact output_paths: "
-                f"{pipeline.preprocessed_dataset_artifact.output_paths}"
-            )
-        prep_bytes = self._read_bytes(prep_path)
-        with open(workspace.fitted_pipeline_path, "wb") as f:
-            f.write(prep_bytes)
-        preprocessing_pipeline = joblib.load(workspace.fitted_pipeline_path)
+        # 2. Preprocessing pipeline (.joblib), optional when model bundles its own preprocessor
+        preprocessing_pipeline = None
+        if (
+            pipeline.preprocessed_dataset_artifact
+            and pipeline.preprocessed_dataset_artifact.output_paths
+        ):
+            prep_path = pipeline.preprocessed_dataset_artifact.output_paths.get("pipeline")
+            if prep_path:
+                prep_bytes = self._read_bytes(prep_path)
+                with open(workspace.fitted_pipeline_path, "wb") as f:
+                    f.write(prep_bytes)
+                preprocessing_pipeline = joblib.load(workspace.fitted_pipeline_path)
 
-        # 3. Model weights / classifier (.joblib)
-        model_uri = pipeline.model_version.artifact_uri
-        if not model_uri:
+        # 3. Model weights or Plugin Bundle (.joblib or .zip)
+        if not pipeline.model_version or not pipeline.model_version.artifact_uri:
             raise FileNotFoundError("Missing artifact_uri in pipeline.model_version")
+        model_uri = pipeline.model_version.artifact_uri
         model_bytes = self._read_bytes(model_uri)
+
+        if model_uri.lower().endswith(".zip"):
+            return fitted_engineers, preprocessing_pipeline, model_bytes
+
         with open(workspace.model_path, "wb") as f:
             f.write(model_bytes)
         model = joblib.load(workspace.model_path)
+
+        if preprocessing_pipeline is None:
+            companion_uri = str(Path(model_uri).parent / "preprocessor.joblib").replace("\\", "/")
+            try:
+                prep_bytes = self._read_bytes(companion_uri)
+                with open(workspace.fitted_pipeline_path, "wb") as f:
+                    f.write(prep_bytes)
+                preprocessing_pipeline = joblib.load(workspace.fitted_pipeline_path)
+            except Exception:
+                pass
 
         return fitted_engineers, preprocessing_pipeline, model
 
@@ -119,16 +138,7 @@ class InferenceService:
         deployment_id: UUID,
         event: dict,
     ) -> dict:
-        """Executes low-latency real-time fraud scoring on a single transaction event.
-
-        Args:
-            deployment_id: ID of the active model deployment.
-            event: Dictionary of event properties (supports RAW or MAPPED schema).
-
-        Returns:
-            Dictionary containing prediction (0 or 1), fraud probability, risk score,
-            and execution latency.
-        """
+        """Executes low-latency real-time fraud scoring on a single transaction event."""
         start_time = time.time()
         pipeline = self._validate_deployment(deployment_id)
 
@@ -137,7 +147,7 @@ class InferenceService:
 
         try:
             # 1. Download & load pipeline artifacts
-            fitted_engineers, preprocessing_pipeline, model = self._load_pipeline_artifacts(
+            fitted_engineers, preprocessing_pipeline, model_or_bundle = self._load_pipeline_artifacts(
                 workspace, pipeline
             )
 
@@ -155,20 +165,29 @@ class InferenceService:
             event_df = pd.DataFrame([event])
             prepared_df = prepare_and_validate_input(event_df, column_mapping)
 
-            # 4. Transform features
-            X = run_feature_transformations(
-                prepared_df, fitted_engineers, preprocessing_pipeline, model
-            )
-
-            # 5. Predict using model's configured decision threshold
             threshold = 0.5
             if pipeline.model_version and hasattr(pipeline.model_version, "decision_threshold"):
                 threshold = getattr(pipeline.model_version, "decision_threshold", 0.5) or 0.5
 
-            preds, fraud_probs = ModelScorer.predict_with_probabilities(model, X, threshold=threshold)
+            # 4. Score using Plugin Bundle or Built-in Model
+            if isinstance(model_or_bundle, bytes):
+                fe_df = apply_domain_feature_engineers(prepared_df, fitted_engineers)
+                preds, fraud_probs = execute_plugin_bundle_inference(
+                    feature_engineered_df=fe_df,
+                    bundle_bytes=model_or_bundle,
+                    workspace=workspace,
+                    threshold=threshold,
+                )
+            else:
+                X = run_feature_transformations(
+                    prepared_df, fitted_engineers, preprocessing_pipeline, model_or_bundle
+                )
+                preds, fraud_probs = ModelScorer.predict_with_probabilities(
+                    model_or_bundle, X, threshold=threshold
+                )
+
             pred = int(preds[0])
             fraud_prob = float(fraud_probs[0])
-
             latency_ms = round((time.time() - start_time) * 1000, 2)
 
             return {
@@ -192,32 +211,27 @@ class InferenceService:
         user_name: Optional[str] = None,
         decision_threshold: Optional[float] = None,
     ) -> DetectionJob:
-        """Pre-dispatch phase for batch inference:
-        1. Validates deployment and extracts pipeline lineage.
-        2. Persists DetectionJob entity in PENDING status with input_path.
-        3. Prepares BatchInferencePayload (worker receives 0 direct DB access).
-        4. Marks DetectionJob as RUNNING and dispatches to dispatcher/executor.
-
-        Args:
-            project_id: Project identifier.
-            deployment_id: ID of the active model deployment.
-            input_path: Storage path or URI of the input dataset uploaded to storage.
-            job_name: Optional custom name for the detection job.
-            user_name: Identifier of user initiating the job.
-            decision_threshold: Optional override for model decision threshold.
-
-        Returns:
-            The created DetectionJob entity.
-        """
+        """Pre-dispatch phase for batch inference."""
         pipeline = self._validate_deployment(deployment_id)
 
         # 1. Extract pipeline artifact paths
-        fe_path = pipeline.feature_engineered_dataset_artifact.output_paths.get("fitted_engineers")
-        prep_path = pipeline.preprocessed_dataset_artifact.output_paths.get("pipeline")
-        model_uri = pipeline.model_version.artifact_uri
+        fe_path = None
+        if (
+            pipeline.feature_engineered_dataset_artifact
+            and pipeline.feature_engineered_dataset_artifact.output_paths
+        ):
+            fe_path = pipeline.feature_engineered_dataset_artifact.output_paths.get("fitted_engineers")
 
-        if not fe_path or not prep_path or not model_uri:
-            raise FileNotFoundError("One or more required pipeline artifacts are missing in the pipeline lineage.")
+        prep_path = None
+        if (
+            pipeline.preprocessed_dataset_artifact
+            and pipeline.preprocessed_dataset_artifact.output_paths
+        ):
+            prep_path = pipeline.preprocessed_dataset_artifact.output_paths.get("pipeline")
+
+        model_uri = pipeline.model_version.artifact_uri if pipeline.model_version else None
+        if not model_uri:
+            raise FileNotFoundError("Missing model_version.artifact_uri in the pipeline lineage.")
 
         # 2. Extract column mapping
         column_mapping = {}
@@ -271,8 +285,7 @@ class InferenceService:
             column_mapping=column_mapping,
         )
 
-
-        # 5. Update status to RUNNING
+        # 6. Update status to RUNNING
         job.status = DetectionJobStatus.RUNNING
         job.started_at = datetime.now(timezone.utc)
         if self.detection_job_repo:
@@ -293,15 +306,7 @@ class InferenceService:
         return job
 
     def handle_job_completion(self, result: BatchInferenceResult) -> DetectionJob:
-        """Post-execution handler for batch detection job results:
-        Updates DetectionJob record with completion metrics or failure details.
-
-        Args:
-            result: BatchInferenceResult received from worker executor.
-
-        Returns:
-            Updated DetectionJob entity.
-        """
+        """Post-execution handler for batch detection job results."""
         job: Optional[DetectionJob] = None
         if self.detection_job_repo:
             job = self.detection_job_repo.get_by_id(result.job_id)

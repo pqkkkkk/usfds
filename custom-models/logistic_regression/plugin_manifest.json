@@ -1,0 +1,44 @@
+{
+  "model_name": "custom_logistic_regression",
+  "display_name": "Custom Logistic Regression (Plugin)",
+  "description": "User-imported Logistic Regression plugin with model-owned StandardScaler and OneHotEncoder on FEATURE_ENGINEERED Parquet data.",
+  "framework": "scikit-learn",
+  "data_modality": "tabular",
+  "data_format": "parquet",
+  "entrypoint": "main.py",
+  "required_columns": [
+    "amount",
+    "account_age_days",
+    "total_transactions_user",
+    "avg_amount_user"
+  ],
+  "default_hyperparameters": {
+    "C": 1.0,
+    "max_iter": 200,
+    "class_weight": "balanced"
+  },
+  "dry_run_hyperparameters": {
+    "C": 1.0,
+    "max_iter": 50,
+    "class_weight": "balanced"
+  },
+  "hyperparameter_schema": {
+    "C": {
+      "type": "float",
+      "min": 0.001,
+      "max": 100.0,
+      "default": 1.0
+    },
+    "max_iter": {
+      "type": "int",
+      "min": 10,
+      "max": 2000,
+      "default": 200
+    },
+    "class_weight": {
+      "type": "string",
+      "enum": ["balanced", null],
+      "default": "balanced"
+    }
+  }
+}

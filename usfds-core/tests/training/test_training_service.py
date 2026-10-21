@@ -95,7 +95,7 @@ class TestTrainingOrchestrationService(unittest.TestCase):
         shutil.rmtree(self.temp_workspace, ignore_errors=True)
 
     def test_validation_rejects_invalid_stage(self):
-        self.artifact.pipeline_stage = PipelineStage.FEATURE_ENGINEERED
+        self.artifact.pipeline_stage = PipelineStage.RAW
         self.artifact_repo.save(self.artifact)
 
         dispatcher = SynchronousRunDispatcher(executor_func=lambda p: None)
@@ -114,7 +114,7 @@ class TestTrainingOrchestrationService(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             service.prepare_and_dispatch(config)
-        self.assertIn("Training requires a PRE_PROCESSED dataset artifact", str(ctx.exception))
+        self.assertIn("FEATURE_ENGINEERED or PRE_PROCESSED", str(ctx.exception))
 
     def test_validation_rejects_failed_status(self):
         self.artifact.validation_status = ValidationStatus.FAILED
