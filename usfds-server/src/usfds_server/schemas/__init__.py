@@ -11,6 +11,11 @@ from usfds_server.schemas.dataset_api_schemas import (
     DatasetPreviewResponse,
 )
 
+from usfds_server.schemas.project_api_schemas import (
+    CreateProjectRequest,
+    ProjectResponse,
+    UpdateProjectRequest,
+)
 from usfds_server.schemas.rule_api_schemas import (
     CreateRuleRequest,
     EvaluateRuleRequest,
@@ -24,6 +29,9 @@ from usfds_server.schemas.rule_api_schemas import (
 
 __all__ = [
     "ApiResponse",
+    "CreateProjectRequest",
+    "UpdateProjectRequest",
+    "ProjectResponse",
     "ImportDatasetRequest",
     "DatasetResponse",
     "DatasetArtifactResponse",

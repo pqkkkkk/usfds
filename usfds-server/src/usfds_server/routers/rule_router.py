@@ -154,7 +154,9 @@ def update_rule(
             message=f"Rule '{rule.rule_code}' successfully updated",
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        err_msg = str(e)
+        code = status.HTTP_404_NOT_FOUND if "not found" in err_msg.lower() else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code=code, detail=err_msg)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -177,7 +179,9 @@ def set_rule_status(
             message=f"Rule status updated to {request.status}",
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        err_msg = str(e)
+        code = status.HTTP_404_NOT_FOUND if "not found" in err_msg.lower() else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code=code, detail=err_msg)
 
 
 @router.get(
@@ -244,6 +248,7 @@ def evaluate_single_rule(
 
     ctx = RuleExecutionContext(
         transaction_id=request.transaction_id,
+        raw_features=request.raw_features,
         mapped_features=request.mapped_features,
         enriched_features=request.enriched_features,
     )
@@ -280,6 +285,7 @@ def evaluate_project_rules(
 
     ctx = RuleExecutionContext(
         transaction_id=request.transaction_id,
+        raw_features=request.raw_features,
         mapped_features=request.mapped_features,
         enriched_features=request.enriched_features,
     )

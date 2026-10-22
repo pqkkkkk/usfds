@@ -2,7 +2,7 @@ from usfds_core.domain.entities.dataset import DatasetArtifact
 from usfds_core.domain.entities.model import ModelVersion
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Union
+from typing import Optional, Union
 from uuid import UUID, uuid4
 
 from usfds_core.domain.entities.enums import (
@@ -19,6 +19,7 @@ class Deployment:
     deployment_name: str
     environment: Union[DeploymentEnvironment, str]
     deployment_id: UUID = field(default_factory=uuid4)
+    project_id: Optional[UUID] = None
     endpoint_url: Optional[str] = None
     serving_framework: Optional[str] = None
     replicas: int = 1

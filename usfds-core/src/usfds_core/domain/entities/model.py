@@ -18,6 +18,7 @@ class Model:
     model_name: str
     user_id: UUID
     model_id: UUID = field(default_factory=uuid4)
+    project_id: Optional[UUID] = None
     display_name: Optional[str] = None
     description: Optional[str] = None
     execution_type: Union[ExecutionType, str] = ExecutionType.BUILTIN
@@ -37,6 +38,7 @@ class ModelVersion:
     semver: str
     artifact_uri: str
     version_id: UUID = field(default_factory=uuid4)
+    project_id: Optional[UUID] = None
     run_id: Optional[UUID] = None
     description: Optional[str] = None
     artifact_size_mb: Optional[float] = None
@@ -53,6 +55,7 @@ class TrainingRun:
     """Represents an experiment or training run execution for a model."""
     run_name: str
     run_id: UUID = field(default_factory=uuid4)
+    project_id: Optional[UUID] = None
     model_id: Optional[UUID] = None
     version_id: Optional[UUID] = None
     status: Union[TrainingRunStatus, str] = TrainingRunStatus.PENDING

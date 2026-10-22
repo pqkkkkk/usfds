@@ -1,5 +1,3 @@
-from google.genai._interactions.types import Model
-from usfds_core import ExecutionType
 from datetime import datetime, timezone
 import logging
 from typing import Optional
@@ -7,12 +5,13 @@ from uuid import UUID
 
 from usfds_core.domain.entities.enums import (
     DatasetRole,
+    ExecutionType,
     ModelVersionStatus,
     PipelineStage,
     TrainingRunStatus,
     ValidationStatus,
 )
-from usfds_core.domain.entities.model import ModelVersion, TrainingRun
+from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
 from usfds_core.domain.schemas.training_payload import TrainingRunPayload, TrainingRunResult
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository

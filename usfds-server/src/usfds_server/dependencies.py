@@ -3,12 +3,14 @@ from fastapi import Depends
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from usfds_core.services.data_management.service import DataManagementService
+from usfds_core.services.project_management.project_service import ProjectManagementService
 from usfds_core.services.rule_engine.executor import RuleExecutor
 from usfds_core.services.rule_engine.manager import RuleManager
 
 from usfds_infra.database import (
     SqliteDatasetArtifactRepository,
     SqliteDatasetRepository,
+    SqliteProjectRepository,
     SqliteRuleRepository,
     SqliteRuleVersionRepository,
     close_db,
@@ -74,6 +76,10 @@ def get_db() -> Generator[Session, None, None]:
         session.close()
 
 
+def get_project_repo(session: Session = Depends(get_db)) -> SqliteProjectRepository:
+    return SqliteProjectRepository(session)
+
+
 def get_dataset_repo(session: Session = Depends(get_db)) -> SqliteDatasetRepository:
     return SqliteDatasetRepository(session)
 
@@ -90,11 +96,32 @@ def get_rule_version_repo(session: Session = Depends(get_db)) -> SqliteRuleVersi
     return SqliteRuleVersionRepository(session)
 
 
+def get_project_management_service(
+    project_repo: SqliteProjectRepository = Depends(get_project_repo),
+    dataset_repo: SqliteDatasetRepository = Depends(get_dataset_repo),
+    artifact_repo: SqliteDatasetArtifactRepository = Depends(get_artifact_repo),
+    rule_repo: SqliteRuleRepository = Depends(get_rule_repo),
+    storage: LocalFileStorage = Depends(get_storage),
+) -> ProjectManagementService:
+    return ProjectManagementService(
+        project_repo=project_repo,
+        dataset_repo=dataset_repo,
+        artifact_repo=artifact_repo,
+        rule_repo=rule_repo,
+        file_storage=storage,
+    )
+
+
 def get_rule_manager(
     rule_repo: SqliteRuleRepository = Depends(get_rule_repo),
     version_repo: SqliteRuleVersionRepository = Depends(get_rule_version_repo),
+    project_repo: SqliteProjectRepository = Depends(get_project_repo),
 ) -> RuleManager:
-    return RuleManager(rule_repo=rule_repo, version_repo=version_repo)
+    return RuleManager(
+        rule_repo=rule_repo,
+        version_repo=version_repo,
+        project_repo=project_repo,
+    )
 
 
 def get_rule_executor() -> RuleExecutor:
@@ -104,12 +131,16 @@ def get_rule_executor() -> RuleExecutor:
 def get_data_management_service(
     dataset_repo: SqliteDatasetRepository = Depends(get_dataset_repo),
     artifact_repo: SqliteDatasetArtifactRepository = Depends(get_artifact_repo),
+    project_repo: SqliteProjectRepository = Depends(get_project_repo),
+    project_service: ProjectManagementService = Depends(get_project_management_service),
     storage: LocalFileStorage = Depends(get_storage),
 ) -> DataManagementService:
     return DataManagementService(
         dataset_repo=dataset_repo,
         artifact_repo=artifact_repo,
         file_storage=storage,
+        project_repo=project_repo,
+        project_service=project_service,
     )
 
 
@@ -118,17 +149,13 @@ __all__ = [
     "teardown_infrastructure",
     "get_storage",
     "get_db",
+    "get_project_repo",
     "get_dataset_repo",
     "get_artifact_repo",
     "get_rule_repo",
     "get_rule_version_repo",
+    "get_project_management_service",
     "get_rule_manager",
     "get_rule_executor",
     "get_data_management_service",
-    "get_validation_service",
-    "get_raw_ingestion_service",
-    "get_mapping_service",
-    "get_feature_engineering_service",
-    "get_lineage_service",
-    "get_export_service",
 ]

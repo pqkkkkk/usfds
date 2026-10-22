@@ -2,26 +2,72 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID, uuid4
 
-from usfds_core.domain.entities.enums import RuleAction, RuleStatus
+from usfds_core.domain.entities.enums import ProjectStatus, RuleAction, RuleStatus
 from usfds_core.domain.entities.rule import Rule, RuleVersion
+from usfds_core.repositories.base_project_repo import IProjectRepository
 from usfds_core.repositories.base_rule_repo import IRuleRepository, IRuleVersionRepository
 from usfds_core.repositories.in_memory_repos import InMemoryRuleRepository, InMemoryRuleVersionRepository
+from usfds_core.services.project_management.schema_validator import ProjectSchemaValidator
 
 
 class RuleManager:
     """
     Manages the lifecycle and versioning of fraud detection business rules.
     Encapsulates rule creation, updates (with automatic immutable version incrementing),
-    status toggles, and retrieval of active rule-version pairs.
+    status toggles, project RAW schema validation (BR-PM-04, BR-PM-05), and retrieval of active rule-version pairs.
     """
 
     def __init__(
         self,
         rule_repo: Optional[IRuleRepository] = None,
         version_repo: Optional[IRuleVersionRepository] = None,
+        project_repo: Optional[IProjectRepository] = None,
     ):
         self._rule_repo = rule_repo or InMemoryRuleRepository()
         self._version_repo = version_repo or InMemoryRuleVersionRepository()
+        self._project_repo = project_repo
+
+    def _validate_against_project_schema(
+        self,
+        project_id: UUID,
+        condition: Optional[Dict[str, Any]],
+        target_status: RuleStatus,
+    ) -> None:
+        """Enforces BR-PM-04 and BR-PM-05 when the rule belongs to a registered Project."""
+        if self._project_repo is None:
+            return
+        project = self._project_repo.get_by_id(project_id)
+        if project is None:
+            return
+
+        proj_status = (
+            project.status.value
+            if hasattr(project.status, "value")
+            else str(project.status)
+        )
+        if proj_status == ProjectStatus.ARCHIVED.value:
+            raise ValueError(
+                f"Không thể chỉnh sửa Rule trong dự án '{project.project_name}' vì dự án đang ở trạng thái ARCHIVED."
+            )
+
+        status_val = (
+            target_status.value
+            if hasattr(target_status, "value")
+            else str(target_status)
+        )
+        if not project.is_schema_locked:
+            if status_val == RuleStatus.ACTIVE.value:
+                raise ValueError(
+                    "Dự án chưa có RAW schema (chưa tải lên tập dữ liệu đầu tiên). "
+                    "Không thể tạo hoặc kích hoạt Rule ở trạng thái ACTIVE (BR-PM-04)."
+                )
+        else:
+            if condition is not None:
+                errors = ProjectSchemaValidator.validate_rule_condition(
+                    condition, project.raw_schema
+                )
+                if errors:
+                    raise ValueError(" ".join(errors))
 
     def create_rule(
         self,
@@ -45,6 +91,9 @@ class RuleManager:
         existing = self._rule_repo.get_by_code(proj_uuid, rule_code)
         if existing:
             raise ValueError(f"Rule with code '{rule_code}' already exists in project {proj_uuid}")
+
+        # Validate condition and status against project's RAW schema (BR-PM-04 & BR-PM-05)
+        self._validate_against_project_schema(proj_uuid, condition, status)
 
         rule_id = uuid4()
         now = datetime.now(timezone.utc)
@@ -113,6 +162,9 @@ class RuleManager:
             new_condition = condition if condition is not None else (latest_version.condition if latest_version else {})
             new_action = action if action is not None else (latest_version.action if latest_version else RuleAction.REVIEW)
 
+            # Validate updated condition against project's RAW schema (BR-PM-05)
+            self._validate_against_project_schema(rule.project_id, new_condition, rule.status)
+
             new_version = RuleVersion(
                 rule_id=r_uuid,
                 version_number=next_version_num,
@@ -146,6 +198,10 @@ class RuleManager:
         rule = self._rule_repo.get_by_id(r_uuid)
         if not rule:
             raise ValueError(f"Rule not found with ID {r_uuid}")
+
+        latest_version = self._version_repo.get_latest_version(r_uuid)
+        current_cond = latest_version.condition if latest_version else None
+        self._validate_against_project_schema(rule.project_id, current_cond, status)
 
         rule.status = status
         rule.updated_at = datetime.now(timezone.utc)
