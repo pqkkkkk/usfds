@@ -150,6 +150,7 @@ class TestModelPluginEndToEnd(unittest.TestCase):
             model_version_repo=self.version_repo,
             model_repo=self.model_repo,
             dataset_artifact_repo=self.artifact_repo,
+            file_storage=self.storage,
         )
         self.executor = TrainingRunExecutor(
             file_storage=self.storage,
@@ -339,6 +340,23 @@ class TestModelPluginEndToEnd(unittest.TestCase):
         version = self.version_repo.get_by_id(completed_run.version_id)
         prep_uri = str(Path(version.artifact_uri).parent / "preprocessor.joblib").replace("\\", "/")
         self.assertTrue(self.storage.exists(prep_uri), "Built-in model must save companion preprocessor.joblib")
+
+    def test_training_service_register_plugged_model(self):
+        """Verify TrainingOrchestrationService.register_plugged_model from storage zip path and directory."""
+        # 1. Save zip in file_storage and call register_plugged_model(model_artifact_path)
+        zip_bytes = package_directory_to_zip_bytes(self.lr_plugin_dir)
+        upload_uri = "uploads/lr_plugin.zip"
+        self.storage.save_bytes(upload_uri, zip_bytes)
+
+        registered_model = self.training_service.register_plugged_model(upload_uri)
+        self.assertIsNotNone(registered_model)
+        self.assertEqual(registered_model.execution_type, ExecutionType.SCRIPT)
+        self.assertTrue(self.storage.exists(registered_model.entrypoint_uri))
+
+        # 2. Non-existent path raises ValueError
+        with self.assertRaises(ValueError) as ctx:
+            self.training_service.register_plugged_model("uploads/does_not_exist.zip")
+        self.assertIn("not found", str(ctx.exception))
 
 
 if __name__ == "__main__":

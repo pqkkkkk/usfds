@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 import tempfile
 from typing import Optional, Tuple, Union
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_DNS, UUID, uuid4, uuid5
 import zipfile
 
 from usfds_core.domain.entities.enums import ExecutionType
@@ -103,13 +103,26 @@ class ModelPluginRegistrationService:
         self.file_storage = file_storage
         self.validator = validator or ModelPluginValidator()
 
+    @staticmethod
+    def _resolve_user_id(user_id: Optional[Union[UUID, str]]) -> UUID:
+        if isinstance(user_id, UUID):
+            return user_id
+        if isinstance(user_id, str) and user_id.strip():
+            try:
+                return UUID(user_id.strip())
+            except ValueError:
+                return uuid5(NAMESPACE_DNS, user_id.strip())
+        return uuid4()
+
     def register_from_directory(
         self,
         plugin_dir: Union[str, Path],
-        user_id: UUID,
+        user_id: Optional[Union[UUID, str]] = None,
         manifest_override: Optional[ModelPluginManifest] = None,
+        project_id: Optional[UUID] = None,
     ) -> Tuple[Optional[Model], PluginValidationResult]:
         """Validate a plugin directory and register it into the Model Registry if valid."""
+        resolved_user_id = self._resolve_user_id(user_id)
         source_path = Path(plugin_dir).resolve()
         validation_res = self.validator.validate(source_path, manifest=manifest_override)
         if not validation_res.is_valid or validation_res.manifest is None:
@@ -136,8 +149,9 @@ class ModelPluginRegistrationService:
 
         model = Model(
             model_id=model_id,
+            project_id=project_id,
             model_name=manifest.model_name,
-            user_id=user_id,
+            user_id=resolved_user_id,
             display_name=manifest.display_name or manifest.model_name,
             description=manifest.description,
             execution_type=ExecutionType.SCRIPT,
@@ -154,8 +168,9 @@ class ModelPluginRegistrationService:
     def register_from_zip(
         self,
         zip_bytes: bytes,
-        user_id: UUID,
+        user_id: Optional[Union[UUID, str]] = None,
         manifest_override: Optional[ModelPluginManifest] = None,
+        project_id: Optional[UUID] = None,
     ) -> Tuple[Optional[Model], PluginValidationResult]:
         """Extract a ZIP archive of a user plugin, validate it, and register if valid."""
         temp_extract_dir = Path(tempfile.mkdtemp(prefix="usfds_zip_upload_"))
@@ -165,6 +180,7 @@ class ModelPluginRegistrationService:
                 plugin_dir=temp_extract_dir,
                 user_id=user_id,
                 manifest_override=manifest_override,
+                project_id=project_id,
             )
         finally:
             shutil.rmtree(temp_extract_dir, ignore_errors=True)

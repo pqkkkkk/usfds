@@ -27,6 +27,14 @@ from usfds_server.schemas.rule_api_schemas import (
     UpdateRuleRequest,
 )
 
+from usfds_server.schemas.training_api_schemas import (
+    ModelResponse,
+    ModelVersionResponse,
+    RegisterPluggedModelRequest,
+    StartTrainingRunRequest,
+    TrainingRunResponse,
+)
+
 __all__ = [
     "ApiResponse",
     "CreateProjectRequest",
@@ -49,4 +57,9 @@ __all__ = [
     "EvaluateRuleRequest",
     "EvaluateRulesRequest",
     "RuleExecutionResultResponse",
+    "RegisterPluggedModelRequest",
+    "StartTrainingRunRequest",
+    "ModelResponse",
+    "ModelVersionResponse",
+    "TrainingRunResponse",
 ]

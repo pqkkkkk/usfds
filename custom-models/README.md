@@ -1,2 +1,2 @@
 # Custom Models
-Using to test training and inference with custom models.
+Using to test function "import custom model"
