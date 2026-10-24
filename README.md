@@ -1,7 +1,9 @@
 # USFDS (US Fraud Detection System)
 
 ## 1. Overview
-**USFDS** is a machine learning–driven platform designed for detecting credit card transaction fraud. The system provides an end-to-end workflow covering dataset management, automated feature preprocessing, model training, evaluation, batch detection, and explainability, investigation, related insight generation & reporting.
+- **USFDS** is a machine learning–driven platform designed for detecting credit card transaction fraud. The system provides an end-to-end workflow covering dataset management, automated feature preprocessing, model training, evaluation, batch detection, and explainability, investigation, related insight generation & reporting.
+- **USFDS** is result of research and development efforts for graduation thesis, specifically aimed at creating a robust and scalable fraud detection system for credit card transactions.
+- All related documentation and resources can be found within the Notion page [Task](https://app.notion.com/p/325b99c6a9508074ba72e26e509260bf?v=325b99c6a9508078acdc000cad8d9232)
 
 ---
 
