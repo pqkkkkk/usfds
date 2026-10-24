@@ -71,6 +71,7 @@ class RuleResponse(BaseModel):
 class EvaluateRuleRequest(BaseModel):
     """Payload to evaluate a single rule or ad-hoc rule version against a context."""
     transaction_id: str
+    raw_features: Dict[str, Any] = Field(default_factory=dict)
     mapped_features: Dict[str, Any] = Field(default_factory=dict)
     enriched_features: Dict[str, Any] = Field(default_factory=dict)
 
@@ -79,6 +80,7 @@ class EvaluateRulesRequest(BaseModel):
     """Payload to evaluate all active rules in a project against a transaction."""
     project_id: UUID
     transaction_id: str
+    raw_features: Dict[str, Any] = Field(default_factory=dict)
     mapped_features: Dict[str, Any] = Field(default_factory=dict)
     enriched_features: Dict[str, Any] = Field(default_factory=dict)
 

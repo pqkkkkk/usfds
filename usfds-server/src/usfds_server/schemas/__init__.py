@@ -11,6 +11,11 @@ from usfds_server.schemas.dataset_api_schemas import (
     DatasetPreviewResponse,
 )
 
+from usfds_server.schemas.project_api_schemas import (
+    CreateProjectRequest,
+    ProjectResponse,
+    UpdateProjectRequest,
+)
 from usfds_server.schemas.rule_api_schemas import (
     CreateRuleRequest,
     EvaluateRuleRequest,
@@ -22,8 +27,19 @@ from usfds_server.schemas.rule_api_schemas import (
     UpdateRuleRequest,
 )
 
+from usfds_server.schemas.training_api_schemas import (
+    ModelResponse,
+    ModelVersionResponse,
+    RegisterPluggedModelRequest,
+    StartTrainingRunRequest,
+    TrainingRunResponse,
+)
+
 __all__ = [
     "ApiResponse",
+    "CreateProjectRequest",
+    "UpdateProjectRequest",
+    "ProjectResponse",
     "ImportDatasetRequest",
     "DatasetResponse",
     "DatasetArtifactResponse",
@@ -41,4 +57,9 @@ __all__ = [
     "EvaluateRuleRequest",
     "EvaluateRulesRequest",
     "RuleExecutionResultResponse",
+    "RegisterPluggedModelRequest",
+    "StartTrainingRunRequest",
+    "ModelResponse",
+    "ModelVersionResponse",
+    "TrainingRunResponse",
 ]

@@ -5,10 +5,12 @@ from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
 from usfds_core.domain.entities.rule import Rule, RuleVersion
+from usfds_core.domain.entities.system import Project
+from usfds_core.repositories.base_project_repo import IProjectRepository
 from usfds_core.repositories.base_rule_repo import IRuleRepository, IRuleVersionRepository
 
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
-from usfds_core.domain.entities.enums import DatasetRole
+from usfds_core.domain.entities.enums import DatasetRole, ProjectStatus
 from usfds_core.domain.entities.model import Model, ModelVersion, RunDataset, TrainingRun
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
@@ -378,3 +380,53 @@ class InMemoryRuleVersionRepository(IRuleVersionRepository):
     def list_by_rule(self, rule_id: UUID) -> List[RuleVersion]:
         versions = [v for v in self._versions.values() if v.rule_id == rule_id]
         return sorted(versions, key=lambda v: v.version_number)
+
+
+class InMemoryProjectRepository(IProjectRepository):
+    """In-memory store for projects."""
+
+    def __init__(self):
+        self._projects: Dict[UUID, Project] = {}
+
+    def save(self, project: Project) -> Project:
+        self._projects[project.project_id] = project
+        return project
+
+    def get_by_id(self, project_id: UUID) -> Optional[Project]:
+        return self._projects.get(project_id)
+
+    def get_by_name(self, user_id: UUID, project_name: str) -> Optional[Project]:
+        for p in self._projects.values():
+            if p.user_id == user_id and p.project_name.lower() == project_name.lower():
+                return p
+        return None
+
+    def list_all(
+        self,
+        user_id: Optional[UUID] = None,
+        status: Optional[Union[ProjectStatus, str]] = None,
+        search: Optional[str] = None,
+    ) -> List[Project]:
+        res = list(self._projects.values())
+        if user_id:
+            res = [p for p in res if p.user_id == user_id]
+        if status:
+            status_val = status.value if hasattr(status, "value") else str(status)
+            res = [
+                p for p in res
+                if (p.status.value if hasattr(p.status, "value") else str(p.status)) == status_val
+            ]
+        if search:
+            lower_s = search.lower()
+            res = [
+                p for p in res
+                if (p.project_name and lower_s in p.project_name.lower())
+                or (p.description and lower_s in p.description.lower())
+            ]
+        return sorted(res, key=lambda p: p.created_at, reverse=True)
+
+    def delete(self, project_id: UUID) -> bool:
+        if project_id in self._projects:
+            del self._projects[project_id]
+            return True
+        return False

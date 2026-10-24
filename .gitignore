@@ -16,7 +16,6 @@
 # • BEST PRACTICES: Review patterns before use, test with git check-ignore, customize for your project
 # • OFFICIAL SOURCES: Poetry documentation and community best practices
 
-docs/
 storage_output/
 datasets/
 poc-models/

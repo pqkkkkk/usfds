@@ -12,6 +12,7 @@ from usfds_core.domain.schemas.preprocessing_config import (
 )
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
+from usfds_core.repositories.base_project_repo import IProjectRepository
 from usfds_core.services.data_management.export import DatasetExportService
 from usfds_core.services.data_management.ingestion import DatasetIngestionService
 from usfds_core.services.data_management.lineage import DataLineageService, LineageGraph
@@ -21,6 +22,7 @@ from usfds_core.services.data_management.validation import DataQualityValidation
 from usfds_core.services.preprocessing.feature_engineering_service import (
     FeatureEngineeringExecutionService,
 )
+from usfds_core.services.project_management.project_service import ProjectManagementService
 from usfds_core.storage.base_storage import IFileStorage
 
 
@@ -36,6 +38,8 @@ class DataManagementService:
         dataset_repo: IDatasetRepository,
         artifact_repo: IDatasetArtifactRepository,
         file_storage: IFileStorage,
+        project_repo: Optional[IProjectRepository] = None,
+        project_service: Optional[ProjectManagementService] = None,
         ingestion_service: Optional[DatasetIngestionService] = None,
         profiling_service: Optional[DataProfilingService] = None,
         mapping_service: Optional[DataMappingService] = None,
@@ -47,6 +51,8 @@ class DataManagementService:
         self.dataset_repo = dataset_repo
         self.artifact_repo = artifact_repo
         self.file_storage = file_storage
+        self.project_repo = project_repo
+        self.project_service = project_service
 
         self.profiling_service = profiling_service or DataProfilingService()
         self.validation_service = validation_service or DataQualityValidationService()
@@ -54,6 +60,7 @@ class DataManagementService:
             file_storage=file_storage,
             artifact_repo=artifact_repo,
             dataset_repo=dataset_repo,
+            project_repo=project_repo,
             profiling_service=self.profiling_service,
         )
         self.mapping_service = mapping_service or DataMappingService(
@@ -134,6 +141,18 @@ class DataManagementService:
 
         # 3. Delete persisted records
         self.dataset_repo.delete(dataset_id)
+
+        # 4. Auto-unlock Project RAW schema if no dependent resources remain
+        if self.project_service is not None:
+            self.project_service.handle_dataset_deleted(dataset.project_id, dataset_id)
+        elif self.project_repo is not None:
+            temp_proj_svc = ProjectManagementService(
+                project_repo=self.project_repo,
+                dataset_repo=self.dataset_repo,
+                artifact_repo=self.artifact_repo,
+                file_storage=self.file_storage,
+            )
+            temp_proj_svc.handle_dataset_deleted(dataset.project_id, dataset_id)
 
 
     def import_dataset(

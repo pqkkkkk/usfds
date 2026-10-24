@@ -185,28 +185,35 @@ class RuleExecutor:
     def _build_payload(self, context: RuleExecutionContext) -> Dict[str, Any]:
         """
         Builds a structured dictionary payload from RuleExecutionContext.
-        Allows access via nested paths, e.g.:
-          - {"var": "mapped_features.amount"}
-          - {"var": "mapped.amount"}
-          - {"var": "amount"} (flat fallback)
+        Allows access via flat RAW column keys or nested paths, e.g.:
+          - {"var": "tx_amount"} (flat RAW schema column)
+          - {"var": "raw.tx_amount"} / {"var": "raw_features.tx_amount"}
+          - {"var": "enriched.tx_freq_last_1h"} / {"var": "enriched_features.tx_freq_last_1h"}
+          - {"var": "mapped.amount"} / {"var": "mapped_features.amount"} (backward-compatible alias)
         """
+        raw_feats = context.raw_features or context.mapped_features or {}
+        mapped_feats = context.mapped_features or context.raw_features or {}
+        enriched_feats = context.enriched_features or {}
+
         payload: Dict[str, Any] = {
             "transaction_id": context.transaction_id,
-            "mapped_features": context.mapped_features or {},
-            "enriched_features": context.enriched_features or {},
-            # Shorthand aliases
-            "mapped": context.mapped_features or {},
-            "enriched": context.enriched_features or {},
+            "raw_features": raw_feats,
+            "raw": raw_feats,
+            "mapped_features": mapped_feats,
+            "mapped": mapped_feats,
+            "enriched_features": enriched_feats,
+            "enriched": enriched_feats,
         }
 
-        # Flat fallback keys so rules can also write {"var": "amount"} directly
-        if context.mapped_features:
-            for k, v in context.mapped_features.items():
-                if k not in payload:
-                    payload[k] = v
-        if context.enriched_features:
-            for k, v in context.enriched_features.items():
-                if k not in payload:
-                    payload[k] = v
+        # Flat fallback keys so rules can write {"var": "tx_amount"} directly
+        for k, v in raw_feats.items():
+            if k not in payload:
+                payload[k] = v
+        for k, v in mapped_feats.items():
+            if k not in payload:
+                payload[k] = v
+        for k, v in enriched_feats.items():
+            if k not in payload:
+                payload[k] = v
 
         return payload

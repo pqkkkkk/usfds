@@ -16,7 +16,7 @@ from usfds_server.dependencies import (
     setup_infrastructure,
     teardown_infrastructure,
 )
-from usfds_server.routers import dataset_router, rule_router
+from usfds_server.routers import dataset_router, project_router, rule_router, training_router
 from usfds_server.schemas.base_response import ApiResponse
 
 
@@ -73,8 +73,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 # Register routers
+app.include_router(project_router)
 app.include_router(dataset_router)
 app.include_router(rule_router)
+app.include_router(training_router)
 
 
 @app.get("/health", tags=["System"])

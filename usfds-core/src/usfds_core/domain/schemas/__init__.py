@@ -40,10 +40,18 @@ from usfds_core.domain.schemas.investigation_schemas import (
     SARDraftPayload,
     UserBaselineProfile,
 )
+from usfds_core.domain.schemas.project_schema import (
+    ColumnSchemaSpec,
+    ProjectRawSchema,
+    SchemaValidationResult,
+)
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
 from usfds_core.domain.schemas.training_payload import TrainingRunPayload, TrainingRunResult
 
 __all__ = [
+    "ColumnSchemaSpec",
+    "ProjectRawSchema",
+    "SchemaValidationResult",
     "FieldEdaSummary",
     "DatasetEdaSummary",
     "ArtifactOutputKey",

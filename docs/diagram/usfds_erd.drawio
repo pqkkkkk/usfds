@@ -1,0 +1,109 @@
+<mxfile>
+  <diagram id="autolayout" name="Page-1">
+    <mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="group_0" value="Dataset &amp; Lineage Management" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82b366;fontColor=#82b366;verticalAlign=top;fontStyle=2;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="806" y="466" width="428" height="758" as="geometry"/>
+        </mxCell>
+        <mxCell id="group_1" value="Detection &amp; Serving" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9673a6;fontColor=#9673a6;verticalAlign=top;fontStyle=2;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="516" y="1606" width="778" height="668" as="geometry"/>
+        </mxCell>
+        <mxCell id="group_2" value="Investigation &amp; Governance" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#d6b656;fontColor=#d6b656;verticalAlign=top;fontStyle=2;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1336" y="436" width="408" height="368" as="geometry"/>
+        </mxCell>
+        <mxCell id="group_3" value="Model Registry &amp; Experiments" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#d79b00;fontColor=#d79b00;verticalAlign=top;fontStyle=2;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="6" y="436" width="788" height="1168" as="geometry"/>
+        </mxCell>
+        <mxCell id="group_4" value="System &amp; Access Management" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6c8ebf;fontColor=#6c8ebf;verticalAlign=top;fontStyle=2;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1056" y="6" width="408" height="428" as="geometry"/>
+        </mxCell>
+        <mxCell id="User" value="User&#xa;----------------------------------------&#xa;PK  user_id: UUID&#xa;    username: str [UQ]&#xa;    email: str [UQ]&#xa;    created_at: datetime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_4">
+          <mxGeometry x="24" y="24" width="360" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="Project" value="Project&#xa;----------------------------------------&#xa;PK  project_id: UUID&#xa;FK  user_id: UUID&#xa;FK  base_dataset_id: UUID [opt]&#xa;    project_name: str&#xa;    description: str [opt]&#xa;    created_at: datetime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_4">
+          <mxGeometry x="24" y="214" width="360" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="Dataset" value="Dataset&#xa;----------------------------------------&#xa;PK  dataset_id: UUID&#xa;FK  project_id: UUID&#xa;FK  user_id: UUID&#xa;    dataset_name: str&#xa;    display_name: str [opt]&#xa;    description: str [opt]&#xa;    contains_pii: bool&#xa;    data_classification: DataClassification&#xa;    created_at: datetime&#xa;    updated_at: datetime [opt]" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_0">
+          <mxGeometry x="24" y="24" width="380" height="260" as="geometry"/>
+        </mxCell>
+        <mxCell id="DatasetArtifact" value="DatasetArtifact (Snapshot / Lineage)&#xa;----------------------------------------&#xa;PK  artifact_id: UUID&#xa;FK  dataset_id: UUID&#xa;FK  parent_artifact_id: UUID [opt]&#xa;    storage_path: str&#xa;    pipeline_stage: PipelineStage&#xa;    change_type: str [opt]&#xa;    checksum_sha256: str [opt]&#xa;    schema_snapshot: dict [opt]&#xa;    row_count: int [opt]&#xa;    column_count: int [opt]&#xa;    validation_status: ValidationStatus&#xa;    validation_report: dict [opt]&#xa;    output_paths: dict&#xa;    created_by: str [opt]&#xa;    created_at: datetime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_0">
+          <mxGeometry x="24" y="374" width="360" height="360" as="geometry"/>
+        </mxCell>
+        <mxCell id="Model" value="Model (Registry)&#xa;----------------------------------------&#xa;PK  model_id: UUID&#xa;FK  user_id: UUID&#xa;    model_name: str&#xa;    display_name: str [opt]&#xa;    description: str [opt]&#xa;    execution_type: ExecutionType&#xa;    entrypoint_uri: str [opt]&#xa;    hyperparameter_schema: dict [opt]&#xa;    default_hyperparameters: dict [opt]&#xa;    risk_level: RiskLevel [opt]&#xa;    github_repo: str [opt]&#xa;    created_at: datetime&#xa;    updated_at: datetime [opt]" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_3">
+          <mxGeometry x="314" y="24" width="360" height="320" as="geometry"/>
+        </mxCell>
+        <mxCell id="ModelVersion" value="ModelVersion (Release Package)&#xa;----------------------------------------&#xa;PK  version_id: UUID&#xa;FK  model_id: UUID&#xa;FK  run_id: UUID [opt]&#xa;    semver: str&#xa;    artifact_uri: str&#xa;    description: str [opt]&#xa;    artifact_size_mb: float [opt]&#xa;    checksum_sha256: str [opt]&#xa;    framework: str [opt]&#xa;    decision_threshold: float = 0.5&#xa;    status: ModelVersionStatus&#xa;    registered_by: str [opt]&#xa;    registered_at: datetime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_3">
+          <mxGeometry x="24" y="824" width="360" height="320" as="geometry"/>
+        </mxCell>
+        <mxCell id="TrainingRun" value="TrainingRun (Experiment Execution)&#xa;----------------------------------------&#xa;PK  run_id: UUID&#xa;FK  model_id: UUID [opt]&#xa;FK  version_id: UUID [opt]&#xa;    run_name: str&#xa;    status: TrainingRunStatus&#xa;    accuracy: float [opt]&#xa;    precision_score: float [opt]&#xa;    recall_score: float [opt]&#xa;    f1_score: float [opt]&#xa;    loss: float [opt]&#xa;    default_threshold: float = 0.5&#xa;    recommended_threshold: float [opt]&#xa;    hyperparameters: dict [opt]&#xa;    custom_metrics: dict [opt]&#xa;    compute_target: str [opt]&#xa;    duration_seconds: int [opt]&#xa;    created_at: datetime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_3">
+          <mxGeometry x="314" y="384" width="360" height="400" as="geometry"/>
+        </mxCell>
+        <mxCell id="RunDataset" value="RunDataset (Training Data Link)&#xa;----------------------------------------&#xa;PK/FK  run_id: UUID&#xa;PK/FK  dataset_artifact_id: UUID&#xa;       dataset_role: DatasetRole&#xa;       sample_count: int [opt]&#xa;       usage_percentage: float [opt]" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_3">
+          <mxGeometry x="404" y="894" width="360" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="Deployment" value="Deployment (Serving Endpoint)&#xa;----------------------------------------&#xa;PK  deployment_id: UUID&#xa;FK  version_id: UUID&#xa;    deployment_name: str&#xa;    environment: DeploymentEnvironment&#xa;    endpoint_url: str [opt]&#xa;    serving_framework: str [opt]&#xa;    replicas: int = 1&#xa;    status: DeploymentStatus&#xa;    traffic_percentage: int = 100&#xa;    deployed_by: str [opt]&#xa;    deployed_at: datetime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#ffe6cc;strokeColor=#d79b00;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_1">
+          <mxGeometry x="24" y="24" width="360" height="280" as="geometry"/>
+        </mxCell>
+        <mxCell id="DetectionJob" value="DetectionJob (Batch Inference)&#xa;----------------------------------------&#xa;PK  job_id: UUID&#xa;FK  project_id: UUID&#xa;FK  deployment_id: UUID&#xa;    job_name: str [opt]&#xa;    input_path: str&#xa;    output_path: str [opt]&#xa;    status: DetectionJobStatus&#xa;    total_records: int [opt]&#xa;    fraud_records: int [opt]&#xa;    fraud_rate: float [opt]&#xa;    execution_time_seconds: float [opt]&#xa;    created_at: datetime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#ffe6cc;strokeColor=#d79b00;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_1">
+          <mxGeometry x="204" y="344" width="360" height="300" as="geometry"/>
+        </mxCell>
+        <mxCell id="Rule" value="Rule (Fraud Business Rule)&#xa;----------------------------------------&#xa;PK  rule_id: UUID&#xa;FK  project_id: UUID&#xa;    rule_name: str&#xa;    rule_type: RuleType&#xa;    rule_condition: dict&#xa;    is_active: bool&#xa;    created_at: datetime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#ffe6cc;strokeColor=#d79b00;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_1">
+          <mxGeometry x="394" y="64" width="360" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="InvestigationCase" value="InvestigationCase (Fraud Alert)&#xa;----------------------------------------&#xa;PK  case_id: UUID&#xa;FK  project_id: UUID&#xa;FK  assigned_to: UUID [opt]&#xa;    event_id: int&#xa;    status: InvestigationStatus&#xa;    risk_level: RiskLevel&#xa;    fraud_probability: float [opt]&#xa;    action_taken: str [opt]&#xa;    sar_narrative: str [opt]&#xa;    analyst_notes: str [opt]&#xa;    metadata: dict&#xa;    created_at: datetime&#xa;    updated_at: datetime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=Consolas,monospace;fontSize=11;" vertex="1" parent="group_2">
+          <mxGeometry x="24" y="24" width="360" height="320" as="geometry"/>
+        </mxCell>
+        <mxCell id="e0" value="user_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="User" target="Project">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1260" y="180"/><mxPoint x="1260" y="210"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e1" value="user_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="User" target="Dataset">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1020" y="130"/><mxPoint x="960" y="130"/><mxPoint x="960" y="130"/><mxPoint x="960" y="130"/><mxPoint x="960" y="480"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e2" value="user_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="User" target="Model">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="860" y="80"/><mxPoint x="500" y="80"/><mxPoint x="500" y="80"/><mxPoint x="500" y="80"/><mxPoint x="500" y="450"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e3" value="assigned_to (0..1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="User" target="InvestigationCase">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1520" y="110"/><mxPoint x="1580" y="110"/><mxPoint x="1580" y="110"/><mxPoint x="1580" y="110"/><mxPoint x="1580" y="450"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e4" value="project_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="Project" target="Dataset">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1150" y="410"/><mxPoint x="1150" y="480"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e5" value="project_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="Project" target="Rule">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1240" y="410"/><mxPoint x="1240" y="1660"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e6" value="project_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="Project" target="DetectionJob">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1320" y="780"/><mxPoint x="1320" y="2100"/><mxPoint x="1320" y="2100"/><mxPoint x="1320" y="2100"/><mxPoint x="1100" y="2100"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e7" value="project_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="Project" target="InvestigationCase">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1400" y="410"/><mxPoint x="1400" y="450"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e8" value="dataset_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="Dataset" target="DatasetArtifact">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1010" y="750"/><mxPoint x="1010" y="830"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e9" value="model_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="Model" target="ModelVersion">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="250" y="620"/><mxPoint x="180" y="620"/><mxPoint x="180" y="620"/><mxPoint x="180" y="620"/><mxPoint x="180" y="1240"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e10" value="model_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="Model" target="TrainingRun">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="500" y="780"/><mxPoint x="500" y="810"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e11" value="run_id (1:0..1)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="TrainingRun" target="ModelVersion">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="360" y="1220"/><mxPoint x="360" y="1240"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e12" value="run_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="TrainingRun" target="RunDataset">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="550" y="1220"/><mxPoint x="550" y="1320"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e13" value="artifact_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="DatasetArtifact" target="RunDataset">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="860" y="1300"/><mxPoint x="860" y="1420"/><mxPoint x="860" y="1420"/><mxPoint x="860" y="1420"/><mxPoint x="780" y="1420"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e14" value="version_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="ModelVersion" target="Deployment">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="510" y="1540"/><mxPoint x="650" y="1540"/><mxPoint x="650" y="1540"/><mxPoint x="650" y="1540"/><mxPoint x="650" y="1620"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e15" value="deployment_id (1:N)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;labelBackgroundColor=#ffffff;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="Deployment" target="DetectionJob">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="810" y="1910"/><mxPoint x="810" y="1940"/></Array></mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

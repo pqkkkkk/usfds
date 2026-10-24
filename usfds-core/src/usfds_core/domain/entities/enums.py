@@ -127,3 +127,17 @@ class RuleStatus(StrEnum):
     DRAFT = "DRAFT"              
     ACTIVE = "ACTIVE"            
     INACTIVE = "INACTIVE"        
+
+
+class ProjectStatus(StrEnum):
+    """Lifecycle status of a fraud detection project."""
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+
+
+class LogicalDataType(StrEnum):
+    """Logical data type groups for project-level RAW schema governance."""
+    NUMERIC = "NUMERIC"
+    STRING = "STRING"
+    BOOLEAN = "BOOLEAN"
+    DATETIME = "DATETIME"

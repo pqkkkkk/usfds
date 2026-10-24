@@ -4,6 +4,7 @@ from usfds_core.repositories.base_detection_job_repo import IDetectionJobReposit
 from usfds_core.repositories.base_investigation_repo import IInvestigationRepository
 from usfds_core.repositories.base_model_repo import IModelRepository
 from usfds_core.repositories.base_model_version_repo import IModelVersionRepository
+from usfds_core.repositories.base_project_repo import IProjectRepository
 from usfds_core.repositories.base_training_run_repo import ITrainingRunRepository
 from usfds_core.repositories.base_rule_repo import IRuleRepository, IRuleVersionRepository
 from usfds_core.repositories.in_memory_repos import (
@@ -13,6 +14,7 @@ from usfds_core.repositories.in_memory_repos import (
     InMemoryModelRepository,
     InMemoryModelVersionRepository,
     InMemoryPipelineRepository,
+    InMemoryProjectRepository,
     InMemoryRuleRepository,
     InMemoryRuleVersionRepository,
     InMemoryTrainingRunRepository,
@@ -20,6 +22,7 @@ from usfds_core.repositories.in_memory_repos import (
 from usfds_core.repositories.pipeline_repo import IPipelineRepository
 
 __all__ = [
+    "IProjectRepository",
     "IDatasetRepository",
     "IModelRepository",
     "ITrainingRunRepository",
@@ -30,6 +33,7 @@ __all__ = [
     "IInvestigationRepository",
     "IRuleRepository",
     "IRuleVersionRepository",
+    "InMemoryProjectRepository",
     "InMemoryDatasetRepository",
     "InMemoryModelRepository",
     "InMemoryTrainingRunRepository",
