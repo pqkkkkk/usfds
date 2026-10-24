@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -99,7 +100,9 @@ class TrainingOrchestrationService:
             config.run_name
             or f"run-{model.model_name}-{int(datetime.now(timezone.utc).timestamp())}"
         )
+        resolved_project_id = config.project_id or model.project_id
         run = TrainingRun(
+            project_id=resolved_project_id,
             model_id=model.model_id,
             run_name=run_name,
             hyperparameters=merged_params,
@@ -171,6 +174,7 @@ class TrainingOrchestrationService:
 
             model_version = ModelVersion(
                 model_id=run.model_id,
+                project_id=run.project_id,
                 run_id=run.run_id,
                 semver=next_semver,
                 artifact_uri=result.artifact_uri or "",
@@ -320,15 +324,84 @@ class TrainingOrchestrationService:
             raise ValueError(f"ModelVersion with ID {version_id} not found.")
         return version
 
-    def list_training_runs(self, model_id: Optional[UUID] = None) -> List[TrainingRun]:
-        """List training runs, optionally filtered by model_id."""
+    def activate_model_version(
+        self,
+        version_id: UUID,
+        decision_threshold: Optional[float] = None,
+        description: Optional[str] = None,
+    ) -> ModelVersion:
+        """Verify artifact integrity, update decision_threshold, and set ModelVersion status to APPROVED (SUC-10)."""
+        version = self.get_model_version(version_id)
+
+        if not version.artifact_uri:
+            raise ValueError("ModelVersion has no artifact_uri registered.")
+
+        # 1. Read artifact bytes from storage or local filesystem to verify existence & SHA-256 checksum
+        artifact_bytes: Optional[bytes] = None
+        if self.file_storage.exists(version.artifact_uri):
+            artifact_bytes = self.file_storage.read_bytes(version.artifact_uri)
+        else:
+            local_p = Path(version.artifact_uri)
+            if local_p.is_file():
+                artifact_bytes = local_p.read_bytes()
+
+        if artifact_bytes is None:
+            raise ValueError(
+                f"Integrity check failed: Model artifact '{version.artifact_uri}' does not exist in storage."
+            )
+
+        if version.checksum_sha256:
+            actual_checksum = hashlib.sha256(artifact_bytes).hexdigest()
+            if actual_checksum != version.checksum_sha256:
+                raise ValueError(
+                    "Integrity check failed: Model artifact SHA-256 checksum mismatch."
+                )
+
+        # 2. Update threshold and optional description
+        if decision_threshold is not None:
+            if not (0.0 < decision_threshold < 1.0):
+                raise ValueError("decision_threshold must be strictly between 0.0 and 1.0.")
+            version.decision_threshold = round(float(decision_threshold), 4)
+
+        if description is not None:
+            version.description = description
+
+        # 3. Independently activate version (APPROVED)
+        version.status = ModelVersionStatus.APPROVED
+        self.model_version_repo.save(version)
+        logger.info(
+            f"Activated ModelVersion {version.version_id} ({version.semver}) "
+            f"with threshold={version.decision_threshold}."
+        )
+        return version
+
+    def get_run_dataset_artifact_id(self, run_id: UUID) -> Optional[UUID]:
+        """Return the primary training dataset_artifact_id linked to a training run."""
+        linked = self.training_run_repo.get_linked_datasets(run_id)
+        if not linked:
+            return None
+        return linked[0].dataset_artifact_id
+
+    def list_training_runs(
+        self,
+        model_id: Optional[UUID] = None,
+        project_id: Optional[UUID] = None,
+    ) -> List[TrainingRun]:
+        """List training runs, optionally filtered by model_id and/or project_id."""
         if model_id is not None:
-            return self.training_run_repo.list_by_model(model_id)
-        models = self.model_repo.list_models()
-        runs: List[TrainingRun] = []
-        for m in models:
-            runs.extend(self.training_run_repo.list_by_model(m.model_id))
-        runs.sort(key=lambda r: r.created_at, reverse=True)
+            runs = self.training_run_repo.list_by_model(model_id)
+        else:
+            models = self.model_repo.list_models()
+            runs = []
+            for m in models:
+                runs.extend(self.training_run_repo.list_by_model(m.model_id))
+            runs.sort(key=lambda r: r.created_at, reverse=True)
+
+        if project_id is not None:
+            runs = [
+                r for r in runs
+                if r.project_id == project_id or r.project_id is None
+            ]
         return runs
 
     def get_training_run(self, run_id: UUID) -> TrainingRun:

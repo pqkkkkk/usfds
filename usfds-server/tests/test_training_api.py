@@ -174,7 +174,30 @@ def test_training_router_builtin_and_plugin_models_lifecycle(temporary_environme
 
         res_ver_detail = client.get(f"/api/v1/training/versions/{versions[0]['version_id']}")
         assert res_ver_detail.status_code == 200
+        assert res_ver_detail.json()["data"]["status"] == "CANDIDATE"
+
+        # 7. Activate model version (SUC-10)
+        res_activate = client.post(
+            f"/api/v1/training/versions/{versions[0]['version_id']}/activate",
+            json={"decision_threshold": 0.64, "description": "Activated via API test"},
+        )
+        assert res_activate.status_code == 200, res_activate.text
+        activated_ver = res_activate.json()["data"]
+        assert activated_ver["status"] == "APPROVED"
+        assert activated_ver["decision_threshold"] == 0.64
+        assert activated_ver["description"] == "Activated via API test"
+
+        # 8. Test multipart .zip upload endpoint (SUC-17)
+        svm_plugin_dir = repo_root / "custom-models" / "svm"
+        svm_zip_bytes = package_directory_to_zip_bytes(svm_plugin_dir)
+        res_upload_zip = client.post(
+            "/api/v1/training/models/plugins/upload",
+            files={"file": ("svm_plugin.zip", svm_zip_bytes, "application/zip")},
+        )
+        assert res_upload_zip.status_code == 201, res_upload_zip.text
+        assert res_upload_zip.json()["data"]["execution_type"] == "SCRIPT"
 
         res_run_detail = client.get(f"/api/v1/training/runs/{run_data['run_id']}")
         assert res_run_detail.status_code == 200
         assert res_run_detail.json()["data"]["run_id"] == run_data["run_id"]
+        assert res_run_detail.json()["data"]["dataset_artifact_id"] == fe_artifact_id

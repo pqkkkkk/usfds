@@ -153,6 +153,7 @@ class TestTrainingOrchestrationService(unittest.TestCase):
             model_version_repo=self.version_repo,
             model_repo=self.model_repo,
             dataset_artifact_repo=self.artifact_repo,
+            file_storage=self.storage,
         )
 
         notifier = CallbackResultNotifier(callback=service.handle_training_completion)
@@ -162,9 +163,11 @@ class TestTrainingOrchestrationService(unittest.TestCase):
         )
 
         # Run 1: Should produce semver 1.0.0
+        project_id = uuid4()
         config1 = TrainingRunConfig(
             model_id=self.model.model_id,
             dataset_artifact_id=self.artifact.artifact_id,
+            project_id=project_id,
             hyperparameters={"n_estimators": 5},
             run_name="rf_experiment_1",
         )
@@ -173,19 +176,32 @@ class TestTrainingOrchestrationService(unittest.TestCase):
         # Verify Run 1 completion
         updated_run1 = self.run_repo.get_by_id(run1.run_id)
         self.assertEqual(updated_run1.status, TrainingRunStatus.COMPLETED)
+        self.assertEqual(updated_run1.project_id, project_id)
         self.assertIsNotNone(updated_run1.accuracy)
         self.assertIsNotNone(updated_run1.version_id)
 
         # Verify ModelVersion registered with semver 1.0.0
         version1 = self.version_repo.get_by_id(updated_run1.version_id)
         self.assertEqual(version1.semver, "1.0.0")
+        self.assertEqual(version1.project_id, project_id)
         self.assertEqual(version1.status, ModelVersionStatus.CANDIDATE)
         self.assertTrue(self.storage.exists(version1.artifact_uri))
+
+        # Activate ModelVersion 1.0.0 (SUC-10)
+        activated_v1 = service.activate_model_version(
+            version1.version_id,
+            decision_threshold=0.65,
+            description="Production release",
+        )
+        self.assertEqual(activated_v1.status, ModelVersionStatus.APPROVED)
+        self.assertEqual(activated_v1.decision_threshold, 0.65)
+        self.assertEqual(activated_v1.description, "Production release")
 
         # Run 2: Should auto-increment semver to 1.0.1
         config2 = TrainingRunConfig(
             model_id=self.model.model_id,
             dataset_artifact_id=self.artifact.artifact_id,
+            project_id=project_id,
             run_name="rf_experiment_2",
         )
         run2 = service.prepare_and_dispatch(config2)
@@ -195,6 +211,17 @@ class TestTrainingOrchestrationService(unittest.TestCase):
         version2 = self.version_repo.get_by_id(updated_run2.version_id)
         self.assertEqual(version2.semver, "1.0.1")
         self.assertNotEqual(version1.version_id, version2.version_id)
+
+        # Activating version2 keeps version1 APPROVED (independent activation)
+        service.activate_model_version(version2.version_id, decision_threshold=0.55)
+        self.assertEqual(
+            self.version_repo.get_by_id(version1.version_id).status,
+            ModelVersionStatus.APPROVED,
+        )
+        self.assertEqual(
+            self.version_repo.get_by_id(version2.version_id).status,
+            ModelVersionStatus.APPROVED,
+        )
 
 
 if __name__ == "__main__":

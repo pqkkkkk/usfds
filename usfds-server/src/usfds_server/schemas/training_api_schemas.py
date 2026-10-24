@@ -10,9 +10,13 @@ class RegisterPluggedModelRequest(BaseModel):
     """Request payload to validate and register a custom user-imported model plugin."""
     model_config = ConfigDict(extra="ignore")
 
-    model_artifact_path: str = Field(
-        ...,
+    model_artifact_path: Optional[str] = Field(
+        default=None,
         description="Path to the plugin source archive (.zip) or directory in storage/local filesystem",
+    )
+    zip_base64: Optional[str] = Field(
+        default=None,
+        description="Base64-encoded .zip archive bytes when uploading directly from browser",
     )
     user_id: Optional[UUID] = Field(default=None, description="Owner user ID")
     project_id: Optional[UUID] = Field(default=None, description="Optional project ID")
@@ -31,12 +35,28 @@ class StartTrainingRunRequest(BaseModel):
         ...,
         description="ID of the FEATURE_ENGINEERED (or PRE_PROCESSED) dataset artifact",
     )
+    project_id: Optional[UUID] = Field(default=None, description="Optional Project ID owning the run")
     hyperparameters: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Optional hyperparameter overrides for this run",
     )
+    compute_target: str = Field(default="local", description="Target compute environment")
     run_name: Optional[str] = Field(default=None, description="Optional custom training run name")
     created_by: str = Field(default="system", description="User or service initiating the run")
+
+
+class ActivateModelVersionRequest(BaseModel):
+    """Request payload to activate (approve) a ModelVersion with an optional decision threshold."""
+    model_config = ConfigDict(extra="ignore")
+
+    decision_threshold: Optional[float] = Field(
+        default=None,
+        description="Operational decision threshold in (0.0, 1.0)",
+    )
+    description: Optional[str] = Field(
+        default=None,
+        description="Optional release note or description update",
+    )
 
 
 class ModelResponse(BaseModel):
@@ -87,6 +107,7 @@ class TrainingRunResponse(BaseModel):
     project_id: Optional[UUID] = None
     model_id: Optional[UUID] = None
     version_id: Optional[UUID] = None
+    dataset_artifact_id: Optional[UUID] = None
     run_name: str
     status: str
     accuracy: Optional[float] = None
@@ -113,6 +134,7 @@ class TrainingRunResponse(BaseModel):
 __all__ = [
     "RegisterPluggedModelRequest",
     "StartTrainingRunRequest",
+    "ActivateModelVersionRequest",
     "ModelResponse",
     "ModelVersionResponse",
     "TrainingRunResponse",
