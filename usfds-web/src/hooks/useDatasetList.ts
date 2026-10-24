@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { datasetApi } from '../api/datasetApi';
+import { PROJECTS_QUERY_KEY } from './useProjects';
 import type { DatasetResponse } from '../types/dataset';
 
 export type StageFilterTab = 'all' | 'raw' | 'mapped' | 'ready';
@@ -41,6 +42,7 @@ export function useDatasetList(projectId?: string) {
     onSuccess: (deletedId) => {
       setSelectedIds(prev => prev.filter(x => x !== deletedId));
       queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
     },
   });
 

@@ -1,7 +1,13 @@
 # 22-10-2026
 - [x] [core] Finish register_plugged_model in TrainingService.
 - [x] [server] Expose training functions in `usfds-core` through APIs in `usfds-server`
-- [fe] Implement front-end for project management
+- [x] [fe] Implement front-end for project management
+	- [x] [docs] Draft Use Case Specification (`SUC-22` to `SUC-26`) in `docs/features/project_management/suc-spec.md`
+	- [x] [fe] Create TypeScript interfaces (`src/types/project.ts`) and API client (`src/api/projectApi.ts`) for `/api/v1/projects`
+	- [x] [fe] Implement `ProjectContext` & `useProject` hook for active project selection and CRUD/schema operations
+	- [x] [fe] Build `ProjectManagementPage` (`/projects`), `ProjectFormModal`, and `ProjectSchemaDrawer` (inspect & reset `raw_schema`)
+	- [x] [fe] Integrate `Topbar` Project Switcher with live projects, quick create modal, and `/projects` navigation
+	- [x] [fe] Connect active `project_id` to `DataManagementPage` (`DatasetHubView`, `ImportDatasetModal`) and `RuleEnginePage` (`RuleCatalogView`, `RuleWorkspace`)
 - [fe] Implement front-end for training functions
 - [fe] Connect final step of data management to training run in model management
 - [fe] Integrate front-end rule management with back-end

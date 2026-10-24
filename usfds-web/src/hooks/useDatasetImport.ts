@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { datasetApi } from '../api/datasetApi';
 import { DATASETS_QUERY_KEY } from './useDatasetList';
+import { PROJECTS_QUERY_KEY } from './useProjects';
 import type { ImportDatasetRequest, DatasetDetailResponse, DataClassification } from '../types/dataset';
 
 export interface SampleFileInfo {
@@ -73,6 +74,7 @@ export function useDatasetImport({
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
       onSuccess?.(data);
     },
     onError: (err: any) => {

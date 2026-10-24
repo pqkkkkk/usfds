@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -12,12 +12,15 @@ import {
 import { PageHeader } from '../../layout/PageHeader';
 import type { RuleResponse, RuleStatus } from '../../../types/rule';
 import { ruleApi } from '../../../api/ruleApi';
+import { useProject } from '../../../hooks/useProjects';
 import { RuleVersionHistoryModal } from './RuleVersionHistoryModal';
 
-const DEFAULT_PROJECT_ID = '11111111-1111-1111-1111-111111111111';
+const FALLBACK_PROJECT_ID = '11111111-1111-1111-1111-111111111111';
 
 export const RuleCatalogView: React.FC = () => {
   const navigate = useNavigate();
+  const { currentProjectId, refetchProjects } = useProject();
+  const effectiveProjectId = currentProjectId || FALLBACK_PROJECT_ID;
   const [rules, setRules] = useState<RuleResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,21 +30,21 @@ export const RuleCatalogView: React.FC = () => {
   const [inspectingRule, setInspectingRule] = useState<RuleResponse | null>(null);
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
 
-  const fetchRules = async () => {
+  const fetchRules = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await ruleApi.listRules(DEFAULT_PROJECT_ID);
+      const res = await ruleApi.listRules(effectiveProjectId);
       if (res.success && res.data) {
         setRules(res.data);
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [effectiveProjectId]);
 
   useEffect(() => {
     fetchRules();
-  }, []);
+  }, [fetchRules]);
 
   const handleToggleStatus = async (ruleId: string, currentStatus: RuleStatus) => {
     const nextStatus: RuleStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
@@ -58,6 +61,7 @@ export const RuleCatalogView: React.FC = () => {
     const res = await ruleApi.deleteRule(ruleId);
     if (res.success) {
       setRules((prev) => prev.filter((r) => r.rule_id !== ruleId));
+      refetchProjects();
     }
   };
 
