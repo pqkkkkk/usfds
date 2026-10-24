@@ -6,6 +6,7 @@ import {
   Terminal, 
   SearchCheck,
   BarChart2,
+  Settings,
   ChevronLeft, 
   ChevronRight
 } from 'lucide-react';
@@ -67,6 +68,12 @@ export const Sidebar = ({
       label: 'Insight & Report',
       subLabel: 'Analytics & Trends',
       icon: BarChart2,
+    },
+    {
+      id: 'project-settings',
+      label: 'Project Settings',
+      subLabel: 'Info & RAW Schema',
+      icon: Settings,
     },
   ];
 

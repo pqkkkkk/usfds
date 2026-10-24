@@ -14,10 +14,12 @@ import {
 import { PageHeader } from '../../layout/PageHeader';
 import { ImportDatasetModal } from './ImportDatasetModal';
 import { useDatasetList } from '../../../hooks/useDatasetList';
+import { useProject } from '../../../hooks/useProjects';
 import type { DatasetDetailResponse } from '../../../types/dataset';
 
 export const DatasetHubView = () => {
   const navigate = useNavigate();
+  const { currentProjectId } = useProject();
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const {
@@ -34,7 +36,7 @@ export const DatasetHubView = () => {
     toggleSelectAll,
     deleteDataset,
     refetch,
-  } = useDatasetList();
+  } = useDatasetList(currentProjectId);
 
   const handleImportSuccess = (detail: DatasetDetailResponse) => {
     refetch();
@@ -341,6 +343,7 @@ export const DatasetHubView = () => {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onSuccess={handleImportSuccess}
+        defaultProjectId={currentProjectId}
       />
     </div>
   );

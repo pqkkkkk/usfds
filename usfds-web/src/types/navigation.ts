@@ -4,7 +4,8 @@ export type AppModule =
   | 'rule-management'
   | 'detection'
   | 'investigation'
-  | 'insight-report';
+  | 'insight-report'
+  | 'project-settings';
 
 export interface Project {
   id: string;

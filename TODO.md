@@ -1,7 +1,19 @@
 # 22-10-2026
 - [x] [core] Finish register_plugged_model in TrainingService.
 - [x] [server] Expose training functions in `usfds-core` through APIs in `usfds-server`
-- [fe] Implement front-end for project management
-- [fe] Implement front-end for training functions
+- [x] [fe] Implement front-end for project management
+	- [x] [docs] Draft Use Case Specification (`SUC-22` to `SUC-26`) in `docs/features/project_management/suc-spec.md`
+	- [x] [fe] Create TypeScript interfaces (`src/types/project.ts`) and API client (`src/api/projectApi.ts`) for `/api/v1/projects`
+	- [x] [fe] Implement `ProjectContext` & `useProject` hook for active project selection and CRUD/schema operations
+	- [x] [fe] Build `ProjectManagementPage` (`/projects`), `ProjectFormModal`, and `ProjectSchemaDrawer` (inspect & reset `raw_schema`)
+	- [x] [fe] Integrate `Topbar` Project Switcher with live projects, quick create modal, and `/projects` navigation
+	- [x] [fe] Connect active `project_id` to `DataManagementPage` (`DatasetHubView`, `ImportDatasetModal`) and `RuleEnginePage` (`RuleCatalogView`, `RuleWorkspace`)
+- [x] [fe] Implement front-end for training functions
+	- [x] [docs] Update Use Case Specification (`SUC-08`, `SUC-09`, `SUC-10`, `SUC-17`, `SUC-27`) in `docs/features/detection/training/suc-spec.md`
+	- [x] [core/server] Add `activate_model_version`, `.zip` plugin upload endpoint, `project_id` scoping for runs/versions, and unit tests in `tests/`
+	- [x] [fe] Update TypeScript interfaces (`src/types/model.ts`) and create API client (`src/api/trainingApi.ts`) for `/api/v1/training`
+	- [x] [fe] Build `ModelHubView` (`SUC-27`), `ImportCustomModelModal` (`SUC-17`), and `ActivateModelModal` (`SUC-10`)
+	- [x] [fe] Build `TrainingWizardView` (`SUC-08`) and `TrainingRunDetailView` (`SUC-09`) with interactive Threshold Simulator & ROC/PR/Distribution charts
+	- [x] [fe] Wire nested routes in `ModelTrainingPage.tsx` and verify build/tests
 - [fe] Connect final step of data management to training run in model management
 - [fe] Integrate front-end rule management with back-end

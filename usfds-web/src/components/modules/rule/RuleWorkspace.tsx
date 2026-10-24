@@ -26,8 +26,9 @@ import {
   jsonLogicToGroup,
 } from '../../../utils/jsonLogicParser';
 import { ruleApi } from '../../../api/ruleApi';
+import { useProject } from '../../../hooks/useProjects';
 
-const DEFAULT_PROJECT_ID = '11111111-1111-1111-1111-111111111111';
+const FALLBACK_PROJECT_ID = '11111111-1111-1111-1111-111111111111';
 
 export const RuleWorkspace: React.FC = () => {
   const { ruleId, stepId = 'step-builder' } = useParams<{
@@ -35,6 +36,8 @@ export const RuleWorkspace: React.FC = () => {
     stepId?: string;
   }>();
   const navigate = useNavigate();
+  const { currentProjectId, refetchProjects } = useProject();
+  const effectiveProjectId = currentProjectId || FALLBACK_PROJECT_ID;
 
   const isNew = !ruleId || ruleId === 'new';
 
@@ -116,7 +119,7 @@ export const RuleWorkspace: React.FC = () => {
       } else {
         // Create new rule
         const res = await ruleApi.createRule({
-          project_id: DEFAULT_PROJECT_ID,
+          project_id: effectiveProjectId,
           rule_code: ruleCode,
           name: ruleName,
           description,
@@ -128,6 +131,7 @@ export const RuleWorkspace: React.FC = () => {
         if (res.success && res.data) {
           setCurrentRule(res.data);
           setSaveSuccessNotice(true);
+          refetchProjects();
           setTimeout(() => {
             navigate(`/rules/${res.data.rule_id}/${stepId}`);
           }, 600);

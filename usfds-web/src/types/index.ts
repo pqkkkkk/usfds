@@ -5,3 +5,4 @@ export * from './rule';
 export * from './detection';
 export * from './navigation';
 export * from './metrics';
+export * from './project';

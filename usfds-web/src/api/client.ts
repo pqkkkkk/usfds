@@ -50,6 +50,7 @@ class ApiClient {
       (response: AxiosResponse) => response,
       (error: AxiosError<any>) => {
         const errorMsg =
+          error.response?.data?.detail ||
           error.response?.data?.error ||
           error.response?.data?.message ||
           error.message ||
