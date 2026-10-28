@@ -1,11 +1,12 @@
-import React from 'react';
-import { Trash2, X } from 'lucide-react';
-import type { RuleClause, ComparisonOperator } from '../../../types/rule';
+import React, { useState } from 'react';
+import { Trash2, X, Plus } from 'lucide-react';
+import type { RuleClause, ComparisonOperator, AvailableFeatureField } from '../../../types/rule';
 import { AVAILABLE_FEATURE_FIELDS } from '../../../utils/jsonLogicParser';
 
 interface RuleClauseRowProps {
   clause: RuleClause;
   indexLabel: string;
+  availableFields?: AvailableFeatureField[];
   onChange: (updated: RuleClause) => void;
   onDelete: () => void;
 }
@@ -13,18 +14,22 @@ interface RuleClauseRowProps {
 export const RuleClauseRow: React.FC<RuleClauseRowProps> = ({
   clause,
   indexLabel,
+  availableFields = AVAILABLE_FEATURE_FIELDS,
   onChange,
   onDelete,
 }) => {
-  const currentFieldMeta = AVAILABLE_FEATURE_FIELDS.find((f) => f.key === clause.field);
+  const [customTagInput, setCustomTagInput] = useState('');
+  const fieldsList = availableFields.length > 0 ? availableFields : AVAILABLE_FEATURE_FIELDS;
+  const currentFieldMeta = fieldsList.find((f) => f.key === clause.field);
+  const hasCurrentFieldInList = Boolean(currentFieldMeta);
 
   const handleFieldChange = (newField: string) => {
-    const meta = AVAILABLE_FEATURE_FIELDS.find((f) => f.key === newField);
+    const meta = fieldsList.find((f) => f.key === newField);
     onChange({
       ...clause,
       field: newField,
       operator: meta?.defaultOperator || '==',
-      value: meta?.dataType === 'boolean' ? true : meta?.dataType === 'array' ? ['crypto'] : '',
+      value: meta?.dataType === 'boolean' ? true : meta?.dataType === 'array' ? ['crypto'] : meta?.dataType === 'number' ? 100 : '',
       unit: meta?.unit,
     });
   };
@@ -64,7 +69,10 @@ export const RuleClauseRow: React.FC<RuleClauseRowProps> = ({
             onChange={(e) => handleFieldChange(e.target.value)}
             className="w-full bg-dark-950 border border-slate-800 text-slate-200 text-xs font-mono rounded-md px-2.5 py-1.5 focus:border-brand-500 focus:outline-none cursor-pointer"
           >
-            {AVAILABLE_FEATURE_FIELDS.map((f) => (
+            {!hasCurrentFieldInList && clause.field && (
+              <option value={clause.field}>{clause.field} (custom)</option>
+            )}
+            {fieldsList.map((f) => (
               <option key={f.key} value={f.key}>
                 {f.label}
               </option>
@@ -111,33 +119,56 @@ export const RuleClauseRow: React.FC<RuleClauseRowProps> = ({
                 </span>
               ))}
 
-            {/* Quick add dropdown */}
+            {/* Quick add tag input & dropdown */}
             <div className="flex items-center gap-1 ml-auto">
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleAddTag(e.target.value);
-                    e.target.value = '';
+              <input
+                type="text"
+                value={customTagInput}
+                onChange={(e) => setCustomTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && customTagInput.trim()) {
+                    e.preventDefault();
+                    handleAddTag(customTagInput.trim());
+                    setCustomTagInput('');
                   }
                 }}
-                className="bg-transparent text-[10px] text-slate-400 focus:outline-none cursor-pointer"
-                defaultValue=""
+                placeholder="Nhập giá trị + Enter"
+                className="bg-dark-900 border border-slate-800 rounded px-2 py-0.5 text-[10px] font-mono text-slate-200 w-28 focus:outline-none focus:border-brand-500"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (customTagInput.trim()) {
+                    handleAddTag(customTagInput.trim());
+                    setCustomTagInput('');
+                  }
+                }}
+                className="p-0.5 rounded bg-dark-850 hover:bg-dark-800 text-slate-400 hover:text-brand-400 border border-slate-800 cursor-pointer"
+                title="Thêm giá trị"
               >
-                <option value="" disabled>
-                  + Thêm tag
-                </option>
-                {currentFieldMeta?.sampleValues?.map((val) => (
-                  <option key={val} value={val} className="bg-dark-900 text-slate-200">
-                    {val}
+                <Plus className="w-3 h-3" />
+              </button>
+              {currentFieldMeta?.sampleValues && currentFieldMeta.sampleValues.length > 0 && (
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleAddTag(e.target.value);
+                      e.target.value = '';
+                    }
+                  }}
+                  className="bg-transparent text-[10px] text-slate-400 focus:outline-none cursor-pointer"
+                  defaultValue=""
+                >
+                  <option value="" disabled>
+                    + Mẫu
                   </option>
-                ))}
-                <option value="gaming" className="bg-dark-900 text-slate-200">
-                  gaming
-                </option>
-                <option value="luxury_goods" className="bg-dark-900 text-slate-200">
-                  luxury_goods
-                </option>
-              </select>
+                  {currentFieldMeta.sampleValues.map((val) => (
+                    <option key={String(val)} value={String(val)} className="bg-dark-900 text-slate-200">
+                      {String(val)}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         ) : currentFieldMeta?.dataType === 'boolean' || typeof clause.value === 'boolean' ? (

@@ -16,4 +16,10 @@
 	- [x] [fe] Build `TrainingWizardView` (`SUC-08`) and `TrainingRunDetailView` (`SUC-09`) with interactive Threshold Simulator & ROC/PR/Distribution charts
 	- [x] [fe] Wire nested routes in `ModelTrainingPage.tsx` and verify build/tests
 - [fe] Connect final step of data management to training run in model management
-- [fe] Integrate front-end rule management with back-end
+- [x] [fe] Integrate front-end rule management with back-end
+	- [x] [docs] Update Use Case Specification (`SUC-11`, `SUC-12`, `SUC-13`, `SUC-14`, `SUC-18`) in `docs/features/detection/rule_management/suc-spec.md`
+	- [x] [core/server] Add `RuleExecutor.backtest_dataframe` and `POST /api/v1/rules/backtest` endpoint for historical `DatasetArtifact` dry-run (`SUC-12`) with unit/API tests
+	- [x] [fe] Update TypeScript interfaces (`src/types/rule.ts`) and `src/api/ruleApi.ts` (remove mock overrides, surface backend validation errors, add `backtestRule` & `evaluateProjectRules`)
+	- [x] [fe] Connect `RuleCatalogView` (`SUC-18`, `SUC-14`), `RuleWorkspace`, `RuleStudioWorkspace`, and `RuleClauseRow` (`SUC-11`) to live backend APIs and active project `raw_schema` (`BR-PM-04`, `BR-PM-05`)
+	- [x] [fe] Connect `RuleDryRunWorkspace` (`SUC-12`) to real project `DatasetArtifact` backtesting and single-transaction evaluation (`/evaluate`)
+	- [x] [fe] Verify backend `pytest` suite and `usfds-web` TypeScript build

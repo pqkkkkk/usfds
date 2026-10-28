@@ -1,13 +1,14 @@
 import type {
-  RuleGroup,
-  RuleClause,
-  LogicalCombinator,
-  ComparisonOperator,
-  RuleAction,
-  AvailableFeatureField,
+	RuleGroup,
+	RuleClause,
+	LogicalCombinator,
+	ComparisonOperator,
+	RuleAction,
+	AvailableFeatureField,
 } from '../types/rule';
+import type { ProjectRawSchema } from '../types/project';
 
-// Available feature dictionary for fraud detection domain
+// Available feature dictionary for fraud detection domain (fallback when project raw_schema is unlocked)
 export const AVAILABLE_FEATURE_FIELDS: AvailableFeatureField[] = [
   {
     key: 'amount',
@@ -95,6 +96,33 @@ export const AVAILABLE_FEATURE_FIELDS: AvailableFeatureField[] = [
     sampleValues: ['5732', '6051', '7995'],
   },
 ];
+
+/**
+ * Dynamically builds AvailableFeatureField list from the active Project's locked raw_schema (BR-PM-05).
+ * Falls back to AVAILABLE_FEATURE_FIELDS if the project has no locked raw_schema yet.
+ */
+export function buildAvailableFieldsFromRawSchema(
+	rawSchema?: ProjectRawSchema | null
+): AvailableFeatureField[] {
+	if (!rawSchema || !rawSchema.columns || Object.keys(rawSchema.columns).length === 0) {
+		return AVAILABLE_FEATURE_FIELDS;
+	}
+
+	return Object.entries(rawSchema.columns).map(([colName, spec]) => {
+		const logicalType = spec.logical_type;
+		const isNumeric = logicalType === 'NUMERIC';
+		const isBoolean = logicalType === 'BOOLEAN';
+
+		return {
+			key: colName,
+			label: `${colName} (${logicalType})`,
+			category: 'transaction',
+			dataType: isNumeric ? 'number' : isBoolean ? 'boolean' : 'string',
+			defaultOperator: isNumeric ? '>' : '==',
+			sampleValues: isBoolean ? [true, false] : isNumeric ? [100, 500, 2000] : undefined,
+		};
+	});
+}
 
 export function isRuleGroup(item: RuleClause | RuleGroup): item is RuleGroup {
   return 'combinator' in item && 'clauses' in item;
@@ -278,6 +306,11 @@ function parseClauseOrGroup(item: any): RuleClause | RuleGroup {
   const op = Object.keys(item)[0];
   const args = item[op];
 
+  // Handle not_in: {"!": {"in": [{"var": "field"}, [...]]}}
+  if (op === '!' && args && typeof args === 'object' && Array.isArray(args.in)) {
+    return parseSingleExpression('not_in', args.in);
+  }
+
   if (op === 'and' || op === 'or' || op === '!') {
     return jsonLogicToGroup(item);
   }
@@ -315,35 +348,42 @@ function parseSingleExpression(op: string, args: any): RuleClause {
   };
 }
 
-export function createDefaultClause(): RuleClause {
+export function createDefaultClause(availableFields?: AvailableFeatureField[]): RuleClause {
+  const fields = availableFields && availableFields.length > 0 ? availableFields : AVAILABLE_FEATURE_FIELDS;
+  const preferred = fields.find((f) => f.dataType === 'number') || fields[0];
   return {
     id: `cls-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-    field: 'amount',
-    operator: '>',
-    value: 2000,
-    unit: 'USD',
+    field: preferred?.key || 'amount',
+    operator: preferred?.defaultOperator || '>',
+    value: preferred?.dataType === 'number' ? 2000 : preferred?.dataType === 'boolean' ? true : '',
+    unit: preferred?.unit,
   };
 }
 
-export function createDefaultGroup(combinator: LogicalCombinator = 'ANY'): RuleGroup {
+export function createDefaultGroup(
+  combinator: LogicalCombinator = 'ANY',
+  availableFields?: AvailableFeatureField[]
+): RuleGroup {
   return {
     id: `grp-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
     combinator,
-    clauses: [
-      {
-        id: `cls-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        field: 'is_new_device_24h',
-        operator: '==',
-        value: true,
-      },
-      {
-        id: `cls-${Date.now() + 1}-${Math.random().toString(36).substr(2, 4)}`,
-        field: 'velocity_count_1h',
-        operator: '>=',
-        value: 5,
-        unit: 'swipes',
-      },
-    ],
+    clauses: [createDefaultClause(availableFields)],
+  };
+}
+
+/**
+ * Creates an initial RuleGroup tailored to the project's locked raw_schema if present,
+ * otherwise falls back to the Stitch SUC-11 sample group.
+ */
+export function createDefaultRuleGroupForSchema(rawSchema?: ProjectRawSchema | null): RuleGroup {
+  if (!rawSchema || !rawSchema.columns || Object.keys(rawSchema.columns).length === 0) {
+    return createStitchSampleRuleGroup();
+  }
+  const fields = buildAvailableFieldsFromRawSchema(rawSchema);
+  return {
+    id: 'grp-root',
+    combinator: 'ALL',
+    clauses: [createDefaultClause(fields)],
   };
 }
 
