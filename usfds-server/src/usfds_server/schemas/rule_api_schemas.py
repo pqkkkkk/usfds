@@ -95,3 +95,59 @@ class RuleExecutionResultResponse(BaseModel):
     action: RuleAction
     trigger_reason: str
     execution_time_ms: float
+
+
+# ==========================================
+# Backtest / Dry-Run DTOs (SUC-12)
+# ==========================================
+
+class BacktestRuleRequest(BaseModel):
+    """Payload to backtest/dry-run a saved rule or ad-hoc rule condition against a historical DatasetArtifact."""
+    project_id: UUID
+    dataset_artifact_id: UUID
+    rule_id: Optional[UUID] = Field(default=None, description="Optional saved Rule ID to backtest")
+    version_id: Optional[UUID] = Field(default=None, description="Optional specific RuleVersion ID")
+    condition: Optional[Dict[str, Any]] = Field(default=None, description="Optional ad-hoc JsonLogic condition tree (overrides saved rule condition if provided)")
+    action: Optional[RuleAction] = Field(default=None, description="Optional ad-hoc RuleAction")
+    rule_code: Optional[str] = Field(default=None, description="Optional rule code for display")
+    rule_name: Optional[str] = Field(default=None, description="Optional rule name for display")
+    target_column: Optional[str] = Field(default=None, description="Optional ground-truth label column override")
+    amount_column: Optional[str] = Field(default=None, description="Optional transaction amount column override")
+    max_samples: int = Field(default=50, ge=1, le=200)
+
+
+class RuleBacktestSampleHitResponse(BaseModel):
+    event_id: str
+    timestamp: str
+    amount: float
+    user_id: str
+    ground_truth: Optional[int] = None
+    matched_clauses: List[str] = Field(default_factory=list)
+    features: Dict[str, Any] = Field(default_factory=dict)
+
+
+class RuleBacktestResultResponse(BaseModel):
+    rule_id: Optional[str] = None
+    rule_version_id: Optional[str] = None
+    version_number: int = 1
+    rule_code: str
+    rule_name: str
+    action: RuleAction
+    dataset_artifact_id: str
+    total_transactions: int
+    total_hits: int
+    hit_rate: float
+    has_ground_truth: bool
+    target_column: Optional[str] = None
+    tp: int
+    fp: int
+    tn: int
+    fn: int
+    precision: float
+    recall: float
+    fpr: float
+    fraud_amount_caught: float
+    execution_time_ms: float
+    avg_execution_time_ms: float
+    sample_hits: List[RuleBacktestSampleHitResponse] = Field(default_factory=list)
+

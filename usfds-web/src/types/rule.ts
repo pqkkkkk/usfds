@@ -86,21 +86,80 @@ export interface SetRuleStatusRequest {
 }
 
 export interface EvaluateRuleRequest {
-  transaction_id: string;
-  mapped_features: Record<string, any>;
-  enriched_features: Record<string, any>;
+	transaction_id: string;
+	raw_features?: Record<string, any>;
+	mapped_features?: Record<string, any>;
+	enriched_features?: Record<string, any>;
+}
+
+export interface EvaluateRulesRequest {
+	project_id: string;
+	transaction_id: string;
+	raw_features?: Record<string, any>;
+	mapped_features?: Record<string, any>;
+	enriched_features?: Record<string, any>;
 }
 
 export interface RuleExecutionResultResponse {
-  rule_id: string;
-  rule_version_id: string;
-  version_number: number;
-  rule_code: string;
-  rule_name: string;
-  is_triggered: boolean;
-  action: RuleAction;
-  trigger_reason: string;
-  execution_time_ms: number;
+	rule_id: string;
+	rule_version_id: string;
+	version_number: number;
+	rule_code: string;
+	rule_name: string;
+	is_triggered: boolean;
+	action: RuleAction;
+	trigger_reason: string;
+	execution_time_ms: number;
+}
+
+export interface BacktestRuleRequest {
+	project_id: string;
+	dataset_artifact_id: string;
+	rule_id?: string;
+	version_id?: string;
+	condition?: Record<string, any>;
+	action?: RuleAction;
+	rule_code?: string;
+	rule_name?: string;
+	target_column?: string;
+	amount_column?: string;
+	max_samples?: number;
+}
+
+export interface RuleBacktestSampleHit {
+	event_id: string;
+	timestamp: string;
+	amount: number;
+	user_id: string;
+	ground_truth?: number | null;
+	matched_clauses: string[];
+	features: Record<string, any>;
+}
+
+export interface RuleBacktestResultResponse {
+	rule_id?: string | null;
+	rule_version_id?: string | null;
+	version_number: number;
+	rule_code: string;
+	rule_name: string;
+	action: RuleAction;
+	dataset_artifact_id: string;
+	total_transactions: number;
+	total_hits: number;
+	hit_rate: number;
+	has_ground_truth: boolean;
+	target_column?: string | null;
+	tp: number;
+	fp: number;
+	tn: number;
+	fn: number;
+	precision: number;
+	recall: number;
+	fpr: number;
+	fraud_amount_caught: number;
+	execution_time_ms: number;
+	avg_execution_time_ms: number;
+	sample_hits: RuleBacktestSampleHit[];
 }
 
 export interface AvailableFeatureField {

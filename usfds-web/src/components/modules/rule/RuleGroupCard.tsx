@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, FolderPlus, Trash2 } from 'lucide-react';
-import type { RuleGroup, RuleClause, LogicalCombinator } from '../../../types/rule';
+import type { RuleGroup, RuleClause, LogicalCombinator, AvailableFeatureField } from '../../../types/rule';
 import {
   isRuleGroup,
   createDefaultClause,
@@ -12,6 +12,7 @@ interface RuleGroupCardProps {
   group: RuleGroup;
   level?: number;
   prefixIndex?: string;
+  availableFields?: AvailableFeatureField[];
   onChange: (updatedGroup: RuleGroup) => void;
   onDeleteGroup?: () => void;
 }
@@ -20,6 +21,7 @@ export const RuleGroupCard: React.FC<RuleGroupCardProps> = ({
   group,
   level = 0,
   prefixIndex = '1',
+  availableFields,
   onChange,
   onDeleteGroup,
 }) => {
@@ -38,14 +40,14 @@ export const RuleGroupCard: React.FC<RuleGroupCardProps> = ({
   const handleAddClause = () => {
     onChange({
       ...group,
-      clauses: [...group.clauses, createDefaultClause()],
+      clauses: [...group.clauses, createDefaultClause(availableFields)],
     });
   };
 
   const handleAddSubGroup = () => {
     onChange({
       ...group,
-      clauses: [...group.clauses, createDefaultGroup('ANY')],
+      clauses: [...group.clauses, createDefaultGroup('ANY', availableFields)],
     });
   };
 
@@ -145,6 +147,7 @@ export const RuleGroupCard: React.FC<RuleGroupCardProps> = ({
                   group={item}
                   level={level + 1}
                   prefixIndex={currentPrefix}
+                  availableFields={availableFields}
                   onChange={(updated) => handleClauseChange(idx, updated)}
                   onDeleteGroup={() => handleDeleteClause(idx)}
                 />
@@ -156,6 +159,7 @@ export const RuleGroupCard: React.FC<RuleGroupCardProps> = ({
                 key={item.id || idx}
                 clause={item}
                 indexLabel={currentPrefix}
+                availableFields={availableFields}
                 onChange={(updated) => handleClauseChange(idx, updated)}
                 onDelete={() => handleDeleteClause(idx)}
               />

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from usfds_core.domain.entities.enums import RuleAction
 
 
@@ -37,3 +37,41 @@ class RuleExecutionResult:
     action: RuleAction
     trigger_reason: str
     execution_time_ms: float
+
+
+@dataclass
+class RuleBacktestSampleHit:
+    event_id: str
+    timestamp: str
+    amount: float
+    user_id: str
+    ground_truth: Optional[int]
+    matched_clauses: List[str]
+    features: Dict[str, Any]
+
+
+@dataclass
+class RuleBacktestResult:
+    rule_id: Optional[str]
+    rule_version_id: Optional[str]
+    version_number: int
+    rule_code: str
+    rule_name: str
+    action: RuleAction
+    dataset_artifact_id: str
+    total_transactions: int
+    total_hits: int
+    hit_rate: float
+    has_ground_truth: bool
+    target_column: Optional[str]
+    tp: int
+    fp: int
+    tn: int
+    fn: int
+    precision: float
+    recall: float
+    fpr: float
+    fraud_amount_caught: float
+    execution_time_ms: float
+    avg_execution_time_ms: float
+    sample_hits: List[RuleBacktestSampleHit] = field(default_factory=list)

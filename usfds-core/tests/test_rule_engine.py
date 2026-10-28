@@ -186,6 +186,47 @@ class TestRuleExecutor(unittest.TestCase):
         res = self.executor.evaluate_rule(flat_rule, flat_version, ctx)
         self.assertTrue(res.is_triggered)
 
+    def test_backtest_dataframe_with_ground_truth(self):
+        import pandas as pd
+
+        df = pd.DataFrame(
+            [
+                {"event_id": "TX-1", "timestamp": "2026-10-01 01:00:00", "user_id": "U1", "amount": 5000.0, "channel": "ONLINE", "is_fraud": 1},
+                {"event_id": "TX-2", "timestamp": "2026-10-01 02:00:00", "user_id": "U2", "amount": 3000.0, "channel": "ONLINE", "is_fraud": 0},
+                {"event_id": "TX-3", "timestamp": "2026-10-01 03:00:00", "user_id": "U3", "amount": 500.0, "channel": "POS", "is_fraud": 1},
+                {"event_id": "TX-4", "timestamp": "2026-10-01 04:00:00", "user_id": "U4", "amount": 200.0, "channel": "ONLINE", "is_fraud": 0},
+            ]
+        )
+        condition = {
+            "and": [
+                {">": [{"var": "amount"}, 2000]},
+                {"==": [{"var": "channel"}, "ONLINE"]},
+            ]
+        }
+        bt = self.executor.backtest_dataframe(
+            df=df,
+            condition=condition,
+            action=RuleAction.REJECT,
+            dataset_artifact_id="art-001",
+            rule_code="R-TEST-BT",
+            rule_name="Test Backtest Rule",
+        )
+        self.assertEqual(bt.total_transactions, 4)
+        self.assertEqual(bt.total_hits, 2)
+        self.assertAlmostEqual(bt.hit_rate, 0.5)
+        self.assertTrue(bt.has_ground_truth)
+        self.assertEqual(bt.tp, 1)
+        self.assertEqual(bt.fp, 1)
+        self.assertEqual(bt.tn, 1)
+        self.assertEqual(bt.fn, 1)
+        self.assertAlmostEqual(bt.precision, 0.5)
+        self.assertAlmostEqual(bt.recall, 0.5)
+        self.assertAlmostEqual(bt.fpr, 0.5)
+        self.assertAlmostEqual(bt.fraud_amount_caught, 5000.0)
+        self.assertEqual(len(bt.sample_hits), 2)
+        self.assertEqual(bt.sample_hits[0].event_id, "TX-1")
+        self.assertIn("amount > 2000", bt.sample_hits[0].matched_clauses)
+
 
 if __name__ == "__main__":
     unittest.main()
