@@ -87,7 +87,7 @@ const ActivateModelDialogContent: React.FC<Omit<ActivateModelModalProps, 'isOpen
 						</div>
 						<div>
 							<h2 id="activate-model-modal-title" className="text-sm font-bold text-slate-100">
-								Kích hoạt Phiên bản Mô hình (SUC-10)
+								Kích hoạt Phiên bản Mô hình
 							</h2>
 							<p className="text-[11px] text-slate-400 mt-0.5">
 								Xác thực mã băm SHA-256 và đưa phiên bản mô hình sang trạng thái APPROVED
@@ -194,7 +194,7 @@ const ActivateModelDialogContent: React.FC<Omit<ActivateModelModalProps, 'isOpen
 					<div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300 flex items-start gap-2">
 						<CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
 						<span>
-							Phiên bản này sẽ chuyển sang trạng thái <strong className="font-mono">APPROVED</strong> độc lập và sẵn sàng được lựa chọn trong các tác vụ Batch Detection (SUC-15).
+							Phiên bản này sẽ chuyển sang trạng thái <strong className="font-mono">APPROVED</strong> độc lập và sẵn sàng được lựa chọn trong các tác vụ Batch Detection.
 						</span>
 					</div>
 

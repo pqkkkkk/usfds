@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../layout/PageHeader';
 import { WorkspaceStepper } from '../../layout/WorkspaceStepper';
@@ -23,6 +23,11 @@ export const DataPipelineWorkspace = () => {
   const [mappingConfig, setMappingConfig] = useState<DataMappingConfig | null>(null);
   const [isMappingValid, setIsMappingValid] = useState<boolean>(false);
   const [feConfig, setFeConfig] = useState<FeatureEngineeringConfig | null>(null);
+
+  const handleMappingConfigChange = useCallback((cfg: DataMappingConfig, valid: boolean) => {
+    setMappingConfig(cfg);
+    setIsMappingValid(valid);
+  }, []);
 
   const {
     datasetDetail,
@@ -238,10 +243,7 @@ export const DataPipelineWorkspace = () => {
               <SchemaMappingWorkspace
                 rawArtifact={sourceRawArtifact}
                 mappedArtifact={activeMappedArtifact}
-                onConfigChange={(cfg, valid) => {
-                  setMappingConfig(cfg);
-                  setIsMappingValid(valid);
-                }}
+                onConfigChange={handleMappingConfigChange}
                 saveError={mappingError}
               />
             )}

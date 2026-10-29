@@ -147,7 +147,7 @@ export const TrainingRunDetailView: React.FC = () => {
 		return (
 			<div className="flex-1 flex items-center justify-center bg-dark-950 text-xs text-slate-400 gap-2.5">
 				<Loader2 className="w-4 h-4 animate-spin text-brand-400" />
-				<span>Đang tải kết quả huấn luyện mô hình (SUC-09)...</span>
+				<span>Đang tải kết quả huấn luyện mô hình...</span>
 			</div>
 		);
 	}
@@ -195,9 +195,6 @@ export const TrainingRunDetailView: React.FC = () => {
 					<div>
 						<div className="flex flex-wrap items-center gap-2">
 							<h1 className="text-base font-bold text-slate-100">{run.run_name}</h1>
-							<span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-brand-500/15 text-brand-400 border border-brand-500/30">
-								SUC-09
-							</span>
 							{run.status === 'COMPLETED' ? (
 								<span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
 									<CheckCircle2 className="w-3 h-3" />

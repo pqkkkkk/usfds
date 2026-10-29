@@ -285,7 +285,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 						}`}
 					>
 						<Database className="w-3.5 h-3.5" />
-						<span>Historical Dataset Backtest (SUC-12)</span>
+						<span>Historical Dataset Backtest</span>
 					</button>
 					<button
 						type="button"

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -106,6 +106,11 @@ export const SchemaMappingWorkspace = ({
     setOptionalMappings(copy);
   };
 
+  const onConfigChangeRef = useRef(onConfigChange);
+  useEffect(() => {
+    onConfigChangeRef.current = onConfigChange;
+  }, [onConfigChange]);
+
   // Notify parent container of configuration changes
   useEffect(() => {
     const optionalObj: Record<string, string> = {};
@@ -125,7 +130,7 @@ export const SchemaMappingWorkspace = ({
       time_format: timeFormat,
     };
 
-    onConfigChange?.(payload, isAllMandatorySatisfied);
+    onConfigChangeRef.current?.(payload, isAllMandatorySatisfied);
   }, [
     eventIdCol,
     timeCol,
@@ -135,7 +140,6 @@ export const SchemaMappingWorkspace = ({
     optionalMappings,
     timeFormat,
     isAllMandatorySatisfied,
-    onConfigChange,
   ]);
 
   return (
