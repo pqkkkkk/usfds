@@ -349,9 +349,6 @@ export const TrainingWizardView: React.FC = () => {
 							<h1 className="text-sm font-bold text-slate-100">
 								Start Model Training Wizard
 							</h1>
-							<span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-brand-500/15 text-brand-400 border border-brand-500/30">
-								SUC-08
-							</span>
 						</div>
 						<p className="text-[11px] text-slate-400">
 							Chọn tập dữ liệu `FEATURE_ENGINEERED`, cấu hình siêu tham số và thực thi huấn luyện mô hình

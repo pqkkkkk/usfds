@@ -1,3 +1,18 @@
+# 29-10-2026
+- [x] [fe] Fix infinite loop in DataPipelineWorkspace and SchemaMappingWorkspace
+	- [x] [fe] Wrap onConfigChange handler in DataPipelineWorkspace with useCallback
+	- [x] [fe] Decouple onConfigChange in SchemaMappingWorkspace with useRef
+	- [x] [fe] Decouple onConfigChange in FeatureEngineeringWorkspace with useRef
+- [x] [fe] Remove SUC-<number> from all UI elements
+	- [x] [fe] ActivateModelModal.tsx: Remove SUC-10 and SUC-15
+	- [x] [fe] ImportCustomModelModal.tsx: Remove SUC-17
+	- [x] [fe] ModelHubView.tsx: Remove SUC-27 badge and SUC-15 text
+	- [x] [fe] TrainingRunDetailView.tsx: Remove SUC-09 text and badge
+	- [x] [fe] TrainingWizardView.tsx: Remove SUC-08 badge
+	- [x] [fe] RuleDryRunWorkspace.tsx: Remove SUC-12 text
+- [x] [docs] Update docs/bugs.md with resolved items
+- [x] [fe] Verify usfds-web build (tsc -b && vite build)
+
 # 22-10-2026
 - [x] [core] Finish register_plugged_model in TrainingService.
 - [x] [server] Expose training functions in `usfds-core` through APIs in `usfds-server`

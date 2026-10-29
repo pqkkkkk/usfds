@@ -233,9 +233,6 @@ export const ModelHubView: React.FC = () => {
 							<h1 className="text-base font-bold text-slate-100">
 								Model Hub — Registry & Training Runs
 							</h1>
-							<span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-brand-500/15 text-brand-400 border border-brand-500/30">
-								SUC-27
-							</span>
 						</div>
 						<p className="text-xs text-slate-400 mt-0.5">
 							Quản lý danh mục mô hình học máy (`BUILTIN` & `SCRIPT`), khởi chạy huấn luyện và kích hoạt phiên bản mô hình
@@ -258,7 +255,7 @@ export const ModelHubView: React.FC = () => {
 						className="px-3.5 py-2 rounded-xl bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs font-semibold text-slate-200 transition flex items-center gap-2"
 					>
 						<Code2 className="w-4 h-4 text-brand-400" />
-						<span>+ Import Custom Model</span>
+						<span>Import Custom Model</span>
 					</button>
 					<button
 						type="button"
@@ -266,7 +263,7 @@ export const ModelHubView: React.FC = () => {
 						className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2"
 					>
 						<Plus className="w-4 h-4" />
-						<span>+ New Training Run</span>
+						<span>New Training Run</span>
 					</button>
 				</div>
 			</div>
@@ -318,7 +315,7 @@ export const ModelHubView: React.FC = () => {
 								{kpiStats.approvedCount}
 							</div>
 							<div className="text-[11px] text-slate-400 mt-0.5">
-								Ready for Detection (SUC-15)
+								Ready for Detection
 							</div>
 						</div>
 						<div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
@@ -350,22 +347,20 @@ export const ModelHubView: React.FC = () => {
 						<button
 							type="button"
 							onClick={() => setActiveTab('runs')}
-							className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
-								activeTab === 'runs'
-									? 'bg-brand-500 text-white shadow-glow-blue'
-									: 'bg-dark-900 text-slate-400 hover:text-slate-200 border border-dark-800'
-							}`}
+							className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${activeTab === 'runs'
+								? 'bg-brand-500 text-white shadow-glow-blue'
+								: 'bg-dark-900 text-slate-400 hover:text-slate-200 border border-dark-800'
+								}`}
 						>
 							Training Runs ({runs.length})
 						</button>
 						<button
 							type="button"
 							onClick={() => setActiveTab('registry')}
-							className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
-								activeTab === 'registry'
-									? 'bg-brand-500 text-white shadow-glow-blue'
-									: 'bg-dark-900 text-slate-400 hover:text-slate-200 border border-dark-800'
-							}`}
+							className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${activeTab === 'registry'
+								? 'bg-brand-500 text-white shadow-glow-blue'
+								: 'bg-dark-900 text-slate-400 hover:text-slate-200 border border-dark-800'
+								}`}
 						>
 							Model Registry ({models.length})
 						</button>
@@ -581,11 +576,10 @@ export const ModelHubView: React.FC = () => {
 														({model.model_name})
 													</span>
 													<span
-														className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-															model.execution_type === 'BUILTIN'
-																? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
-																: 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
-														}`}
+														className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${model.execution_type === 'BUILTIN'
+															? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
+															: 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+															}`}
 													>
 														{model.execution_type}
 													</span>

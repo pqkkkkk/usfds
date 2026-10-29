@@ -195,7 +195,7 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 						</div>
 						<div>
 							<h2 id="import-plugin-modal-title" className="text-sm font-bold text-slate-100">
-								Import Custom Model Plugin (SUC-17)
+								Import Custom Model Plugin
 							</h2>
 							<p className="text-[11px] text-slate-400 mt-0.5">
 								Tích hợp thuật toán học máy tùy chỉnh qua kiểm định 2 giai đoạn (Static AST + Dynamic Dry-Run)
@@ -236,11 +236,10 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 									setSourceMode('upload_zip');
 									setErrorMsg(null);
 								}}
-								className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition ${
-									sourceMode === 'upload_zip'
+								className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition ${sourceMode === 'upload_zip'
 										? 'bg-brand-500/15 border-brand-500/40 text-brand-300'
 										: 'bg-dark-950 border-dark-800 text-slate-400 hover:text-slate-200'
-								}`}
+									}`}
 							>
 								<UploadCloud className="w-4 h-4 shrink-0" />
 								<div>
@@ -255,11 +254,10 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 									setSourceMode('local_path');
 									setErrorMsg(null);
 								}}
-								className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition ${
-									sourceMode === 'local_path'
+								className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition ${sourceMode === 'local_path'
 										? 'bg-brand-500/15 border-brand-500/40 text-brand-300'
 										: 'bg-dark-950 border-dark-800 text-slate-400 hover:text-slate-200'
-								}`}
+									}`}
 							>
 								<FolderOpen className="w-4 h-4 shrink-0" />
 								<div>

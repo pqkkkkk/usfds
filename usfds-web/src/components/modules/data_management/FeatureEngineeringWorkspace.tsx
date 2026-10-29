@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Sparkles,
   AlertTriangle,
@@ -34,6 +34,11 @@ export const FeatureEngineeringWorkspace = ({
   const [velocity24h, setVelocity24h] = useState(true);
   const [velocity168h, setVelocity168h] = useState(true);
 
+  const onConfigChangeRef = useRef(onConfigChange);
+  useEffect(() => {
+    onConfigChangeRef.current = onConfigChange;
+  }, [onConfigChange]);
+
   // Sync config with parent on change
   useEffect(() => {
     const activeWindows: number[] = [];
@@ -61,7 +66,7 @@ export const FeatureEngineeringWorkspace = ({
       velocity_windows: activeWindows.length > 0 ? activeWindows : [1, 24, 168],
     };
 
-    onConfigChange?.(payload);
+    onConfigChangeRef.current?.(payload);
   }, [
     enableHourOfDay,
     enableAmountRatios,
@@ -69,7 +74,6 @@ export const FeatureEngineeringWorkspace = ({
     velocity1h,
     velocity24h,
     velocity168h,
-    onConfigChange,
   ]);
 
   // Extract generated columns from schema snapshot
@@ -127,9 +131,8 @@ export const FeatureEngineeringWorkspace = ({
         {/* Feature Engineering Generators Configuration */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* Generator 1: Temporal / Hour of Day */}
-          <div className={`p-5 rounded-2xl border transition flex flex-col justify-between ${
-            enableHourOfDay ? 'bg-dark-900 border-purple-500/30 shadow-lg' : 'bg-dark-900/60 border-dark-800 opacity-70'
-          }`}>
+          <div className={`p-5 rounded-2xl border transition flex flex-col justify-between ${enableHourOfDay ? 'bg-dark-900 border-purple-500/30 shadow-lg' : 'bg-dark-900/60 border-dark-800 opacity-70'
+            }`}>
             <div className="space-y-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2.5">
@@ -174,9 +177,8 @@ export const FeatureEngineeringWorkspace = ({
           </div>
 
           {/* Generator 2: Amount Ratios */}
-          <div className={`p-5 rounded-2xl border transition flex flex-col justify-between ${
-            enableAmountRatios ? 'bg-dark-900 border-purple-500/30 shadow-lg' : 'bg-dark-900/60 border-dark-800 opacity-70'
-          }`}>
+          <div className={`p-5 rounded-2xl border transition flex flex-col justify-between ${enableAmountRatios ? 'bg-dark-900 border-purple-500/30 shadow-lg' : 'bg-dark-900/60 border-dark-800 opacity-70'
+            }`}>
             <div className="space-y-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2.5">
@@ -221,9 +223,8 @@ export const FeatureEngineeringWorkspace = ({
           </div>
 
           {/* Generator 3: Velocity & Frequency Windows */}
-          <div className={`p-5 rounded-2xl border transition flex flex-col justify-between ${
-            enableVelocity ? 'bg-dark-900 border-purple-500/30 shadow-lg' : 'bg-dark-900/60 border-dark-800 opacity-70'
-          }`}>
+          <div className={`p-5 rounded-2xl border transition flex flex-col justify-between ${enableVelocity ? 'bg-dark-900 border-purple-500/30 shadow-lg' : 'bg-dark-900/60 border-dark-800 opacity-70'
+            }`}>
             <div className="space-y-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2.5">
@@ -338,11 +339,10 @@ export const FeatureEngineeringWorkspace = ({
                 {generatedFeatureColumns.map((col, idx) => (
                   <div
                     key={idx}
-                    className={`p-2 rounded-xl border text-xs font-mono flex flex-col justify-between ${
-                      col.isNew
+                    className={`p-2 rounded-xl border text-xs font-mono flex flex-col justify-between ${col.isNew
                         ? 'bg-purple-500/10 border-purple-500/30 text-purple-300'
                         : 'bg-dark-950 border-dark-800 text-slate-300'
-                    }`}
+                      }`}
                   >
                     <span className="font-semibold truncate">{col.name}</span>
                     <span className="text-[10px] text-slate-500 mt-1">{col.dtype}</span>
