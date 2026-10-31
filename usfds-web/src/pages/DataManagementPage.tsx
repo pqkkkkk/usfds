@@ -10,6 +10,7 @@ export function DataManagementPage() {
         <Route index element={<DatasetHubView />} />
         <Route path=":datasetId" element={<DatasetLineageExplorer />} />
         <Route path=":datasetId/workspace/:stepId" element={<DataPipelineWorkspace />} />
+        <Route path=":datasetId/pipeline/:stepId" element={<DataPipelineWorkspace />} />
       </Routes>
     </div>
   );

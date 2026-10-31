@@ -10,10 +10,12 @@ from usfds_core.repositories.base_project_repo import IProjectRepository
 from usfds_core.repositories.base_rule_repo import IRuleRepository, IRuleVersionRepository
 
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
-from usfds_core.domain.entities.enums import DatasetRole, ProjectStatus
+from usfds_core.domain.entities.enums import DatasetRole, InvestigationStatus, ProjectStatus
+from usfds_core.domain.entities.investigation import InvestigationCase
 from usfds_core.domain.entities.model import Model, ModelVersion, RunDataset, TrainingRun
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
+from usfds_core.repositories.base_investigation_repo import IInvestigationRepository
 from usfds_core.repositories.base_model_repo import IModelRepository
 from usfds_core.repositories.base_model_version_repo import IModelVersionRepository
 from usfds_core.repositories.base_training_run_repo import ITrainingRunRepository
@@ -430,3 +432,52 @@ class InMemoryProjectRepository(IProjectRepository):
             del self._projects[project_id]
             return True
         return False
+
+
+class InMemoryInvestigationRepository(IInvestigationRepository):
+    """In-memory store for investigation cases."""
+
+    def __init__(self):
+        self._cases: Dict[UUID, InvestigationCase] = {}
+
+    def save_case(self, case: InvestigationCase) -> InvestigationCase:
+        self._cases[case.case_id] = case
+        return case
+
+    def get_case_by_id(self, case_id: UUID) -> Optional[InvestigationCase]:
+        return self._cases.get(case_id)
+
+    def get_case_by_event_id(self, event_id: int) -> Optional[InvestigationCase]:
+        for c in self._cases.values():
+            if c.event_id == event_id:
+                return c
+        return None
+
+    def list_cases(
+        self,
+        project_id: Optional[UUID] = None,
+        status: Optional[InvestigationStatus] = None,
+        limit: int = 50,
+    ) -> List[InvestigationCase]:
+        res = list(self._cases.values())
+        if project_id:
+            res = [c for c in res if c.project_id == project_id]
+        if status:
+            st_val = status.value if hasattr(status, "value") else str(status)
+            res = [
+                c for c in res
+                if (c.status.value if hasattr(c.status, "value") else str(c.status)) == st_val
+            ]
+        res.sort(key=lambda c: c.created_at, reverse=True)
+        return res[:limit]
+
+    def get_transaction_record(self, event_id: int) -> Optional[Dict[str, Any]]:
+        return None
+
+    def get_user_transaction_history(self, user_id: int, limit: int = 100) -> List[Dict[str, Any]]:
+        return []
+
+    def search_correlated_transactions(
+        self, criteria: Dict[str, Any], limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        return []

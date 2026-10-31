@@ -105,7 +105,7 @@ export const DataPipelineWorkspace = () => {
                   try {
                     const res = await saveSchemaMapping(mappingConfig);
                     if (res?.artifact_id) {
-                      navigate(`/datasets/${datasetId}/pipeline/step-validation?artifactId=${res.artifact_id}`);
+                      navigate(`/datasets/${datasetId}/workspace/step-validation?artifactId=${res.artifact_id}`);
                     }
                   } catch (e) {
                     console.error('Validation failed:', e);

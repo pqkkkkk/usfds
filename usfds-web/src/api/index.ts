@@ -4,4 +4,5 @@ export * from './systemApi';
 export * from './ruleApi';
 export * from './projectApi';
 export * from './trainingApi';
+export * from './detectionApi';
 export * from './queryClient';

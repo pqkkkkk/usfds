@@ -1,43 +1,51 @@
 from datetime import datetime, timezone
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
+from usfds_core.domain.entities.detection import DetectionJob
 from usfds_core.domain.entities.enums import (
-    DataClassification,
-    DatasetRole,
-    ExecutionType,
-    ModelVersionStatus,
-    PipelineStage,
-    ProjectStatus,
-    RiskLevel,
-    RuleAction,
-    RuleStatus,
-    TrainingRunStatus,
-    ValidationStatus,
+	DataClassification,
+	DatasetRole,
+	DetectionJobStatus,
+	ExecutionType,
+	InvestigationStatus,
+	ModelVersionStatus,
+	PipelineStage,
+	ProjectStatus,
+	RiskLevel,
+	RuleAction,
+	RuleStatus,
+	TrainingRunStatus,
+	ValidationStatus,
 )
+from usfds_core.domain.entities.investigation import InvestigationCase
 from usfds_core.domain.entities.model import Model, ModelVersion, RunDataset, TrainingRun
 from usfds_core.domain.entities.rule import Rule, RuleVersion
 from usfds_core.domain.entities.system import Project
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
+from usfds_core.repositories.base_detection_job_repo import IDetectionJobRepository
+from usfds_core.repositories.base_investigation_repo import IInvestigationRepository
 from usfds_core.repositories.base_model_repo import IModelRepository
 from usfds_core.repositories.base_model_version_repo import IModelVersionRepository
 from usfds_core.repositories.base_project_repo import IProjectRepository
 from usfds_core.repositories.base_rule_repo import IRuleRepository, IRuleVersionRepository
 from usfds_core.repositories.base_training_run_repo import ITrainingRunRepository
 from usfds_infra.database.models import (
-    DatasetArtifactModel,
-    DatasetModel,
-    MLModel,
-    ModelVersionModel,
-    ProjectModel,
-    RuleModel,
-    RuleVersionModel,
-    RunDatasetModel,
-    TrainingRunModel,
+	DatasetArtifactModel,
+	DatasetModel,
+	DetectionJobModel,
+	InvestigationCaseModel,
+	MLModel,
+	ModelVersionModel,
+	ProjectModel,
+	RuleModel,
+	RuleVersionModel,
+	RunDatasetModel,
+	TrainingRunModel,
 )
 
 
@@ -864,6 +872,251 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
         return [self._to_entity(r) for r in records]
 
 
+class SqliteDetectionJobRepository(IDetectionJobRepository):
+    """SQLite implementation of IDetectionJobRepository using SQLAlchemy."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def _to_entity(self, record: DetectionJobModel) -> DetectionJob:
+        status_val: Union[DetectionJobStatus, str] = DetectionJobStatus.PENDING
+        if record.status:
+            try:
+                status_val = DetectionJobStatus(record.status)
+            except ValueError:
+                status_val = record.status
+
+        return DetectionJob(
+            job_id=UUID(record.job_id),
+            project_id=UUID(record.project_id),
+            deployment_id=UUID(record.deployment_id) if record.deployment_id else None,
+            target_artifact_id=UUID(record.target_artifact_id) if record.target_artifact_id else None,
+            model_version_id=UUID(record.model_version_id) if record.model_version_id else None,
+            job_name=record.job_name,
+            input_path=record.input_path or "",
+            output_path=record.output_path,
+            score_threshold=record.score_threshold,
+            use_rules=record.use_rules,
+            status=status_val,
+            total_records=record.total_records,
+            fraud_records=record.fraud_records,
+            fraud_rate=record.fraud_rate,
+            summary_metrics=record.summary_metrics,
+            execution_time_seconds=record.execution_time_seconds,
+            error_message=record.error_message,
+            created_by=record.created_by,
+            created_at=record.created_at,
+            started_at=record.started_at,
+            completed_at=record.completed_at,
+        )
+
+    def save(self, job: DetectionJob) -> DetectionJob:
+        record = self.session.get(DetectionJobModel, str(job.job_id))
+        status_str = (
+            job.status.value
+            if hasattr(job.status, "value")
+            else str(job.status)
+        )
+
+        if record is None:
+            record = DetectionJobModel(
+                job_id=str(job.job_id),
+                project_id=str(job.project_id),
+                deployment_id=str(job.deployment_id) if job.deployment_id else None,
+                target_artifact_id=str(job.target_artifact_id) if job.target_artifact_id else None,
+                model_version_id=str(job.model_version_id) if job.model_version_id else None,
+                job_name=job.job_name,
+                input_path=job.input_path or "",
+                output_path=job.output_path,
+                score_threshold=job.score_threshold,
+                use_rules=job.use_rules,
+                status=status_str,
+                total_records=job.total_records,
+                fraud_records=job.fraud_records,
+                fraud_rate=job.fraud_rate,
+                summary_metrics=job.summary_metrics,
+                execution_time_seconds=job.execution_time_seconds,
+                error_message=job.error_message,
+                created_by=job.created_by,
+                created_at=job.created_at or datetime.now(timezone.utc),
+                started_at=job.started_at,
+                completed_at=job.completed_at,
+            )
+            self.session.add(record)
+        else:
+            record.deployment_id = str(job.deployment_id) if job.deployment_id else None
+            record.target_artifact_id = str(job.target_artifact_id) if job.target_artifact_id else None
+            record.model_version_id = str(job.model_version_id) if job.model_version_id else None
+            record.job_name = job.job_name
+            record.input_path = job.input_path or ""
+            record.output_path = job.output_path
+            record.score_threshold = job.score_threshold
+            record.use_rules = job.use_rules
+            record.status = status_str
+            record.total_records = job.total_records
+            record.fraud_records = job.fraud_records
+            record.fraud_rate = job.fraud_rate
+            record.summary_metrics = job.summary_metrics
+            record.execution_time_seconds = job.execution_time_seconds
+            record.error_message = job.error_message
+            record.started_at = job.started_at
+            record.completed_at = job.completed_at
+
+        self.session.flush()
+        return self._to_entity(record)
+
+    def get_by_id(self, job_id: UUID) -> Optional[DetectionJob]:
+        record = self.session.get(DetectionJobModel, str(job_id))
+        return self._to_entity(record) if record else None
+
+    def list_by_deployment(self, deployment_id: UUID) -> List[DetectionJob]:
+        stmt = (
+            select(DetectionJobModel)
+            .where(DetectionJobModel.deployment_id == str(deployment_id))
+            .order_by(DetectionJobModel.created_at.desc())
+        )
+        records = self.session.execute(stmt).scalars().all()
+        return [self._to_entity(r) for r in records]
+
+    def list_by_project(self, project_id: UUID) -> List[DetectionJob]:
+        stmt = (
+            select(DetectionJobModel)
+            .where(DetectionJobModel.project_id == str(project_id))
+            .order_by(DetectionJobModel.created_at.desc())
+        )
+        records = self.session.execute(stmt).scalars().all()
+        return [self._to_entity(r) for r in records]
+
+
+class SqliteInvestigationCaseRepository(IInvestigationRepository):
+    """SQLite implementation of IInvestigationRepository using SQLAlchemy."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def _to_entity(self, record: InvestigationCaseModel) -> InvestigationCase:
+        status_val: Union[InvestigationStatus, str] = InvestigationStatus.PENDING
+        if record.status:
+            try:
+                status_val = InvestigationStatus(record.status)
+            except ValueError:
+                status_val = record.status
+
+        risk_val: Union[RiskLevel, str] = RiskLevel.MEDIUM
+        if record.risk_level:
+            try:
+                risk_val = RiskLevel(record.risk_level)
+            except ValueError:
+                risk_val = record.risk_level
+
+        return InvestigationCase(
+            case_id=UUID(record.case_id),
+            project_id=UUID(record.project_id),
+            event_id=record.event_id,
+            assigned_to=UUID(record.assigned_to) if record.assigned_to else None,
+            status=status_val,
+            risk_level=risk_val,
+            fraud_probability=record.fraud_probability,
+            analyst_notes=record.analyst_notes,
+            action_taken=record.action_taken,
+            sar_narrative=record.sar_narrative,
+            metadata=record.case_metadata or {},
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+            resolved_at=record.resolved_at,
+        )
+
+    def save_case(self, case: InvestigationCase) -> InvestigationCase:
+        record = self.session.get(InvestigationCaseModel, str(case.case_id))
+        status_str = (
+            case.status.value
+            if hasattr(case.status, "value")
+            else str(case.status)
+        )
+        risk_str = (
+            case.risk_level.value
+            if hasattr(case.risk_level, "value")
+            else str(case.risk_level)
+        )
+
+        if record is None:
+            record = InvestigationCaseModel(
+                case_id=str(case.case_id),
+                project_id=str(case.project_id),
+                event_id=case.event_id,
+                assigned_to=str(case.assigned_to) if case.assigned_to else None,
+                status=status_str,
+                risk_level=risk_str,
+                fraud_probability=case.fraud_probability,
+                analyst_notes=case.analyst_notes,
+                action_taken=case.action_taken,
+                sar_narrative=case.sar_narrative,
+                case_metadata=case.metadata or {},
+                created_at=case.created_at or datetime.now(timezone.utc),
+                updated_at=case.updated_at or datetime.now(timezone.utc),
+                resolved_at=case.resolved_at,
+            )
+            self.session.add(record)
+        else:
+            record.assigned_to = str(case.assigned_to) if case.assigned_to else None
+            record.status = status_str
+            record.risk_level = risk_str
+            record.fraud_probability = case.fraud_probability
+            record.analyst_notes = case.analyst_notes
+            record.action_taken = case.action_taken
+            record.sar_narrative = case.sar_narrative
+            record.case_metadata = case.metadata or {}
+            record.updated_at = datetime.now(timezone.utc)
+            record.resolved_at = case.resolved_at
+
+        self.session.flush()
+        return self._to_entity(record)
+
+    def get_case_by_id(self, case_id: UUID) -> Optional[InvestigationCase]:
+        record = self.session.get(InvestigationCaseModel, str(case_id))
+        return self._to_entity(record) if record else None
+
+    def get_case_by_event_id(self, event_id: int) -> Optional[InvestigationCase]:
+        stmt = (
+            select(InvestigationCaseModel)
+            .where(InvestigationCaseModel.event_id == event_id)
+            .order_by(InvestigationCaseModel.created_at.desc())
+            .limit(1)
+        )
+        record = self.session.execute(stmt).scalar_one_or_none()
+        return self._to_entity(record) if record else None
+
+    def list_cases(
+        self,
+        project_id: Optional[UUID] = None,
+        status: Optional[InvestigationStatus] = None,
+        limit: int = 50,
+    ) -> List[InvestigationCase]:
+        stmt = select(InvestigationCaseModel)
+        if project_id:
+            stmt = stmt.where(InvestigationCaseModel.project_id == str(project_id))
+        if status:
+            st_str = status.value if hasattr(status, "value") else str(status)
+            stmt = stmt.where(InvestigationCaseModel.status == st_str)
+        stmt = stmt.order_by(InvestigationCaseModel.created_at.desc()).limit(limit)
+        records = self.session.execute(stmt).scalars().all()
+        return [self._to_entity(r) for r in records]
+
+    def get_transaction_record(self, event_id: int) -> Optional[Dict[str, Any]]:
+        case = self.get_case_by_event_id(event_id)
+        if case and case.metadata:
+            return case.metadata.get("features")
+        return None
+
+    def get_user_transaction_history(self, user_id: int, limit: int = 100) -> List[Dict[str, Any]]:
+        return []
+
+    def search_correlated_transactions(
+        self, criteria: Dict[str, Any], limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        return []
+
+
 __all__ = [
     "SqliteProjectRepository",
     "SqliteDatasetRepository",
@@ -873,4 +1126,6 @@ __all__ = [
     "SqliteModelRepository",
     "SqliteModelVersionRepository",
     "SqliteTrainingRunRepository",
+    "SqliteDetectionJobRepository",
+    "SqliteInvestigationCaseRepository",
 ]

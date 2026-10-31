@@ -55,9 +55,9 @@ class VelocityFeatureEngineer(BaseFeatureEngineer):
         if not isinstance(X, pd.DataFrame):
             return self
 
-        user_col = self._resolve_column(X, self.user_id_col, ["customer_id", "client_id", "account_id"])
-        time_col = self._resolve_column(X, self.time_col, ["Time", "datetime", "date_time", "tx_time"])
-        amount_col = self._resolve_column(X, self.amount_col, ["Amount", "amt", "tx_amount"])
+        user_col = self._resolve_column(X, self.user_id_col, ["customer_id", "client_id", "account_id", "card1", "clientnum"])
+        time_col = self._resolve_column(X, self.time_col, ["Time", "datetime", "date_time", "tx_time", "transaction_time", "TransactionDT", "trans_date_trans_time"])
+        amount_col = self._resolve_column(X, self.amount_col, ["Amount", "amt", "tx_amount", "transaction_amount", "TransactionAmt"])
 
         if user_col and time_col:
             keep_cols = [user_col, time_col]
@@ -71,9 +71,9 @@ class VelocityFeatureEngineer(BaseFeatureEngineer):
         if not isinstance(X, pd.DataFrame):
             return X
 
-        user_col = self._resolve_column(X, self.user_id_col, ["customer_id", "client_id", "account_id"])
-        time_col = self._resolve_column(X, self.time_col, ["Time", "datetime", "date_time", "tx_time"])
-        amount_col = self._resolve_column(X, self.amount_col, ["Amount", "amt", "tx_amount"])
+        user_col = self._resolve_column(X, self.user_id_col, ["customer_id", "client_id", "account_id", "card1", "clientnum"])
+        time_col = self._resolve_column(X, self.time_col, ["Time", "datetime", "date_time", "tx_time", "transaction_time", "TransactionDT", "trans_date_trans_time"])
+        amount_col = self._resolve_column(X, self.amount_col, ["Amount", "amt", "tx_amount", "transaction_amount", "TransactionAmt"])
 
         if not user_col or not time_col:
             return X
@@ -90,9 +90,9 @@ class VelocityFeatureEngineer(BaseFeatureEngineer):
             assert self.train_history_ is not None
             train_hist = self.train_history_.copy()
             # Align column names in train_hist if necessary
-            hist_user = self._resolve_column(train_hist, self.user_id_col, ["customer_id", "client_id", "account_id"])
-            hist_time = self._resolve_column(train_hist, self.time_col, ["Time", "datetime", "date_time", "tx_time"])
-            hist_amt = self._resolve_column(train_hist, self.amount_col, ["Amount", "amt", "tx_amount"])
+            hist_user = self._resolve_column(train_hist, self.user_id_col, ["customer_id", "client_id", "account_id", "card1", "clientnum"])
+            hist_time = self._resolve_column(train_hist, self.time_col, ["Time", "datetime", "date_time", "tx_time", "transaction_time", "TransactionDT", "trans_date_trans_time"])
+            hist_amt = self._resolve_column(train_hist, self.amount_col, ["Amount", "amt", "tx_amount", "transaction_amount", "TransactionAmt"])
             
             rename_map: Dict[str, str] = {}
             if hist_user and hist_user != user_col:
