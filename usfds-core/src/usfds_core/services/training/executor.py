@@ -129,6 +129,23 @@ class TrainingRunExecutor:
                     main_artifact_uri = storage_uri
                     main_checksum = hashlib.sha256(artifact_bytes).hexdigest()
 
+            # Copy fitted_feature_engineers.joblib and column_mapping.json into the model run folder for self-contained inference
+            if payload.fe_artifact_path:
+                try:
+                    fe_bytes = self._read_bytes(payload.fe_artifact_path)
+                    fe_uri = f"models/{payload.model_id}/runs/{payload.run_id}/fitted_feature_engineers.joblib"
+                    self.file_storage.save_bytes(fe_uri, fe_bytes)
+                except Exception as fe_ex:
+                    logger.warning(f"Failed to bundle fitted_feature_engineers.joblib into model run: {fe_ex}")
+
+            if payload.column_mapping:
+                try:
+                    cm_bytes = json.dumps(payload.column_mapping, indent=2).encode("utf-8")
+                    cm_uri = f"models/{payload.model_id}/runs/{payload.run_id}/column_mapping.json"
+                    self.file_storage.save_bytes(cm_uri, cm_bytes)
+                except Exception as cm_ex:
+                    logger.warning(f"Failed to bundle column_mapping.json into model run: {cm_ex}")
+
             # Package self-contained model_bundle.zip for SCRIPT plugins (or multi-artifact runs)
             is_script_plugin = (
                 str(payload.execution_type).upper() == "SCRIPT"

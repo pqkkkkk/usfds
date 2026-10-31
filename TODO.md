@@ -1,4 +1,35 @@
+# 31-10-2026
+- [x] [fe] Fix blank validation report page after schema mapping in DataPipelineWorkspace
+	- [x] Fix navigation route in `DataPipelineWorkspace.tsx` from `/pipeline/step-validation` to `/workspace/step-validation`
+	- [x] Add route alias `:datasetId/pipeline/:stepId` in `DataManagementPage.tsx`
+- [x] [fe] Enable breadcrumb navigation in PageHeader and Detection views
+	- [x] Update `PageHeader.tsx` to support `onClick` and `href` properties on breadcrumb items
+	- [x] Add navigation to Detection Jobs hub on `DetectionResultExplorerView.tsx` and `DetectionJobWizardView.tsx`
+- [x] [fe] Implement defensive optional chaining (`?.`) across DetectionResultExplorerView and unify single canonical schema (`lower`/`upper`)
+	- [x] Backend `executor.py`: Output only 1 standard schema (`bin`, `lower`, `upper`, `count`, `flagged_count`), remove redundant alias fields
+	- [x] Frontend `DetectionResultExplorerView.tsx`: Use optional chaining (`bin?.lower?.toFixed(1)`, `job?.score_threshold?.toFixed(2)`, `tx?.model_score?.toFixed(4)`) to prevent runtime crashes when backend properties are missing or undefined
+	- [x] Verified `npm run build` in `usfds-web` and `pytest` in `usfds-server`
+- [x] [core/server] Fix missing feature-engineered columns (`tx_freq_last_*h`, `tx_sum_last_*h`) during batch inference on RAW inputs
+	- [x] [core] Persist `column_mapping` and `retained_columns` in `MAPPED` and `FEATURE_ENGINEERED` artifact `validation_report` (`mapping.py`, `feature_engineering_service.py`)
+	- [x] [core] Bundle `fitted_feature_engineers.joblib` and `column_mapping.json` into model run directory during training (`training_payload.py`, `training_service.py`, `executor.py`)
+	- [x] [core] Enhance `InferenceService._trace_model_version_lineage`, `BatchInferenceExecutor.prepare_and_validate_input`, `VelocityFeatureEngineer`, and `CreditCardFeatureEngineer` with model-run artifact lookup and raw column alias resolution
+	- [x] [server] Backfill `fitted_feature_engineers.joblib` and `column_mapping.json` into `storage_output/models/00000000-0000-0000-0000-000000000001/runs/7c8efb2f-c403-4d1c-87f7-2fa254cc669d/`
+	- [x] [tests] Add end-to-end test in `test_detection_api.py` covering RAW schema mapping (`transaction_time` -> `timestamp`) + Velocity Feature Engineering + Model Training + RAW Batch Detection
+- [x] [fe] Fix null property crashes on failed/pending detection jobs in DetectionJobsHubView and DetectionResultExplorerView
+	- [x] [fe] Update DetectionJobResponse types (`total_records`, `fraud_records`, `fraud_rate` as nullable)
+	- [x] [fe] Guard `toLocaleString()` and `toFixed()` in DetectionJobsHubView and DetectionResultExplorerView
+	- [x] [fe] Display `error_message` banner and failed status badge on failed detection jobs
+
 # 29-10-2026
+- [x] [detection] Implement Detection & Inference functions (`SUC-15`, `SUC-16`, `SUC-19`)
+	- [x] [docs] Update Use Case Specification (`SUC-19`, `SUC-15`, `SUC-16`) in `docs/features/detection/inference/suc-spec.md` (`[26-10-29]`)
+	- [x] [core] Upgrade `DetectionJob`, `BatchInferencePayload`, `BatchInferenceExecutor`, and `InferenceService` for Hybrid Detection (RAW `target_artifact_id` or `input_file_path`, `APPROVED` `ModelVersion` / `Rule-Only`, `ACTIVE` `Rule` evaluation, `REJECT`/`REVIEW`/`ALLOW` decision aggregation, results query, export, and `InvestigationCase` dispatch)
+	- [x] [infra] Add `DetectionJobModel`, `InvestigationCaseModel`, `SqliteDetectionJobRepository`, and `SqliteInvestigationCaseRepository` in `usfds-infra`
+	- [x] [server] Expose `/api/v1/detection` endpoints (`GET/POST /jobs`, `GET /jobs/{job_id}`, `GET /jobs/{job_id}/results`, `GET /jobs/{job_id}/export`, `POST /jobs/{job_id}/send-to-investigation`, `GET /cases`)
+	- [x] [tests] Add unit and API tests for Hybrid Detection in `usfds-core/tests/test_inference_service.py` and `usfds-server/tests/test_detection_api.py`
+	- [x] [fe] Update `src/types/detection.ts` and create `src/api/detectionApi.ts`
+	- [x] [fe] Build `DetectionJobsHubView` (`SUC-19`), `DetectionJobWizardView` (`SUC-15`), `DetectionResultExplorerView` (`SUC-16`), and connect `InvestigationModule` to live dispatched cases
+	- [x] [fe] Verify `pytest` suite and `usfds-web` TypeScript build
 - [x] [fe] Fix infinite loop in DataPipelineWorkspace and SchemaMappingWorkspace
 	- [x] [fe] Wrap onConfigChange handler in DataPipelineWorkspace with useCallback
 	- [x] [fe] Decouple onConfigChange in SchemaMappingWorkspace with useRef

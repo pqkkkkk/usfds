@@ -86,6 +86,38 @@ class TrainingOrchestrationService:
             raise ValueError("Dataset artifact must specify an output path for 'train'.")
         test_storage_path = output_paths.get("test") or output_paths.get("test_enriched")
 
+        # 2.1 Resolve fitted feature engineers path and column mapping across artifact lineage
+        fe_artifact_path: Optional[str] = None
+        column_mapping: Dict[str, str] = {}
+        curr_art = artifact
+        visited_ids = set()
+        while curr_art is not None and curr_art.artifact_id not in visited_ids:
+            visited_ids.add(curr_art.artifact_id)
+            curr_outputs = curr_art.output_paths or {}
+            if not fe_artifact_path:
+                cand_fe = (
+                    curr_outputs.get("fitted_engineers")
+                    or curr_outputs.get("fe_pipeline")
+                    or (
+                        f"{curr_art.storage_path}/fitted_feature_engineers.joblib"
+                        if curr_art.pipeline_stage == PipelineStage.FEATURE_ENGINEERED and curr_art.storage_path
+                        else None
+                    )
+                )
+                if cand_fe and self.file_storage.exists(cand_fe):
+                    fe_artifact_path = cand_fe
+
+            vr = curr_art.validation_report or {}
+            if not column_mapping and isinstance(vr, dict):
+                cm = vr.get("column_mapping") or vr.get("mapping_config")
+                if isinstance(cm, dict):
+                    column_mapping = {str(k): str(v) for k, v in cm.items() if v}
+
+            if curr_art.parent_artifact_id:
+                curr_art = self.dataset_artifact_repo.get_by_id(curr_art.parent_artifact_id)
+            else:
+                curr_art = None
+
         # 3. Extract target column from validation report
         val_report = artifact.validation_report or {}
         target_column = val_report.get("target_column", "label")
@@ -129,6 +161,8 @@ class TrainingOrchestrationService:
             entrypoint_uri=model.entrypoint_uri,
             train_storage_path=train_storage_path,
             test_storage_path=test_storage_path,
+            fe_artifact_path=fe_artifact_path,
+            column_mapping=column_mapping,
             target_column=target_column,
             hyperparameters=merged_params,
             compute_target=config.compute_target,

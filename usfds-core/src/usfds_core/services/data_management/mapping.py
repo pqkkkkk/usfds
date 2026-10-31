@@ -222,6 +222,13 @@ class DataMappingService:
         # 10. Construct schema snapshot
         schema_snapshot = {str(col): str(mapped_df[col].dtype) for col in mapped_df.columns}
 
+        # 10.1 Enrich validation report with column_mapping and retained_columns for downstream inference lineage
+        report_dict = quality_report.to_dict()
+        report_dict["column_mapping"] = mapping_config.get_full_column_mapping()
+        report_dict["retained_columns"] = list(mapped_df.columns)
+        if mapping_config.time_format:
+            report_dict["time_format"] = str(mapping_config.time_format)
+
         # 11. Create immutable DatasetArtifact
         artifact = DatasetArtifact(
             artifact_id=uuid4(),
@@ -236,7 +243,7 @@ class DataMappingService:
             row_count=len(mapped_df),
             column_count=len(mapped_df.columns),
             validation_status=quality_report.validation_status,
-            validation_report=quality_report.to_dict(),
+            validation_report=report_dict,
             created_by=user_name,
         )
 
