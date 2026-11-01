@@ -244,6 +244,14 @@ class FeatureEngineeringExecutionService:
             val_report["engineered_features"] = engineered_features
             val_report["train_rows"] = len(train_enriched)
             val_report["test_rows"] = len(test_enriched)
+            parent_vr = parent_artifact.validation_report or {}
+            if isinstance(parent_vr, dict):
+                if "column_mapping" in parent_vr and isinstance(parent_vr["column_mapping"], dict):
+                    val_report["column_mapping"] = dict(parent_vr["column_mapping"])
+                if "retained_columns" in parent_vr and isinstance(parent_vr["retained_columns"], list):
+                    val_report["retained_columns"] = list(parent_vr["retained_columns"])
+                if "time_format" in parent_vr:
+                    val_report["time_format"] = parent_vr["time_format"]
 
             # 5. Save Outputs to Workspace
             train_enriched.to_parquet(workspace.train_enriched_path, index=False)

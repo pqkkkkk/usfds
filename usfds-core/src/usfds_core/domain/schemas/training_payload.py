@@ -12,6 +12,8 @@ class TrainingRunPayload(BaseModel):
     entrypoint_uri: Optional[str] = None
     train_storage_path: str
     test_storage_path: Optional[str] = None
+    fe_artifact_path: Optional[str] = None
+    column_mapping: Dict[str, str] = Field(default_factory=dict)
     target_column: str = "is_fraud"
     hyperparameters: Dict[str, Any] = Field(default_factory=dict)
     compute_target: str = "local"

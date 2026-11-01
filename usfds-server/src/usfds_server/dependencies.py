@@ -7,6 +7,7 @@ from usfds_core.domain.entities.enums import ExecutionType
 from usfds_core.domain.entities.model import Model
 from usfds_core.domain.schemas.training_payload import TrainingRunPayload
 from usfds_core.services.data_management.service import DataManagementService
+from usfds_core.services.inference.inference_service import InferenceService
 from usfds_core.services.project_management.project_service import ProjectManagementService
 from usfds_core.services.rule_engine.executor import RuleExecutor
 from usfds_core.services.rule_engine.manager import RuleManager
@@ -17,18 +18,20 @@ from usfds_core.services.training.plugins.register import ModelPluginRegistratio
 from usfds_core.services.training.training_service import TrainingOrchestrationService
 
 from usfds_infra.database import (
-    SqliteDatasetArtifactRepository,
-    SqliteDatasetRepository,
-    SqliteModelRepository,
-    SqliteModelVersionRepository,
-    SqliteProjectRepository,
-    SqliteRuleRepository,
-    SqliteRuleVersionRepository,
-    SqliteTrainingRunRepository,
-    close_db,
-    create_session_factory,
-    create_sqlite_engine,
-    init_db,
+	SqliteDatasetArtifactRepository,
+	SqliteDatasetRepository,
+	SqliteDetectionJobRepository,
+	SqliteInvestigationCaseRepository,
+	SqliteModelRepository,
+	SqliteModelVersionRepository,
+	SqliteProjectRepository,
+	SqliteRuleRepository,
+	SqliteRuleVersionRepository,
+	SqliteTrainingRunRepository,
+	close_db,
+	create_session_factory,
+	create_sqlite_engine,
+	init_db,
 )
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_server.config import settings
@@ -171,7 +174,15 @@ def get_model_version_repo(session: Session = Depends(get_db)) -> SqliteModelVer
 
 
 def get_training_run_repo(session: Session = Depends(get_db)) -> SqliteTrainingRunRepository:
-    return SqliteTrainingRunRepository(session)
+	return SqliteTrainingRunRepository(session)
+
+
+def get_detection_job_repo(session: Session = Depends(get_db)) -> SqliteDetectionJobRepository:
+	return SqliteDetectionJobRepository(session)
+
+
+def get_investigation_case_repo(session: Session = Depends(get_db)) -> SqliteInvestigationCaseRepository:
+	return SqliteInvestigationCaseRepository(session)
 
 
 def get_project_management_service(
@@ -256,22 +267,51 @@ def get_training_service(
     return service
 
 
+def get_inference_service(
+	project_repo: SqliteProjectRepository = Depends(get_project_repo),
+	dataset_repo: SqliteDatasetRepository = Depends(get_dataset_repo),
+	artifact_repo: SqliteDatasetArtifactRepository = Depends(get_artifact_repo),
+	model_repo: SqliteModelRepository = Depends(get_model_repo),
+	model_version_repo: SqliteModelVersionRepository = Depends(get_model_version_repo),
+	training_run_repo: SqliteTrainingRunRepository = Depends(get_training_run_repo),
+	detection_job_repo: SqliteDetectionJobRepository = Depends(get_detection_job_repo),
+	investigation_repo: SqliteInvestigationCaseRepository = Depends(get_investigation_case_repo),
+	rule_manager: RuleManager = Depends(get_rule_manager),
+	storage: LocalFileStorage = Depends(get_storage),
+) -> InferenceService:
+	return InferenceService(
+		file_storage=storage,
+		detection_job_repo=detection_job_repo,
+		project_repo=project_repo,
+		dataset_repo=dataset_repo,
+		artifact_repo=artifact_repo,
+		model_repo=model_repo,
+		model_version_repo=model_version_repo,
+		training_run_repo=training_run_repo,
+		rule_manager=rule_manager,
+		investigation_repo=investigation_repo,
+	)
+
+
 __all__ = [
-    "setup_infrastructure",
-    "teardown_infrastructure",
-    "get_storage",
-    "get_db",
-    "get_project_repo",
-    "get_dataset_repo",
-    "get_artifact_repo",
-    "get_rule_repo",
-    "get_rule_version_repo",
-    "get_model_repo",
-    "get_model_version_repo",
-    "get_training_run_repo",
-    "get_project_management_service",
-    "get_rule_manager",
-    "get_rule_executor",
-    "get_data_management_service",
-    "get_training_service",
+	"setup_infrastructure",
+	"teardown_infrastructure",
+	"get_storage",
+	"get_db",
+	"get_project_repo",
+	"get_dataset_repo",
+	"get_artifact_repo",
+	"get_rule_repo",
+	"get_rule_version_repo",
+	"get_model_repo",
+	"get_model_version_repo",
+	"get_training_run_repo",
+	"get_detection_job_repo",
+	"get_investigation_case_repo",
+	"get_project_management_service",
+	"get_rule_manager",
+	"get_rule_executor",
+	"get_data_management_service",
+	"get_training_service",
+	"get_inference_service",
 ]
