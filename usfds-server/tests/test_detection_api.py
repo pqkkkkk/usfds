@@ -55,6 +55,7 @@ def _seed_project_and_datasets(project_id_str: str):
 		df = pd.DataFrame({
 			"event_id": [f"evt_{i}" for i in range(n_rows)],
 			"user_id": [f"usr_{i % 5}" for i in range(n_rows)],
+			"timestamp": pd.date_range("2026-10-01", periods=n_rows, freq="h", tz="UTC").astype(str),
 			"amount": [650.0 if i % 4 == 0 else float(rng.uniform(10.0, 200.0)) for i in range(n_rows)],
 			"velocity_1h": rng.integers(1, 8, size=n_rows).astype(float),
 			"country": rng.choice(["US", "VN", "SG"], size=n_rows),
@@ -99,7 +100,7 @@ def _seed_project_and_datasets(project_id_str: str):
 			storage_path=raw_rel,
 			output_paths={"raw": raw_rel},
 			row_count=n_rows,
-			column_count=5,
+			column_count=6,
 			validation_status=ValidationStatus.PASSED,
 		)
 		art_repo.save(raw_artifact)
@@ -112,7 +113,7 @@ def _seed_project_and_datasets(project_id_str: str):
 			storage_path=f"datasets/{dataset_id}/artifacts/{fe_artifact_id}",
 			output_paths={"train": train_rel, "test": test_rel},
 			row_count=n_rows,
-			column_count=6,
+			column_count=7,
 			validation_status=ValidationStatus.PASSED,
 			validation_report={"target_column": "label"},
 		)
@@ -267,14 +268,39 @@ def test_detection_api_end_to_end(temporary_environment):
 		)
 		assert res_dispatch.status_code == 201, res_dispatch.text
 		dispatched = res_dispatch.json()["data"]
-		assert len(dispatched) == 1
-		assert dispatched[0]["metadata"]["raw_event_id"] == first_flagged["event_id"]
+		assert dispatched["accepted_count"] == 1
+		case_id = dispatched["created_case_ids"][0]
 
-		res_cases = client.get(f"/api/v1/detection/cases?project_id={project_id}")
+		res_cases = client.get(f"/api/v1/cases?project_id={project_id}")
 		assert res_cases.status_code == 200
-		cases = res_cases.json()["data"]
+		cases = res_cases.json()["data"]["items"]
 		assert len(cases) == 1
-		assert cases[0]["analyst_notes"] == "Confirmed high-value anomaly during batch scan"
+		assert cases[0]["event_id"] == first_flagged["event_id"]
+		assert cases[0]["dataset_artifact_id"] is None
+		bench = client.get(f"/api/v1/cases/{case_id}/workbench?project_id={project_id}")
+		assert bench.status_code == 200, bench.text
+		assert bench.json()["data"]["profile"]["timeline"]
+		assert bench.json()["data"]["audit_logs"][-1]["note"] == "Confirmed high-value anomaly during batch scan"
+		retry = client.post(f"/api/v1/detection/jobs/{job1['job_id']}/send-to-investigation", json={"event_ids": [first_flagged["event_id"]]})
+		assert retry.json()["data"]["accepted_count"] == 0
+		assert retry.json()["data"]["skipped_event_ids"] == [first_flagged["event_id"]]
+		annotated = client.get(f"/api/v1/detection/jobs/{job1['job_id']}/results").json()["data"]["transactions"]
+		assert next(row for row in annotated if row["event_id"] == first_flagged["event_id"])["case_id"] == case_id
+		production_rows = client.get(f"/api/v1/detection/jobs/{job2['job_id']}/results").json()["data"]["transactions"]
+		new_event = next(row["event_id"] for row in production_rows if row["is_flagged"] and not row["case_id"])
+		failed = client.post(f"/api/v1/detection/jobs/{job2['job_id']}/send-to-investigation", json={"event_ids": [new_event, "UNKNOWN"]})
+		assert failed.status_code == 400
+		assert client.get(f"/api/v1/cases?project_id={project_id}").json()["data"]["total"] == 1
+		allowed_event = next(row["event_id"] for row in production_rows if not row["is_flagged"])
+		assert client.post(f"/api/v1/detection/jobs/{job2['job_id']}/send-to-investigation", json={"event_ids": [allowed_event]}).status_code == 400
+		production = client.post(f"/api/v1/detection/jobs/{job2['job_id']}/send-to-investigation", json={"event_ids": [new_event]})
+		assert production.status_code == 201, production.text
+		production_case_id = production.json()["data"]["created_case_ids"][0]
+		production_case = client.get(f"/api/v1/cases/{production_case_id}?project_id={project_id}").json()["data"]
+		assert production_case["detection_job_id"] == job2["job_id"]
+		assert production_case["dataset_artifact_id"] is None
+		assert production_case["model_score"] is None
+		assert client.get(f"/api/v1/cases/{production_case_id}/workbench?project_id={project_id}").status_code == 200
 
 
 def test_detection_api_with_velocity_feature_engineering_and_raw_columns(temporary_environment):

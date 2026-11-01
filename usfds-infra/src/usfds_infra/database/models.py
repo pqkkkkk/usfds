@@ -251,24 +251,6 @@ class DetectionJobModel(Base):
 	completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class InvestigationCaseModel(Base, TimestampMixin):
-	"""SQLAlchemy model for fraud alert investigation cases dispatched from Detection Jobs (SUC-16)."""
-	__tablename__ = "investigation_cases"
-
-	case_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-	project_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
-	event_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
-	assigned_to: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
-	status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False, index=True)
-	risk_level: Mapped[str] = mapped_column(String(50), default="MEDIUM", nullable=False)
-	fraud_probability: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-	analyst_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-	action_taken: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-	sar_narrative: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-	case_metadata: Mapped[Dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
-	resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-
-
 __all__ = [
 	"ProjectModel",
 	"DatasetModel",
@@ -280,5 +262,4 @@ __all__ = [
 	"TrainingRunModel",
 	"RunDatasetModel",
 	"DetectionJobModel",
-	"InvestigationCaseModel",
 ]

@@ -1,4 +1,27 @@
-# 31-10-2026
+# 01-11-2026 — Training artifact priority
+- [x] [core/tests] Prefer `model.joblib` over `model.json` as the primary XGBoost artifact; keep JSON as the final fallback
+
+# 01-11-2026 — Detection / Investigation contract integration
+- [x] [be/tests] Fix workbench query.days string parsing; verify default/30/90 accepted and other windows return 422
+- [x] [be] One send-to-investigation endpoint writes fraud_cases via CaseService; public intake endpoint removed
+- [x] [be] Production source resolved from detection_job_id/storage; no dataset_artifacts registration required
+- [x] [be] Remove obsolete investigation_cases ORM/repository/writer/routes; schema migration preserves Case/blacklist/audit and prevents dropping populated legacy data
+- [x] [fe] Consume accepted_count/skipped_event_ids and invalidate shared Investigation queries; remove obsolete case types/API
+- [x] [docs/tests] Synchronize single-call contract; tests cover Detection -> Case Queue -> Workbench, retry, invalid/ALLOW events and file production
+
+# 31-10-2026 — Investigation
+- [x] [docs] Final scope: Case per transaction, blacklist only, shared audit, no bulk resolve
+- [x] [core] Case, EntityBlacklist, AuditLog and repo interfaces
+- [x] [core] Priority, case lifecycle, behavior profile, blacklist, rule feedback + focused tests
+- [x] [infra] SQLAlchemy models + Sqlite repositories + tests
+- [x] [server] `/api/v1/cases`, `/api/v1/blacklist` routers, schemas, DI + API test
+- [x] [fe] Types, API client, project-scoped React Query queries/mutations
+- [x] [fe] Case Queue view (KPIs, filters, table, claim, pagination)
+- [x] [fe] Case Workbench (subject/baseline, evidence, timeline, deviation, resolution, audit)
+- [x] [fe] Policies view (blacklist, rule feedback) + Rule Studio prefill/source artifact
+- [x] [fe] `npm run build`; [be] 6 focused checks core/infra/server passed
+- [x] [fe] Browser: live empty state, cached Case renders, two charts render, invalid decision disabled; mechanical UI detector clean
+- [ ] [fe] Complete browser desktop/mobile mutation and Rule Studio handoff verification (shared browser route changed during checks; no real DB mutations performed)
 - [x] [fe] Fix blank validation report page after schema mapping in DataPipelineWorkspace
 	- [x] Fix navigation route in `DataPipelineWorkspace.tsx` from `/pipeline/step-validation` to `/workspace/step-validation`
 	- [x] Add route alias `:datasetId/pipeline/:stepId` in `DataManagementPage.tsx`

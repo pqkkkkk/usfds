@@ -4,6 +4,7 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from usfds_infra.database.base import Base
+from usfds_infra.database.case_migration import migrate_case_sources
 
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
@@ -56,6 +57,7 @@ def get_db(session_factory: sessionmaker[Session]) -> Generator[Session, None, N
 def init_db(engine: Engine) -> None:
     """Create all registered database tables if they do not exist."""
     Base.metadata.create_all(bind=engine)
+    migrate_case_sources(engine)
 
 
 def close_db(engine: Engine) -> None:

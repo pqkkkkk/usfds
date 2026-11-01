@@ -26,7 +26,6 @@ from usfds_core.domain.schemas.inference_payload import BatchInferencePayload
 from usfds_core.repositories.in_memory_repos import (
     InMemoryDatasetArtifactRepository,
     InMemoryDetectionJobRepository,
-    InMemoryInvestigationRepository,
     InMemoryModelVersionRepository,
     InMemoryPipelineRepository,
     InMemoryProjectRepository,
@@ -184,7 +183,6 @@ class TestHybridDetectionInMemory(unittest.TestCase):
         )
 
         job_repo = InMemoryDetectionJobRepository()
-        inv_repo = InMemoryInvestigationRepository()
 
         service = InferenceService(
             file_storage=storage,
@@ -192,7 +190,6 @@ class TestHybridDetectionInMemory(unittest.TestCase):
             artifact_repo=artifact_repo,
             rule_manager=rule_manager,
             project_repo=project_repo,
-            investigation_repo=inv_repo,
         )
 
         # Reject non-RAW artifact in Option 1
@@ -240,12 +237,6 @@ class TestHybridDetectionInMemory(unittest.TestCase):
         # Query & dispatch to Investigation
         res = service.get_detection_job_results(job1.job_id, action_filter="FLAGGED")
         self.assertEqual(res["total_filtered"], 4)
-        cases = service.dispatch_cases_to_investigation(
-            job_id=job1.job_id,
-            event_ids=[res["transactions"][0]["event_id"]],
-            analyst_notes="Escalated from unit test",
-        )
-        self.assertEqual(len(cases), 1)
 
 
 class TestInferenceServiceWithRealStorageOutput(unittest.TestCase):
@@ -599,7 +590,6 @@ class TestInferenceServiceWithRealStorageOutput(unittest.TestCase):
             status=RuleStatus.ACTIVE,
         )
 
-        inv_repo = InMemoryInvestigationRepository()
         hybrid_job_repo = InMemoryDetectionJobRepository()
 
         hybrid_service = InferenceService(
@@ -611,7 +601,6 @@ class TestInferenceServiceWithRealStorageOutput(unittest.TestCase):
             training_run_repo=training_run_repo,
             rule_manager=rule_manager,
             project_repo=project_repo,
-            investigation_repo=inv_repo,
         )
 
         # Reject non-RAW artifact in Option 1
@@ -675,12 +664,3 @@ class TestInferenceServiceWithRealStorageOutput(unittest.TestCase):
         self.assertTrue(filename.endswith(".csv"))
         self.assertEqual(media_type, "text/csv")
         self.assertGreater(len(csv_bytes), 0)
-
-        # Send to investigation (SUC-16)
-        created_cases = hybrid_service.dispatch_cases_to_investigation(
-            job_id=job1.job_id,
-            event_ids=[first_record["event_id"]],
-            analyst_notes="Escalated for manual review",
-        )
-        self.assertEqual(len(created_cases), 1)
-        self.assertEqual(created_cases[0].metadata["raw_event_id"], str(first_record["event_id"]))

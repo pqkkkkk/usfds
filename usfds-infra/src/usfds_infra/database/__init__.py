@@ -1,10 +1,11 @@
 from usfds_infra.database.base import Base, TimestampMixin
+from usfds_infra.database.case_models import AuditLogModel, CaseModel, EntityBlacklistModel
+from usfds_infra.database.case_repositories import SqliteAuditRepository, SqliteBlacklistRepository, SqliteCaseRepository
 from usfds_infra.database.engine import create_sqlite_engine
 from usfds_infra.database.models import (
 	DatasetArtifactModel,
 	DatasetModel,
 	DetectionJobModel,
-	InvestigationCaseModel,
 	MLModel,
 	ModelVersionModel,
 	ProjectModel,
@@ -17,7 +18,6 @@ from usfds_infra.database.repositories import (
 	SqliteDatasetArtifactRepository,
 	SqliteDatasetRepository,
 	SqliteDetectionJobRepository,
-	SqliteInvestigationCaseRepository,
 	SqliteModelRepository,
 	SqliteModelVersionRepository,
 	SqliteProjectRepository,
@@ -52,7 +52,6 @@ __all__ = [
 	"TrainingRunModel",
 	"RunDatasetModel",
 	"DetectionJobModel",
-	"InvestigationCaseModel",
 	"SqliteProjectRepository",
 	"SqliteDatasetRepository",
 	"SqliteDatasetArtifactRepository",
@@ -62,5 +61,4 @@ __all__ = [
 	"SqliteModelVersionRepository",
 	"SqliteTrainingRunRepository",
 	"SqliteDetectionJobRepository",
-	"SqliteInvestigationCaseRepository",
 ]

@@ -21,7 +21,6 @@ from usfds_infra.database import (
 	SqliteDatasetArtifactRepository,
 	SqliteDatasetRepository,
 	SqliteDetectionJobRepository,
-	SqliteInvestigationCaseRepository,
 	SqliteModelRepository,
 	SqliteModelVersionRepository,
 	SqliteProjectRepository,
@@ -34,6 +33,7 @@ from usfds_infra.database import (
 	init_db,
 )
 from usfds_infra.storage.local_storage import LocalFileStorage
+from usfds_infra.database.case_repositories import SqliteCaseRepository
 from usfds_server.config import settings
 
 # Global singletons managed during application lifecycle
@@ -181,8 +181,8 @@ def get_detection_job_repo(session: Session = Depends(get_db)) -> SqliteDetectio
 	return SqliteDetectionJobRepository(session)
 
 
-def get_investigation_case_repo(session: Session = Depends(get_db)) -> SqliteInvestigationCaseRepository:
-	return SqliteInvestigationCaseRepository(session)
+def get_case_repo(session: Session = Depends(get_db)) -> SqliteCaseRepository:
+    return SqliteCaseRepository(session)
 
 
 def get_project_management_service(
@@ -275,7 +275,7 @@ def get_inference_service(
 	model_version_repo: SqliteModelVersionRepository = Depends(get_model_version_repo),
 	training_run_repo: SqliteTrainingRunRepository = Depends(get_training_run_repo),
 	detection_job_repo: SqliteDetectionJobRepository = Depends(get_detection_job_repo),
-	investigation_repo: SqliteInvestigationCaseRepository = Depends(get_investigation_case_repo),
+    case_repo: SqliteCaseRepository = Depends(get_case_repo),
 	rule_manager: RuleManager = Depends(get_rule_manager),
 	storage: LocalFileStorage = Depends(get_storage),
 ) -> InferenceService:
@@ -289,7 +289,7 @@ def get_inference_service(
 		model_version_repo=model_version_repo,
 		training_run_repo=training_run_repo,
 		rule_manager=rule_manager,
-		investigation_repo=investigation_repo,
+        case_repo=case_repo,
 	)
 
 
@@ -307,7 +307,7 @@ __all__ = [
 	"get_model_version_repo",
 	"get_training_run_repo",
 	"get_detection_job_repo",
-	"get_investigation_case_repo",
+    "get_case_repo",
 	"get_project_management_service",
 	"get_rule_manager",
 	"get_rule_executor",

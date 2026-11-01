@@ -136,36 +136,10 @@ export interface SendToInvestigationRequest {
 	analyst_notes?: string | null;
 }
 
-export interface InvestigationCaseMetadata {
-	job_id?: string;
-	job_name?: string;
-	raw_event_id?: string;
-	user_id?: string;
-	timestamp?: string;
-	amount?: number;
-	model_score?: number;
-	final_action?: DetectionDecisionAction;
-	rule_action?: DetectionDecisionAction;
-	triggered_rules?: string[];
-	triggered_rule_details?: TriggeredRuleDetail[];
-	features?: Record<string, unknown>;
-}
-
-export interface InvestigationCaseResponse {
-	case_id: string;
-	project_id: string;
-	event_id: number;
-	assigned_to?: string | null;
-	status: InvestigationStatus;
-	risk_level: AlertSeverity;
-	fraud_probability: number;
-	analyst_notes?: string | null;
-	action_taken?: string | null;
-	sar_narrative?: string | null;
-	metadata: InvestigationCaseMetadata;
-	created_at: string;
-	updated_at: string;
-	resolved_at?: string | null;
+export interface CaseDispatchResult {
+	created_case_ids: string[];
+	accepted_count: number;
+	skipped_event_ids: string[];
 }
 
 export interface DetectionJob {

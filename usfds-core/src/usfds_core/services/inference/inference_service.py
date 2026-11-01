@@ -20,13 +20,10 @@ from usfds_core.domain.entities.detection import DetectionJob, Pipeline
 from usfds_core.domain.entities.enums import (
     DeploymentStatus,
     DetectionJobStatus,
-    InvestigationStatus,
     ModelVersionStatus,
     PipelineStage,
     ProjectStatus,
-    RiskLevel,
 )
-from usfds_core.domain.entities.investigation import InvestigationCase
 from usfds_core.domain.schemas.inference_payload import (
     ActiveRuleSnapshot,
     BatchInferencePayload,
@@ -35,7 +32,7 @@ from usfds_core.domain.schemas.inference_payload import (
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
 from usfds_core.repositories.base_detection_job_repo import IDetectionJobRepository
-from usfds_core.repositories.base_investigation_repo import IInvestigationRepository
+from usfds_core.repositories.base_case_repo import ICaseRepository
 from usfds_core.repositories.base_model_repo import IModelRepository
 from usfds_core.repositories.base_model_version_repo import IModelVersionRepository
 from usfds_core.repositories.base_project_repo import IProjectRepository
@@ -78,7 +75,7 @@ class InferenceService:
         model_version_repo: Optional[IModelVersionRepository] = None,
         training_run_repo: Optional[ITrainingRunRepository] = None,
         rule_manager: Optional[RuleManager] = None,
-        investigation_repo: Optional[IInvestigationRepository] = None,
+        case_repo: Optional[ICaseRepository] = None,
     ):
         self.pipeline_repo = pipeline_repo
         self.file_storage = file_storage
@@ -91,7 +88,7 @@ class InferenceService:
         self.model_version_repo = model_version_repo
         self.training_run_repo = training_run_repo
         self.rule_manager = rule_manager
-        self.investigation_repo = investigation_repo
+        self.case_repo = case_repo
         self.schema_validator = ProjectSchemaValidator()
 
     def _read_bytes(self, file_path_or_storage: Union[str, Path]) -> bytes:
@@ -839,13 +836,10 @@ class InferenceService:
 
         # Map existing investigation cases by event_id for this project
         existing_cases_by_event: Dict[str, str] = {}
-        if self.investigation_repo:
-            cases = self.investigation_repo.list_cases(project_id=job.project_id, limit=1000)
+        if self.case_repo:
+            cases = self.case_repo.list_by_project(job.project_id)
             for c in cases:
                 existing_cases_by_event[str(c.event_id)] = str(c.case_id)
-                meta_ev = (c.metadata or {}).get("raw_event_id")
-                if meta_ev is not None:
-                    existing_cases_by_event[str(meta_ev)] = str(c.case_id)
 
         internal_cols = {
             "model_score",
@@ -998,80 +992,3 @@ class InferenceService:
         buf = io.BytesIO()
         df.to_csv(buf, index=False)
         return buf.getvalue(), f"{safe_name}_results.csv", "text/csv"
-
-    def dispatch_cases_to_investigation(
-        self,
-        job_id: UUID,
-        event_ids: List[str],
-        analyst_notes: Optional[str] = None,
-    ) -> List[InvestigationCase]:
-        """Creates InvestigationCase records for selected transactions from a DetectionJob (SUC-16)."""
-        if not self.investigation_repo:
-            raise ValueError("InvestigationRepository is not configured.")
-
-        if not event_ids:
-            raise ValueError("At least one transaction event_id must be selected.")
-
-        job = self.get_detection_job(job_id)
-        res = self.get_detection_job_results(job_id=job_id, limit=100000, offset=0)
-        tx_map: Dict[str, Dict[str, Any]] = {
-            str(tx["event_id"]): tx for tx in res["transactions"]
-        }
-
-        created_cases: List[InvestigationCase] = []
-        for raw_ev_id in event_ids:
-            ev_key = str(raw_ev_id)
-            tx = tx_map.get(ev_key)
-            if not tx:
-                continue
-
-            # Resolve numeric event_id for InvestigationCase entity
-            try:
-                numeric_event_id = int(float(ev_key))
-            except (ValueError, TypeError):
-                numeric_event_id = abs(hash(ev_key)) % 1000000000
-
-            # Avoid duplicate case creation for the same event_id in the same project
-            existing = self.investigation_repo.get_case_by_event_id(numeric_event_id)
-            if existing and str(existing.project_id) == str(job.project_id):
-                created_cases.append(existing)
-                continue
-
-            m_score = float(tx.get("model_score", 0.0))
-            f_action = str(tx.get("final_action", "REVIEW")).upper()
-            if f_action == "REJECT" or m_score >= 0.80:
-                risk = RiskLevel.CRITICAL
-            elif m_score >= 0.50 or f_action == "REVIEW":
-                risk = RiskLevel.HIGH
-            elif m_score >= 0.20:
-                risk = RiskLevel.MEDIUM
-            else:
-                risk = RiskLevel.LOW
-
-            case_entity = InvestigationCase(
-                project_id=job.project_id,
-                event_id=numeric_event_id,
-                status=InvestigationStatus.PENDING,
-                risk_level=risk,
-                fraud_probability=m_score,
-                analyst_notes=analyst_notes,
-                action_taken=f_action,
-                metadata={
-                    "job_id": str(job.job_id),
-                    "job_name": job.job_name,
-                    "raw_event_id": ev_key,
-                    "user_id": tx.get("user_id"),
-                    "timestamp": tx.get("timestamp"),
-                    "amount": tx.get("amount"),
-                    "model_score": m_score,
-                    "final_action": f_action,
-                    "rule_action": tx.get("rule_action"),
-                    "triggered_rules": tx.get("triggered_rules", []),
-                    "triggered_rule_details": tx.get("triggered_rule_details", []),
-                    "features": tx.get("features", {}),
-                },
-            )
-            saved = self.investigation_repo.save_case(case_entity)
-            created_cases.append(saved)
-
-        return created_cases

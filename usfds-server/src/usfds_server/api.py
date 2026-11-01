@@ -16,6 +16,8 @@ from usfds_server.dependencies import (
     setup_infrastructure,
     teardown_infrastructure,
 )
+
+from usfds_server.routers.investigation_router import blacklist_router, router as investigation_router
 from usfds_server.routers import (
 	dataset_router,
 	detection_router,
@@ -83,6 +85,8 @@ app.include_router(project_router)
 app.include_router(dataset_router)
 app.include_router(rule_router)
 app.include_router(training_router)
+app.include_router(investigation_router)
+app.include_router(blacklist_router)
 app.include_router(detection_router)
 
 

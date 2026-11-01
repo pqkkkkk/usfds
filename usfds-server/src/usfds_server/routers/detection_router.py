@@ -1,18 +1,22 @@
+import json
+import math
 from typing import List, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+import pandas as pd
+from sqlalchemy.orm import Session
 
 from usfds_core.domain.entities.detection import DetectionJob
-from usfds_core.domain.entities.enums import InvestigationStatus
-from usfds_core.domain.entities.investigation import InvestigationCase
 from usfds_core.services.inference.inference_service import InferenceService
-from usfds_server.dependencies import get_inference_service
+from usfds_infra.storage.local_storage import LocalFileStorage
+from usfds_server.dependencies import get_db, get_storage, get_inference_service
+from usfds_server.routers.investigation_router import _project, _source_frame, get_actor, ingest_request
+from usfds_server.schemas.investigation_api_schemas import CaseIntakeRequest, TransactionSnapshot
 from usfds_server.schemas.base_response import ApiResponse
 from usfds_server.schemas.detection_api_schemas import (
 	DetectionJobResponse,
 	DetectionJobResultsResponse,
 	DetectionTransactionRecordResponse,
-	InvestigationCaseResponse,
 	SendToInvestigationRequest,
 	StartDetectionJobRequest,
 	TriggeredRuleDetailResponse,
@@ -49,35 +53,6 @@ def _to_job_response(job: DetectionJob) -> DetectionJobResponse:
 		created_at=job.created_at,
 		started_at=job.started_at,
 		completed_at=job.completed_at,
-	)
-
-
-def _to_case_response(case: InvestigationCase) -> InvestigationCaseResponse:
-	status_str = (
-		case.status.value
-		if hasattr(case.status, "value")
-		else str(case.status)
-	)
-	risk_str = (
-		case.risk_level.value
-		if hasattr(case.risk_level, "value")
-		else str(case.risk_level)
-	)
-	return InvestigationCaseResponse(
-		case_id=case.case_id,
-		project_id=case.project_id,
-		event_id=case.event_id,
-		assigned_to=case.assigned_to,
-		status=status_str,
-		risk_level=risk_str,
-		fraud_probability=case.fraud_probability,
-		analyst_notes=case.analyst_notes,
-		action_taken=case.action_taken,
-		sar_narrative=case.sar_narrative,
-		metadata=case.metadata or {},
-		created_at=case.created_at,
-		updated_at=case.updated_at,
-		resolved_at=case.resolved_at,
 	)
 
 
@@ -244,7 +219,7 @@ def export_detection_job_results(
 
 @router.post(
 	"/jobs/{job_id}/send-to-investigation",
-	response_model=ApiResponse[List[InvestigationCaseResponse]],
+	response_model=ApiResponse[dict],
 	status_code=status.HTTP_201_CREATED,
 	summary="Dispatch selected transactions from a detection job to Investigation Cases (SUC-16)",
 )
@@ -252,17 +227,51 @@ def send_to_investigation(
 	job_id: UUID,
 	request: SendToInvestigationRequest,
 	service: InferenceService = Depends(get_inference_service),
-) -> ApiResponse[List[InvestigationCaseResponse]]:
+	session: Session = Depends(get_db),
+	storage: LocalFileStorage = Depends(get_storage),
+	actor: str = Depends(get_actor),
+) -> ApiResponse[dict]:
 	try:
-		cases = service.dispatch_cases_to_investigation(
-			job_id=job_id,
-			event_ids=request.event_ids,
-			analyst_notes=request.analyst_notes,
-		)
+		job = service.get_detection_job(job_id)
+		project = _project(session, job.project_id, True)
+		frame = _source_frame(session, storage, job.project_id, None, job_id)
+		frame["event_id"] = frame["event_id"].astype(str)
+		counts = frame["event_id"].value_counts()
+		indexed = frame.set_index("event_id", drop=False)
+		transactions = []
+		for event_id in dict.fromkeys(request.event_ids):
+			if counts.get(event_id, 0) != 1:
+				raise HTTPException(400, f"Event {event_id} must exist exactly once in the job output")
+			row = indexed.loc[event_id]
+			if row.get("final_action") not in {"REVIEW", "REJECT"}:
+				raise HTTPException(400, f"Event {event_id} is not flagged")
+			details = row.get("triggered_rule_details", "[]")
+			details = json.loads(details) if isinstance(details, str) else list(details)
+			rules = []
+			for detail in details:
+				if detail["action"] not in {"REVIEW", "REJECT"}:
+					continue
+				copied = dict(detail)
+				copied.setdefault("trigger_reason", " AND ".join(copied.get("matched_clauses", [])) or f"{copied['rule_code']} matched at detection time")
+				rules.append(copied)
+			attributes = row.get("raw_attributes")
+			if isinstance(attributes, str):
+				attributes = json.loads(attributes)
+			if not isinstance(attributes, dict):
+				attributes = {name: _snapshot_value(row[name]) for name in (project.raw_schema or {}).get("columns", {}) if name in row}
+			contributions = row.get("feature_contributions", "[]")
+			contributions = json.loads(contributions) if isinstance(contributions, str) else list(contributions)
+			transactions.append(TransactionSnapshot.model_validate({
+				"event_id": event_id, "user_id": str(row["user_id"]), "timestamp": pd.to_datetime(row["timestamp"], utc=True).isoformat(),
+				"amount": float(row["amount"]), "model_score": float(row["model_score"]) if job.model_version_id else None,
+				"final_action": row["final_action"], "triggered_rules": rules, "feature_contributions": contributions, "attributes": attributes,
+			}))
+		payload = CaseIntakeRequest(project_id=job.project_id, detection_job_id=job_id, model_version_id=job.model_version_id, transactions=transactions)
+		result = ingest_request(payload, session, storage, actor, request.analyst_notes)
 		return ApiResponse.ok(
-			data=[_to_case_response(c) for c in cases],
+			data=result,
 			status_code=status.HTTP_201_CREATED,
-			message=f"Created {len(cases)} investigation cases",
+			message=f"Created {result['accepted_count']} investigation cases",
 		)
 	except ValueError as e:
 		err_msg = str(e)
@@ -270,28 +279,18 @@ def send_to_investigation(
 		raise HTTPException(status_code=code, detail=err_msg)
 
 
-@router.get(
-	"/cases",
-	response_model=ApiResponse[List[InvestigationCaseResponse]],
-	summary="List investigation cases created for a project",
-)
-def list_investigation_cases(
-	project_id: UUID = Query(..., description="Project ID to query investigation cases for"),
-	case_status: Optional[InvestigationStatus] = Query(None, alias="status"),
-	limit: int = Query(100, ge=1, le=500),
-	service: InferenceService = Depends(get_inference_service),
-) -> ApiResponse[List[InvestigationCaseResponse]]:
-	if not service.investigation_repo:
-		return ApiResponse.ok(data=[], message="Retrieved 0 investigation cases")
-	cases = service.investigation_repo.list_cases(
-		project_id=project_id,
-		status=case_status,
-		limit=limit,
-	)
-	return ApiResponse.ok(
-		data=[_to_case_response(c) for c in cases],
-		message=f"Retrieved {len(cases)} investigation cases",
-	)
+def _snapshot_value(value):
+	if isinstance(value, (dict, list)):
+		return value
+	if pd.isna(value):
+		return None
+	if hasattr(value, "isoformat"):
+		return value.isoformat()
+	if hasattr(value, "item"):
+		value = value.item()
+	if isinstance(value, float) and not math.isfinite(value):
+		raise ValueError("Non-finite source value")
+	return value
 
 
 __all__ = ["router"]

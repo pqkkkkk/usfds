@@ -32,6 +32,7 @@ interface RuleDryRunWorkspaceProps {
 	conditionGroup?: RuleGroup;
 	currentRule?: RuleResponse | null;
 	errorMessage?: string | null;
+	preferredArtifactId?: string;
 }
 
 interface ArtifactOption {
@@ -49,6 +50,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 	conditionGroup,
 	currentRule,
 	errorMessage,
+	preferredArtifactId,
 }) => {
 	const { currentProject, currentProjectId } = useProject();
 	const effectiveProjectId = currentProjectId || FALLBACK_PROJECT_ID;
@@ -57,7 +59,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 
 	// Dataset & Artifact catalog state
 	const [artifactOptions, setArtifactOptions] = useState<ArtifactOption[]>([]);
-	const [selectedArtifactId, setSelectedArtifactId] = useState<string>('');
+	const [selectedArtifactId, setSelectedArtifactId] = useState<string>(preferredArtifactId || '');
 	const [isLoadingArtifacts, setIsLoadingArtifacts] = useState<boolean>(false);
 
 	// Backtest simulation state

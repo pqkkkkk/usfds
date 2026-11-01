@@ -3,7 +3,7 @@ import type { ApiResponse } from '@/types';
 import type {
 	DetectionJobResponse,
 	DetectionJobResultsResponse,
-	InvestigationCaseResponse,
+	CaseDispatchResult,
 	SendToInvestigationRequest,
 	StartDetectionJobRequest,
 } from '../types/detection';
@@ -75,22 +75,10 @@ export const detectionApi = {
 	sendToInvestigation: async (
 		jobId: string,
 		payload: SendToInvestigationRequest
-	): Promise<ApiResponse<InvestigationCaseResponse[]>> => {
-		return apiClient.post<InvestigationCaseResponse[]>(
+	): Promise<ApiResponse<CaseDispatchResult>> => {
+		return apiClient.post<CaseDispatchResult>(
 			`/v1/detection/jobs/${jobId}/send-to-investigation`,
 			payload
 		);
-	},
-
-	listCases: async (params: {
-		projectId: string;
-		status?: string;
-		limit?: number;
-	}): Promise<ApiResponse<InvestigationCaseResponse[]>> => {
-		return apiClient.get<InvestigationCaseResponse[]>('/v1/detection/cases', {
-			project_id: params.projectId,
-			status: params.status || undefined,
-			limit: params.limit ?? 100,
-		});
 	},
 };
