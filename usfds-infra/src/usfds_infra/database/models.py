@@ -209,25 +209,76 @@ class TrainingRunModel(Base):
 
 
 class RunDatasetModel(Base):
-    """SQLAlchemy model linking a TrainingRun to the DatasetArtifact snapshots consumed."""
-    __tablename__ = "run_datasets"
+	"""SQLAlchemy model linking a TrainingRun to the DatasetArtifact snapshots consumed."""
+	__tablename__ = "run_datasets"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    run_id: Mapped[str] = mapped_column(String(36), ForeignKey("training_runs.run_id", ondelete="CASCADE"), nullable=False, index=True)
-    dataset_artifact_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
-    dataset_role: Mapped[str] = mapped_column(String(50), default="TRAIN", nullable=False)
-    sample_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    usage_percentage: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+	id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+	run_id: Mapped[str] = mapped_column(String(36), ForeignKey("training_runs.run_id", ondelete="CASCADE"), nullable=False, index=True)
+	dataset_artifact_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+	dataset_role: Mapped[str] = mapped_column(String(50), default="TRAIN", nullable=False)
+	sample_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+	usage_percentage: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
+
+class DetectionJobModel(Base):
+	"""SQLAlchemy model for batch fraud detection jobs (SUC-15, SUC-16, SUC-19)."""
+	__tablename__ = "detection_jobs"
+
+	job_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+	project_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+	deployment_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+	target_artifact_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+	model_version_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+	job_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+	input_path: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+	output_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+	score_threshold: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+	use_rules: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+	status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False, index=True)
+	total_records: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+	fraud_records: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+	fraud_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+	summary_metrics: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+	execution_time_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+	error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+	created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+	created_at: Mapped[datetime] = mapped_column(
+		DateTime(timezone=True),
+		default=lambda: datetime.now(timezone.utc),
+		nullable=False,
+	)
+	started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+	completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class InvestigationCaseModel(Base, TimestampMixin):
+	"""SQLAlchemy model for fraud alert investigation cases dispatched from Detection Jobs (SUC-16)."""
+	__tablename__ = "investigation_cases"
+
+	case_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+	project_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+	event_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+	assigned_to: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+	status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False, index=True)
+	risk_level: Mapped[str] = mapped_column(String(50), default="MEDIUM", nullable=False)
+	fraud_probability: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+	analyst_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+	action_taken: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+	sar_narrative: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+	case_metadata: Mapped[Dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
+	resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 __all__ = [
-    "ProjectModel",
-    "DatasetModel",
-    "DatasetArtifactModel",
-    "RuleModel",
-    "RuleVersionModel",
-    "MLModel",
-    "ModelVersionModel",
-    "TrainingRunModel",
-    "RunDatasetModel",
+	"ProjectModel",
+	"DatasetModel",
+	"DatasetArtifactModel",
+	"RuleModel",
+	"RuleVersionModel",
+	"MLModel",
+	"ModelVersionModel",
+	"TrainingRunModel",
+	"RunDatasetModel",
+	"DetectionJobModel",
+	"InvestigationCaseModel",
 ]

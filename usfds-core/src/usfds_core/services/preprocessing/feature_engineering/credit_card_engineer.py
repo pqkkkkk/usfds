@@ -37,11 +37,11 @@ class CreditCardFeatureEngineer(BaseFeatureEngineer):
 
         # Common aliases fallback
         aliases = {
-            "timestamp": ["time", "datetime", "date_time", "tx_time"],
-            "time": ["timestamp", "datetime", "date_time", "tx_time"],
-            "amount": ["amt", "tx_amount", "transaction_amount"],
-            "user_id": ["customer_id", "client_id", "account_id"],
-            "customer_id": ["user_id", "client_id", "account_id"],
+            "timestamp": ["time", "datetime", "date_time", "tx_time", "transaction_time", "transactiondt", "trans_date_trans_time"],
+            "time": ["timestamp", "datetime", "date_time", "tx_time", "transaction_time", "transactiondt", "trans_date_trans_time"],
+            "amount": ["amt", "tx_amount", "transaction_amount", "transactionamt"],
+            "user_id": ["customer_id", "client_id", "account_id", "card1", "clientnum"],
+            "customer_id": ["user_id", "client_id", "account_id", "card1", "clientnum"],
         }
         for alias in aliases.get(col_name.lower(), []):
             alias_norm = normalize_str(alias)
