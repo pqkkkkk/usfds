@@ -88,6 +88,27 @@ class TestTrainingRunExecutor(unittest.TestCase):
         run_workspace = TrainingRunWorkspace(run_id=payload.run_id).run_dir
         self.assertFalse(run_workspace.exists())
 
+    def test_xgboost_joblib_is_primary_artifact(self):
+        run_id = uuid4()
+        model_id = uuid4()
+        executor = TrainingRunExecutor(file_storage=self.storage)
+        payload = TrainingRunPayload(
+            run_id=run_id,
+            model_id=model_id,
+            model_name="xgboost",
+            execution_type="BUILTIN",
+            train_storage_path=self.train_path,
+            target_column="is_fraud",
+            hyperparameters={"n_estimators": 2, "max_depth": 2},
+        )
+
+        result = executor.run(payload)
+
+        model_run_uri = f"models/{model_id}/runs/{run_id}"
+        self.assertTrue(result.is_success, result.error_message)
+        self.assertEqual(result.artifact_uri, f"{model_run_uri}/model.joblib")
+        self.assertTrue(self.storage.exists(f"{model_run_uri}/model.json"))
+
     def test_executor_failure_handling(self):
         executor = TrainingRunExecutor(
             file_storage=self.storage,

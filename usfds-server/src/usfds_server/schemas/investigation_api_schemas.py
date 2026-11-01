@@ -64,10 +64,16 @@ class TransactionSnapshot(BaseModel):
 class CaseIntakeRequest(BaseModel):
 	model_config = ConfigDict(extra="forbid")
 	project_id: UUID
-	dataset_artifact_id: UUID
+	dataset_artifact_id: UUID | None = None
 	detection_job_id: UUID | None = None
 	model_version_id: UUID | None = None
 	transactions: list[TransactionSnapshot] = Field(min_length=1, max_length=5000)
+
+	@model_validator(mode="after")
+	def validate_source(self):
+		if self.dataset_artifact_id is None and self.detection_job_id is None:
+			raise ValueError("A dataset artifact or detection job source is required")
+		return self
 
 
 class CaseResponse(BaseModel):
@@ -81,7 +87,7 @@ class CaseResponse(BaseModel):
 	amount: float
 	final_action: str
 	model_score: float | None
-	dataset_artifact_id: UUID
+	dataset_artifact_id: UUID | None
 	detection_job_id: UUID | None
 	model_version_id: UUID | None
 	triggered_rules: list[dict[str, Any]]

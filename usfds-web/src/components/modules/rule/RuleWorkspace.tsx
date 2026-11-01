@@ -386,7 +386,7 @@ export const RuleWorkspace: React.FC = () => {
 								conditionGroup={conditionGroup}
 								currentRule={currentRule}
 								errorMessage={errorMessage}
-								preferredArtifactId={investigationDraft?.project_id === effectiveProjectId ? investigationDraft.dataset_artifact_id : undefined}
+								preferredArtifactId={investigationDraft?.project_id === effectiveProjectId ? investigationDraft.dataset_artifact_id || undefined : undefined}
 							/>
 						)}
 					</>

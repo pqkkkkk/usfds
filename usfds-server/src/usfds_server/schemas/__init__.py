@@ -38,7 +38,6 @@ from usfds_server.schemas.detection_api_schemas import (
     DetectionJobResponse,
     DetectionJobResultsResponse,
     DetectionTransactionRecordResponse,
-    InvestigationCaseResponse,
     SendToInvestigationRequest,
     StartDetectionJobRequest,
     TriggeredRuleDetailResponse,
@@ -77,5 +76,4 @@ __all__ = [
     "DetectionTransactionRecordResponse",
     "DetectionJobResultsResponse",
     "SendToInvestigationRequest",
-    "InvestigationCaseResponse",
 ]

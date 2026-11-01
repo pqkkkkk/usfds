@@ -1,7 +1,10 @@
 from uuid import uuid4
 
 import pandas as pd
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
 from usfds_core.domain.entities.enums import PipelineStage
@@ -10,6 +13,8 @@ from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetR
 from usfds_server.api import app
 from usfds_server.config import settings
 from usfds_server.dependencies import get_db, get_storage
+from usfds_server.routers.investigation_router import ingest_request
+from usfds_server.schemas.investigation_api_schemas import CaseIntakeRequest
 
 
 def test_actor_is_backend_owned():
@@ -26,6 +31,11 @@ def test_actor_is_backend_owned():
 		assert client.get("/actor").json() == {"actor": "local-analyst"}
 		assert client.get("/actor", headers={"X-Actor": "spoofed"}).json() == {"actor": "local-analyst"}
 		assert actor_app.openapi()["paths"]["/actor"]["get"].get("parameters", []) == []
+
+	from usfds_server.schemas.investigation_api_schemas import CaseIntakeRequest
+	request = CaseIntakeRequest.model_validate({"project_id": str(uuid4()), "detection_job_id": str(uuid4()),
+		"transactions": [{"event_id": "TX-1", "user_id": "U1", "timestamp": "2026-11-01T00:00:00Z", "amount": 100, "final_action": "REVIEW"}]})
+	assert request.dataset_artifact_id is None
 
 
 def test_investigation_contract_and_independent_resolution(tmp_path):
@@ -54,11 +64,16 @@ def test_investigation_contract_and_independent_resolution(tmp_path):
 				 "final_action": "REVIEW", "attributes": {"amount": 1000}, "feature_contributions": [{"feature_name": "amount", "contribution": .4}]},
 				{"event_id": "TX-2", "user_id": "U1", "timestamp": "2026-10-10T00:01:00Z", "amount": 2000, "final_action": "REJECT"},
 			]}
-			intake = client.post("/api/v1/cases/intake", json=payload)
-			assert intake.status_code == 201, intake.text
-			ids = intake.json()["data"]["created_case_ids"]
+			seed_generator = get_db()
+			seed_session = next(seed_generator)
+			request = CaseIntakeRequest.model_validate(payload)
+			intake = ingest_request(request, seed_session, get_storage(), "local-analyst")
+			ids = intake["created_case_ids"]
 			assert len(ids) == 2
-			assert client.post("/api/v1/cases/intake", json=payload).json()["data"]["accepted_count"] == 0
+			assert ingest_request(request, seed_session, get_storage(), "local-analyst")["accepted_count"] == 0
+			seed_session.commit()
+			seed_generator.close()
+			assert "/api/v1/cases/intake" not in app.openapi()["paths"]
 			url = f"/api/v1/cases/{ids[0]}"
 			params = {"project_id": str(project_id)}
 			first = client.post(url + "/claim", params=params, json={"expected_version": 1})
@@ -77,8 +92,13 @@ def test_investigation_contract_and_independent_resolution(tmp_path):
 			assert resolved.json()["data"]["case"]["verified_label"] == 1
 			assert resolved.json()["data"]["case"]["resolved_by"] == "local-analyst"
 			assert client.get(f"/api/v1/cases/{ids[1]}", params=params).json()["data"]["status"] == "IN_PROGRESS"
-			workbench = client.get(url + "/workbench", params=params)
-			assert workbench.status_code == 200, workbench.text
+			for window in (None, 30, 90):
+				window_params = params if window is None else {**params, "days": window}
+				workbench = client.get(url + "/workbench", params=window_params)
+				assert workbench.status_code == 200, workbench.text
+				assert workbench.json()["data"]["profile"]["days"] == (30 if window is None else window)
+			for window in (0, 60, 91, "invalid"):
+				assert client.get(url + "/workbench", params={**params, "days": window}).status_code == 422
 			assert workbench.json()["data"]["profile"]["avg_amount"] == 100
 			assert workbench.json()["data"]["subject_status"] == "BLOCKED"
 			assert len(workbench.json()["data"]["related_cases"]) == 1
@@ -91,9 +111,15 @@ def test_investigation_contract_and_independent_resolution(tmp_path):
 			assert client.post(f"/api/v1/blacklist/{entries[0]['blacklist_id']}/remove", params=params, json={"reason": "Investigation established release conditions"}).status_code == 200
 			assert client.post(url + "/reopen", params=params, json={"expected_version": 3, "summary": "Additional evidence requires review"}).json()["data"]["case"]["verified_label"] is None
 			bad = dict(payload, transactions=[dict(payload["transactions"][0], event_id="UNKNOWN")])
-			assert client.post("/api/v1/cases/intake", json=bad).status_code == 400
+			invalid_generator = get_db()
+			invalid_session = next(invalid_generator)
+			with pytest.raises(HTTPException) as error:
+				ingest_request(CaseIntakeRequest.model_validate(bad), invalid_session, get_storage(), "local-analyst")
+			assert error.value.status_code == 400
+			invalid_generator.close()
 			invalid = dict(payload, transactions=[dict(payload["transactions"][0], final_action="ALERT")])
-			assert client.post("/api/v1/cases/intake", json=invalid).status_code == 422
+			with pytest.raises(ValidationError):
+				CaseIntakeRequest.model_validate(invalid)
 			assert client.get("/api/v1/cases", params=params).json()["data"]["total"] == 2
 	finally:
 		settings.db_path, settings.storage_dir = old_db, old_storage

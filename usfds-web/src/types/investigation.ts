@@ -12,7 +12,7 @@ export interface Case {
 	amount: number;
 	model_score: number | null;
 	final_action: 'REVIEW' | 'REJECT';
-	dataset_artifact_id: string;
+	dataset_artifact_id: string | null;
 	detection_job_id: string | null;
 	model_version_id: string | null;
 	triggered_rules: { rule_id: string; rule_version_id: string; rule_code: string; version_number: number; rule_name: string; action: string; trigger_reason: string; matched_clauses: string[] }[];
@@ -96,7 +96,8 @@ export interface RuleDraft {
 	condition: Record<string, unknown> | null;
 	action: 'REVIEW';
 	status: 'DRAFT';
-	dataset_artifact_id: string;
+	dataset_artifact_id: string | null;
+	detection_job_id?: string | null;
 	source_case_id: string;
 	name: string;
 	message: string;

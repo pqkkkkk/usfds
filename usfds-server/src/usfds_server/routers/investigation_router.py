@@ -13,7 +13,8 @@ from usfds_core.domain.entities.enums import RiskLevel, RuleAction
 from usfds_core.repositories.base_case_repo import CaseConflictError
 from usfds_core.services.investigation.behavior_profile import build_behavior_profile, build_rule_draft
 from usfds_core.services.investigation.case_service import BlacklistService, CaseService, rule_feedback
-from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetRepository, SqliteProjectRepository
+from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetRepository, SqliteDetectionJobRepository, SqliteProjectRepository
+from usfds_core.services.inference.executor import prepare_and_validate_input
 from usfds_infra.database.case_repositories import SqliteAuditRepository, SqliteBlacklistRepository, SqliteCaseRepository
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_server.dependencies import get_db, get_storage
@@ -64,6 +65,26 @@ def _artifact(session: Session, storage: LocalFileStorage, project_id: UUID, art
 	return frame
 
 
+def _source_frame(session: Session, storage: LocalFileStorage, project_id: UUID, artifact_id: UUID | None, job_id: UUID | None) -> pd.DataFrame:
+	if job_id is None:
+		if artifact_id is None:
+			raise HTTPException(400, "A source artifact or detection job is required")
+		return _artifact(session, storage, project_id, artifact_id)
+	job = SqliteDetectionJobRepository(session).get_by_id(job_id)
+	if job is None or job.project_id != project_id:
+		raise HTTPException(404, "Detection job not found in this project")
+	if job.status != "COMPLETED" or not job.output_path:
+		raise HTTPException(400, "Detection job must be completed before investigation")
+	try:
+		frame = pd.read_parquet(io.BytesIO(storage.read_bytes(job.output_path)))
+	except FileNotFoundError as error:
+		raise HTTPException(404, "Detection output is unavailable") from error
+	frame = prepare_and_validate_input(frame, {})
+	if not {"event_id", "user_id", "timestamp", "amount"}.issubset(frame.columns):
+		raise HTTPException(400, "Detection output lacks required transaction context")
+	return frame
+
+
 def _error(error: Exception):
 	if isinstance(error, CaseConflictError):
 		raise HTTPException(409, str(error)) from error
@@ -74,10 +95,9 @@ def _error(error: Exception):
 	raise error
 
 
-@router.post("/intake", status_code=201, response_model=ApiResponse[dict])
-def intake(request: CaseIntakeRequest, session: Session = Depends(get_db), storage: LocalFileStorage = Depends(get_storage), actor: str = Depends(get_actor)):
+def ingest_request(request: CaseIntakeRequest, session: Session, storage: LocalFileStorage, actor: str, analyst_notes: str | None = None):
 	_project(session, request.project_id, True)
-	frame = _artifact(session, storage, request.project_id, request.dataset_artifact_id)
+	frame = _source_frame(session, storage, request.project_id, request.dataset_artifact_id, request.detection_job_id)
 	frame = frame.assign(event_id=frame["event_id"].astype(str))
 	indexed = frame.set_index("event_id")
 	counts = frame["event_id"].value_counts()
@@ -100,7 +120,11 @@ def intake(request: CaseIntakeRequest, session: Session = Depends(get_db), stora
 			feature_contributions=[feature.model_dump(mode="json") for feature in transaction.feature_contributions], attributes=transaction.attributes,
 		))
 	try:
-		return ApiResponse.ok(_service(session).intake(cases, actor), status_code=201)
+		result = _service(session).intake(cases, actor)
+		if analyst_notes and analyst_notes.strip():
+			for case_id in result["created_case_ids"]:
+				_service(session).add_note(request.project_id, UUID(case_id), actor, analyst_notes)
+		return result
 	except (ValueError, LookupError) as error:
 		_error(error)
 
@@ -141,11 +165,11 @@ def get_case(case_id: UUID, project_id: UUID, session: Session = Depends(get_db)
 
 
 @router.get("/{case_id}/workbench", response_model=ApiResponse[dict])
-def workbench(case_id: UUID, project_id: UUID, days: Literal[30, 90] = 30, session: Session = Depends(get_db), storage: LocalFileStorage = Depends(get_storage)):
+def workbench(case_id: UUID, project_id: UUID, days: Literal["30", "90"] = "30", session: Session = Depends(get_db), storage: LocalFileStorage = Depends(get_storage)):
 	try:
 		case = _service(session).get(project_id, case_id)
 		try:
-			profile = build_behavior_profile(_artifact(session, storage, project_id, case.dataset_artifact_id), case, days)
+			profile = build_behavior_profile(_source_frame(session, storage, project_id, case.dataset_artifact_id, case.detection_job_id), case, int(days))
 		except HTTPException as error:
 			profile = {"available": False, "message": error.detail, "timeline": [], "comparison": []}
 		related, related_total = SqliteCaseRepository(session).search(project_id, {"user_id": case.user_id}, "created", 1, 200)

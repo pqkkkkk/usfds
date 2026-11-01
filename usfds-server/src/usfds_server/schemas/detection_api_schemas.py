@@ -96,23 +96,5 @@ class DetectionJobResultsResponse(BaseModel):
 
 class SendToInvestigationRequest(BaseModel):
 	"""Request payload to dispatch flagged transactions to Investigation (SUC-16)."""
-	event_ids: List[str] = Field(..., min_length=1, description="List of transaction event_ids to create cases for")
-	analyst_notes: Optional[str] = Field(default=None, description="Optional initial triage notes")
-
-
-class InvestigationCaseResponse(BaseModel):
-	"""Response schema for an InvestigationCase record."""
-	case_id: UUID
-	project_id: UUID
-	event_id: int
-	assigned_to: Optional[UUID] = None
-	status: str
-	risk_level: str
-	fraud_probability: Optional[float] = None
-	analyst_notes: Optional[str] = None
-	action_taken: Optional[str] = None
-	sar_narrative: Optional[str] = None
-	metadata: Dict[str, Any] = Field(default_factory=dict)
-	created_at: datetime
-	updated_at: datetime
-	resolved_at: Optional[datetime] = None
+	event_ids: List[str] = Field(..., min_length=1, max_length=5000, description="List of flagged event_ids; each creates one Case")
+	analyst_notes: Optional[str] = Field(default=None, max_length=10000, description="Optional initial triage notes")

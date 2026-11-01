@@ -46,17 +46,28 @@ Phần này đặc tả chi tiết các Use Case thuộc phân hệ **Investigat
 
 > **[26-10-31] Phạm vi hiện tại:** `SUC-17`, `SUC-18`, `SUC-20` và Case Intake Contract. `SUC-19`, `SUC-21` được thiết kế/cài đặt ở workstream khác. Chưa áp dụng xác thực/phân quyền: backend cung cấp `actor = local-analyst` cho phân công, phán quyết và audit; API không nhận header `X-Actor`. Giá trị này không đại diện cho danh tính đã xác thực.
 
-## 3.0. Case Intake Contract (Detection → Investigation) [26-10-31]
+## 3.0. Send-to-Investigation Contract [26-11-01]
 
-Hợp đồng giao tiếp duy nhất để phân hệ Detection (`SUC-16` — *Send to Investigation*) chuyển giao dịch nghi vấn sang Investigation. Detection **bắt buộc** gửi đúng cấu trúc dưới đây; Investigation không đọc trực tiếp output nội bộ của Detection.
+Client gửi đúng một request. Backend truy vấn DetectionJob và output đã lưu theo project, tạo snapshot chính xác và ghi Case/ghi chú/audit qua CaseService trong cùng transaction. Không endpoint prepare hoặc intake công khai; không nhận đường dẫn file hay snapshot từ client.
 
-**Endpoint:** `POST /api/v1/cases/intake`
+**Endpoint duy nhất:** `POST /api/v1/detection/jobs/{job_id}/send-to-investigation`
+
+```json
+{
+    "event_ids": ["TX-000123"],
+    "analyst_notes": "Optional initial triage note"
+}
+```
+
+Production input/output nằm trong Detection storage, không cần đăng ký dataset_artifacts. Case mới lưu detection_job_id để workbench truy output của đúng job; dataset_artifact_id nullable, giữ lại cho Case nghiên cứu có sẵn. Job phải COMPLETED và mọi event được chọn phải có duy nhất một bản ghi REVIEW/REJECT.
+
+**Payload nội bộ** (không phải body của API công khai):
 
 ```json
 {
   "project_id": "uuid",
-  "dataset_artifact_id": "uuid",
-  "detection_job_id": "uuid | null",
+    "dataset_artifact_id": null,
+    "detection_job_id": "uuid",
   "model_version_id": "uuid | null",
   "transactions": [
     {
@@ -89,7 +100,8 @@ Hợp đồng giao tiếp duy nhất để phân hệ Detection (`SUC-16` — *S
 
 | Trường | Bắt buộc | Ý nghĩa |
 | --- | --- | --- |
-| `dataset_artifact_id` | Có | Artifact (stage `MAPPED` trở về sau, có cột chuẩn `event_id`, `timestamp`, `amount`, `user_id`) chứa **toàn bộ** giao dịch đã quét — dùng để dựng Baseline & Timeline ở `SUC-18`. Phải thuộc `project_id` (BR-PM-06). |
+| `detection_job_id` | Có cho production | Nguồn output của job, kiểm tra cùng project và COMPLETED. Backend đọc toàn bộ dữ liệu có sẵn trong job để dựng baseline/timeline; không suy diễn lịch sử ngoài dữ liệu đó. |
+| `dataset_artifact_id` | Không cho production | Giữ nguồn cho Case nghiên cứu đã có; workbench kiểm tra artifact cùng project. Không ép production thành dataset nghiên cứu. |
 | `event_id`, `user_id`, `timestamp`, `amount` | Có | Định danh & giá trị chuẩn của giao dịch. |
 | `model_score` | Không | Xác suất gian lận `0.0 → 1.0`; `null` nếu đợt quét không dùng mô hình. |
 | `final_action` | Có | Chỉ nhận `REJECT` hoặc `REVIEW`. Giao dịch `ALLOW` không được gửi. Nếu không có rule nào kích hoạt nhưng `model_score ≥ decision_threshold`, Detection gửi `REVIEW`. |
@@ -102,7 +114,7 @@ Hợp đồng giao tiếp duy nhất để phân hệ Detection (`SUC-16` — *S
 **Quy tắc hợp đồng:**
 - **BR-IV-C1 (Idempotent):** Unique `(project_id, event_id)`, kể cả Case đã đóng. Gửi lại bỏ qua, không thay snapshot/phán quyết/nguồn gốc.
 - **BR-IV-C2 (Một giao dịch = một Case):** Mỗi event mới tạo một Case `OPEN`, dù user đã có Case khác. Không append giao dịch vào Case.
-- **BR-IV-C3 (Validation):** 1–5000 giao dịch/lần; ID không rỗng, timestamp có timezone, amount hữu hạn không âm, model_score nullable hoặc hữu hạn trong `[0,1]`; final_action chỉ REVIEW/REJECT. DTO sai hoặc field lạ → `422`. Project/artifact không tồn tại → `404`; khác project/thiếu canonical columns/snapshot không khớp event trong artifact → `400`. Không ghi một phần request; race unique/version → `409`, client có thể retry intake.
+- **BR-IV-C3 (Validation):** Body gửi 1–5000 event IDs và note optional. Job không tồn tại → 404; chưa COMPLETED/thiếu output/ID không tồn tại hoặc trùng trong output/event ALLOW/thiếu context hợp lệ → lỗi, không ghi một phần. Snapshot nội bộ giữ ID chuỗi, timestamp UTC, amount hữu hạn không âm và score nullable/hữu hạn [0,1]. Không dùng giá trị đã làm tròn để hiển thị. Retry cùng event không đổi phán quyết hoặc tạo thêm notes/audit.
 - `triggered_rules` chỉ chứa rule REVIEW/REJECT đã kích hoạt, không trùng `rule_version_id`; `is_triggered` nếu gửi phải là true. `execution_time_ms` optional, hữu hạn không âm. Rule ID/version là snapshot lịch sử, không đánh giá lại phiên bản hiện tại.
 
 ## SUC-17: Manage cases (Quản lý danh sách hồ sơ điều tra / Case Queue)
@@ -320,7 +332,7 @@ Không có merge/split hoặc bulk resolve trong scope đã duyệt. Xem Case li
         - Cột `NUMERIC` → `{">=": [{"var": col}, value]}`; cột khác → `{"==": [{"var": col}, value]}`.
         - Không có đặc trưng phù hợp → trả điều kiện rỗng kèm thông báo để chuyên viên tự xây dựng.
     - Hệ thống mở **Rule Studio** (`SUC-11`) với điều kiện gợi ý điền sẵn; Fraud Analyst chỉnh ngưỡng, đặt `rule_code`, `name`, chọn `action` (`REVIEW` hoặc `REJECT`).
-    - Fraud Analyst có thể chạy **Dry-run** (`SUC-12`) trên `dataset_artifact_id` của Case, sau đó lưu rule ở trạng thái `DRAFT`.
+    - Nếu Case có dataset_artifact_id thì preselect artifact đó khi Dry-run. Case production không có artifact nghiên cứu: chuyên viên chọn tập kiểm thử được quản lý trong Rule Studio; không tự đăng ký file production hoặc dùng nhầm artifact huấn luyện. Rule lưu DRAFT, giữ source_case_id/detection_job_id làm provenance.
 2. **Kịch bản 2 — Đánh giá và tinh chỉnh quy tắc gây báo động giả (Tune Noisy Rules from Investigation Feedback):**
     - Thống kê theo `(rule_id, rule_version_id)` từ snapshot từng Case: cases_triggered, TP (status fraud), FP (status legitimate), pending (chưa đóng hoặc reopen).
     - `verified_false_positive_ratio = FP / (TP + FP)`, null nếu chưa có phán quyết. Đây là tỷ lệ báo động giả trong cảnh báo đã xác minh, không phải FPR chuẩn `FP/(FP+TN)` vì không có tập TN.
@@ -392,8 +404,8 @@ SQLite qua SQLAlchemy; domain entity dataclass thuần. UUID lưu String(36), da
 | final_action | String(20) | Không | REVIEW/REJECT, snapshot Detection |
 | triggered_rules, triggered_rule_codes | JSON | Không | Snapshot lịch sử; codes là projection để query |
 | feature_contributions, attributes | JSON | Không | []/{} khi không có dữ liệu |
-| dataset_artifact_id | String(36) | Không | Nguồn timeline/baseline, validate cùng project |
-| detection_job_id, model_version_id | String(36) | Có | Truy nguồn, không ràng buộc vào workstream Detection |
+| dataset_artifact_id | String(36) | Có | Nguồn nghiên cứu có sẵn, validate cùng project |
+| detection_job_id, model_version_id | String(36) | Có | Job là nguồn production; API kiểm tra project/status/output, không nhận đường dẫn client |
 | status | String(30) | Không | Năm trạng thái nêu tại SUC-17 |
 | priority, priority_score | String(20), Float | Không | BR-IV-01; escalation không đổi model score |
 | assigned_to | String(100) | Có | Claim = local-analyst |
@@ -403,6 +415,8 @@ SQLite qua SQLAlchemy; domain entity dataclass thuần. UUID lưu String(36), da
 | created_at, updated_at | DateTime UTC | Không | Lifecycle |
 
 Index queue `(project_id,status,priority_score)`, user `(project_id,user_id)`. verified_label chỉ có trong response/projection, không có cột riêng. Không max_model_score, tổng tiền nhóm, merged_into_case_id hoặc MERGED.
+
+<!-- [26-11-01] Migration giữ Case/blacklist/audit và đổi dataset_artifact_id thành nullable; bỏ ORM/repository bảng investigation_cases, drop khi rỗng và dừng upgrade nếu bảng legacy còn dữ liệu để tránh mất dữ liệu. -->
 
 ### EntityBlacklist -> entity_blacklist
 | Field | DB type | Null | Ràng buộc |

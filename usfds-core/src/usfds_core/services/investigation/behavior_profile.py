@@ -69,5 +69,6 @@ def build_rule_draft(case: Case, raw_schema: dict | None) -> dict:
 		if len(clauses) == 3:
 			break
 	return {"condition": {"and": clauses} if clauses else None, "action": "REVIEW", "status": "DRAFT",
-		"dataset_artifact_id": str(case.dataset_artifact_id), "source_case_id": str(case.case_id),
+		"dataset_artifact_id": str(case.dataset_artifact_id) if case.dataset_artifact_id else None,
+		"detection_job_id": str(case.detection_job_id) if case.detection_job_id else None, "source_case_id": str(case.case_id),
 		"name": f"Draft from {case.case_code}", "message": "Review thresholds before saving" if clauses else "No eligible RAW features; build conditions manually"}

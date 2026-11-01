@@ -333,6 +333,7 @@ class BatchInferenceExecutor:
         rule_hit_counts: Dict[str, int] = {r.rule_code: 0 for r in active_rules}
         triggered_rules_col: list[str] = []
         triggered_details_col: list[str] = []
+        raw_attributes_col: list[str] = []
         rule_action_col: list[str] = []
         final_action_col: list[str] = []
         is_flagged_col: list[int] = []
@@ -365,6 +366,7 @@ class BatchInferenceExecutor:
                     clean_enr[str(k)] = v
 
             merged_features = {**clean_raw, **clean_enr}
+            raw_attributes_col.append(json.dumps(clean_raw, default=str, allow_nan=False))
             tx_id = str(
                 merged_features.get(id_col)
                 if id_col and merged_features.get(id_col) is not None
@@ -410,6 +412,7 @@ class BatchInferenceExecutor:
                                 "rule_code": r.rule_code,
                                 "rule_name": r.rule_name,
                                 "action": r_act,
+                                "trigger_reason": " AND ".join(clauses),
                                 "matched_clauses": clauses,
                             }
                         )
@@ -453,6 +456,7 @@ class BatchInferenceExecutor:
         result_df["fraud_probability"] = np.round(model_scores, 6)
         result_df["triggered_rules"] = triggered_rules_col
         result_df["triggered_rule_details"] = triggered_details_col
+        result_df["raw_attributes"] = raw_attributes_col
         result_df["rule_action"] = rule_action_col
         result_df["final_action"] = final_action_col
         result_df["is_flagged"] = is_flagged_col

@@ -110,11 +110,22 @@ class TrainingRunExecutor:
             if not model_files:
                 raise FileNotFoundError(f"No model artifacts found in {workspace.model_dir}")
 
-            main_model_file = model_files[0]
-            for f in model_files:
-                if f.name in ["model.joblib", "model.pt", "model.pth", "model.json", "model.onnx"]:
-                    main_model_file = f
-                    break
+            preferred_model_names = (
+                "model.joblib",
+                "model.pt",
+                "model.pth",
+                "model.onnx",
+                "model.json",
+            )
+            main_model_file = next(
+                (
+                    file_path
+                    for preferred_name in preferred_model_names
+                    for file_path in model_files
+                    if file_path.name == preferred_name
+                ),
+                model_files[0],
+            )
 
             main_artifact_uri = None
             main_checksum = None

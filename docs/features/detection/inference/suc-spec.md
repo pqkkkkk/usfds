@@ -19,7 +19,9 @@ Dưới đây là danh mục use case hệ thống (SUC) cho các chức năng s
 | --- | --- | --- | --- | --- |
 | **SUC-19** | **View detection jobs** | Fraud Analyst, Data Scientist | Xem danh mục các tác vụ phát hiện gian lận (`DetectionJob`) trong dự án, các chỉ số tổng hợp (tổng giao dịch quét, số lượng cảnh báo, phân bổ `REJECT`/`REVIEW`/`ALLOW`), lọc theo trạng thái và điều hướng tới kết quả chi tiết. | High |
 | **SUC-15** | **Start detection job** | Data Scientist, Fraud Analyst | Khởi chạy tác vụ chấm điểm mẻ trên tập giao dịch cần rà soát (từ `DatasetArtifact` ở giai đoạn `RAW` hoặc tải tệp trực tiếp `input_file_path`) bằng cách kết hợp đồng thời điểm xác suất từ `ModelVersion` (`APPROVED` hoặc chế độ `Rule-Only`) và tập luật nghiệp vụ `ACTIVE` (`JsonLogic`). | High |
-| **SUC-16** | **View detection result** | Fraud Analyst, Data Scientist | Xem bảng thống kê tổng quan, biểu đồ phân phối điểm rủi ro, thống kê luật kích hoạt, danh sách giao dịch chi tiết kèm ngăn kéo bằng chứng (`Detection Evidence Drawer`), xuất tệp kết quả (`.csv`/`.parquet`) và chuyển tiếp các giao dịch đáng ngờ sang phân hệ **Investigation** để tạo hồ sơ điều tra (`InvestigationCase`). | High |
+| **SUC-16** | **View detection result** | Fraud Analyst, Data Scientist | Kết quả/bằng chứng/export và gửi event flagged trong một request để tạo Case tại fraud_cases. | High |
+
+<!-- [26-11-01] Đồng bộ Investigation: một send-to-investigation endpoint, CaseService/fraud_cases, production source từ job storage; không endpoint intake/prepare riêng. -->
 
 ---
 
@@ -141,9 +143,9 @@ Dưới đây là danh mục use case hệ thống (SUC) cho các chức năng s
 - **Tên Use Case:** View detection result (Xem kết quả phát hiện gian lận và chuyển tiếp điều tra)
 - **Tác nhân chính (Primary Actor):** Fraud Analyst, Data Scientist
 - **Tác nhân phụ (Secondary Actor):** `InferenceService`, `IInvestigationRepository`, `IFileStorage`
-- **Mô tả:** Cho phép Fraud Analyst và Data Scientist xem bảng tổng hợp và danh sách chi tiết kết quả phân loại gian lận của một tác vụ phát hiện (`DetectionJob`), tra cứu lý do gắn cờ (điểm xác suất mô hình AI, các quy tắc `ACTIVE` bị vi phạm cùng biểu thức điều kiện thỏa mãn và giá trị đặc trưng thực tế), xuất tệp báo cáo (`.csv`/`.parquet`) và chuyển tiếp các giao dịch đáng ngờ sang phân hệ **Investigation** để khởi tạo hồ sơ điều tra (`InvestigationCase`).
+- **Mô tả:** Xem kết quả/bằng chứng/export của DetectionJob và gửi event flagged để tạo riêng từng Case trong Investigation.
 - **Tiền điều kiện:** Tác vụ phát hiện (`DetectionJob`) đã tồn tại trong dự án.
-- **Hậu điều kiện:** Kết quả phân loại và bằng chứng rủi ro hiển thị đầy đủ; các giao dịch nghi vấn được chọn khi nhấn **Send to Investigation** được lưu vào bảng `investigation_cases` kèm đầy đủ ngữ cảnh phát hiện.
+- **Hậu điều kiện:** Case lưu fraud_cases và audit_logs qua CaseService, truy nguồn detection_job_id; không ghi investigation_cases.
 - **Sự kiện kích hoạt (Trigger):** Người dùng chọn một tác vụ trong danh sách **Detection Jobs Hub** (`SUC-19`) hoặc được điều hướng tự động ngay sau khi hoàn tất `SUC-15`.
 
 ### Luồng sự kiện chính (Basic Flow)
@@ -174,7 +176,7 @@ Dưới đây là danh mục use case hệ thống (SUC) cho các chức năng s
 	- Hiển thị danh sách chi tiết các quy tắc đã kích hoạt (`rule_code`, `rule_name`, `action`, và các mệnh đề điều kiện cụ thể đã khớp `matched_clauses`).
 	- Hiển thị bảng chụp nhanh toàn bộ giá trị đặc trưng (`condition_snapshot` / `features`) của giao dịch tại thời điểm chấm điểm.
 6. Để chuyển tiếp điều tra, người dùng tích chọn một hoặc nhiều giao dịch đáng ngờ trên bảng (hoặc nhấn nút ngay trong ngăn kéo Evidence Drawer) và nhấn **Send to Investigation (Create Cases)**.
-7. Hệ thống gọi `POST /api/v1/detection/jobs/{job_id}/send-to-investigation`, khởi tạo các bản ghi `InvestigationCase` trong cơ sở dữ liệu (lưu `project_id`, `event_id`, `status = 'PENDING'`, `risk_level`, `fraud_probability`, và `metadata` chứa `job_id`, `user_id`, `amount`, `timestamp`, `final_action`, `triggered_rules`, `features`), hiển thị thông báo xác nhận và cho phép điều hướng trực tiếp sang phân hệ **Investigation** (`/investigation`).
+7. Client gọi duy nhất `POST /api/v1/detection/jobs/{job_id}/send-to-investigation` với event_ids và analyst_notes optional. Backend xác thực toàn bộ IDs/REVIEW hoặc REJECT từ output job, giữ giá trị không làm tròn, tạo snapshot rule/RAW attributes rồi gọi CaseService trong cùng transaction. Response ApiResponse.data = created_case_ids, accepted_count, skipped_event_ids. Event đã có Case cùng project được bỏ qua; ID giữ dạng chuỗi, status mới OPEN, priority theo BR-IV-01, actor local-analyst. Cột case_id tra fraud_cases. Không prepare hoặc intake API riêng, không đăng ký production file vào dataset_artifacts.
 
 ### Luồng rẽ nhánh (Alternative Flows)
 

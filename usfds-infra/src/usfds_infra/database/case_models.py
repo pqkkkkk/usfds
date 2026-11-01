@@ -17,7 +17,7 @@ class CaseModel(Base, TimestampMixin):
 	tx_timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 	amount: Mapped[float] = mapped_column(Float, nullable=False)
 	final_action: Mapped[str] = mapped_column(String(20), nullable=False)
-	dataset_artifact_id: Mapped[str] = mapped_column(String(36), nullable=False)
+	dataset_artifact_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 	detection_job_id: Mapped[str | None] = mapped_column(String(36))
 	model_version_id: Mapped[str | None] = mapped_column(String(36))
 	model_score: Mapped[float | None] = mapped_column(Float)

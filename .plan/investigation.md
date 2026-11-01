@@ -1,5 +1,17 @@
 # Plan: Investigation [26-10-31]
 
+## Revision 4 [26-11-01]: Production source and unified dispatch
+- Supersedes Revision 3's mandatory dataset_artifact_id and two-request handoff. Production files remain in Detection storage, separate from dataset_artifacts.
+- Keep one client request POST /detection/jobs/{job_id}/send-to-investigation. Backend resolves original output, validates selected flagged events, and calls the existing CaseService in the same DB transaction.
+- Case source: dataset_artifact_id nullable; detection_job_id resolves the persisted production output via project-scoped job lookup. Never accept an arbitrary client file path for Investigation.
+- Remove investigation_cases table/ORM/repository and obsolete Detection case APIs/types/writer. Empty legacy table may be dropped; nonempty legacy tables require explicit data migration rather than silent deletion.
+- Upgrade existing fraud_cases schema to nullable dataset_artifact_id without losing cases, blacklist links or audit. Verify migration and idempotent one-call dispatch in focused tests.
+- Frontend uses accepted_count/skipped_event_ids and shared ['investigation', project_id] queries. No prepare endpoint.
+- Public /cases/intake removed; internal validation/CaseService shared, no separate HTTP handoff.
+- [x] Backend integration and safe migration, preserving populated Case/blacklist/audit
+- [x] Frontend response/cache alignment and build
+- [x] Spec and focused checks for one-call dispatch, retry, invalid/ALLOW events, production file and schema upgrade
+
 ## Revision 3: Phạm vi cuối cùng đã duyệt
 - Một giao dịch được gửi từ Detection tạo đúng một `Case`; unique `(project_id, event_id)`. Retry bỏ qua, không thay bằng chứng hoặc phán quyết.
 - Ba entity/bảng: `Case`/`fraud_cases`, `EntityBlacklist`/`entity_blacklist`, `AuditLog`/`audit_logs` dùng chung.

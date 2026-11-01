@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '../../layout/PageHeader';
 import { detectionApi } from '@/api';
+import { investigationApi } from '../../../api/investigationApi';
 import { useProject } from '@/hooks';
 import type { DetectionJobResponse, DetectionJobStatusType } from '@/types';
 
@@ -68,8 +69,8 @@ export function DetectionJobsHubView() {
 	});
 
 	const { data: casesRes } = useQuery({
-		queryKey: ['investigation-cases', projectId],
-		queryFn: () => detectionApi.listCases({ projectId }),
+		queryKey: ['investigation', projectId, 'detection-count'],
+		queryFn: () => investigationApi.list(projectId, { size: 1 }),
 		enabled: Boolean(projectId),
 	});
 
@@ -77,7 +78,7 @@ export function DetectionJobsHubView() {
 		return jobsRes?.data || [];
 	}, [jobsRes]);
 
-	const totalCases = casesRes?.data?.length || 0;
+	const totalCases = casesRes?.total || 0;
 
 	const filteredJobs = useMemo(() => {
 		return jobs.filter((job) => {

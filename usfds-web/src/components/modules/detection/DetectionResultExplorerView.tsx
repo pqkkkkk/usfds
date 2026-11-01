@@ -55,6 +55,7 @@ export function DetectionResultExplorerView() {
 	const [dispatchSuccessCount, setDispatchSuccessCount] = useState<number | null>(
 		null
 	);
+	const [dispatchSkippedCount, setDispatchSkippedCount] = useState(0);
 
 	const {
 		data: resultsRes,
@@ -120,12 +121,13 @@ export function DetectionResultExplorerView() {
 			}
 			return res.data;
 		},
-		onSuccess: (createdCases) => {
-			setDispatchSuccessCount(createdCases.length);
+		onSuccess: (result) => {
+			setDispatchSuccessCount(result.accepted_count);
+			setDispatchSkippedCount(result.skipped_event_ids.length);
 			setSelectedEventIds([]);
 			refetch();
 			queryClient.invalidateQueries({
-				queryKey: ['investigation-cases', projectId],
+				queryKey: ['investigation', job?.project_id || projectId],
 			});
 		},
 	});
@@ -891,7 +893,7 @@ export function DetectionResultExplorerView() {
 									<CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
 									<div>
 										<h4 className="text-sm font-bold text-slate-100">
-											{dispatchSuccessCount} Case(s) Dispatched
+											{dispatchSuccessCount} new case(s); {dispatchSkippedCount} already sent
 										</h4>
 										<p className="text-xs text-slate-400 mt-1">
 											Các giao dịch đã được chuyển sang hàng đợi Investigation kèm đầy đủ bằng chứng AI Score và Rules.

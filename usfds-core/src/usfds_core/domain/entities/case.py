@@ -42,7 +42,7 @@ class Case:
 	tx_timestamp: datetime
 	amount: float
 	final_action: RuleAction
-	dataset_artifact_id: UUID
+	dataset_artifact_id: UUID | None
 	case_id: UUID = field(default_factory=uuid4)
 	case_code: str = ""
 	model_score: float | None = None
