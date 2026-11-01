@@ -17,6 +17,7 @@ from usfds_server.dependencies import (
     teardown_infrastructure,
 )
 from usfds_server.routers import dataset_router, project_router, rule_router, training_router
+from usfds_server.routers.investigation_router import blacklist_router, router as investigation_router
 from usfds_server.schemas.base_response import ApiResponse
 
 
@@ -77,6 +78,8 @@ app.include_router(project_router)
 app.include_router(dataset_router)
 app.include_router(rule_router)
 app.include_router(training_router)
+app.include_router(investigation_router)
+app.include_router(blacklist_router)
 
 
 @app.get("/health", tags=["System"])

@@ -1,29 +1,17 @@
-import { PageHeader } from '../layout/PageHeader';
-import { SearchCheck } from 'lucide-react';
+import { NavLink, Route, Routes } from 'react-router-dom';
+import { useProject } from '../../hooks/useProjects';
+import { CaseQueueView, CaseWorkbenchView, PoliciesView } from './investigation/InvestigationViews';
 
 export const InvestigationModule = () => {
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-dark-950">
-      <PageHeader
-        title="Investigation & Case Review"
-        subtitle="Rà soát các giao dịch bị gắn cờ gian lận, điều tra nguyên nhân và đưa ra quyết định xử lý"
-        badge="Module"
-        badgeColor="amber"
-        breadcrumbs={[
-          { label: 'Investigation' },
-          { label: 'Alert Queue' }
-        ]}
-      />
-      
-      <div className="flex-1 p-6 overflow-y-auto">
-        <div className="p-8 rounded-xl bg-dark-900 border border-dark-700/80 text-center space-y-3 max-w-xl mx-auto mt-8">
-          <SearchCheck className="w-8 h-8 text-amber-400 mx-auto" />
-          <h3 className="text-sm font-semibold text-slate-100">Case Investigation & Alert Queue</h3>
-          <p className="text-xs text-slate-400">
-            Hàng đợi rà soát cảnh báo giao dịch gian lận, điều tra chi tiết và phân công xử lý ca nghi vấn.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+	const { currentProjectId, currentProject, isLoading } = useProject();
+	return <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-dark-950 text-slate-100">
+		<header className="flex flex-wrap items-center justify-between gap-3 border-b border-dark-700 px-5 py-4"><h1 className="text-lg font-semibold">Investigation</h1><nav className="flex gap-4 text-sm" aria-label="Investigation views"><NavLink end to="/investigation" className={({ isActive }) => isActive ? 'text-blue-300' : 'text-slate-300'}>Case queue</NavLink><NavLink to="/investigation/policies" className={({ isActive }) => isActive ? 'text-blue-300' : 'text-slate-300'}>Policies</NavLink></nav></header>
+		<main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-5">
+			{isLoading ? <p role="status">Loading project...</p> : !currentProjectId ? <p className="text-sm text-slate-300">Select a project to view investigation cases.</p> : <Routes key={currentProjectId}>
+				<Route index element={<CaseQueueView projectId={currentProjectId} readOnly={currentProject?.status === 'ARCHIVED'} />} />
+				<Route path="cases/:caseId" element={<CaseWorkbenchView projectId={currentProjectId} readOnly={currentProject?.status === 'ARCHIVED'} />} />
+				<Route path="policies" element={<PoliciesView projectId={currentProjectId} readOnly={currentProject?.status === 'ARCHIVED'} />} />
+			</Routes>}
+		</main>
+	</div>;
 };

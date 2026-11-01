@@ -1,3 +1,17 @@
+# 31-10-2026 — Investigation (Case Intake Contract, SUC-17, SUC-18, SUC-20)
+- [x] [docs] Final scope: Case per transaction, blacklist only, shared audit, no bulk resolve
+- [x] [core] Case, EntityBlacklist, AuditLog and repo interfaces
+- [x] [core] Priority, case lifecycle, behavior profile, blacklist, rule feedback + focused tests
+- [x] [infra] SQLAlchemy models + Sqlite repositories + tests
+- [x] [server] `/api/v1/cases`, `/api/v1/blacklist` routers, schemas, DI + API test
+- [x] [fe] Types, API client, project-scoped React Query queries/mutations
+- [x] [fe] Case Queue view (KPIs, filters, table, claim, pagination)
+- [x] [fe] Case Workbench (subject/baseline, evidence, timeline, deviation, resolution, audit)
+- [x] [fe] Policies view (blacklist, rule feedback) + Rule Studio prefill/source artifact
+- [x] [fe] `npm run build`; [be] 6 focused checks core/infra/server passed
+- [x] [fe] Browser: live empty state, cached Case renders, two charts render, invalid decision disabled; mechanical UI detector clean
+- [ ] [fe] Complete browser desktop/mobile mutation and Rule Studio handoff verification (shared browser route changed during checks; no real DB mutations performed)
+
 # 29-10-2026
 - [x] [fe] Fix infinite loop in DataPipelineWorkspace and SchemaMappingWorkspace
 	- [x] [fe] Wrap onConfigChange handler in DataPipelineWorkspace with useCallback

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
 	Save,
 	ShieldCheck,
@@ -28,6 +28,7 @@ import {
 } from '../../../utils/jsonLogicParser';
 import { ruleApi } from '../../../api/ruleApi';
 import { useProject } from '../../../hooks/useProjects';
+import type { RuleDraft } from '../../../types/investigation';
 
 const FALLBACK_PROJECT_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -37,6 +38,8 @@ export const RuleWorkspace: React.FC = () => {
 		stepId?: string;
 	}>();
 	const navigate = useNavigate();
+	const location = useLocation();
+	const investigationDraft = (location.state as { investigationDraft?: RuleDraft } | null)?.investigationDraft;
 	const { currentProject, currentProjectId, refetchProjects } = useProject();
 	const effectiveProjectId = currentProjectId || FALLBACK_PROJECT_ID;
 
@@ -101,8 +104,18 @@ export const RuleWorkspace: React.FC = () => {
 			setDescription('Mô tả điều kiện phát hiện gian lận.');
 			setChangeSummary('Khởi tạo phiên bản v1');
 			setConditionGroup(createDefaultRuleGroupForSchema(currentProject?.raw_schema));
+			if (investigationDraft) {
+				if (investigationDraft.project_id !== effectiveProjectId) {
+					setErrorMessage('Rule draft belongs to a different project.');
+				} else {
+					setRuleName(investigationDraft.name);
+					setDescription(`Source case: ${investigationDraft.source_case_id}`);
+					setChangeSummary(`Investigation case ${investigationDraft.source_case_id}`);
+					if (investigationDraft.condition) setConditionGroup(jsonLogicToGroup(investigationDraft.condition));
+				}
+			}
 		}
-	}, [ruleId, isNew, currentProject?.raw_schema]);
+	}, [ruleId, isNew, currentProject?.raw_schema, investigationDraft, effectiveProjectId]);
 
 	const handleSave = async (targetStatus?: RuleStatus): Promise<RuleResponse | null> => {
 		setIsSaving(true);
@@ -163,9 +176,7 @@ export const RuleWorkspace: React.FC = () => {
 				setStatus(res.data.status);
 				setSaveSuccessNotice(true);
 				refetchProjects();
-				setTimeout(() => {
-					navigate(`/rules/${res.data.rule_id}/${stepId}`, { replace: true });
-				}, 400);
+				navigate(`/rules/${res.data.rule_id}/${stepId}`, { replace: true, state: location.state });
 				return res.data;
 			}
 		} finally {
@@ -175,19 +186,19 @@ export const RuleWorkspace: React.FC = () => {
 
 	const handleStepSelect = (nextStepId: string) => {
 		const targetRuleId = currentRule?.rule_id || (isNew ? 'new' : ruleId);
-		navigate(`/rules/${targetRuleId}/${nextStepId}`);
+		navigate(`/rules/${targetRuleId}/${nextStepId}`, { state: location.state });
 	};
 
 	const handleProceedToDryRun = async () => {
 		if (isNew && !currentRule) {
 			const saved = await handleSave('DRAFT');
 			if (saved) {
-				navigate(`/rules/${saved.rule_id}/step-dryrun`);
+				navigate(`/rules/${saved.rule_id}/step-dryrun`, { state: location.state });
 			}
 			return;
 		}
 		const targetRuleId = currentRule?.rule_id || ruleId || 'new';
-		navigate(`/rules/${targetRuleId}/step-dryrun`);
+		navigate(`/rules/${targetRuleId}/step-dryrun`, { state: location.state });
 	};
 
 	const handleRestoreVersion = (version: RuleVersionResponse) => {
@@ -375,6 +386,7 @@ export const RuleWorkspace: React.FC = () => {
 								conditionGroup={conditionGroup}
 								currentRule={currentRule}
 								errorMessage={errorMessage}
+								preferredArtifactId={investigationDraft?.project_id === effectiveProjectId ? investigationDraft.dataset_artifact_id : undefined}
 							/>
 						)}
 					</>
