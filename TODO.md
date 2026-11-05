@@ -1,3 +1,14 @@
+# 05-11-2026 — Model Management PageHeader Synchronization
+- [x] [fe] Synchronize Model Management headers with Design System PageHeader (ModelHubView, TrainingWizardView, TrainingRunDetailView)
+- [x] [fe] Verify `npm run build` (`tsc -b && vite build`) in `usfds-web`
+
+# 05-11-2026 — Investigation Front-end UI/UX Upgrade (SUC-17, SUC-18, SUC-20)
+- [x] [fe] Upgrade `InvestigationModule.tsx` with `PageHeader`, breadcrumbs, project context, and view tabs
+- [x] [fe] Modularize and upgrade `SUC-17` (`CaseQueueView`): elevated KPI cards, filter bar with reset, high-density queue table with score bars, assignee/timestamps, and `Claim` + `Investigate` actions
+- [x] [fe] Modularize and upgrade `SUC-18` (`CaseWorkbenchView`): 3-column card layout, `common_hours_utc` baseline, enhanced SHAP/Timeline tooltips, searchable Key-Value snapshot, decoupled Resolution vs Workflow Actions (`Pending Customer` / `Escalate`), `Flag Noisy Rule` shortcut, and Auto-advance queue toggle
+- [x] [fe] Upgrade `SUC-20` (`PoliciesView` & `RuleWorkspace.tsx`): summary stats, Blacklist management UI, Rule Feedback table with visual FPR bar, and `investigationDraft` banner in `RuleWorkspace.tsx`
+- [x] [fe] Verify `npm run build` (`tsc -b && vite build`) in `usfds-web`
+
 # 01-11-2026 — Training artifact priority
 - [x] [core/tests] Prefer `model.joblib` over `model.json` as the primary XGBoost artifact; keep JSON as the final fallback
 
