@@ -18,6 +18,7 @@ import { trainingApi } from '../../../api/trainingApi';
 import { useProject } from '../../../hooks/useProjects';
 import { WorkspaceStepper } from '../../layout/WorkspaceStepper';
 import type { PipelineStep } from '../../layout/WorkspaceStepper';
+import { PageHeader } from '../../layout/PageHeader';
 import type { DatasetArtifactResponse, DatasetResponse } from '../../../types/dataset';
 import type {
 	HyperparameterPropertySchema,
@@ -333,29 +334,27 @@ export const TrainingWizardView: React.FC = () => {
 
 	return (
 		<div className="flex-1 flex flex-col h-full overflow-hidden bg-dark-950">
-			{/* Top Bar */}
-			<div className="px-6 py-3.5 border-b border-dark-800 bg-dark-900/60 flex items-center justify-between">
-				<div className="flex items-center gap-3">
+			<PageHeader
+				title="Start Model Training Wizard"
+				subtitle="Chọn tập dữ liệu FEATURE_ENGINEERED, cấu hình siêu tham số và thực thi huấn luyện mô hình"
+				badge="Model Training"
+				badgeColor="blue"
+				breadcrumbs={[
+					{ label: currentProject?.project_name || 'Project' },
+					{ label: 'Model Management', href: '/models' },
+					{ label: 'New Training Run' },
+				]}
+				actions={
 					<button
 						type="button"
 						onClick={() => navigate('/models')}
-						className="p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-300 transition"
-						title="Quay lại Model Hub"
+						className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-slate-300 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
 					>
-						<ArrowLeft className="w-4 h-4" />
+						<ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
+						<span>Quay lại Model Hub</span>
 					</button>
-					<div>
-						<div className="flex items-center gap-2">
-							<h1 className="text-sm font-bold text-slate-100">
-								Start Model Training Wizard
-							</h1>
-						</div>
-						<p className="text-[11px] text-slate-400">
-							Chọn tập dữ liệu `FEATURE_ENGINEERED`, cấu hình siêu tham số và thực thi huấn luyện mô hình
-						</p>
-					</div>
-				</div>
-			</div>
+				}
+			/>
 
 			{/* Stepper */}
 			<WorkspaceStepper

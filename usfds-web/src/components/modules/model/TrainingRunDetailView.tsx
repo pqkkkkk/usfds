@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
 	ArrowLeft,
-	CheckCircle2,
 	XCircle,
 	Rocket,
 	Sliders,
@@ -13,10 +12,11 @@ import {
 	RotateCcw,
 	Loader2,
 	FileCode2,
-	Clock,
 	Star,
 } from 'lucide-react';
 import { trainingApi } from '../../../api/trainingApi';
+import { useProject } from '../../../hooks/useProjects';
+import { PageHeader } from '../../layout/PageHeader';
 import type {
 	ModelResponse,
 	ModelVersionResponse,
@@ -28,6 +28,7 @@ import { ActivateModelModal } from './ActivateModelModal';
 export const TrainingRunDetailView: React.FC = () => {
 	const { runId } = useParams<{ runId: string }>();
 	const navigate = useNavigate();
+	const { currentProject } = useProject();
 
 	const [run, setRun] = useState<TrainingRunResponse | null>(null);
 	const [model, setModel] = useState<ModelResponse | null>(null);
@@ -181,91 +182,55 @@ export const TrainingRunDetailView: React.FC = () => {
 
 	return (
 		<div className="flex-1 flex flex-col h-full overflow-hidden bg-dark-950">
-			{/* Top Header */}
-			<div className="px-6 py-4 border-b border-dark-800 bg-dark-900/60 flex flex-wrap items-center justify-between gap-4">
-				<div className="flex items-center gap-3">
-					<button
-						type="button"
-						onClick={() => navigate('/models')}
-						className="p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-300 transition"
-						title="Quay lại Model Hub"
-					>
-						<ArrowLeft className="w-4 h-4" />
-					</button>
-					<div>
-						<div className="flex flex-wrap items-center gap-2">
-							<h1 className="text-base font-bold text-slate-100">{run.run_name}</h1>
-							{run.status === 'COMPLETED' ? (
-								<span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-									<CheckCircle2 className="w-3 h-3" />
-									COMPLETED
-								</span>
-							) : (
-								<span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30">
-									<XCircle className="w-3 h-3" />
-									{run.status}
-								</span>
-							)}
-							{version && (
-								<span
-									className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-										version.status === 'APPROVED'
-											? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-											: 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
-									}`}
-								>
-									v{version.semver} · {version.status}
-								</span>
-							)}
-						</div>
-						<div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 mt-1 font-mono">
-							<span>
-								Model: <strong className="text-slate-200">{model?.display_name || model?.model_name || run.model_id}</strong>
-							</span>
-							{typeof run.duration_seconds === 'number' && (
-								<span className="flex items-center gap-1">
-									<Clock className="w-3 h-3" />
-									Duration: {run.duration_seconds}s
-								</span>
-							)}
-							{run.dataset_artifact_id && (
-								<span>Artifact: {run.dataset_artifact_id.slice(0, 12)}...</span>
-							)}
-						</div>
-					</div>
-				</div>
-
-				{/* Header Actions */}
-				<div className="flex items-center gap-2.5">
-					<button
-						type="button"
-						onClick={() =>
-							navigate(
-								`/models/train?modelId=${run.model_id || ''}&artifactId=${run.dataset_artifact_id || ''}`
-							)
-						}
-						className="px-3.5 py-2 rounded-xl bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs font-semibold text-slate-200 transition flex items-center gap-1.5"
-					>
-						<RotateCcw className="w-3.5 h-3.5" />
-						<span>Re-train / Clone</span>
-					</button>
-
-					{version && !isFailed && (
+			<PageHeader
+				title={run.run_name}
+				subtitle={`Model: ${model?.display_name || model?.model_name || run.model_id}${typeof run.duration_seconds === 'number' ? ` • Duration: ${run.duration_seconds}s` : ''}${run.dataset_artifact_id ? ` • Artifact: ${run.dataset_artifact_id.slice(0, 8)}...` : ''}`}
+				badge={version ? `v${version.semver} • ${version.status}` : run.status}
+				badgeColor={run.status === 'COMPLETED' ? 'green' : 'amber'}
+				breadcrumbs={[
+					{ label: currentProject?.project_name || 'Project' },
+					{ label: 'Model Management', href: '/models' },
+					{ label: run.run_name },
+				]}
+				actions={
+					<div className="flex items-center gap-2.5">
 						<button
 							type="button"
-							onClick={() => setIsActivateModalOpen(true)}
-							className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-glow-green transition flex items-center gap-2"
+							onClick={() => navigate('/models')}
+							className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-slate-300 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
 						>
-							<Rocket className="w-4 h-4" />
-							<span>
-								{version.status === 'APPROVED'
-									? `Update Active Threshold (${activePoint.threshold.toFixed(2)})`
-									: `Activate Model @ ${activePoint.threshold.toFixed(2)}`}
-							</span>
+							<ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
+							<span>Model Hub</span>
 						</button>
-					)}
-				</div>
-			</div>
+						<button
+							type="button"
+							onClick={() =>
+								navigate(
+									`/models/train?modelId=${run.model_id || ''}&artifactId=${run.dataset_artifact_id || ''}`
+								)
+							}
+							className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-200 transition flex items-center gap-1.5 cursor-pointer"
+						>
+							<RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+							<span>Re-train / Clone</span>
+						</button>
+						{version && !isFailed && (
+							<button
+								type="button"
+								onClick={() => setIsActivateModalOpen(true)}
+								className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-glow-green transition flex items-center gap-1.5 cursor-pointer"
+							>
+								<Rocket className="w-3.5 h-3.5" />
+								<span>
+									{version.status === 'APPROVED'
+										? `Update Active Threshold (${activePoint.threshold.toFixed(2)})`
+										: `Activate Model @ ${activePoint.threshold.toFixed(2)}`}
+								</span>
+							</button>
+						)}
+					</div>
+				}
+			/>
 
 			{/* Main Content */}
 			<div className="flex-1 overflow-y-auto p-6 space-y-6">

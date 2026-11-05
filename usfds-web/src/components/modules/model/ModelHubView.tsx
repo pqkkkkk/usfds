@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-	BrainCircuit,
 	Play,
 	Plus,
 	Search,
@@ -27,6 +26,7 @@ import type {
 } from '../../../types/model';
 import { ImportCustomModelModal } from './ImportCustomModelModal';
 import { ActivateModelModal } from './ActivateModelModal';
+import { PageHeader } from '../../layout/PageHeader';
 
 export const ModelHubView: React.FC = () => {
 	const navigate = useNavigate();
@@ -222,51 +222,47 @@ export const ModelHubView: React.FC = () => {
 
 	return (
 		<div className="flex-1 flex flex-col h-full overflow-hidden bg-dark-950">
-			{/* Top Header */}
-			<div className="px-6 py-4 border-b border-dark-800 bg-dark-900/60 flex flex-wrap items-center justify-between gap-4">
-				<div className="flex items-center gap-3">
-					<div className="w-10 h-10 rounded-xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-400">
-						<BrainCircuit className="w-5 h-5" />
+			<PageHeader
+				title="Model Management"
+				subtitle={
+					currentProject
+						? `Quản lý danh mục mô hình học máy (BUILTIN & SCRIPT), khởi chạy huấn luyện và kích hoạt phiên bản cho dự án "${currentProject.project_name}"`
+						: 'Quản lý danh mục mô hình học máy (BUILTIN & SCRIPT), khởi chạy huấn luyện và kích hoạt phiên bản mô hình'
+				}
+				breadcrumbs={[
+					{ label: 'Model Management' },
+				]}
+				actions={
+					<div className="flex items-center gap-2.5">
+						<button
+							type="button"
+							onClick={fetchHubData}
+							disabled={isLoading}
+							title="Làm mới dữ liệu"
+							className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-300 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+						>
+							<RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${isLoading ? 'animate-spin' : ''}`} />
+							<span>Làm mới</span>
+						</button>
+						<button
+							type="button"
+							onClick={() => setIsImportModalOpen(true)}
+							className="px-3.5 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-semibold text-slate-200 transition flex items-center gap-2 cursor-pointer"
+						>
+							<Code2 className="w-3.5 h-3.5 text-brand-400" />
+							<span>Import Custom Model</span>
+						</button>
+						<button
+							type="button"
+							onClick={() => navigate('/models/train')}
+							className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2 cursor-pointer"
+						>
+							<Plus className="w-3.5 h-3.5" />
+							<span>New Training Run</span>
+						</button>
 					</div>
-					<div>
-						<div className="flex items-center gap-2">
-							<h1 className="text-base font-bold text-slate-100">
-								Model Hub — Registry & Training Runs
-							</h1>
-						</div>
-						<p className="text-xs text-slate-400 mt-0.5">
-							Quản lý danh mục mô hình học máy (`BUILTIN` & `SCRIPT`), khởi chạy huấn luyện và kích hoạt phiên bản mô hình
-						</p>
-					</div>
-				</div>
-
-				<div className="flex items-center gap-2.5">
-					<button
-						type="button"
-						onClick={fetchHubData}
-						title="Làm mới dữ liệu"
-						className="p-2 rounded-xl bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-300 transition"
-					>
-						<RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-					</button>
-					<button
-						type="button"
-						onClick={() => setIsImportModalOpen(true)}
-						className="px-3.5 py-2 rounded-xl bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs font-semibold text-slate-200 transition flex items-center gap-2"
-					>
-						<Code2 className="w-4 h-4 text-brand-400" />
-						<span>Import Custom Model</span>
-					</button>
-					<button
-						type="button"
-						onClick={() => navigate('/models/train')}
-						className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2"
-					>
-						<Plus className="w-4 h-4" />
-						<span>New Training Run</span>
-					</button>
-				</div>
-			</div>
+				}
+			/>
 
 			{/* Main Content */}
 			<div className="flex-1 overflow-y-auto p-6 space-y-5">

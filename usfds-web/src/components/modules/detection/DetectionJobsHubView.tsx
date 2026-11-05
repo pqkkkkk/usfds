@@ -135,10 +135,7 @@ export function DetectionJobsHubView() {
 						? `Quản lý các phiên quét phát hiện gian lận kết hợp AI Model & Active Rules cho dự án "${currentProject.project_name}"`
 						: 'Quản lý các phiên quét phát hiện gian lận theo lô (Hybrid Batch Detection)'
 				}
-				badge="Detection Engine"
-				badgeColor="blue"
 				breadcrumbs={[
-					{ label: currentProject?.project_name || 'Project' },
 					{ label: 'Detection Jobs' },
 				]}
 				actions={
