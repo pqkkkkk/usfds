@@ -86,3 +86,5 @@ venv/
 #     common/cache.gitignore | sort -u > .gitignore
 
 .vscode/
+# USFDS deployment secrets
+deploy/.env
