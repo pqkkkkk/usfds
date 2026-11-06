@@ -1,5 +1,26 @@
 # Plan: Investigation [26-10-31]
 
+## Revision 5 [26-11-05]: Front-end UI/UX Polish for SUC-17, SUC-18, SUC-20
+- Scope: Upgrade `usfds-web` only (`SUC-17`, `SUC-18`, `SUC-20`), keeping existing back-end (`usfds-core`, `usfds-infra`, `usfds-server`) unchanged and skipping `SUC-19` & `SUC-21`.
+- 1. Shell & Navigation (`InvestigationModule.tsx`):
+	- Replace plain `<header>` with `PageHeader` (breadcrumbs, project context subtitle, module badge, and view navigation tabs `Case Queue` / `Policies & Watchlists`).
+- 2. Shared Investigation UI Primitives (`src/components/modules/investigation/`):
+	- Dual-encoded status/priority/action badges (pill badges with icon + border + semantic color), risk score progress bar, card containers matching `docs/design-system.md`.
+- 3. Case Queue View (`SUC-17`):
+	- 4 elevated KPI cards (`Open Cases`, `Critical Unresolved`, `In Progress / Pending Customer`, `Confirmed Fraud Ratio / Total Resolved`).
+	- Structured Filter Bar with search, status, priority, assignment, rule code, score/amount range, sort, and `Reset` button.
+	- High-density table displaying `Case / Event`, `Subject User`, `Amount & Tx Time`, `Model & Priority Score` (with visual bar), `Action & Triggered Rules` (tags), `Priority`, `Status`, `Assignee`, and explicit `Claim` + `Investigate` actions.
+- 4. 3-Column Case Workbench (`SUC-18`):
+	- Header bar with Back to Queue, Case Code, Status/Priority/Version badges, `Auto-advance to next open case` toggle, and quick `Claim Case` button.
+	- Left column (25%): Subject card, Historical Baseline card (30d/90d selector, Cold-Start/Population badge, `avg_amount`, `max_amount`, `history_count`, `transactions_per_day`, `common_hours_utc`), and Related Cases card.
+	- Center column (50%): Trigger Evidence card (model score bar, horizontal SHAP bar chart with `feature_value` tooltip, triggered rules with `matched_clauses`), Interactive Transaction Timeline scatter chart, Current vs. Baseline deviation table (formatted values + anomaly badges), and searchable Key-Value Transaction Attributes snapshot.
+	- Right column (25%): Separate **Case Resolution** panel (segmented `Confirm Fraud` / `Mark as Legitimate` toggle, reason selector, independent `resolutionSummary`, Blacklist entity checkboxes for Fraud, `Flag Noisy Rule` link for Legitimate, or Resolved summary + `Create Rule from Case` + `Reopen Case` form) from **Workflow Actions** panel (`Pending Customer` and `Escalate` with independent note/assignee state), plus **Investigation Notes** and **Audit History Timeline**.
+- 5. Policies & Watchlists (`SUC-20`) & Rule Studio Handoff:
+	- Upgrade `PoliciesView` with summary cards, structured Blacklist table/add/remove confirmation, and Rule Feedback table with visual `Verified FPR %` bar and high-FPR (`> 80%`) alert.
+	- Surface `investigationDraft` banner (including backend `message` and `source_case_id`) in `RuleWorkspace.tsx`.
+- Verification Criteria:
+	- [x] `npm run build` (`tsc -b && vite build`) passes with zero errors.
+
 ## Revision 4 [26-11-01]: Production source and unified dispatch
 - Supersedes Revision 3's mandatory dataset_artifact_id and two-request handoff. Production files remain in Detection storage, separate from dataset_artifacts.
 - Keep one client request POST /detection/jobs/{job_id}/send-to-investigation. Backend resolves original output, validates selected flagged events, and calls the existing CaseService in the same DB transaction.

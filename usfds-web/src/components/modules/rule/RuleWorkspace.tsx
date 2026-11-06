@@ -345,6 +345,25 @@ export const RuleWorkspace: React.FC = () => {
 				onSelectStep={handleStepSelect}
 			/>
 
+			{investigationDraft && investigationDraft.project_id === effectiveProjectId && (
+				<div className="mx-6 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-500/40 bg-brand-950/30 px-4 py-2.5 text-xs text-brand-200">
+					<div>
+						<span className="font-semibold text-brand-300">
+							Seeded from Investigation Case:
+						</span>{' '}
+						<span className="font-mono">{investigationDraft.name}</span> &mdash;{' '}
+						<span>{investigationDraft.message}</span>
+					</div>
+					<button
+						type="button"
+						onClick={() => navigate(`/investigation/cases/${investigationDraft.source_case_id}`)}
+						className="font-mono text-brand-300 hover:underline cursor-pointer"
+					>
+						Return to Source Case &rarr;
+					</button>
+				</div>
+			)}
+
 			{/* 3. Workspace Body */}
 			<div className="flex-1 flex flex-col overflow-hidden">
 				{loading ? (
