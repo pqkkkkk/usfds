@@ -1,3 +1,12 @@
+# 05-11-2026 — Setup infra (Client / Server / Worker) — plan: `.plan/setup_infra.md`
+- [x] [deploy] `deploy/`: docker-compose (postgres `apache/age:release_PG17_1.7.0`, `rustfs/rustfs:1.0.4-glibc`, profile `app`), `initdb/`, `.env.example`, `Dockerfile.server`, `Dockerfile.worker`; move compose out of `usfds-server/`
+- [x] [infra] `create_postgres_engine`; JSON column type portable across SQLite/Postgres
+- [x] [infra] `S3FileStorage(IFileStorage)` for RustFS
+- [x] [infra] BullMQ (postgres backend) queue wrapper + `QueueTrainingDispatcher`, `QueueBatchInferenceDispatcher`
+- [x] [worker] `usfds-worker` package: BullMQ Worker, training + batch_inference handlers
+- [x] [server] Config switches (`USFDS_DB_URL`, `USFDS_STORAGE_BACKEND`, `USFDS_DISPATCH_BACKEND`); DI selects adapters; `/health` backend-agnostic
+- [x] [tests] Offline tests (no Docker): S3 storage via stub client (infra), dispatcher payload (infra), worker training handler. Server suite unchanged (10 passed); compose `config -q` parses
+- [ ] [verify] User verifies docker compose + end-to-end (not run by agent)
 # 05-11-2026 — Model Management PageHeader Synchronization
 - [x] [fe] Synchronize Model Management headers with Design System PageHeader (ModelHubView, TrainingWizardView, TrainingRunDetailView)
 - [x] [fe] Verify `npm run build` (`tsc -b && vite build`) in `usfds-web`

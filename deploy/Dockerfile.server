@@ -1,0 +1,19 @@
+# Build from the repository root: docker build -f deploy/Dockerfile.server .
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    POETRY_VIRTUALENVS_CREATE=false
+
+RUN pip install "poetry>=2.0,<3.0"
+
+WORKDIR /app
+COPY usfds-core ./usfds-core
+COPY usfds-infra ./usfds-infra
+COPY usfds-server ./usfds-server
+
+WORKDIR /app/usfds-server
+RUN poetry install --only main --no-interaction
+
+EXPOSE 8000
+CMD ["usfds-server"]

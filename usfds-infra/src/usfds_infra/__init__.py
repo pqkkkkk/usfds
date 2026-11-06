@@ -9,9 +9,11 @@ from usfds_infra.database import (
     session_scope,
 )
 from usfds_infra.storage.local_storage import LocalFileStorage
+from usfds_infra.storage.s3_storage import S3FileStorage
 
 __all__ = [
     "LocalFileStorage",
+    "S3FileStorage",
     "Base",
     "TimestampMixin",
     "create_sqlite_engine",
