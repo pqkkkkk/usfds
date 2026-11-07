@@ -8,6 +8,7 @@ from usfds_core.domain.entities.model import Model
 from usfds_core.domain.schemas.training_payload import TrainingRunPayload
 from usfds_core.services.data_management.service import DataManagementService
 from usfds_core.services.inference.inference_service import InferenceService
+from usfds_core.services.insight_report.service import InsightReportService
 from usfds_core.services.project_management.project_service import ProjectManagementService
 from usfds_core.services.rule_engine.executor import RuleExecutor
 from usfds_core.services.rule_engine.manager import RuleManager
@@ -33,7 +34,11 @@ from usfds_infra.database import (
 	init_db,
 )
 from usfds_infra.storage.local_storage import LocalFileStorage
-from usfds_infra.database.case_repositories import SqliteCaseRepository
+from usfds_infra.database.case_repositories import (
+	SqliteAuditRepository,
+	SqliteBlacklistRepository,
+	SqliteCaseRepository,
+)
 from usfds_server.config import settings
 
 # Global singletons managed during application lifecycle
@@ -182,6 +187,40 @@ def get_detection_job_repo(session: Session = Depends(get_db)) -> SqliteDetectio
 
 
 def get_case_repo(session: Session = Depends(get_db)) -> SqliteCaseRepository:
+	return SqliteCaseRepository(session)
+
+
+def get_blacklist_repo(session: Session = Depends(get_db)) -> SqliteBlacklistRepository:
+	return SqliteBlacklistRepository(session)
+
+
+def get_audit_repo(session: Session = Depends(get_db)) -> SqliteAuditRepository:
+	return SqliteAuditRepository(session)
+
+
+def get_insight_report_service(
+	project_repo: SqliteProjectRepository = Depends(get_project_repo),
+	detection_job_repo: SqliteDetectionJobRepository = Depends(get_detection_job_repo),
+	case_repo: SqliteCaseRepository = Depends(get_case_repo),
+	blacklist_repo: SqliteBlacklistRepository = Depends(get_blacklist_repo),
+	audit_repo: SqliteAuditRepository = Depends(get_audit_repo),
+	rule_repo: SqliteRuleRepository = Depends(get_rule_repo),
+	rule_version_repo: SqliteRuleVersionRepository = Depends(get_rule_version_repo),
+	storage: LocalFileStorage = Depends(get_storage),
+) -> InsightReportService:
+	return InsightReportService(
+		project_repo=project_repo,
+		detection_job_repo=detection_job_repo,
+		case_repo=case_repo,
+		blacklist_repo=blacklist_repo,
+		audit_repo=audit_repo,
+		rule_repo=rule_repo,
+		rule_version_repo=rule_version_repo,
+		file_storage=storage,
+	)
+
+
+def _unused_legacy_case_repo(session: Session = Depends(get_db)) -> SqliteCaseRepository:
     return SqliteCaseRepository(session)
 
 
@@ -314,4 +353,5 @@ __all__ = [
 	"get_data_management_service",
 	"get_training_service",
 	"get_inference_service",
+	"get_insight_report_service",
 ]

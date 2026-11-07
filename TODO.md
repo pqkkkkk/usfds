@@ -1,3 +1,13 @@
+# 06-11-2026 — Insight & Report Module (SUC-22, SUC-23, SUC-24, SUC-25)
+- [x] [docs] Create Use Case Specification `docs/features/insight_report/suc-spec.md` (`[26-11-06]`) and plan `.plan/insight_report.md`
+- [x] [core] Implement `DuckDBInsightEngine`, `ComplianceReportBuilder`, and `InsightReportService` in `usfds-core/src/usfds_core/services/insight_report/`
+- [x] [core/tests] Add unit tests in `usfds-core/tests/test_insight_report_service.py` covering SUC-22, SUC-23, SUC-24, SUC-25 and BR-IR-01/02/03
+- [x] [server] Create `insight_report_api_schemas.py`, `insight_report_router.py` (`/api/v1/reports`), and register in `api.py` & `dependencies.py`
+- [x] [server/tests] Add API tests in `usfds-server/tests/test_insight_report_api.py`
+- [x] [fe] Create `src/types/insightReport.ts` and `src/api/insightReportApi.ts`
+- [x] [fe] Build 4-tab Insight & Report UI (`ExecutiveOverviewTab`, `EffectivenessTab`, `TypologiesPatternsTab`, `ComplianceReportCenterTab`, `ReportScopeToolbar`) and wire `InsightReportModule.tsx` + `Export SAR` shortcut in `CaseWorkbenchView.tsx`
+- [x] [fe] Verify `pytest` across backend packages and `npm run build` (`tsc -b && vite build`) in `usfds-web`
+
 # 05-11-2026 — Model Management PageHeader Synchronization
 - [x] [fe] Synchronize Model Management headers with Design System PageHeader (ModelHubView, TrainingWizardView, TrainingRunDetailView)
 - [x] [fe] Verify `npm run build` (`tsc -b && vite build`) in `usfds-web`
