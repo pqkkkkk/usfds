@@ -6,3 +6,4 @@ export * from './projectApi';
 export * from './trainingApi';
 export * from './detectionApi';
 export * from './queryClient';
+export * from './insightReportApi';
