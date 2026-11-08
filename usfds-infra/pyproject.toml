@@ -15,6 +15,9 @@ packages = [{include = "usfds_infra", from = "src"}]
 python = ">=3.12"
 usfds-core = {path = "../usfds-core", develop = true}
 sqlalchemy = "^2.0.36"
+psycopg = {version = "^3.2", extras = ["binary"]}
+boto3 = "^1.35"
+bullmq = {version = "^3.5", extras = ["postgres"]}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

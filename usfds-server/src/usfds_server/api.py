@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 import uvicorn
 
+from usfds_core.storage.base_storage import IFileStorage
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_server.config import settings
 from usfds_server.dependencies import (
@@ -96,34 +97,32 @@ app.include_router(insight_report_router)
 @app.get("/api/health", tags=["System"])
 def health_check(
     db: Session = Depends(get_db),
-    storage: LocalFileStorage = Depends(get_storage),
+    storage: IFileStorage = Depends(get_storage),
 ) -> Dict[str, Any]:
-    """Health check endpoint validating SQLite connection and Local File Storage."""
-    # Verify DB connection & SQLite pragmas
+    """Health check endpoint validating the database connection and file storage backend."""
+    db_type = db.get_bind().dialect.name
+    database: Dict[str, Any] = {"status": "connected", "type": db_type}
     try:
         db.execute(text("SELECT 1")).scalar()
-        journal_mode = db.execute(text("PRAGMA journal_mode;")).scalar()
+        if db_type == "sqlite":
+            database["path"] = settings.db_path
+            database["journal_mode"] = str(db.execute(text("PRAGMA journal_mode;")).scalar()).upper()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database check failed: {e}")
 
-    # Verify Storage directory
-    storage_accessible = storage.base_dir.is_dir()
+    if isinstance(storage, LocalFileStorage):
+        storage_accessible = storage.base_dir.is_dir()
+        storage_info: Dict[str, Any] = {"type": "local_filesystem", "base_dir": str(storage.base_dir)}
+    else:
+        storage_accessible = bool(getattr(storage, "ping", lambda: True)())
+        storage_info = {"type": "s3", "bucket": getattr(storage, "bucket", None)}
 
     return {
         "status": "healthy",
         "app": settings.app_name,
         "version": settings.app_version,
-        "database": {
-            "status": "connected",
-            "type": "sqlite",
-            "path": settings.db_path,
-            "journal_mode": str(journal_mode).upper(),
-        },
-        "storage": {
-            "status": "ready" if storage_accessible else "error",
-            "type": "local_filesystem",
-            "base_dir": str(storage.base_dir),
-        },
+        "database": database,
+        "storage": {"status": "ready" if storage_accessible else "error", **storage_info},
     }
 
 

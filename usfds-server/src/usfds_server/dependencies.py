@@ -9,6 +9,7 @@ from usfds_core.domain.schemas.training_payload import TrainingRunPayload
 from usfds_core.services.data_management.service import DataManagementService
 from usfds_core.services.inference.inference_service import InferenceService
 from usfds_core.services.insight_report.service import InsightReportService
+from usfds_core.storage.base_storage import IFileStorage
 from usfds_core.services.project_management.project_service import ProjectManagementService
 from usfds_core.services.rule_engine.executor import RuleExecutor
 from usfds_core.services.rule_engine.manager import RuleManager
@@ -30,21 +31,25 @@ from usfds_infra.database import (
 	SqliteTrainingRunRepository,
 	close_db,
 	create_session_factory,
+	create_postgres_engine,
 	create_sqlite_engine,
 	init_db,
 )
+from usfds_infra.job_queue import BullMQJobQueue, QueueBatchInferenceDispatcher, QueueTrainingDispatcher
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_infra.database.case_repositories import (
 	SqliteAuditRepository,
 	SqliteBlacklistRepository,
 	SqliteCaseRepository,
 )
+from usfds_infra.storage.s3_storage import S3FileStorage
 from usfds_server.config import settings
 
 # Global singletons managed during application lifecycle
 _engine: Engine | None = None
 _session_factory: sessionmaker[Session] | None = None
-_storage: LocalFileStorage | None = None
+_storage: IFileStorage | None = None
+_job_queue: BullMQJobQueue | None = None
 
 
 SYSTEM_USER_ID = UUID("00000000-0000-0000-0000-000000000000")
@@ -100,18 +105,44 @@ def seed_builtin_models(session_factory: sessionmaker[Session]) -> None:
         session.commit()
 
 
-def setup_infrastructure() -> tuple[Engine, LocalFileStorage]:
+def _build_storage() -> IFileStorage:
+    """Create the configured file storage backend ('local' or 's3')."""
+    if settings.storage_backend == "s3":
+        return S3FileStorage(
+            bucket=settings.s3_bucket,
+            endpoint_url=settings.s3_endpoint_url,
+            access_key=settings.s3_access_key,
+            secret_key=settings.s3_secret_key,
+            region=settings.s3_region,
+        )
+    return LocalFileStorage(base_dir=settings.storage_dir)
+
+
+def get_job_queue() -> BullMQJobQueue:
+    """Producer for the BullMQ queue (requires PostgreSQL via USFDS_DB_URL)."""
+    global _job_queue
+    if _job_queue is None:
+        if not settings.db_url:
+            raise RuntimeError("USFDS_DISPATCH_BACKEND=queue requires USFDS_DB_URL (PostgreSQL).")
+        _job_queue = BullMQJobQueue(settings.db_url, schema=settings.bullmq_schema)
+    return _job_queue
+
+
+def setup_infrastructure() -> tuple[Engine, IFileStorage]:
     """Initialize database engine, run table schema creation, pre-seed built-in models, and initialize storage."""
     global _engine, _session_factory, _storage
 
-    # 1. Setup SQLite Database with WAL mode
-    _engine = create_sqlite_engine(db_path=settings.db_path, echo=settings.db_echo)
+    # 1. Setup database: PostgreSQL when USFDS_DB_URL is set, otherwise SQLite with WAL mode
+    if settings.db_url:
+        _engine = create_postgres_engine(db_url=settings.db_url, echo=settings.db_echo)
+    else:
+        _engine = create_sqlite_engine(db_path=settings.db_path, echo=settings.db_echo)
     _session_factory = create_session_factory(_engine)
     init_db(_engine)
     seed_builtin_models(_session_factory)
 
-    # 2. Setup Local Storage
-    _storage = LocalFileStorage(base_dir=settings.storage_dir)
+    # 2. Setup file storage (local filesystem or S3-compatible)
+    _storage = _build_storage()
 
     return _engine, _storage
 
@@ -124,11 +155,11 @@ def teardown_infrastructure() -> None:
         _engine = None
 
 
-def get_storage() -> LocalFileStorage:
-    """FastAPI dependency to retrieve the active LocalFileStorage instance."""
+def get_storage() -> IFileStorage:
+    """FastAPI dependency to retrieve the active file storage instance."""
     global _storage
     if _storage is None:
-        _storage = LocalFileStorage(base_dir=settings.storage_dir)
+        _storage = _build_storage()
     return _storage
 
 
@@ -285,7 +316,10 @@ def get_training_service(
         assert executor is not None
         executor.run(payload)
 
-    dispatcher = SynchronousRunDispatcher(executor_func=dispatch_fn)
+    if settings.dispatch_backend == "queue":
+        dispatcher = QueueTrainingDispatcher(get_job_queue())
+    else:
+        dispatcher = SynchronousRunDispatcher(executor_func=dispatch_fn)
     plugin_registry = ModelPluginRegistrationService(
         model_repo=model_repo,
         file_storage=storage,
@@ -320,6 +354,7 @@ def get_inference_service(
 ) -> InferenceService:
 	return InferenceService(
 		file_storage=storage,
+		dispatcher=QueueBatchInferenceDispatcher(get_job_queue()) if settings.dispatch_backend == "queue" else None,
 		detection_job_repo=detection_job_repo,
 		project_repo=project_repo,
 		dataset_repo=dataset_repo,
