@@ -158,6 +158,13 @@ export function DecisionAndAuditColumn({
 									<span>Create Rule from Case</span>
 								</button>
 							)}
+							<Link
+								to={`/reports?tab=compliance&caseId=${item.case_id}`}
+								className={BUTTON_SECONDARY_CLASS}
+							>
+								<span>Export SAR Dossier</span>
+								<ArrowUpRight size={14} />
+							</Link>
 							{item.status === 'RESOLVED_LEGITIMATE' && item.triggered_rules.length > 0 && (
 								<Link
 									to="/investigation/policies?tab=feedback"
