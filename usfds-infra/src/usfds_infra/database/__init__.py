@@ -1,7 +1,7 @@
 from usfds_infra.database.base import Base, TimestampMixin
 from usfds_infra.database.case_models import AuditLogModel, CaseModel, EntityBlacklistModel
 from usfds_infra.database.case_repositories import SqliteAuditRepository, SqliteBlacklistRepository, SqliteCaseRepository
-from usfds_infra.database.engine import create_sqlite_engine
+from usfds_infra.database.engine import create_postgres_engine, create_sqlite_engine, to_psycopg_conninfo
 from usfds_infra.database.models import (
 	DatasetArtifactModel,
 	DatasetModel,
@@ -37,6 +37,8 @@ __all__ = [
 	"Base",
 	"TimestampMixin",
 	"create_sqlite_engine",
+	"create_postgres_engine",
+	"to_psycopg_conninfo",
 	"create_session_factory",
 	"session_scope",
 	"get_db",

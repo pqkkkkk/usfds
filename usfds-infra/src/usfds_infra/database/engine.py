@@ -5,7 +5,7 @@ from sqlalchemy import Engine, create_engine, event
 
 def _apply_sqlite_pragmas(dbapi_connection, connection_record):
     """Apply high-performance and concurrency pragmas to SQLite connection.
-    
+
     - WAL (Write-Ahead Logging): Readers do not block writers, and writers do not block readers.
     - busy_timeout=5000: Auto-wait up to 5 seconds before raising 'database is locked'.
     - foreign_keys=ON: Enforce foreign key constraints.
@@ -25,12 +25,12 @@ def create_sqlite_engine(
     pool_pre_ping: bool = True,
 ) -> Engine:
     """Create a configured SQLite SQLAlchemy engine optimized for desktop applications.
-    
+
     Args:
         db_path: Path to the SQLite .db file or ':memory:' for in-memory testing.
         echo: If True, log generated SQL queries.
         pool_pre_ping: Test connection liveness before checking out from pool.
-        
+
     Returns:
         SQLAlchemy Engine instance.
     """
@@ -60,4 +60,36 @@ def create_sqlite_engine(
     return engine
 
 
-__all__ = ["create_sqlite_engine"]
+def create_postgres_engine(
+    db_url: str,
+    echo: bool = False,
+    pool_size: int = 10,
+    max_overflow: int = 10,
+) -> Engine:
+    """Create a PostgreSQL SQLAlchemy engine (psycopg 3 driver) for client-server deployments.
+
+    Args:
+        db_url: SQLAlchemy URL, e.g. 'postgresql+psycopg://user:pass@host:5432/db'.
+            Plain 'postgresql://' is rewritten to use the psycopg 3 driver.
+        echo: If True, log generated SQL queries.
+    """
+    if db_url.startswith("postgresql://"):
+        db_url = "postgresql+psycopg://" + db_url[len("postgresql://"):]
+    return create_engine(
+        db_url,
+        echo=echo,
+        pool_size=pool_size,
+        max_overflow=max_overflow,
+        pool_pre_ping=True,
+    )
+
+
+def to_psycopg_conninfo(db_url: str) -> str:
+    """Convert a SQLAlchemy PostgreSQL URL to a libpq/psycopg connection URL ('postgresql://...')."""
+    for prefix in ("postgresql+psycopg://", "postgresql+psycopg2://"):
+        if db_url.startswith(prefix):
+            return "postgresql://" + db_url[len(prefix):]
+    return db_url
+
+
+__all__ = ["create_sqlite_engine", "create_postgres_engine", "to_psycopg_conninfo"]
