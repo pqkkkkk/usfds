@@ -1,3 +1,24 @@
+# 10-11-2026 — Client-Server Storage Interaction via Presigned URLs — plan: `.plan/client_server_storage_presigned_url.md`
+- [ ] [core] Fix local path leak in `DatasetIngestionService.import_dataset` (`usfds-core/src/usfds_core/services/data_management/ingestion.py`) to check `self.file_storage.exists()` and `get_file_size()` alongside `Path.is_file()`
+- [ ] [infra] Extend `S3FileStorage` (`usfds-infra/src/usfds_infra/storage/s3_storage.py`) with `public_endpoint_url`, server-side `copy_object` in `save_file()`, `generate_presigned_upload_url()`, `generate_presigned_download_url()`, and bucket CORS setup
+- [ ] [server] Add `USFDS_S3_PUBLIC_ENDPOINT_URL` config (`config.py`, `dependencies.py`, `deploy/`), create `storage_router.py` (`/api/v1/storage/presigned-upload`, `/api/v1/storage/presigned-download`), and support `presigned=true` on dataset/detection/report export endpoints
+- [ ] [tests] Add unit and API tests for storage-key dataset ingestion, S3 presigned URLs/copy, and storage/export endpoints in `usfds-core`, `usfds-infra`, and `usfds-server`
+- [ ] [fe] Create `src/api/storageApi.ts` (`resolveStoragePath` & presigned download helper) and wire into `useDatasetImport.ts`, `DetectionJobWizardView.tsx`, `ImportCustomModelModal.tsx`, `datasetApi.ts`, `detectionApi.ts`, and `insightReportApi.ts`
+- [ ] [verify] Verify `pytest` across `usfds-core`, `usfds-infra`, `usfds-server` and `npm run build` in `usfds-web`
+
+# 10-11-2026 — Upgrade Model Training Evaluation Metrics (`TASK-105`) — plan: `.plan/training_evaluation_metrics.md`
+- [ ] [docs] Update `docs/features/detection/training/suc-spec.md` (`SUC-09`, `SUC-27`) with the 11 metrics in `TASK-105` and remove unmentioned metrics (`[26-11-10]`)
+- [ ] [core] Upgrade `MetricEvaluator` in `usfds-core/src/usfds_core/services/training/evaluators/metric_evaluator.py`: add `mcc`, `precision_at_k` ($k \in \{50, 100, 200, 500\}$, `daily_avg` & `overall`), `precision_at_0_2_recall`, `auc_pr_card`, `pr_curve_card`, `card_precision_at_k` (`CP@k`), and deprecate unmentioned metrics (`youden_j`, `high_recall_90`, `high_recall_95`, `score_distribution`)
+- [ ] [core] Wire `card_ids` and `timestamps` into `BuiltinModelTrainer`, `ScriptPluginTrainer`, and `_usfds_runner.py` (deprecating `log_loss`)
+- [ ] [core/tests] Update and add unit tests in `usfds-core/tests/training/test_metric_evaluator.py` and `test_builtin_trainer.py`
+- [ ] [fe] Update TypeScript types (`src/types/metrics.ts`, `src/types/model.ts`) and UI (`TrainingRunDetailView.tsx`, `ModelHubView.tsx`) to display all 11 Notion metrics and remove unmentioned metrics
+- [ ] [verify] Verify `pytest` in `usfds-core` & `usfds-server` and `npm run build` in `usfds-web`
+
+# 10-11-2026 — Fix ReportScopeToolbar detectionJobs.filter TypeError
+- [x] [fe] Defensively handle detectionJobs payload in `ReportScopeToolbar.tsx`
+- [x] [fe] Normalize detectionJobs query and memoization in `InsightReportModule.tsx`
+- [x] [fe] Verify `npm run build` and `npm run lint` in `usfds-web`
+
 # 06-11-2026 — Insight & Report Module (SUC-22, SUC-23, SUC-24, SUC-25)
 - [x] [docs] Create Use Case Specification `docs/features/insight_report/suc-spec.md` (`[26-11-06]`) and plan `.plan/insight_report.md`
 - [x] [core] Implement `DuckDBInsightEngine`, `ComplianceReportBuilder`, and `InsightReportService` in `usfds-core/src/usfds_core/services/insight_report/`
