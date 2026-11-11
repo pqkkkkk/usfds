@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from usfds_core.services.insight_report.service import InsightReportService
-from usfds_server.dependencies import get_insight_report_service
+from usfds_core.storage.base_storage import IFileStorage
+from usfds_server.dependencies import get_insight_report_service, get_storage
 from usfds_server.schemas.base_response import ApiResponse
 
 router = APIRouter(prefix="/api/v1/reports", tags=["Insight & Report"])
@@ -203,8 +204,10 @@ def export_compliance_report(
 	),
 	prepared_by: str = Query("local-analyst"),
 	reviewer_notes: str = Query(""),
+	presigned: bool = Query(False, description="Return a presigned download URL when backed by S3"),
 	service: InsightReportService = Depends(get_insight_report_service),
-) -> Response:
+	storage: IFileStorage = Depends(get_storage),
+) -> Any:
 	try:
 		parsed_jobs = _parse_job_ids(job_ids)
 		file_bytes, filename, media_type = service.export_report(
@@ -219,6 +222,15 @@ def export_compliance_report(
 			prepared_by=prepared_by,
 			reviewer_notes=reviewer_notes,
 		)
+		if presigned:
+			export_key = f"exports/reports/{project_id}/{filename}"
+			storage.save_bytes(export_key, file_bytes)
+			dl_url = storage.generate_presigned_download_url(export_key, filename=filename)
+			if dl_url:
+				return ApiResponse.ok(
+					data={"download_url": dl_url, "filename": filename, "object_key": export_key},
+					message="Compliance report export ready",
+				)
 		return Response(
 			content=file_bytes,
 			media_type=media_type,

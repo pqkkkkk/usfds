@@ -161,6 +161,21 @@ class TestDatasetIngestionService(unittest.TestCase):
             )
         self.assertIn("vượt quá dung lượng", str(ctx.exception))
 
+    def test_import_dataset_from_storage_object_key(self):
+        csv_bytes = self.df_sample.to_csv(index=False).encode("utf-8")
+        staged_key = "uploads/dataset_raw/global/1234/remote_tx.csv"
+        self.storage.save_bytes(staged_key, csv_bytes)
+
+        dataset, artifact = self.service.import_dataset(
+            file_path=staged_key,
+            dataset_name="remote_s3_tx",
+        )
+
+        self.assertEqual(dataset.dataset_name, "remote_s3_tx")
+        self.assertEqual(artifact.row_count, 5)
+        self.assertTrue(self.storage.exists(artifact.storage_path))
+        self.assertFalse(self.storage.exists(staged_key))
+
 
 if __name__ == "__main__":
     unittest.main()

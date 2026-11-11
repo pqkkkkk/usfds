@@ -4,6 +4,16 @@ from typing import Any, List, Optional, Union
 from usfds_core.storage.base_storage import IFileStorage
 
 
+def _client_error_cls() -> type[Exception]:
+	try:
+		from botocore.exceptions import ClientError
+
+		return ClientError
+	except ImportError:
+		return Exception
+
+
+
 class S3FileStorage(IFileStorage):
 	"""S3-compatible object storage implementation of IFileStorage (RustFS, MinIO, AWS S3, R2).
 
@@ -20,9 +30,15 @@ class S3FileStorage(IFileStorage):
 		region: str = "us-east-1",
 		client: Optional[Any] = None,
 		create_bucket: bool = True,
+		public_endpoint_url: Optional[str] = None,
 	):
 		self.bucket = bucket
 		self._client = client or self._build_client(endpoint_url, access_key, secret_key, region)
+		self._presign_client = (
+			self._build_client(public_endpoint_url, access_key, secret_key, region)
+			if (public_endpoint_url and client is None)
+			else self._client
+		)
 		if create_bucket:
 			self.ensure_bucket()
 
@@ -47,19 +63,39 @@ class S3FileStorage(IFileStorage):
 
 	def ensure_bucket(self) -> None:
 		"""Create the bucket if it does not exist yet (idempotent, safe across server/worker start-up races)."""
-		from botocore.exceptions import ClientError
+		client_err = _client_error_cls()
 
+		bucket_ready = False
 		try:
 			self._client.head_bucket(Bucket=self.bucket)
-			return
-		except ClientError:
+			bucket_ready = True
+		except client_err:
 			pass
-		try:
-			self._client.create_bucket(Bucket=self.bucket)
-		except ClientError as e:
-			code = e.response.get("Error", {}).get("Code", "")
-			if code not in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
-				raise
+		if not bucket_ready:
+			try:
+				self._client.create_bucket(Bucket=self.bucket)
+			except client_err as e:
+				code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
+				if code not in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
+					raise
+		if hasattr(self._client, "put_bucket_cors"):
+			try:
+				self._client.put_bucket_cors(
+					Bucket=self.bucket,
+					CORSConfiguration={
+						"CORSRules": [
+							{
+								"AllowedHeaders": ["*"],
+								"AllowedMethods": ["GET", "PUT", "HEAD"],
+								"AllowedOrigins": ["*"],
+								"ExposeHeaders": ["ETag", "Content-Length", "Content-Disposition"],
+								"MaxAgeSeconds": 3600,
+							}
+						]
+					},
+				)
+			except Exception:
+				pass
 
 	def save_bytes(self, file_path: str, data: bytes) -> str:
 		key = self._key(file_path)
@@ -67,24 +103,24 @@ class S3FileStorage(IFileStorage):
 		return key
 
 	def read_bytes(self, file_path: str) -> bytes:
-		from botocore.exceptions import ClientError
+		client_err = _client_error_cls()
 
 		key = self._key(file_path)
 		try:
 			return self._client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
-		except ClientError as e:
-			if e.response.get("Error", {}).get("Code", "") in ("NoSuchKey", "404"):
+		except client_err as e:
+			if getattr(e, "response", {}).get("Error", {}).get("Code", "") in ("NoSuchKey", "404"):
 				raise FileNotFoundError(f"File not found in object storage: s3://{self.bucket}/{key}") from e
 			raise
 
 	def exists(self, file_path: str) -> bool:
-		from botocore.exceptions import ClientError
+		client_err = _client_error_cls()
 
 		try:
 			self._client.head_object(Bucket=self.bucket, Key=self._key(file_path))
 			return True
-		except ClientError as e:
-			if e.response.get("Error", {}).get("Code", "") in ("404", "NoSuchKey", "NotFound"):
+		except client_err as e:
+			if getattr(e, "response", {}).get("Error", {}).get("Code", "") in ("404", "NoSuchKey", "NotFound"):
 				return False
 			raise
 
@@ -100,22 +136,77 @@ class S3FileStorage(IFileStorage):
 		return bool(keys)
 
 	def save_file(self, src_path: Union[str, Path], dest_path: str) -> str:
-		"""Upload a local file without loading it fully into memory."""
-		src = Path(src_path).resolve()
-		if not src.is_file():
-			raise FileNotFoundError(f"Source file does not exist: {src}")
+		"""Upload a local file or copy an existing S3 object key to `dest_path` without loading it into memory."""
+		local_src = Path(src_path)
 		key = self._key(dest_path)
-		self._client.upload_file(str(src), self.bucket, key)
-		return key
+		if local_src.is_file():
+			self._client.upload_file(str(local_src.resolve()), self.bucket, key)
+			return key
+		src_key = self._key(src_path)
+		if self.exists(src_key):
+			if src_key != key:
+				if hasattr(self._client, "copy_object"):
+					self._client.copy_object(
+						Bucket=self.bucket,
+						CopySource={"Bucket": self.bucket, "Key": src_key},
+						Key=key,
+					)
+				else:
+					self.save_bytes(key, self.read_bytes(src_key))
+			return key
+		raise FileNotFoundError(f"Source file does not exist: {src_path}")
+
+	def generate_presigned_upload_url(
+		self,
+		file_path: str,
+		content_type: Optional[str] = None,
+		expires_in: int = 900,
+	) -> str:
+		"""Generate an S3v4 presigned PUT URL for direct client upload."""
+		key = self._key(file_path)
+		params: dict[str, Any] = {"Bucket": self.bucket, "Key": key}
+		if content_type:
+			params["ContentType"] = content_type
+		return str(
+			self._presign_client.generate_presigned_url(
+				"put_object",
+				Params=params,
+				ExpiresIn=expires_in,
+			)
+		)
+
+	def generate_presigned_download_url(
+		self,
+		file_path: str,
+		filename: Optional[str] = None,
+		expires_in: int = 900,
+	) -> str:
+		"""Generate an S3v4 presigned GET URL for direct client download."""
+		key = self._key(file_path)
+		if not self.exists(key):
+			raise FileNotFoundError(f"File not found in object storage: s3://{self.bucket}/{key}")
+		dl_name = filename or Path(key).name
+		params: dict[str, Any] = {
+			"Bucket": self.bucket,
+			"Key": key,
+			"ResponseContentDisposition": f'attachment; filename="{dl_name}"',
+		}
+		return str(
+			self._presign_client.generate_presigned_url(
+				"get_object",
+				Params=params,
+				ExpiresIn=expires_in,
+			)
+		)
 
 	def get_file_size(self, file_path: str) -> int:
-		from botocore.exceptions import ClientError
+		client_err = _client_error_cls()
 
 		key = self._key(file_path)
 		try:
 			return int(self._client.head_object(Bucket=self.bucket, Key=key)["ContentLength"])
-		except ClientError as e:
-			if e.response.get("Error", {}).get("Code", "") in ("404", "NoSuchKey", "NotFound"):
+		except client_err as e:
+			if getattr(e, "response", {}).get("Error", {}).get("Code", "") in ("404", "NoSuchKey", "NotFound"):
 				raise FileNotFoundError(f"File not found in object storage: s3://{self.bucket}/{key}") from e
 			raise
 

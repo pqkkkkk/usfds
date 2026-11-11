@@ -133,12 +133,11 @@ export function DetectionResultExplorerView() {
 	});
 
 	const handleExport = (format: 'csv' | 'parquet', onlyFlagged: boolean) => {
-		const url = detectionApi.getExportUrl({
+		void detectionApi.exportResults({
 			jobId,
 			fileFormat: format,
 			onlyFlagged,
 		});
-		window.open(url, '_blank');
 	};
 
 	if (isLoading && !job) {

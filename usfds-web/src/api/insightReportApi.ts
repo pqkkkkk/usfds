@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { storageApi, type PresignedDownloadUrlResponse } from './storageApi';
 import type {
 	ApiResponse,
 	EffectivenessAnalysisData,
@@ -94,5 +95,40 @@ export const insightReportApi = {
 			search.set('reviewer_notes', params.reviewerNotes);
 		}
 		return `${baseUrl.replace(/\/$/, '')}/v1/reports/export?${search.toString()}`;
+	},
+
+	exportReport: async (params: {
+		projectId: string;
+		template: 'SAR_DOSSIER' | 'EXECUTIVE_AUDIT_REPORT';
+		format: 'md' | 'json' | 'csv' | 'html';
+		caseId?: string;
+		scope?: ReportScopeFilter;
+		preparedBy?: string;
+		reviewerNotes?: string;
+	}): Promise<void> => {
+		const useS3Presigned = await storageApi.isS3StorageBackend();
+		if (useS3Presigned && params.format !== 'html') {
+			const res = await apiClient.get<PresignedDownloadUrlResponse>(
+				'/v1/reports/export',
+				{
+					...toScopeParams(params.projectId, params.scope),
+					report_type: params.template === 'SAR_DOSSIER' ? 'sar' : 'executive',
+					file_format: params.format,
+					case_id: params.caseId,
+					prepared_by: params.preparedBy,
+					reviewer_notes: params.reviewerNotes,
+					presigned: true,
+				}
+			);
+			if (res.success && res.data?.download_url) {
+				storageApi.triggerBrowserDownload(
+					res.data.download_url,
+					res.data.filename
+				);
+				return;
+			}
+		}
+		const url = insightReportApi.getExportUrl(params);
+		window.open(url, '_blank', 'noopener,noreferrer');
 	},
 };

@@ -9,7 +9,8 @@ from usfds_core.domain.schemas.preprocessing_config import (
     FeatureEngineeringConfig,
 )
 from usfds_core.services.data_management.service import DataManagementService
-from usfds_server.dependencies import get_data_management_service
+from usfds_core.storage.base_storage import IFileStorage
+from usfds_server.dependencies import get_data_management_service, get_storage
 from usfds_server.schemas.base_response import ApiResponse
 from usfds_server.schemas.dataset_api_schemas import (
     DatasetArtifactResponse,
@@ -245,8 +246,10 @@ def export_normalized_dataset(
     dataset_id: UUID,
     artifact_id: UUID,
     req: ExportDatasetRequest,
+    presigned: bool = Query(False, description="Return a presigned download URL when backed by S3"),
     service: DataManagementService = Depends(get_data_management_service),
-) -> Response:
+    storage: IFileStorage = Depends(get_storage),
+) -> Any:
     """Export normalized dataset files as a compressed ZIP package."""
     try:
         zip_bytes, filename = service.export_dataset(
@@ -258,6 +261,15 @@ def export_normalized_dataset(
             include_schema=req.include_schema,
             file_format=req.file_format,
         )
+        if presigned:
+            export_key = f"exports/datasets/{dataset_id}/{artifact_id}/{filename}"
+            storage.save_bytes(export_key, zip_bytes)
+            dl_url = storage.generate_presigned_download_url(export_key, filename=filename)
+            if dl_url:
+                return ApiResponse.ok(
+                    data={"download_url": dl_url, "filename": filename, "object_key": export_key},
+                    message="Dataset export bundle ready",
+                )
         return Response(
             content=zip_bytes,
             media_type="application/zip",

@@ -1,10 +1,10 @@
 # 10-11-2026 — Client-Server Storage Interaction via Presigned URLs — plan: `.plan/client_server_storage_presigned_url.md`
-- [ ] [core] Fix local path leak in `DatasetIngestionService.import_dataset` (`usfds-core/src/usfds_core/services/data_management/ingestion.py`) to check `self.file_storage.exists()` and `get_file_size()` alongside `Path.is_file()`
-- [ ] [infra] Extend `S3FileStorage` (`usfds-infra/src/usfds_infra/storage/s3_storage.py`) with `public_endpoint_url`, server-side `copy_object` in `save_file()`, `generate_presigned_upload_url()`, `generate_presigned_download_url()`, and bucket CORS setup
-- [ ] [server] Add `USFDS_S3_PUBLIC_ENDPOINT_URL` config (`config.py`, `dependencies.py`, `deploy/`), create `storage_router.py` (`/api/v1/storage/presigned-upload`, `/api/v1/storage/presigned-download`), and support `presigned=true` on dataset/detection/report export endpoints
-- [ ] [tests] Add unit and API tests for storage-key dataset ingestion, S3 presigned URLs/copy, and storage/export endpoints in `usfds-core`, `usfds-infra`, and `usfds-server`
-- [ ] [fe] Create `src/api/storageApi.ts` (`resolveStoragePath` & presigned download helper) and wire into `useDatasetImport.ts`, `DetectionJobWizardView.tsx`, `ImportCustomModelModal.tsx`, `datasetApi.ts`, `detectionApi.ts`, and `insightReportApi.ts`
-- [ ] [verify] Verify `pytest` across `usfds-core`, `usfds-infra`, `usfds-server` and `npm run build` in `usfds-web`
+- [x] [core] Fix local path leak in `DatasetIngestionService.import_dataset` (`usfds-core/src/usfds_core/services/data_management/ingestion.py`) to check `self.file_storage.exists()` and `get_file_size()` alongside `Path.is_file()`
+- [x] [infra] Extend `S3FileStorage` (`usfds-infra/src/usfds_infra/storage/s3_storage.py`) with `public_endpoint_url`, server-side `copy_object` in `save_file()`, `generate_presigned_upload_url()`, `generate_presigned_download_url()`, and bucket CORS setup
+- [x] [server] Add `USFDS_S3_PUBLIC_ENDPOINT_URL` config (`config.py`, `dependencies.py`, `deploy/`), create `storage_router.py` (`/api/v1/storage/presigned-upload`, `/api/v1/storage/presigned-download`), and support `presigned=true` on dataset/detection/report export endpoints
+- [x] [tests] Add unit and API tests for storage-key dataset ingestion, S3 presigned URLs/copy, and storage/export endpoints in `usfds-core`, `usfds-infra`, and `usfds-server`
+- [x] [fe] Create `src/api/storageApi.ts` (`resolveStoragePath` & presigned download helper) and wire into `useDatasetImport.ts`, `DetectionJobWizardView.tsx`, `ImportCustomModelModal.tsx`, `datasetApi.ts`, `detectionApi.ts`, and `insightReportApi.ts`
+- [x] [verify] Verify `pytest` across `usfds-core`, `usfds-infra`, `usfds-server` and `npm run build` in `usfds-web`
 
 # 10-11-2026 — Upgrade Model Training Evaluation Metrics (`TASK-105`) — plan: `.plan/training_evaluation_metrics.md`
 - [ ] [docs] Update `docs/features/detection/training/suc-spec.md` (`SUC-09`, `SUC-27`) with the 11 metrics in `TASK-105` and remove unmentioned metrics (`[26-11-10]`)

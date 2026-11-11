@@ -73,7 +73,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 		if (template === 'SAR_DOSSIER' && !selectedCaseId) {
 			return;
 		}
-		const url = insightReportApi.getExportUrl({
+		void insightReportApi.exportReport({
 			projectId,
 			template,
 			format,
@@ -82,7 +82,6 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 			preparedBy,
 			reviewerNotes,
 		});
-		window.open(url, '_blank', 'noopener,noreferrer');
 	};
 
 	const handlePrintPdf = () => {

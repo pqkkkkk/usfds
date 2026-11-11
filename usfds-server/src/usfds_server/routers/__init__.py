@@ -3,6 +3,7 @@ from usfds_server.routers.detection_router import router as detection_router
 from usfds_server.routers.insight_report_router import router as insight_report_router
 from usfds_server.routers.project_router import router as project_router
 from usfds_server.routers.rule_router import router as rule_router
+from usfds_server.routers.storage_router import router as storage_router
 from usfds_server.routers.training_router import router as training_router
 
 __all__ = [
@@ -12,6 +13,7 @@ __all__ = [
 	"training_router",
 	"detection_router",
 	"insight_report_router",
+	"storage_router",
 ]
 
 

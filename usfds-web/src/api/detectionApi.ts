@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { storageApi, type PresignedDownloadUrlResponse } from './storageApi';
 import type { ApiResponse } from '@/types';
 import type {
 	DetectionJobResponse,
@@ -70,6 +71,33 @@ export const detectionApi = {
 		const flagged = params.onlyFlagged ? 'true' : 'false';
 		const baseUrl = apiClient.getRawAxios().defaults.baseURL || '/api';
 		return `${baseUrl}/v1/detection/jobs/${params.jobId}/export?file_format=${fmt}&only_flagged=${flagged}`;
+	},
+
+	exportResults: async (params: {
+		jobId: string;
+		fileFormat?: 'csv' | 'parquet';
+		onlyFlagged?: boolean;
+	}): Promise<void> => {
+		const useS3Presigned = await storageApi.isS3StorageBackend();
+		if (useS3Presigned) {
+			const res = await apiClient.get<PresignedDownloadUrlResponse>(
+				`/v1/detection/jobs/${params.jobId}/export`,
+				{
+					file_format: params.fileFormat || 'csv',
+					only_flagged: Boolean(params.onlyFlagged),
+					presigned: true,
+				}
+			);
+			if (res.success && res.data?.download_url) {
+				storageApi.triggerBrowserDownload(
+					res.data.download_url,
+					res.data.filename
+				);
+				return;
+			}
+		}
+		const url = detectionApi.getExportUrl(params);
+		window.open(url, '_blank');
 	},
 
 	sendToInvestigation: async (

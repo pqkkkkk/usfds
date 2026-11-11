@@ -34,3 +34,50 @@ def test_health_check_endpoint():
         assert data["database"]["journal_mode"] == "WAL"
         assert data["storage"]["type"] == "local_filesystem"
         assert data["storage"]["status"] == "ready"
+
+
+def test_presigned_storage_endpoints_with_s3_backend(monkeypatch):
+    from usfds_infra.storage.s3_storage import S3FileStorage
+    import usfds_server.dependencies as deps
+
+    class _StubS3Client:
+        def __init__(self):
+            self.objects = {"exports/sample.csv": b"id,amount\n1,10.0\n"}
+
+        def head_bucket(self, Bucket):
+            return {}
+
+        def head_object(self, Bucket, Key):
+            if Key not in self.objects:
+                err = Exception("NotFound")
+                err.response = {"Error": {"Code": "404"}}
+                raise err
+            return {"ContentLength": len(self.objects[Key])}
+
+        def generate_presigned_url(self, ClientMethod, Params, ExpiresIn):
+            return f"http://localhost:9000/{Params['Bucket']}/{Params['Key']}?op={ClientMethod}"
+
+    s3_storage = S3FileStorage(bucket="usfds", client=_StubS3Client())
+
+    with TestClient(app) as client:
+        monkeypatch.setattr(deps, "_storage", s3_storage)
+
+        up_res = client.post(
+            "/api/v1/storage/presigned-upload",
+            json={"filename": "transactions.csv", "purpose": "dataset_raw", "content_type": "text/csv"},
+        )
+        assert up_res.status_code == 200
+        up_data = up_res.json()["data"]
+        assert up_data["object_key"].startswith("uploads/dataset_raw/global/")
+        assert up_data["object_key"].endswith("/transactions.csv")
+        assert "op=put_object" in up_data["upload_url"]
+
+        dl_res = client.get(
+            "/api/v1/storage/presigned-download",
+            params={"object_key": "exports/sample.csv", "filename": "custom.csv"},
+        )
+        assert dl_res.status_code == 200
+        dl_data = dl_res.json()["data"]
+        assert dl_data["filename"] == "custom.csv"
+        assert "op=get_object" in dl_data["download_url"]
+
