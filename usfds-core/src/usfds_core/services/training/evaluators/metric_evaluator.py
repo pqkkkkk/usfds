@@ -1,3 +1,4 @@
+import math
 from typing import Any, Dict, List, Optional, Union
 import numpy as np
 from sklearn.metrics import (
@@ -103,7 +104,22 @@ class MetricEvaluator:
                 metrics["roc_auc"] = None
                 metrics["pr_auc"] = None
 
-        return metrics
+        return MetricEvaluator._sanitize_for_json(metrics)
+
+    @staticmethod
+    def _sanitize_for_json(obj: Any) -> Any:
+        """Recursively replace non-finite floats (Infinity, -Infinity, NaN) so output is strict RFC 8259 JSON."""
+        if isinstance(obj, float):
+            if math.isnan(obj):
+                return None
+            if math.isinf(obj):
+                return 1.0 if obj > 0 else 0.0
+            return obj
+        if isinstance(obj, dict):
+            return {k: MetricEvaluator._sanitize_for_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [MetricEvaluator._sanitize_for_json(v) for v in obj]
+        return obj
 
     @staticmethod
     def evaluate_at_threshold(
@@ -231,6 +247,8 @@ class MetricEvaluator:
             fpr = fpr[indices]
             tpr = tpr[indices]
             thresholds = thresholds[indices]
+
+        thresholds = np.clip(np.nan_to_num(thresholds, nan=0.0, posinf=1.0, neginf=0.0), 0.0, 1.0)
 
         return {
             "fpr": [round(float(x), 4) for x in fpr],

@@ -1,7 +1,7 @@
 import io
 from pathlib import Path
 from typing import List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 import pandas as pd
 
@@ -11,10 +11,13 @@ from usfds_core.domain.schemas.rule_schemas import RuleExecutionContext
 from usfds_core.services.rule_engine.executor import RuleExecutor
 from usfds_core.services.rule_engine.manager import RuleManager
 from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetRepository
+from usfds_infra.job_queue import JOB_RULE_BACKTEST, QUEUE_BATCH_INFERENCE
 from usfds_infra.storage.local_storage import LocalFileStorage
+from usfds_server.config import settings
 from usfds_server.dependencies import (
     get_artifact_repo,
     get_dataset_repo,
+    get_job_queue,
     get_rule_executor,
     get_rule_manager,
     get_storage,
@@ -417,6 +420,38 @@ def backtest_rule_on_dataset(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A valid JsonLogic condition (or saved rule_id with a condition) is required for backtesting",
         )
+
+    if settings.dispatch_backend == "queue":
+        try:
+            res = get_job_queue().enqueue_and_wait(
+                QUEUE_BATCH_INFERENCE,
+                JOB_RULE_BACKTEST,
+                {
+                    "dataset_artifact_id": str(request.dataset_artifact_id),
+                    "condition": condition,
+                    "action": action.value if hasattr(action, "value") else str(action),
+                    "rule_id": rule_id_str,
+                    "rule_version_id": rule_version_id_str,
+                    "version_number": version_number,
+                    "rule_code": rule_code,
+                    "rule_name": rule_name,
+                    "target_column": request.target_column,
+                    "amount_column": request.amount_column,
+                    "max_samples": request.max_samples,
+                },
+                job_id=f"backtest-{uuid4()}",
+            )
+            return ApiResponse.ok(
+                data=RuleBacktestResultResponse(**res),
+                message="Rule backtest simulation completed",
+            )
+        except FileNotFoundError as e:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to read dataset artifact data: {e}",
+            )
 
     # 3. Resolve physical path from DatasetArtifact (handle single file or train+test split)
     output_paths = artifact.output_paths or {}

@@ -1,6 +1,6 @@
-# USFDS deployment stack (Client - Server - Worker).
-#   Infra only:       docker compose --env-file .env up -d
-#   Infra + app:      docker compose --env-file .env --profile app up -d --build
+# USFDS deployment stack (Web - Server - Worker - Infra).
+#   All services:     docker compose --env-file .env up -d --build
+#   Infra only:       docker compose --env-file .env up -d postgres rustfs
 # Run from the `deploy/` directory. Copy `.env.example` to `.env` first.
 
 name: usfds
@@ -62,7 +62,6 @@ services:
       retries: 5
 
   usfds-server:
-    profiles: ["app"]
     build:
       context: ..
       dockerfile: deploy/Dockerfile.server
@@ -81,7 +80,6 @@ services:
         condition: service_healthy
 
   usfds-worker:
-    profiles: ["app"]
     build:
       context: ..
       dockerfile: deploy/Dockerfile.worker
@@ -95,6 +93,17 @@ services:
         condition: service_healthy
       rustfs:
         condition: service_healthy
+
+  usfds-web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    container_name: usfds-web
+    restart: unless-stopped
+    ports:
+      - "${USFDS_WEB_PORT:-5173}:80"
+    depends_on:
+      - usfds-server
 
 volumes:
   postgres_data:

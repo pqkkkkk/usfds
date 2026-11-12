@@ -41,12 +41,14 @@ export const TrainingRunDetailView: React.FC = () => {
 	const [cmDisplayMode, setCmDisplayMode] = useState<'count' | 'percent'>('count');
 	const [isActivateModalOpen, setIsActivateModalOpen] = useState<boolean>(false);
 
-	const loadRunDetails = useCallback(async () => {
+	const loadRunDetails = useCallback(async (silent = false) => {
 		if (!runId) {
 			return;
 		}
-		setIsLoading(true);
-		setErrorMsg(null);
+		if (!silent) {
+			setIsLoading(true);
+			setErrorMsg(null);
+		}
 		try {
 			const runRes = await trainingApi.getTrainingRun(runId);
 			if (!runRes.success || !runRes.data) {
@@ -84,13 +86,25 @@ export const TrainingRunDetailView: React.FC = () => {
 			}
 			await Promise.all(promises);
 		} finally {
-			setIsLoading(false);
+			if (!silent) {
+				setIsLoading(false);
+			}
 		}
 	}, [runId]);
 
 	useEffect(() => {
 		loadRunDetails();
 	}, [loadRunDetails]);
+
+	useEffect(() => {
+		if (run?.status !== 'PENDING' && run?.status !== 'RUNNING') {
+			return;
+		}
+		const timer = window.setInterval(() => {
+			void loadRunDetails(true);
+		}, 2500);
+		return () => window.clearInterval(timer);
+	}, [run?.status, loadRunDetails]);
 
 	const customMetrics = run?.custom_metrics || {};
 	const thresholdGrid: ThresholdGridPoint[] = customMetrics.threshold_tuning_grid || [];

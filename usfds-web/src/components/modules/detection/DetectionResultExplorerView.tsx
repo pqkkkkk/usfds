@@ -79,6 +79,10 @@ export function DetectionResultExplorerView() {
 				offset: 0,
 			}),
 		enabled: Boolean(jobId),
+		refetchInterval: (query) => {
+			const status = query.state.data?.data?.job?.status;
+			return status === 'PENDING' || status === 'RUNNING' ? 2500 : false;
+		},
 	});
 
 	const job = resultsRes?.data?.job;

@@ -372,6 +372,7 @@ __all__ = [
 	"setup_infrastructure",
 	"teardown_infrastructure",
 	"get_storage",
+	"get_job_queue",
 	"get_db",
 	"get_project_repo",
 	"get_dataset_repo",

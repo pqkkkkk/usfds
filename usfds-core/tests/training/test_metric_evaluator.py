@@ -95,6 +95,13 @@ class TestMetricEvaluator(unittest.TestCase):
         self.assertIn("tpr", roc)
         self.assertIn("thresholds", roc)
         self.assertEqual(len(roc["fpr"]), len(roc["tpr"]))
+        for t in roc["thresholds"]:
+            self.assertGreaterEqual(t, 0.0)
+            self.assertLessEqual(t, 1.0)
+
+        import json
+        # Must serialize cleanly under strict RFC 8259 JSON (no Infinity/NaN for PostgreSQL JSON)
+        json.dumps(metrics, allow_nan=False)
 
         # Verify PR curve
         self.assertIn("pr_curve", metrics)

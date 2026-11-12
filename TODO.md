@@ -1,3 +1,19 @@
+# 12-11-2026 — Add `usfds-web` to `deploy/docker-compose.yml` — plan: `.plan/deploy_usfds_web.md`
+- [x] [deploy] Add `deploy/nginx.conf` (SPA fallback + `/api/` proxy to `usfds-server:8000`) and `deploy/Dockerfile.web`
+- [x] [deploy] Add `.dockerignore` to exclude `node_modules`, `dist`, `release`, `.venv`, `__pycache__`, `.git`
+- [x] [deploy] Update `deploy/docker-compose.yml` (remove `profiles: ["app"]`, add `usfds-web` on `${USFDS_WEB_PORT:-5173}:80`)
+- [x] [deploy] Update `deploy/.env.example` and `deploy/.env` with `USFDS_WEB_PORT=5173`
+- [x] [verify] Validate `docker compose --env-file .env config -q` in `deploy/`
+
+# 11-11-2026 — Client-Server Worker Design & Implementation — plan: `.plan/client_server_worker_design.md`
+- [x] [infra] Extend `BullMQJobQueue` (`usfds-infra/src/usfds_infra/job_queue/bullmq_queue.py` & `__init__.py`) with `QUEUE_DATA_PIPELINE`, job constants (`JOB_PLUGIN_DRY_RUN`, `JOB_RULE_BACKTEST`, `JOB_DATASET_INGESTION`, `JOB_SCHEMA_MAPPING`, `JOB_FEATURE_ENGINEERING`), and `enqueue_and_wait()`
+- [x] [core/infra] Ensure `DatasetIngestionService.import_dataset` and `S3FileStorage.save_file` support S3 storage keys seamlessly when invoked on `usfds-worker`
+- [x] [worker] Implement all 7 handlers in `usfds-worker/src/usfds_worker/handlers.py` and register 3 queue workers (`usfds-training`, `usfds-batch-inference`, `usfds-data-pipeline`) in `usfds-worker/src/usfds_worker/main.py` by directly importing `usfds-core` services
+- [x] [server] Wire `USFDS_DISPATCH_BACKEND=queue` in `dataset_router.py`, `training_router.py`, and `rule_router.py` to dispatch heavy tasks (`import_dataset`, `map_schema`, `execute_feature_engineering`, `register_plugged_model`, `backtest_rule_on_dataset`) via `BullMQJobQueue.enqueue_and_wait`
+- [x] [fe] Add auto-polling (`2.5s`) while status is `PENDING` or `RUNNING` in `TrainingRunDetailView.tsx`, `ModelHubView.tsx`, `DetectionResultExplorerView.tsx`, and `DetectionJobsHubView.tsx`
+- [x] [tests] Add unit tests in `usfds-worker/tests/test_handlers.py` and `usfds-infra/tests/test_job_queue.py` covering all 7 worker handlers and `enqueue_and_wait`
+- [x] [core/infra] Sanitize non-finite floats (`Infinity`, `-Infinity`, `NaN`) in `MetricEvaluator` (`roc_curve.thresholds`) and `SqliteTrainingRunRepository.save` / `SqliteDetectionJobRepository.save` (with `session.rollback()` on flush failure) for strict PostgreSQL JSON compatibility
+
 # 10-11-2026 — Client-Server Storage Interaction via Presigned URLs — plan: `.plan/client_server_storage_presigned_url.md`
 - [x] [core] Fix local path leak in `DatasetIngestionService.import_dataset` (`usfds-core/src/usfds_core/services/data_management/ingestion.py`) to check `self.file_storage.exists()` and `get_file_size()` alongside `Path.is_file()`
 - [x] [infra] Extend `S3FileStorage` (`usfds-infra/src/usfds_infra/storage/s3_storage.py`) with `public_endpoint_url`, server-side `copy_object` in `save_file()`, `generate_presigned_upload_url()`, `generate_presigned_download_url()`, and bucket CORS setup

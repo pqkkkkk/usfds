@@ -66,6 +66,12 @@ export function DetectionJobsHubView() {
 		queryKey: ['detection-jobs', projectId],
 		queryFn: () => detectionApi.listJobs({ projectId }),
 		enabled: Boolean(projectId),
+		refetchInterval: (query) => {
+			const list = query.state.data?.data || [];
+			return list.some((j) => j.status === 'PENDING' || j.status === 'RUNNING')
+				? 2500
+				: false;
+		},
 	});
 
 	const { data: casesRes } = useQuery({

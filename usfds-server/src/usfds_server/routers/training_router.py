@@ -3,14 +3,16 @@ from email.parser import BytesParser
 from email.policy import default as default_email_policy
 import json
 from typing import Dict, List, Optional, Tuple
-from uuid import UUID
+from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
 from usfds_core.domain.schemas.model_plugin import ModelPluginManifest
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
 from usfds_core.services.training.training_service import TrainingOrchestrationService
-from usfds_server.dependencies import get_training_service
+from usfds_infra.job_queue import JOB_PLUGIN_DRY_RUN, QUEUE_TRAINING
+from usfds_server.config import settings
+from usfds_server.dependencies import get_job_queue, get_training_service
 from usfds_server.schemas.base_response import ApiResponse
 from usfds_server.schemas.training_api_schemas import (
     ActivateModelVersionRequest,
@@ -163,13 +165,32 @@ def register_plugged_model(
                 b64_str = b64_str.split(",", 1)[1]
             zip_bytes = base64.b64decode(b64_str)
 
-        model = service.register_plugged_model(
-            model_artifact_path=request.model_artifact_path,
-            user_id=request.user_id or "mock_user",
-            project_id=request.project_id,
-            manifest_override=request.manifest_override,
-            zip_bytes=zip_bytes,
-        )
+        if settings.dispatch_backend == "queue":
+            res = get_job_queue().enqueue_and_wait(
+                QUEUE_TRAINING,
+                JOB_PLUGIN_DRY_RUN,
+                {
+                    "model_artifact_path": request.model_artifact_path,
+                    "user_id": request.user_id or "mock_user",
+                    "project_id": str(request.project_id) if request.project_id else None,
+                    "manifest_override": (
+                        request.manifest_override.model_dump(mode="json")
+                        if request.manifest_override
+                        else None
+                    ),
+                    "zip_base64": request.zip_base64,
+                },
+                job_id=f"plugin-{uuid4()}",
+            )
+            model = service.get_model(UUID(str(res["model_id"])))
+        else:
+            model = service.register_plugged_model(
+                model_artifact_path=request.model_artifact_path,
+                user_id=request.user_id or "mock_user",
+                project_id=request.project_id,
+                manifest_override=request.manifest_override,
+                zip_bytes=zip_bytes,
+            )
         return ApiResponse.ok(
             data=_to_model_response(model),
             status_code=status.HTTP_201_CREATED,
@@ -225,12 +246,30 @@ async def upload_and_register_plugged_model(
             raw_manifest = json.loads(manifest_json_str)
             parsed_manifest = ModelPluginManifest(**raw_manifest)
 
-        model = service.register_plugged_model(
-            zip_bytes=zip_bytes,
-            user_id=user_id_str or "mock_user",
-            project_id=parsed_project_id,
-            manifest_override=parsed_manifest,
-        )
+        if settings.dispatch_backend == "queue":
+            res = get_job_queue().enqueue_and_wait(
+                QUEUE_TRAINING,
+                JOB_PLUGIN_DRY_RUN,
+                {
+                    "zip_base64": base64.b64encode(zip_bytes).decode("ascii"),
+                    "user_id": user_id_str or "mock_user",
+                    "project_id": str(parsed_project_id) if parsed_project_id else None,
+                    "manifest_override": (
+                        parsed_manifest.model_dump(mode="json")
+                        if parsed_manifest
+                        else None
+                    ),
+                },
+                job_id=f"plugin-upload-{uuid4()}",
+            )
+            model = service.get_model(UUID(str(res["model_id"])))
+        else:
+            model = service.register_plugged_model(
+                zip_bytes=zip_bytes,
+                user_id=user_id_str or "mock_user",
+                project_id=parsed_project_id,
+                manifest_override=parsed_manifest,
+            )
         return ApiResponse.ok(
             data=_to_model_response(model),
             status_code=status.HTTP_201_CREATED,

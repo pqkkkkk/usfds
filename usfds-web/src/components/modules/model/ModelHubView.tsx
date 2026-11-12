@@ -52,8 +52,10 @@ export const ModelHubView: React.FC = () => {
 		model?: ModelResponse | null;
 	} | null>(null);
 
-	const fetchHubData = useCallback(async () => {
-		setIsLoading(true);
+	const fetchHubData = useCallback(async (silent = false) => {
+		if (!silent) {
+			setIsLoading(true);
+		}
 		try {
 			const [modelsRes, runsRes] = await Promise.all([
 				trainingApi.listModels(projectId),
@@ -77,13 +79,30 @@ export const ModelHubView: React.FC = () => {
 			}
 			setVersionsByModel(versionMap);
 		} finally {
-			setIsLoading(false);
+			if (!silent) {
+				setIsLoading(false);
+			}
 		}
 	}, [projectId]);
 
 	useEffect(() => {
 		fetchHubData();
 	}, [fetchHubData]);
+
+	const hasActiveRuns = useMemo(
+		() => runs.some((r) => r.status === 'PENDING' || r.status === 'RUNNING'),
+		[runs]
+	);
+
+	useEffect(() => {
+		if (!hasActiveRuns) {
+			return;
+		}
+		const timer = window.setInterval(() => {
+			void fetchHubData(true);
+		}, 2500);
+		return () => window.clearInterval(timer);
+	}, [hasActiveRuns, fetchHubData]);
 
 	const modelMap = useMemo(() => {
 		const map: Record<string, ModelResponse> = {};
@@ -236,7 +255,7 @@ export const ModelHubView: React.FC = () => {
 					<div className="flex items-center gap-2.5">
 						<button
 							type="button"
-							onClick={fetchHubData}
+							onClick={() => void fetchHubData()}
 							disabled={isLoading}
 							title="Làm mới dữ liệu"
 							className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-300 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"

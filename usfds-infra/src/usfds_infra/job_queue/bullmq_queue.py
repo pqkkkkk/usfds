@@ -1,13 +1,22 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import time
 from typing import Any, Callable, Coroutine, Dict, Optional
 
 from usfds_infra.database.engine import to_psycopg_conninfo
 
 QUEUE_TRAINING = "usfds-training"
 QUEUE_BATCH_INFERENCE = "usfds-batch-inference"
+QUEUE_DATA_PIPELINE = "usfds-data-pipeline"
+
 JOB_TRAINING_RUN = "training_run"
+JOB_PLUGIN_DRY_RUN = "plugin_dry_run"
 JOB_BATCH_INFERENCE = "batch_inference"
+JOB_RULE_BACKTEST = "rule_backtest"
+JOB_DATASET_INGESTION = "dataset_ingestion"
+JOB_SCHEMA_MAPPING = "schema_mapping"
+JOB_FEATURE_ENGINEERING = "feature_engineering"
+
 DEFAULT_SCHEMA = "bullmq"
 
 
@@ -79,3 +88,57 @@ class BullMQJobQueue:
 				await queue.close()
 
 		run_sync(_add())
+
+	def enqueue_and_wait(
+		self,
+		queue_name: str,
+		job_name: str,
+		data: Dict[str, Any],
+		job_id: Optional[str] = None,
+		timeout_seconds: float = 300.0,
+		poll_interval_seconds: float = 0.25,
+	) -> Any:
+		job_opts: Dict[str, Any] = {
+			"attempts": 1,
+			"removeOnComplete": False,
+			"removeOnFail": False,
+		}
+		if job_id:
+			job_opts["jobId"] = job_id
+
+		async def _add_and_wait() -> Any:
+			queue = self._make_queue(queue_name)
+			try:
+				added_job = await queue.add(job_name, data, job_opts)
+				resolved_id = getattr(added_job, "id", None) or job_id
+				deadline = time.monotonic() + timeout_seconds
+				while time.monotonic() < deadline:
+					current_job = added_job
+					if hasattr(queue, "getJob") and resolved_id is not None:
+						fetched = await queue.getJob(resolved_id)
+						if fetched is not None:
+							current_job = fetched
+					state = (
+						await current_job.getState()
+						if hasattr(current_job, "getState")
+						else "completed"
+					)
+					if state == "completed":
+						return getattr(current_job, "returnvalue", None)
+					if state == "failed":
+						reason = str(getattr(current_job, "failedReason", None) or "Worker job failed")
+						if reason.startswith("FileNotFoundError:"):
+							raise FileNotFoundError(reason.split(":", 1)[1].strip())
+						if reason.startswith("LookupError:"):
+							raise LookupError(reason.split(":", 1)[1].strip())
+						if reason.startswith("ValueError:"):
+							raise ValueError(reason.split(":", 1)[1].strip())
+						raise ValueError(reason)
+					await asyncio.sleep(poll_interval_seconds)
+				raise TimeoutError(
+					f"Timed out waiting for worker job '{job_name}' on queue '{queue_name}'"
+				)
+			finally:
+				await queue.close()
+
+		return run_sync(_add_and_wait())
