@@ -4,6 +4,7 @@ import {
   Sparkles, 
   Clock 
 } from 'lucide-react';
+import { useTheme } from '../../hooks/useTheme';
 import type { LineageCanvasNode } from '../../types/navigation';
 
 interface LineageCanvasViewProps {
@@ -23,6 +24,7 @@ export const LineageCanvasView = ({
   width,
   height,
 }: LineageCanvasViewProps) => {
+  const { chartTokens } = useTheme();
   const getStageColor = (stage: string) => {
     switch (stage) {
       case 'RAW':
@@ -62,7 +64,7 @@ export const LineageCanvasView = ({
       <div 
         className="absolute inset-0 pointer-events-none opacity-20"
         style={{
-          backgroundImage: `radial-gradient(circle, #334155 1px, transparent 1px)`,
+          backgroundImage: `radial-gradient(circle, ${chartTokens.canvasDot} 1px, transparent 1px)`,
           backgroundSize: '24px 24px'
         }}
       />
@@ -128,7 +130,7 @@ export const LineageCanvasView = ({
               <path
                 d={pathD}
                 fill="none"
-                stroke={isEdgeActive ? "#3b82f6" : "#334155"}
+                stroke={isEdgeActive ? "#3b82f6" : chartTokens.gridStroke}
                 strokeWidth={isEdgeActive ? "2.5" : "1.8"}
                 strokeDasharray={isEdgeActive ? "none" : "none"}
                 markerEnd="url(#arrowhead-emerald)"
@@ -184,7 +186,7 @@ export const LineageCanvasView = ({
 
               {/* Bottom row: Artifact ID + Timestamp */}
               <div className="space-y-0.5">
-                <div className="text-xs font-mono font-medium text-slate-200 group-hover:text-white truncate">
+                <div className="text-xs font-mono font-medium text-slate-200 group-hover:text-slate-100 truncate">
                   {node.id.slice(0, 14)}...
                 </div>
                 <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono">

@@ -59,7 +59,7 @@ class Settings(BaseModel):
         description="Host address to bind to",
     )
     port: int = Field(
-        default_factory=lambda: int(os.getenv("USFDS_PORT", "8000")),
+        default_factory=lambda: int(os.getenv("USFDS_PORT", "8200")),
         description="Port number to bind to",
     )
 

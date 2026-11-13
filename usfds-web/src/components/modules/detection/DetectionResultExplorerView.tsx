@@ -513,7 +513,7 @@ export function DetectionResultExplorerView() {
 									setDispatchSuccessCount(null);
 									setIsDispatchModalOpen(true);
 								}}
-								className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-dark-950 text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition"
+								className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition"
 							>
 								<Send className="w-3.5 h-3.5" />
 								Send to Investigation ({selectedEventIds.length})
@@ -862,7 +862,7 @@ export function DetectionResultExplorerView() {
 									setDispatchSuccessCount(null);
 									setIsDispatchModalOpen(true);
 								}}
-								className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-dark-950 text-xs font-bold flex items-center justify-center gap-2 transition"
+								className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center justify-center gap-2 transition"
 							>
 								<Send className="w-3.5 h-3.5" />
 								Send Transaction to Investigation
@@ -955,7 +955,7 @@ export function DetectionResultExplorerView() {
 											onClick={() =>
 												dispatchMutation.mutate(selectedEventIds)
 											}
-											className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-dark-950 font-bold flex items-center gap-1.5"
+											className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold flex items-center gap-1.5"
 										>
 											{dispatchMutation.isPending ? (
 												<Loader2 className="w-3.5 h-3.5 animate-spin" />

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { trainingApi } from '../../../api/trainingApi';
 import { useProject } from '../../../hooks/useProjects';
+import { useTheme } from '../../../hooks/useTheme';
 import { PageHeader } from '../../layout/PageHeader';
 import type {
 	ModelResponse,
@@ -29,6 +30,7 @@ export const TrainingRunDetailView: React.FC = () => {
 	const { runId } = useParams<{ runId: string }>();
 	const navigate = useNavigate();
 	const { currentProject } = useProject();
+	const { chartTokens } = useTheme();
 
 	const [run, setRun] = useState<TrainingRunResponse | null>(null);
 	const [model, setModel] = useState<ModelResponse | null>(null);
@@ -592,15 +594,15 @@ export const TrainingRunDetailView: React.FC = () => {
 								{rocCurve && rocCurve.fpr?.length ? (
 									<svg viewBox="0 0 290 220" className="w-full h-48 bg-dark-950 rounded-lg border border-dark-800">
 										{/* Axes */}
-										<line x1="30" y1="15" x2="30" y2="195" stroke="#334155" strokeWidth="1" />
-										<line x1="30" y1="195" x2="270" y2="195" stroke="#334155" strokeWidth="1" />
+										<line x1="30" y1="15" x2="30" y2="195" stroke={chartTokens.gridStroke} strokeWidth="1" />
+										<line x1="30" y1="195" x2="270" y2="195" stroke={chartTokens.gridStroke} strokeWidth="1" />
 										{/* Diagonal Baseline */}
 										<line
 											x1="30"
 											y1="195"
 											x2="270"
 											y2="15"
-											stroke="#475569"
+											stroke={chartTokens.axisStroke}
 											strokeDasharray="4 4"
 											strokeWidth="1"
 										/>
@@ -611,14 +613,14 @@ export const TrainingRunDetailView: React.FC = () => {
 											strokeWidth="2.2"
 											points={renderPolylinePoints(rocCurve.fpr, rocCurve.tpr)}
 										/>
-										<text x="150" y="213" textAnchor="middle" fill="#94A3B8" fontSize="9">
+										<text x="150" y="213" textAnchor="middle" fill={chartTokens.axisLabel} fontSize="9">
 											False Positive Rate (FPR)
 										</text>
 										<text
 											x="12"
 											y="105"
 											textAnchor="middle"
-											fill="#94A3B8"
+											fill={chartTokens.axisLabel}
 											fontSize="9"
 											transform="rotate(-90 12 105)"
 										>
@@ -645,22 +647,22 @@ export const TrainingRunDetailView: React.FC = () => {
 								</div>
 								{prCurve && prCurve.recall?.length ? (
 									<svg viewBox="0 0 290 220" className="w-full h-48 bg-dark-950 rounded-lg border border-dark-800">
-										<line x1="30" y1="15" x2="30" y2="195" stroke="#334155" strokeWidth="1" />
-										<line x1="30" y1="195" x2="270" y2="195" stroke="#334155" strokeWidth="1" />
+										<line x1="30" y1="15" x2="30" y2="195" stroke={chartTokens.gridStroke} strokeWidth="1" />
+										<line x1="30" y1="195" x2="270" y2="195" stroke={chartTokens.gridStroke} strokeWidth="1" />
 										<polyline
 											fill="none"
 											stroke="#10B981"
 											strokeWidth="2.2"
 											points={renderPolylinePoints(prCurve.recall, prCurve.precision)}
 										/>
-										<text x="150" y="213" textAnchor="middle" fill="#94A3B8" fontSize="9">
+										<text x="150" y="213" textAnchor="middle" fill={chartTokens.axisLabel} fontSize="9">
 											Recall
 										</text>
 										<text
 											x="12"
 											y="105"
 											textAnchor="middle"
-											fill="#94A3B8"
+											fill={chartTokens.axisLabel}
 											fontSize="9"
 											transform="rotate(-90 12 105)"
 										>
@@ -687,8 +689,8 @@ export const TrainingRunDetailView: React.FC = () => {
 								</div>
 								{scoreDist && scoreDist.legit_counts?.length ? (
 									<svg viewBox="0 0 290 220" className="w-full h-48 bg-dark-950 rounded-lg border border-dark-800">
-										<line x1="30" y1="15" x2="30" y2="195" stroke="#334155" strokeWidth="1" />
-										<line x1="30" y1="195" x2="270" y2="195" stroke="#334155" strokeWidth="1" />
+										<line x1="30" y1="15" x2="30" y2="195" stroke={chartTokens.gridStroke} strokeWidth="1" />
+										<line x1="30" y1="195" x2="270" y2="195" stroke={chartTokens.gridStroke} strokeWidth="1" />
 										{(() => {
 											const bins = scoreDist.legit_counts.length;
 											const maxCount = Math.max(
@@ -734,7 +736,7 @@ export const TrainingRunDetailView: React.FC = () => {
 											strokeWidth="2"
 											strokeDasharray="3 3"
 										/>
-										<text x="150" y="213" textAnchor="middle" fill="#94A3B8" fontSize="9">
+										<text x="150" y="213" textAnchor="middle" fill={chartTokens.axisLabel} fontSize="9">
 											Predicted Fraud Probability (Threshold = {activePoint.threshold.toFixed(2)})
 										</text>
 									</svg>

@@ -238,7 +238,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								<div className="text-[11px] font-mono uppercase tracking-widest text-brand-400">
 									REGULATORY COMPLIANCE DOSSIER • {sarData.report_id}
 								</div>
-								<h2 className="text-lg font-bold text-white mt-1">
+								<h2 className="text-lg font-bold text-slate-100 mt-1">
 									Suspicious Activity Report (SAR) — Case {s1.case_code} (Event {s2.primary_event_id})
 								</h2>
 								<p className="text-xs text-slate-400 font-mono mt-1">
@@ -263,7 +263,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 										{s1.case_code} ({s1.case_id.slice(0, 8)})
 									</div>
 									<div className="text-slate-400">Subject (`user_id`):</div>
-									<div className="text-white font-bold">{s1.subject_user_id}</div>
+									<div className="text-slate-100 font-bold">{s1.subject_user_id}</div>
 									<div className="text-slate-400">Priority / Score:</div>
 									<div className="text-amber-300">
 										{s1.priority} ({s1.priority_score})
@@ -285,7 +285,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								</h3>
 								<div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
 									<div className="text-slate-400">Primary Event ID:</div>
-									<div className="text-white font-bold">{s2.primary_event_id}</div>
+									<div className="text-slate-100 font-bold">{s2.primary_event_id}</div>
 									<div className="text-slate-400">Primary Amount:</div>
 									<div className="text-emerald-400 font-bold text-sm">
 										{formatCurrency(s2.primary_amount)} ({s2.final_action})
@@ -413,7 +413,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 											<tr key={log.log_id}>
 												<td className="py-1.5 px-2 text-slate-400">{log.created_at}</td>
 												<td className="py-1.5 px-2 text-brand-300">{log.actor}</td>
-												<td className="py-1.5 px-2 text-white font-semibold">{log.action}</td>
+												<td className="py-1.5 px-2 text-slate-100 font-semibold">{log.action}</td>
 												<td className="py-1.5 px-2 text-slate-400 truncate max-w-md">
 													{log.note || JSON.stringify(log.details)}
 												</td>
@@ -434,7 +434,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							<div className="text-[11px] font-mono uppercase tracking-widest text-brand-400">
 								EXECUTIVE AUDIT REPORT • {execData.report_id}
 							</div>
-							<h2 className="text-lg font-bold text-white mt-1">
+							<h2 className="text-lg font-bold text-slate-100 mt-1">
 								Executive Fraud & Policy Audit Report — {execData.project_name}
 							</h2>
 							<p className="text-xs text-slate-400 font-mono mt-1">
@@ -456,7 +456,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 					<div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono">
 						<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
 							<div className="text-[11px] text-slate-400">Gross Scanned</div>
-							<div className="text-base font-bold text-white mt-1">
+							<div className="text-base font-bold text-slate-100 mt-1">
 								{formatCurrency(execKpis.gross_scanned_volume)}
 							</div>
 						</div>

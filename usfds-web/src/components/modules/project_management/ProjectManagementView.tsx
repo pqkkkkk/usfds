@@ -18,8 +18,11 @@ import {
 	ShieldAlert,
 	Eye,
 	ArrowRight,
+	Sun,
+	Moon,
 } from 'lucide-react';
 import { useProject } from '../../../hooks/useProjects';
+import { useTheme } from '../../../hooks/useTheme';
 import type { ProjectResponse, ProjectStatus } from '../../../types/project';
 import { ProjectFormModal } from './ProjectFormModal';
 import { ProjectSchemaDrawer } from './ProjectSchemaDrawer';
@@ -28,6 +31,7 @@ type StatusTab = 'ALL' | ProjectStatus;
 
 export const ProjectManagementView: React.FC = () => {
 	const navigate = useNavigate();
+	const { isLight, toggleTheme } = useTheme();
 	const {
 		projects,
 		currentProject,
@@ -142,6 +146,19 @@ export const ProjectManagementView: React.FC = () => {
 				<div className="flex items-center gap-3">
 					<button
 						type="button"
+						onClick={toggleTheme}
+						className="p-2 rounded-xl bg-dark-850 hover:bg-dark-800 border border-dark-700 text-slate-400 hover:text-slate-200 transition"
+						title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+						aria-label={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+					>
+						{isLight ? (
+							<Moon className="w-4 h-4" />
+						) : (
+							<Sun className="w-4 h-4" />
+						)}
+					</button>
+					<button
+						type="button"
 						onClick={() => refetchProjects()}
 						disabled={isLoading}
 						className="p-2 rounded-xl bg-dark-850 hover:bg-dark-800 border border-dark-700 text-slate-400 hover:text-slate-200 transition"
@@ -190,7 +207,7 @@ export const ProjectManagementView: React.FC = () => {
 								<button
 									type="button"
 									onClick={() => setActionError(null)}
-									className="text-[11px] text-rose-300 hover:text-white underline"
+									className="text-[11px] text-rose-300 hover:text-slate-100 underline"
 								>
 									Đóng
 								</button>
@@ -494,7 +511,7 @@ export const ProjectManagementView: React.FC = () => {
 																onClick={() => setInspectingProjectId(proj.project_id)}
 																title="Inspect RAW Schema"
 																aria-label={`Inspect schema for ${proj.project_name}`}
-																className="p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-300 hover:text-white transition"
+																className="p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-300 hover:text-slate-100 transition"
 															>
 																<Eye className="w-3.5 h-3.5" />
 															</button>
@@ -504,7 +521,7 @@ export const ProjectManagementView: React.FC = () => {
 																onClick={() => setEditingProject(proj)}
 																title="Edit Project"
 																aria-label={`Edit ${proj.project_name}`}
-																className="p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-300 hover:text-white transition"
+																className="p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-300 hover:text-slate-100 transition"
 															>
 																<Edit3 className="w-3.5 h-3.5" />
 															</button>

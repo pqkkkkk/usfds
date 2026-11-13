@@ -228,7 +228,7 @@ export function DecisionAndAuditColumn({
 									className={`flex items-center justify-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
 										verdict === 'FRAUD'
 											? 'bg-rose-600 text-white shadow-sm'
-											: 'text-slate-300 hover:text-white'
+											: 'text-slate-300 hover:text-slate-100'
 									}`}
 								>
 									<ShieldAlert size={14} aria-hidden="true" />
@@ -243,7 +243,7 @@ export function DecisionAndAuditColumn({
 									className={`flex items-center justify-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
 										verdict === 'LEGITIMATE'
 											? 'bg-emerald-600 text-white shadow-sm'
-											: 'text-slate-300 hover:text-white'
+											: 'text-slate-300 hover:text-slate-100'
 									}`}
 								>
 									<CheckCircle2 size={14} aria-hidden="true" />

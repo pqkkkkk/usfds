@@ -153,6 +153,27 @@ Tài liệu này định nghĩa hệ thống thiết kế cơ sở (**Design Sys
   /* Focus Indicator Ring */
   --focus-ring: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary);
 }
+
+/* [26-11-12] Light Mode Semantic Overrides */
+html[data-theme="light"] {
+  --color-background:         var(--primitives-slate-50);  /* #F8FAFC - App Canvas */
+  --color-surface:            #FFFFFF;                     /* #FFFFFF - Panel & Card */
+  --color-surface-elevated:   var(--primitives-slate-100); /* #F1F5F9 - Modal, Dropdown, Hover */
+  --color-surface-hover:      rgba(15, 23, 42, 0.04);
+
+  --color-border:             var(--primitives-slate-300); /* #CBD5E1 */
+  --color-border-subtle:      rgba(15, 23, 42, 0.08);
+  --color-border-focus:       var(--primitives-blue-600);
+
+  --color-text-primary:       var(--primitives-slate-900); /* #0F172A - Tiêu đề, số liệu */
+  --color-text-secondary:     var(--primitives-slate-600); /* #475569 - Nhãn, mô tả */
+  --color-text-muted:         var(--primitives-slate-500); /* #64748B - Placeholder */
+  --color-text-inverse:       #FFFFFF;
+
+  --color-success:            #059669;                     /* Emerald-600 (WCAG AA on Light) */
+  --color-warning:            #D97706;                     /* Amber-600 (WCAG AA on Light) */
+  --color-danger:             var(--primitives-red-600);   /* #DC2626 */
+}
 ```
 
 ---

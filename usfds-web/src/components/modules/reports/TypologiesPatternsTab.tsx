@@ -20,6 +20,7 @@ import {
 	XAxis,
 	YAxis,
 } from 'recharts';
+import { useTheme } from '@/hooks';
 import type { TypologiesPatternsData } from '@/types';
 
 interface TypologiesPatternsTabProps {
@@ -32,6 +33,7 @@ function formatCurrency(val: number | undefined | null): string {
 }
 
 export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ data, isLoading }) => {
+	const { chartTokens } = useTheme();
 	if (isLoading) {
 		return (
 			<div className="space-y-4 animate-pulse">
@@ -63,7 +65,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 				{/* Fraud Typologies */}
 				<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-5">
 					<div className="mb-4">
-						<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<AlertOctagon size={15} className="text-emerald-400" />
 							<span>Confirmed Fraud Typology Breakdown</span>
 						</h3>
@@ -110,7 +112,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 				{/* False Positive Reasons */}
 				<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-5">
 					<div className="mb-4">
-						<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Layers size={15} className="text-rose-400" />
 							<span>False Positive Root-Cause Breakdown</span>
 						</h3>
@@ -159,7 +161,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 			<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-5">
 				<div className="flex flex-wrap items-center justify-between gap-2 mb-4">
 					<div>
-						<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Clock size={15} className="text-amber-400" />
 							<span>24-Hour Temporal Risk Profile (UTC)</span>
 						</h3>
@@ -180,9 +182,9 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 				<div className="h-64 w-full">
 					<ResponsiveContainer width="100%" height="100%">
 						<ComposedChart data={hourlyProfile} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-							<CartesianGrid strokeDasharray="3 3" stroke="#1E293B" />
-							<XAxis dataKey="label" stroke="#64748B" tick={{ fontSize: 10 }} interval={1} />
-							<YAxis yAxisId="left" stroke="#64748B" tick={{ fontSize: 11 }} />
+							<CartesianGrid strokeDasharray="3 3" stroke={chartTokens.gridSubtleStroke} />
+							<XAxis dataKey="label" stroke={chartTokens.axisStroke} tick={{ fontSize: 10 }} interval={1} />
+							<YAxis yAxisId="left" stroke={chartTokens.axisStroke} tick={{ fontSize: 11 }} />
 							<YAxis
 								yAxisId="right"
 								orientation="right"
@@ -192,8 +194,9 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 							/>
 							<Tooltip
 								contentStyle={{
-									backgroundColor: '#0F172A',
-									borderColor: '#334155',
+									backgroundColor: chartTokens.tooltipBg,
+									borderColor: chartTokens.tooltipBorder,
+									color: chartTokens.tooltipText,
 									borderRadius: '0.5rem',
 									fontSize: '12px',
 								}}
@@ -203,7 +206,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 								{hourlyProfile.map((entry) => (
 									<Cell
 										key={`cell-${entry.hour}`}
-										fill={entry.is_peak_risk ? '#F59E0B' : '#334155'}
+										fill={entry.is_peak_risk ? '#F59E0B' : chartTokens.inactiveBar}
 									/>
 								))}
 							</Bar>
@@ -226,7 +229,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 				{/* 5-Segment Amount Bracket Risk Profile */}
 				<div className="lg:col-span-5 bg-dark-900 border border-dark-700/80 rounded-xl p-5">
 					<div className="mb-4">
-						<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<DollarSign size={15} className="text-emerald-400" />
 							<span>Amount Bracket Risk Profile</span>
 						</h3>
@@ -249,7 +252,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 							<tbody className="divide-y divide-dark-800/60 text-xs font-mono tabular-nums">
 								{amountBrackets.map((b) => (
 									<tr key={b.bracket_id} className="hover:bg-dark-800/40">
-										<td className="py-2.5 px-2.5 font-semibold text-white">{b.label}</td>
+										<td className="py-2.5 px-2.5 font-semibold text-slate-100">{b.label}</td>
 										<td className="py-2.5 px-2.5 text-right text-slate-300">
 											{(b.total_count ?? 0).toLocaleString()}
 										</td>
@@ -273,7 +276,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 				<div className="lg:col-span-7 bg-dark-900 border border-dark-700/80 rounded-xl p-5 space-y-5">
 					<div className="flex flex-wrap items-center justify-between gap-2">
 						<div>
-							<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+							<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 								<UserX size={15} className="text-rose-400" />
 								<span>Top Flagged Subjects & Active Watchlist Summary</span>
 							</h3>
@@ -303,7 +306,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 								>
 									<Fingerprint size={12} className="text-brand-400" />
 									<span className="text-slate-300">{item.entity_type}:</span>
-									<span className="text-white font-bold">{item.active_count}</span>
+									<span className="text-slate-100 font-bold">{item.active_count}</span>
 								</div>
 							))}
 						</div>
@@ -330,7 +333,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 								<tbody className="divide-y divide-dark-800/60 text-xs font-mono tabular-nums">
 									{topSubjects.map((sub) => (
 										<tr key={sub.user_id} className="hover:bg-dark-800/40">
-											<td className="py-2 px-2.5 font-semibold text-white">{sub.user_id}</td>
+											<td className="py-2 px-2.5 font-semibold text-slate-100">{sub.user_id}</td>
 											<td className="py-2 px-2.5 text-right text-slate-300">
 												{sub.flagged_tx_count}
 											</td>

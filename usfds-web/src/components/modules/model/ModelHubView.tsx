@@ -469,7 +469,7 @@ export const ModelHubView: React.FC = () => {
 											return (
 												<tr
 													key={run.run_id}
-													className="hover:bg-white/[0.02] transition"
+													className="hover:bg-dark-800/40 transition"
 												>
 													<td className="py-3 px-4">
 														<button
@@ -568,7 +568,7 @@ export const ModelHubView: React.FC = () => {
 								>
 									<div
 										onClick={() => toggleExpandModel(model.model_id)}
-										className="p-4 flex flex-wrap items-center justify-between gap-4 cursor-pointer hover:bg-white/[0.02] transition"
+										className="p-4 flex flex-wrap items-center justify-between gap-4 cursor-pointer hover:bg-dark-800/40 transition"
 									>
 										<div className="flex items-start gap-3">
 											<button
@@ -647,7 +647,7 @@ export const ModelHubView: React.FC = () => {
 														</thead>
 														<tbody className="divide-y divide-dark-800/60">
 															{versions.map((ver) => (
-																<tr key={ver.version_id} className="hover:bg-white/[0.02]">
+																<tr key={ver.version_id} className="hover:bg-dark-800/40">
 																	<td className="py-2.5 px-3 font-mono font-bold text-slate-100">
 																		v{ver.semver}
 																	</td>

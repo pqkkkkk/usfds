@@ -225,7 +225,7 @@ export const RuleCatalogView: React.FC = () => {
 							onClick={() => setStatusFilter('DRAFT')}
 							className={`px-3 py-1 text-xs rounded-md font-medium transition-colors cursor-pointer ${
 								statusFilter === 'DRAFT'
-									? 'bg-slate-700 text-white shadow-sm'
+									? 'bg-dark-700 text-slate-100 shadow-sm'
 									: 'text-slate-400 hover:text-slate-200'
 							}`}
 						>

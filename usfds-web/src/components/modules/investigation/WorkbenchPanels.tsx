@@ -14,6 +14,7 @@ import {
 	YAxis,
 } from 'recharts';
 import type { Workbench } from '../../../types/investigation';
+import { useTheme } from '../../../hooks/useTheme';
 import {
 	FormField,
 	INPUT_CLASS,
@@ -240,6 +241,7 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 		...point,
 		time: new Date(point.timestamp).getTime(),
 	}));
+	const { chartTokens } = useTheme();
 
 	const filteredAttributes = Object.entries(item.attributes).filter(([key, value]) =>
 		`${key} ${String(value)}`.toLowerCase().includes(attrSearch.toLowerCase())
@@ -301,16 +303,16 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 									layout="vertical"
 									margin={{ left: 4, right: 20, top: 4, bottom: 4 }}
 								>
-									<CartesianGrid stroke="#334155" horizontal={false} />
+									<CartesianGrid stroke={chartTokens.gridStroke} horizontal={false} />
 									<XAxis
 										type="number"
-										tick={{ fill: '#cbd5e1', fontSize: 11 }}
+										tick={{ fill: chartTokens.axisTick, fontSize: 11 }}
 									/>
 									<YAxis
 										type="category"
 										dataKey="display_name"
 										width={145}
-										tick={{ fill: '#cbd5e1', fontSize: 11 }}
+										tick={{ fill: chartTokens.axisTick, fontSize: 11 }}
 									/>
 									<Tooltip
 										formatter={(value, _name, itemPayload) => [
@@ -318,9 +320,9 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 											itemPayload?.payload?.formatted_label || 'Contribution',
 										]}
 										contentStyle={{
-											background: '#0f172a',
-											borderColor: '#475569',
-											color: '#f1f5f9',
+											background: chartTokens.tooltipBg,
+											borderColor: chartTokens.tooltipBorder,
+											color: chartTokens.tooltipText,
 											fontSize: '12px',
 										}}
 									/>
@@ -398,27 +400,27 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 					{points.length > 0 ? (
 						<ResponsiveContainer width="100%" height="100%">
 							<ScatterChart margin={{ right: 16, left: 0, bottom: 10, top: 8 }}>
-								<CartesianGrid stroke="#334155" />
+								<CartesianGrid stroke={chartTokens.gridStroke} />
 								<XAxis
 									type="number"
 									dataKey="time"
 									domain={['dataMin', 'dataMax']}
 									tickFormatter={(value) => new Date(value).toLocaleDateString()}
-									tick={{ fill: '#cbd5e1', fontSize: 10 }}
+									tick={{ fill: chartTokens.axisTick, fontSize: 10 }}
 								/>
 								<YAxis
 									type="number"
 									dataKey="amount"
 									width={72}
-									tick={{ fill: '#cbd5e1', fontSize: 10 }}
+									tick={{ fill: chartTokens.axisTick, fontSize: 10 }}
 								/>
 								<Tooltip
 									cursor={{ strokeDasharray: '3 3' }}
 									labelFormatter={(value) => new Date(Number(value)).toLocaleString()}
 									contentStyle={{
-										background: '#0f172a',
-										borderColor: '#475569',
-										color: '#f1f5f9',
+										background: chartTokens.tooltipBg,
+										borderColor: chartTokens.tooltipBorder,
+										color: chartTokens.tooltipText,
 										fontSize: '12px',
 									}}
 								/>

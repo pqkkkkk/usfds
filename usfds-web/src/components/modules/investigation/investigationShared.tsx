@@ -13,7 +13,7 @@ export const INPUT_CLASS =
 	'w-full min-w-0 rounded-lg border border-dark-700 bg-dark-950 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-colors';
 
 export const BUTTON_SECONDARY_CLASS =
-	'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-dark-700 bg-dark-850 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-dark-800 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer';
+	'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-dark-700 bg-dark-850 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-dark-800 hover:text-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer';
 
 export const BUTTON_PRIMARY_CLASS =
 	'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-brand-500/40 bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer';

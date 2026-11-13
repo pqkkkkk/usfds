@@ -1,3 +1,11 @@
+# 12-11-2026 — Support Light Mode in `usfds-web` — plan: `.plan/light_mode_support.md`
+- [x] [docs] Update `docs/design-system.md` with Light Mode Semantic Tokens (`[26-11-12]`)
+- [x] [fe] Configure RGB CSS variable tokens for `dark.*`, `slate.*`, and status text shades (`300`/`400`) in `usfds-web/src/index.css` and `usfds-web/tailwind.config.js`
+- [x] [fe] Create `ThemeProvider` and `useTheme()` hook (`usfds-web/src/hooks/useTheme.tsx`) supporting 2 modes (`dark` / `light`, default `dark`) with `localStorage` persistence and chart/canvas palette tokens
+- [x] [fe] Add `Sun`/`Moon` theme toggle button to `Topbar.tsx` and `ProjectManagementView.tsx`
+- [x] [fe] Replace non-button `text-white` headings/cells with `text-slate-100` and wire Recharts/SVG hex colors to `useTheme()` tokens
+- [x] [tests/verify] Add unit test tripwire for theme state/token resolution and verify `npm run build` & `npm run lint` in `usfds-web`
+
 # 12-11-2026 — Add `usfds-web` to `deploy/docker-compose.yml` — plan: `.plan/deploy_usfds_web.md`
 - [x] [deploy] Add `deploy/nginx.conf` (SPA fallback + `/api/` proxy to `usfds-server:8000`) and `deploy/Dockerfile.web`
 - [x] [deploy] Add `.dockerignore` to exclude `node_modules`, `dist`, `release`, `.venv`, `__pycache__`, `.git`

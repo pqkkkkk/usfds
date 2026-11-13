@@ -4,6 +4,8 @@ import {
 	ChevronDown,
 	Search,
 	Bell,
+	Sun,
+	Moon,
 	CheckCircle2,
 	Layers,
 	Plus,
@@ -11,6 +13,7 @@ import {
 	Lock,
 	Unlock,
 } from 'lucide-react';
+import { useTheme } from '../../hooks/useTheme';
 import type { ProjectResponse } from '../../types/project';
 
 interface TopbarProps {
@@ -32,6 +35,7 @@ export const Topbar = ({
 }: TopbarProps) => {
 	const [dropdownOpen, setDropdownOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
+	const { isLight, toggleTheme } = useTheme();
 
 	useEffect(() => {
 		if (!dropdownOpen) {
@@ -231,6 +235,20 @@ export const Topbar = ({
 					title="Search"
 				>
 					<Search className="w-4 h-4" />
+				</button>
+
+				<button
+					type="button"
+					onClick={toggleTheme}
+					className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-dark-800 rounded-md transition focus-ring"
+					title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+					aria-label={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+				>
+					{isLight ? (
+						<Moon className="w-4 h-4" />
+					) : (
+						<Sun className="w-4 h-4" />
+					)}
 				</button>
 
 				<button

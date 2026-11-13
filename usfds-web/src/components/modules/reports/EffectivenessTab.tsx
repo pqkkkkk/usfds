@@ -19,6 +19,7 @@ import {
 	YAxis,
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@/hooks';
 import type { EffectivenessAnalysisData } from '@/types';
 
 interface EffectivenessTabProps {
@@ -32,6 +33,7 @@ function formatCurrency(val: number | undefined | null): string {
 
 export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoading }) => {
 	const navigate = useNavigate();
+	const { chartTokens } = useTheme();
 	const [selectedThreshold, setSelectedThreshold] = useState<number>(0.5);
 
 	if (isLoading) {
@@ -73,7 +75,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 			<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-5">
 				<div className="flex flex-wrap items-center justify-between gap-2 mb-4">
 					<div>
-						<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Sparkles size={15} className="text-brand-400" />
 							<span>AI vs. Deterministic Rule Catch Attribution</span>
 						</h3>
@@ -110,7 +112,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 							<BrainCircuit size={15} className="text-cyan-400" />
 						</div>
 						<div className="mt-2 flex items-baseline justify-between">
-							<span className="text-2xl font-bold font-mono tabular-nums text-white">
+							<span className="text-2xl font-bold font-mono tabular-nums text-slate-100">
 								{aiPct.toFixed(1)}%
 							</span>
 							<span className="text-xs font-mono tabular-nums text-cyan-300">
@@ -129,7 +131,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 							<ShieldCheck size={15} className="text-purple-400" />
 						</div>
 						<div className="mt-2 flex items-baseline justify-between">
-							<span className="text-2xl font-bold font-mono tabular-nums text-white">
+							<span className="text-2xl font-bold font-mono tabular-nums text-slate-100">
 								{overlapPct.toFixed(1)}%
 							</span>
 							<span className="text-xs font-mono tabular-nums text-purple-300">
@@ -148,7 +150,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 							<Scale size={15} className="text-amber-400" />
 						</div>
 						<div className="mt-2 flex items-baseline justify-between">
-							<span className="text-2xl font-bold font-mono tabular-nums text-white">
+							<span className="text-2xl font-bold font-mono tabular-nums text-slate-100">
 								{rulePct.toFixed(1)}%
 							</span>
 							<span className="text-xs font-mono tabular-nums text-amber-300">
@@ -166,7 +168,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 			<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-5">
 				<div className="flex items-center justify-between mb-4">
 					<div>
-						<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Scale size={15} className="text-emerald-400" />
 							<span>Rule Ground-Truth Leaderboard</span>
 						</h3>
@@ -216,7 +218,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 									return (
 										<tr key={row.rule_code} className="hover:bg-dark-800/40 transition-colors">
 											<td className="py-2.5 px-3">
-												<div className="font-mono font-semibold text-white">{row.rule_code}</div>
+												<div className="font-mono font-semibold text-slate-100">{row.rule_code}</div>
 												<div className="text-[11px] text-slate-400">{row.rule_name}</div>
 											</td>
 											<td className="py-2.5 px-3 font-mono">
@@ -238,7 +240,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 												<span className="text-slate-600 mx-1">/</span>
 												<span className="text-rose-400">{row.verified_fp ?? 0}</span>
 											</td>
-											<td className="py-2.5 px-3 text-right font-mono tabular-nums font-semibold text-white">
+											<td className="py-2.5 px-3 text-right font-mono tabular-nums font-semibold text-slate-100">
 												{row.verified_precision != null ? `${precPct.toFixed(1)}%` : '—'}
 											</td>
 											<td className="py-2.5 px-3 w-44">
@@ -282,7 +284,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 				{/* Model Score Calibration Chart */}
 				<div className="lg:col-span-7 bg-dark-900 border border-dark-700/80 rounded-xl p-5">
 					<div className="mb-4">
-						<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Gauge size={15} className="text-cyan-400" />
 							<span>XGBoost Score Calibration (10 Probability Bins)</span>
 						</h3>
@@ -294,13 +296,14 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 					<div className="h-64 w-full">
 						<ResponsiveContainer width="100%" height="100%">
 							<ComposedChart data={scoreCalibration} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-								<CartesianGrid strokeDasharray="3 3" stroke="#1E293B" />
-								<XAxis dataKey="bin" stroke="#64748B" tick={{ fontSize: 11 }} />
-								<YAxis stroke="#64748B" tick={{ fontSize: 11 }} />
+								<CartesianGrid strokeDasharray="3 3" stroke={chartTokens.gridSubtleStroke} />
+								<XAxis dataKey="bin" stroke={chartTokens.axisStroke} tick={{ fontSize: 11 }} />
+								<YAxis stroke={chartTokens.axisStroke} tick={{ fontSize: 11 }} />
 								<Tooltip
 									contentStyle={{
-										backgroundColor: '#0F172A',
-										borderColor: '#334155',
+										backgroundColor: chartTokens.tooltipBg,
+										borderColor: chartTokens.tooltipBorder,
+										color: chartTokens.tooltipText,
 										borderRadius: '0.5rem',
 										fontSize: '12px',
 									}}
@@ -335,7 +338,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 					<div>
 						<div className="flex items-center justify-between mb-3">
 							<div>
-								<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+								<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 									<Sliders size={15} className="text-brand-400" />
 									<span>What-If Decision Threshold Simulator</span>
 								</h3>
@@ -395,7 +398,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 									<div className="text-[11px] uppercase tracking-wider text-slate-400">
 										Review Queue Volume
 									</div>
-									<div className="text-xl font-bold font-mono tabular-nums text-white mt-1">
+									<div className="text-xl font-bold font-mono tabular-nums text-slate-100 mt-1">
 										{(activePoint.review_queue_volume ?? 0).toLocaleString()} txs
 									</div>
 									<div className="text-[11px] font-mono text-slate-500 mt-0.5">
