@@ -90,3 +90,5 @@ venv/
 deploy/.env
 
 .DS_Store
+usfds-web/.env
+usfds-server/.env

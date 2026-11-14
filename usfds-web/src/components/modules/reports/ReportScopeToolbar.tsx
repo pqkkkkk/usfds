@@ -5,7 +5,7 @@ import type { DetectionJobResponse, ReportScopeFilter } from '@/types';
 interface ReportScopeToolbarProps {
 	scope: ReportScopeFilter;
 	onChange: (next: ReportScopeFilter) => void;
-	detectionJobs: DetectionJobResponse[];
+	detectionJobs?: DetectionJobResponse[] | null;
 	scannedJobsCount?: number;
 }
 
@@ -15,7 +15,12 @@ export const ReportScopeToolbar: React.FC<ReportScopeToolbarProps> = ({
 	detectionJobs,
 	scannedJobsCount,
 }) => {
-	const completedJobs = detectionJobs.filter((j) => j.status === 'COMPLETED');
+	const safeJobs: DetectionJobResponse[] = Array.isArray(detectionJobs)
+		? detectionJobs
+		: Array.isArray((detectionJobs as any)?.data)
+			? ((detectionJobs as any).data as DetectionJobResponse[])
+			: [];
+	const completedJobs = safeJobs.filter((j: DetectionJobResponse) => j && j.status === 'COMPLETED');
 	const hasActiveFilters = Boolean(
 		scope.detectionJobId || scope.dateFrom || scope.dateTo || scope.useDatasetFallback === false
 	);

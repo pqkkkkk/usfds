@@ -1,3 +1,48 @@
+# 12-11-2026 — Support Light Mode in `usfds-web` — plan: `.plan/light_mode_support.md`
+- [x] [docs] Update `docs/design-system.md` with Light Mode Semantic Tokens (`[26-11-12]`)
+- [x] [fe] Configure RGB CSS variable tokens for `dark.*`, `slate.*`, and status text shades (`300`/`400`) in `usfds-web/src/index.css` and `usfds-web/tailwind.config.js`
+- [x] [fe] Create `ThemeProvider` and `useTheme()` hook (`usfds-web/src/hooks/useTheme.tsx`) supporting 2 modes (`dark` / `light`, default `dark`) with `localStorage` persistence and chart/canvas palette tokens
+- [x] [fe] Add `Sun`/`Moon` theme toggle button to `Topbar.tsx` and `ProjectManagementView.tsx`
+- [x] [fe] Replace non-button `text-white` headings/cells with `text-slate-100` and wire Recharts/SVG hex colors to `useTheme()` tokens
+- [x] [tests/verify] Add unit test tripwire for theme state/token resolution and verify `npm run build` & `npm run lint` in `usfds-web`
+
+# 12-11-2026 — Add `usfds-web` to `deploy/docker-compose.yml` — plan: `.plan/deploy_usfds_web.md`
+- [x] [deploy] Add `deploy/nginx.conf` (SPA fallback + `/api/` proxy to `usfds-server:8000`) and `deploy/Dockerfile.web`
+- [x] [deploy] Add `.dockerignore` to exclude `node_modules`, `dist`, `release`, `.venv`, `__pycache__`, `.git`
+- [x] [deploy] Update `deploy/docker-compose.yml` (remove `profiles: ["app"]`, add `usfds-web` on `${USFDS_WEB_PORT:-5173}:80`)
+- [x] [deploy] Update `deploy/.env.example` and `deploy/.env` with `USFDS_WEB_PORT=5173`
+- [x] [verify] Validate `docker compose --env-file .env config -q` in `deploy/`
+
+# 11-11-2026 — Client-Server Worker Design & Implementation — plan: `.plan/client_server_worker_design.md`
+- [x] [infra] Extend `BullMQJobQueue` (`usfds-infra/src/usfds_infra/job_queue/bullmq_queue.py` & `__init__.py`) with `QUEUE_DATA_PIPELINE`, job constants (`JOB_PLUGIN_DRY_RUN`, `JOB_RULE_BACKTEST`, `JOB_DATASET_INGESTION`, `JOB_SCHEMA_MAPPING`, `JOB_FEATURE_ENGINEERING`), and `enqueue_and_wait()`
+- [x] [core/infra] Ensure `DatasetIngestionService.import_dataset` and `S3FileStorage.save_file` support S3 storage keys seamlessly when invoked on `usfds-worker`
+- [x] [worker] Implement all 7 handlers in `usfds-worker/src/usfds_worker/handlers.py` and register 3 queue workers (`usfds-training`, `usfds-batch-inference`, `usfds-data-pipeline`) in `usfds-worker/src/usfds_worker/main.py` by directly importing `usfds-core` services
+- [x] [server] Wire `USFDS_DISPATCH_BACKEND=queue` in `dataset_router.py`, `training_router.py`, and `rule_router.py` to dispatch heavy tasks (`import_dataset`, `map_schema`, `execute_feature_engineering`, `register_plugged_model`, `backtest_rule_on_dataset`) via `BullMQJobQueue.enqueue_and_wait`
+- [x] [fe] Add auto-polling (`2.5s`) while status is `PENDING` or `RUNNING` in `TrainingRunDetailView.tsx`, `ModelHubView.tsx`, `DetectionResultExplorerView.tsx`, and `DetectionJobsHubView.tsx`
+- [x] [tests] Add unit tests in `usfds-worker/tests/test_handlers.py` and `usfds-infra/tests/test_job_queue.py` covering all 7 worker handlers and `enqueue_and_wait`
+- [x] [core/infra] Sanitize non-finite floats (`Infinity`, `-Infinity`, `NaN`) in `MetricEvaluator` (`roc_curve.thresholds`) and `SqliteTrainingRunRepository.save` / `SqliteDetectionJobRepository.save` (with `session.rollback()` on flush failure) for strict PostgreSQL JSON compatibility
+
+# 10-11-2026 — Client-Server Storage Interaction via Presigned URLs — plan: `.plan/client_server_storage_presigned_url.md`
+- [x] [core] Fix local path leak in `DatasetIngestionService.import_dataset` (`usfds-core/src/usfds_core/services/data_management/ingestion.py`) to check `self.file_storage.exists()` and `get_file_size()` alongside `Path.is_file()`
+- [x] [infra] Extend `S3FileStorage` (`usfds-infra/src/usfds_infra/storage/s3_storage.py`) with `public_endpoint_url`, server-side `copy_object` in `save_file()`, `generate_presigned_upload_url()`, `generate_presigned_download_url()`, and bucket CORS setup
+- [x] [server] Add `USFDS_S3_PUBLIC_ENDPOINT_URL` config (`config.py`, `dependencies.py`, `deploy/`), create `storage_router.py` (`/api/v1/storage/presigned-upload`, `/api/v1/storage/presigned-download`), and support `presigned=true` on dataset/detection/report export endpoints
+- [x] [tests] Add unit and API tests for storage-key dataset ingestion, S3 presigned URLs/copy, and storage/export endpoints in `usfds-core`, `usfds-infra`, and `usfds-server`
+- [x] [fe] Create `src/api/storageApi.ts` (`resolveStoragePath` & presigned download helper) and wire into `useDatasetImport.ts`, `DetectionJobWizardView.tsx`, `ImportCustomModelModal.tsx`, `datasetApi.ts`, `detectionApi.ts`, and `insightReportApi.ts`
+- [x] [verify] Verify `pytest` across `usfds-core`, `usfds-infra`, `usfds-server` and `npm run build` in `usfds-web`
+
+# 10-11-2026 — Upgrade Model Training Evaluation Metrics (`TASK-105`) — plan: `.plan/training_evaluation_metrics.md`
+- [ ] [docs] Update `docs/features/detection/training/suc-spec.md` (`SUC-09`, `SUC-27`) with the 11 metrics in `TASK-105` and remove unmentioned metrics (`[26-11-10]`)
+- [ ] [core] Upgrade `MetricEvaluator` in `usfds-core/src/usfds_core/services/training/evaluators/metric_evaluator.py`: add `mcc`, `precision_at_k` ($k \in \{50, 100, 200, 500\}$, `daily_avg` & `overall`), `precision_at_0_2_recall`, `auc_pr_card`, `pr_curve_card`, `card_precision_at_k` (`CP@k`), and deprecate unmentioned metrics (`youden_j`, `high_recall_90`, `high_recall_95`, `score_distribution`)
+- [ ] [core] Wire `card_ids` and `timestamps` into `BuiltinModelTrainer`, `ScriptPluginTrainer`, and `_usfds_runner.py` (deprecating `log_loss`)
+- [ ] [core/tests] Update and add unit tests in `usfds-core/tests/training/test_metric_evaluator.py` and `test_builtin_trainer.py`
+- [ ] [fe] Update TypeScript types (`src/types/metrics.ts`, `src/types/model.ts`) and UI (`TrainingRunDetailView.tsx`, `ModelHubView.tsx`) to display all 11 Notion metrics and remove unmentioned metrics
+- [ ] [verify] Verify `pytest` in `usfds-core` & `usfds-server` and `npm run build` in `usfds-web`
+
+# 10-11-2026 — Fix ReportScopeToolbar detectionJobs.filter TypeError
+- [x] [fe] Defensively handle detectionJobs payload in `ReportScopeToolbar.tsx`
+- [x] [fe] Normalize detectionJobs query and memoization in `InsightReportModule.tsx`
+- [x] [fe] Verify `npm run build` and `npm run lint` in `usfds-web`
+
 # 06-11-2026 — Insight & Report Module (SUC-22, SUC-23, SUC-24, SUC-25)
 - [x] [docs] Create Use Case Specification `docs/features/insight_report/suc-spec.md` (`[26-11-06]`) and plan `.plan/insight_report.md`
 - [x] [core] Implement `DuckDBInsightEngine`, `ComplianceReportBuilder`, and `InsightReportService` in `usfds-core/src/usfds_core/services/insight_report/`

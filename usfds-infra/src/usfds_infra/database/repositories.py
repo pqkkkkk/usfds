@@ -50,6 +50,21 @@ class SqliteProjectRepository(IProjectRepository):
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    @staticmethod
+    def _sanitize_json(obj: Any) -> Any:
+        import math
+        if isinstance(obj, float):
+            if math.isnan(obj):
+                return None
+            if math.isinf(obj):
+                return 1.0 if obj > 0 else 0.0
+            return obj
+        if isinstance(obj, dict):
+            return {k: SqliteTrainingRunRepository._sanitize_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [SqliteTrainingRunRepository._sanitize_json(v) for v in obj]
+        return obj
+
     def _to_entity(self, model: ProjectModel) -> Project:
         status_val: Union[ProjectStatus, str] = ProjectStatus.ACTIVE
         if model.status:
@@ -152,6 +167,21 @@ class SqliteDatasetRepository(IDatasetRepository):
 
     def __init__(self, session: Session) -> None:
         self.session = session
+
+    @staticmethod
+    def _sanitize_json(obj: Any) -> Any:
+        import math
+        if isinstance(obj, float):
+            if math.isnan(obj):
+                return None
+            if math.isinf(obj):
+                return 1.0 if obj > 0 else 0.0
+            return obj
+        if isinstance(obj, dict):
+            return {k: SqliteTrainingRunRepository._sanitize_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [SqliteTrainingRunRepository._sanitize_json(v) for v in obj]
+        return obj
 
     def _to_entity(self, model: DatasetModel) -> Dataset:
         classification = None
@@ -262,6 +292,21 @@ class SqliteDatasetArtifactRepository(IDatasetArtifactRepository):
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    @staticmethod
+    def _sanitize_json(obj: Any) -> Any:
+        import math
+        if isinstance(obj, float):
+            if math.isnan(obj):
+                return None
+            if math.isinf(obj):
+                return 1.0 if obj > 0 else 0.0
+            return obj
+        if isinstance(obj, dict):
+            return {k: SqliteTrainingRunRepository._sanitize_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [SqliteTrainingRunRepository._sanitize_json(v) for v in obj]
+        return obj
+
     def _to_entity(self, model: DatasetArtifactModel) -> DatasetArtifact:
         stage = (
             PipelineStage(model.pipeline_stage)
@@ -364,6 +409,21 @@ class SqliteRuleRepository(IRuleRepository):
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    @staticmethod
+    def _sanitize_json(obj: Any) -> Any:
+        import math
+        if isinstance(obj, float):
+            if math.isnan(obj):
+                return None
+            if math.isinf(obj):
+                return 1.0 if obj > 0 else 0.0
+            return obj
+        if isinstance(obj, dict):
+            return {k: SqliteTrainingRunRepository._sanitize_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [SqliteTrainingRunRepository._sanitize_json(v) for v in obj]
+        return obj
+
     def _to_entity(self, model: RuleModel) -> Rule:
         status_val = RuleStatus.ACTIVE
         if model.status:
@@ -448,6 +508,21 @@ class SqliteRuleVersionRepository(IRuleVersionRepository):
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    @staticmethod
+    def _sanitize_json(obj: Any) -> Any:
+        import math
+        if isinstance(obj, float):
+            if math.isnan(obj):
+                return None
+            if math.isinf(obj):
+                return 1.0 if obj > 0 else 0.0
+            return obj
+        if isinstance(obj, dict):
+            return {k: SqliteTrainingRunRepository._sanitize_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [SqliteTrainingRunRepository._sanitize_json(v) for v in obj]
+        return obj
+
     def _to_entity(self, model: RuleVersionModel) -> RuleVersion:
         action_val = RuleAction.REVIEW
         if model.action:
@@ -515,6 +590,21 @@ class SqliteModelRepository(IModelRepository):
 
     def __init__(self, session: Session) -> None:
         self.session = session
+
+    @staticmethod
+    def _sanitize_json(obj: Any) -> Any:
+        import math
+        if isinstance(obj, float):
+            if math.isnan(obj):
+                return None
+            if math.isinf(obj):
+                return 1.0 if obj > 0 else 0.0
+            return obj
+        if isinstance(obj, dict):
+            return {k: SqliteTrainingRunRepository._sanitize_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [SqliteTrainingRunRepository._sanitize_json(v) for v in obj]
+        return obj
 
     def _to_entity(self, record: MLModel) -> Model:
         exec_type: Union[ExecutionType, str] = ExecutionType.BUILTIN
@@ -611,6 +701,21 @@ class SqliteModelVersionRepository(IModelVersionRepository):
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    @staticmethod
+    def _sanitize_json(obj: Any) -> Any:
+        import math
+        if isinstance(obj, float):
+            if math.isnan(obj):
+                return None
+            if math.isinf(obj):
+                return 1.0 if obj > 0 else 0.0
+            return obj
+        if isinstance(obj, dict):
+            return {k: SqliteTrainingRunRepository._sanitize_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [SqliteTrainingRunRepository._sanitize_json(v) for v in obj]
+        return obj
+
     def _to_entity(self, record: ModelVersionModel) -> ModelVersion:
         status_val: Union[ModelVersionStatus, str] = ModelVersionStatus.DRAFT
         if record.status:
@@ -705,6 +810,21 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    @staticmethod
+    def _sanitize_json(obj: Any) -> Any:
+        import math
+        if isinstance(obj, float):
+            if math.isnan(obj):
+                return None
+            if math.isinf(obj):
+                return 1.0 if obj > 0 else 0.0
+            return obj
+        if isinstance(obj, dict):
+            return {k: SqliteTrainingRunRepository._sanitize_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [SqliteTrainingRunRepository._sanitize_json(v) for v in obj]
+        return obj
+
     def _to_entity(self, record: TrainingRunModel) -> TrainingRun:
         status_val: Union[TrainingRunStatus, str] = TrainingRunStatus.PENDING
         if record.status:
@@ -749,6 +869,9 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
             else str(run.status)
         )
 
+        clean_hyperparameters = self._sanitize_json(run.hyperparameters)
+        clean_custom_metrics = self._sanitize_json(run.custom_metrics)
+
         if record is None:
             record = TrainingRunModel(
                 run_id=str(run.run_id),
@@ -764,8 +887,8 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
                 loss=run.loss,
                 default_threshold=run.default_threshold,
                 recommended_threshold=run.recommended_threshold,
-                hyperparameters=run.hyperparameters,
-                custom_metrics=run.custom_metrics,
+                hyperparameters=clean_hyperparameters,
+                custom_metrics=clean_custom_metrics,
                 compute_target=run.compute_target,
                 error_message=run.error_message,
                 created_by=run.created_by,
@@ -788,8 +911,8 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
             record.loss = run.loss
             record.default_threshold = run.default_threshold
             record.recommended_threshold = run.recommended_threshold
-            record.hyperparameters = run.hyperparameters
-            record.custom_metrics = run.custom_metrics
+            record.hyperparameters = clean_hyperparameters
+            record.custom_metrics = clean_custom_metrics
             record.compute_target = run.compute_target
             record.error_message = run.error_message
             record.started_at = run.started_at
@@ -799,7 +922,11 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
             record.metrics_path = run.metrics_path
             record.eval_predictions_path = run.eval_predictions_path
 
-        self.session.flush()
+        try:
+            self.session.flush()
+        except Exception:
+            self.session.rollback()
+            raise
         return self._to_entity(record)
 
     def get_by_id(self, run_id: UUID) -> Optional[TrainingRun]:
@@ -873,6 +1000,21 @@ class SqliteDetectionJobRepository(IDetectionJobRepository):
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    @staticmethod
+    def _sanitize_json(obj: Any) -> Any:
+        import math
+        if isinstance(obj, float):
+            if math.isnan(obj):
+                return None
+            if math.isinf(obj):
+                return 1.0 if obj > 0 else 0.0
+            return obj
+        if isinstance(obj, dict):
+            return {k: SqliteTrainingRunRepository._sanitize_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [SqliteTrainingRunRepository._sanitize_json(v) for v in obj]
+        return obj
+
     def _to_entity(self, record: DetectionJobModel) -> DetectionJob:
         status_val: Union[DetectionJobStatus, str] = DetectionJobStatus.PENDING
         if record.status:
@@ -913,6 +1055,8 @@ class SqliteDetectionJobRepository(IDetectionJobRepository):
             else str(job.status)
         )
 
+        clean_summary_metrics = self._sanitize_json(job.summary_metrics)
+
         if record is None:
             record = DetectionJobModel(
                 job_id=str(job.job_id),
@@ -929,7 +1073,7 @@ class SqliteDetectionJobRepository(IDetectionJobRepository):
                 total_records=job.total_records,
                 fraud_records=job.fraud_records,
                 fraud_rate=job.fraud_rate,
-                summary_metrics=job.summary_metrics,
+                summary_metrics=clean_summary_metrics,
                 execution_time_seconds=job.execution_time_seconds,
                 error_message=job.error_message,
                 created_by=job.created_by,
@@ -951,13 +1095,17 @@ class SqliteDetectionJobRepository(IDetectionJobRepository):
             record.total_records = job.total_records
             record.fraud_records = job.fraud_records
             record.fraud_rate = job.fraud_rate
-            record.summary_metrics = job.summary_metrics
+            record.summary_metrics = clean_summary_metrics
             record.execution_time_seconds = job.execution_time_seconds
             record.error_message = job.error_message
             record.started_at = job.started_at
             record.completed_at = job.completed_at
 
-        self.session.flush()
+        try:
+            self.session.flush()
+        except Exception:
+            self.session.rollback()
+            raise
         return self._to_entity(record)
 
     def get_by_id(self, job_id: UUID) -> Optional[DetectionJob]:

@@ -34,6 +34,10 @@ class Settings(BaseModel):
         description="'local' (filesystem) or 's3' (S3-compatible object storage, e.g. RustFS)",
     )
     s3_endpoint_url: Optional[str] = Field(default_factory=lambda: os.getenv("USFDS_S3_ENDPOINT_URL") or None)
+    s3_public_endpoint_url: Optional[str] = Field(
+        default_factory=lambda: os.getenv("USFDS_S3_PUBLIC_ENDPOINT_URL") or None,
+        description="Public/browser-reachable S3 endpoint URL used for signing presigned URLs (defaults to s3_endpoint_url)",
+    )
     s3_bucket: str = Field(default_factory=lambda: os.getenv("USFDS_S3_BUCKET", "usfds"))
     s3_access_key: Optional[str] = Field(default_factory=lambda: os.getenv("USFDS_S3_ACCESS_KEY") or None)
     s3_secret_key: Optional[str] = Field(default_factory=lambda: os.getenv("USFDS_S3_SECRET_KEY") or None)
@@ -55,7 +59,7 @@ class Settings(BaseModel):
         description="Host address to bind to",
     )
     port: int = Field(
-        default_factory=lambda: int(os.getenv("USFDS_PORT", "8000")),
+        default_factory=lambda: int(os.getenv("USFDS_PORT", "8200")),
         description="Port number to bind to",
     )
 

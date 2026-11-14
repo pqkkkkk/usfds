@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from usfds_core.domain.entities.detection import DetectionJob
 from usfds_core.services.inference.inference_service import InferenceService
+from usfds_core.storage.base_storage import IFileStorage
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_server.dependencies import get_db, get_storage, get_inference_service
 from usfds_server.routers.investigation_router import _project, _source_frame, get_actor, ingest_request
@@ -200,14 +201,37 @@ def export_detection_job_results(
 	job_id: UUID,
 	file_format: str = Query("csv", description="Export format: csv | parquet"),
 	only_flagged: bool = Query(False, description="Export only flagged (REJECT + REVIEW) transactions"),
+	presigned: bool = Query(False, description="Return a presigned download URL when backed by S3"),
 	service: InferenceService = Depends(get_inference_service),
-) -> Response:
+	storage: IFileStorage = Depends(get_storage),
+):
 	try:
+		if presigned and file_format.strip().lower() == "parquet" and not only_flagged:
+			job = service.get_detection_job(job_id)
+			if job.output_path and storage.exists(job.output_path):
+				safe_name = (job.job_name or str(job.job_id)).replace(" ", "_")
+				filename = f"{safe_name}_results.parquet"
+				dl_url = storage.generate_presigned_download_url(job.output_path, filename=filename)
+				if dl_url:
+					return ApiResponse.ok(
+						data={"download_url": dl_url, "filename": filename, "object_key": job.output_path},
+						message="Detection results export ready",
+					)
+
 		file_bytes, filename, media_type = service.export_detection_job_results(
 			job_id=job_id,
 			file_format=file_format,
 			only_flagged=only_flagged,
 		)
+		if presigned:
+			export_key = f"exports/detection/{job_id}/{filename}"
+			storage.save_bytes(export_key, file_bytes)
+			dl_url = storage.generate_presigned_download_url(export_key, filename=filename)
+			if dl_url:
+				return ApiResponse.ok(
+					data={"download_url": dl_url, "filename": filename, "object_key": export_key},
+					message="Detection results export ready",
+				)
 		return Response(
 			content=file_bytes,
 			media_type=media_type,

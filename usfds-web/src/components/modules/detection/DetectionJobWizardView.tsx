@@ -21,7 +21,7 @@ import {
 import { PageHeader } from '../../layout/PageHeader';
 import { WorkspaceStepper } from '../../layout/WorkspaceStepper';
 import type { PipelineStep } from '../../layout/WorkspaceStepper';
-import { datasetApi, trainingApi, ruleApi, detectionApi } from '@/api';
+import { datasetApi, trainingApi, ruleApi, detectionApi, storageApi } from '@/api';
 import { useProject } from '@/hooks';
 import type {
 	DatasetArtifactResponse,
@@ -55,6 +55,7 @@ export function DetectionJobWizardView() {
 
 	// Option 2: Direct file path state
 	const [inputFilePath, setInputFilePath] = useState<string>('');
+	const [selectedRawFile, setSelectedRawFile] = useState<File | null>(null);
 	const [selectedFileInfo, setSelectedFileInfo] = useState<{
 		name: string;
 		size: string;
@@ -210,6 +211,7 @@ export function DetectionJobWizardView() {
 						? inputFilePath
 						: `../datasets/${selected.name}`;
 
+			setSelectedRawFile(selected);
 			setSelectedFileInfo({
 				name: selected.name,
 				size: `${sizeMb} MB`,
@@ -236,6 +238,7 @@ export function DetectionJobWizardView() {
 				});
 				if (selectedPath) {
 					const fileName = selectedPath.split(/[/\\]/).pop() || 'batch.csv';
+					setSelectedRawFile(null);
 					setSelectedFileInfo({
 						name: fileName,
 						size: 'Local Disk File',
@@ -255,10 +258,18 @@ export function DetectionJobWizardView() {
 	const startJobMutation = useMutation({
 		mutationFn: async () => {
 			const isArtifact = sourceOption === 'RAW_ARTIFACT';
+			const resolvedInputFilePath = !isArtifact
+				? await storageApi.resolveStoragePath({
+						file: selectedRawFile,
+						filePath: inputFilePath.trim(),
+						purpose: 'detection_input',
+						projectId,
+					})
+				: null;
 			const res = await detectionApi.startJob({
 				project_id: projectId,
 				target_artifact_id: isArtifact ? selectedRawArtifactId : null,
-				input_file_path: !isArtifact ? inputFilePath.trim() : null,
+				input_file_path: resolvedInputFilePath,
 				model_version_id:
 					selectedModelVersionId !== 'RULE_ONLY' ? selectedModelVersionId : null,
 				use_rules: useRules,
@@ -613,6 +624,7 @@ export function DetectionJobWizardView() {
 											<button
 												type="button"
 												onClick={() => {
+													setSelectedRawFile(null);
 													setSelectedFileInfo(null);
 													setInputFilePath('');
 												}}

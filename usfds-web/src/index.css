@@ -3,94 +3,260 @@
 @tailwind utilities;
 
 :root {
-  /* Three-Layer Token Architecture from docs/ui-ux-design/base.md */
-  --primitives-slate-950: #020617;
-  --primitives-slate-900: #0f172a;
-  --primitives-slate-850: #111827;
-  --primitives-slate-800: #1e293b;
-  --primitives-slate-700: #334155;
-  --primitives-slate-600: #475569;
-  --primitives-slate-500: #64748b;
-  --primitives-slate-400: #94a3b8;
-  --primitives-slate-300: #cbd5e1;
-  --primitives-slate-100: #f1f5f9;
-  --primitives-slate-50:  #f8fafc;
+	color-scheme: dark;
 
-  --primitives-blue-500:    #3b82f6;
-  --primitives-blue-600:    #2563eb;
-  --primitives-emerald-400: #34d399;
-  --primitives-emerald-500: #10b981;
-  --primitives-amber-400:   #fbbf24;
-  --primitives-amber-500:   #f59e0b;
-  --primitives-red-500:     #ef4444;
-  --primitives-red-600:     #dc2626;
-  --primitives-purple-400:  #a78bfa;
-  --primitives-purple-500:  #8b5cf6;
+	/* Three-Layer Token Architecture from docs/design-system.md */
+	--primitives-slate-950: #020617;
+	--primitives-slate-900: #0f172a;
+	--primitives-slate-850: #111827;
+	--primitives-slate-800: #1e293b;
+	--primitives-slate-700: #334155;
+	--primitives-slate-600: #475569;
+	--primitives-slate-500: #64748b;
+	--primitives-slate-400: #94a3b8;
+	--primitives-slate-300: #cbd5e1;
+	--primitives-slate-100: #f1f5f9;
+	--primitives-slate-50:  #f8fafc;
 
-  /* Semantic Tokens */
-  --color-background:         var(--primitives-slate-950);
-  --color-surface:            var(--primitives-slate-900);
-  --color-surface-elevated:   var(--primitives-slate-800);
-  --color-border:             var(--primitives-slate-700);
-  --color-border-subtle:      rgba(255, 255, 255, 0.08);
-  --color-border-focus:       var(--primitives-blue-500);
+	--primitives-blue-500:    #3b82f6;
+	--primitives-blue-600:    #2563eb;
+	--primitives-emerald-400: #34d399;
+	--primitives-emerald-500: #10b981;
+	--primitives-amber-400:   #fbbf24;
+	--primitives-amber-500:   #f59e0b;
+	--primitives-red-500:     #ef4444;
+	--primitives-red-600:     #dc2626;
+	--primitives-purple-400:  #a78bfa;
+	--primitives-purple-500:  #8b5cf6;
 
-  --color-text-primary:       var(--primitives-slate-50);
-  --color-text-secondary:     var(--primitives-slate-400);
-  --color-text-muted:         var(--primitives-slate-500);
+	/* Semantic Tokens (Dark Mode Default) */
+	--color-background:         var(--primitives-slate-950);
+	--color-surface:            var(--primitives-slate-900);
+	--color-surface-elevated:   var(--primitives-slate-800);
+	--color-border:             var(--primitives-slate-700);
+	--color-border-subtle:      rgba(255, 255, 255, 0.08);
+	--color-border-focus:       var(--primitives-blue-500);
 
-  --color-primary:            var(--primitives-blue-500);
-  --color-accent:             var(--primitives-emerald-500);
+	--color-text-primary:       var(--primitives-slate-50);
+	--color-text-secondary:     var(--primitives-slate-400);
+	--color-text-muted:         var(--primitives-slate-500);
 
-  /* Component Layout Tokens */
-  --topbar-height:            56px;
-  --sidebar-width:            240px;
-  --sidebar-collapsed-width:  64px;
-  --bottombar-height:         28px;
+	--color-primary:            var(--primitives-blue-500);
+	--color-accent:             var(--primitives-emerald-500);
+
+	/* Scrollbar Tokens */
+	--scrollbar-track:          #020617;
+	--scrollbar-thumb:          #1e293b;
+	--scrollbar-thumb-hover:    #334155;
+
+	/* Tailwind RGB Channel Tokens (Dark Mode Default) */
+	--tw-dark-950: 2 6 23;
+	--tw-dark-900: 11 17 32;
+	--tw-dark-850: 15 23 42;
+	--tw-dark-800: 30 41 59;
+	--tw-dark-750: 30 41 59;
+	--tw-dark-700: 51 65 85;
+	--tw-dark-600: 71 85 105;
+	--tw-dark-500: 100 116 139;
+	--tw-dark-400: 148 163 184;
+	--tw-dark-300: 203 213 225;
+	--tw-dark-100: 241 245 249;
+	--tw-dark-50:  248 250 252;
+
+	--tw-slate-50:  248 250 252;
+	--tw-slate-100: 241 245 249;
+	--tw-slate-200: 226 232 240;
+	--tw-slate-300: 203 213 225;
+	--tw-slate-400: 148 163 184;
+	--tw-slate-500: 100 116 139;
+	--tw-slate-600: 71 85 105;
+	--tw-slate-700: 51 65 85;
+	--tw-slate-800: 30 41 59;
+	--tw-slate-900: 15 23 42;
+	--tw-slate-950: 2 6 23;
+
+	--tw-brand-200: 191 219 254;
+	--tw-brand-300: 147 197 253;
+	--tw-brand-400: 96 165 250;
+	--tw-brand-900: 30 58 138;
+	--tw-brand-950: 23 37 84;
+
+	--tw-emerald-200: 167 243 208;
+	--tw-emerald-300: 110 231 183;
+	--tw-emerald-400: 52 211 153;
+	--tw-emerald-900: 6 78 59;
+	--tw-emerald-950: 2 44 34;
+
+	--tw-amber-200: 253 230 138;
+	--tw-amber-300: 252 211 77;
+	--tw-amber-400: 251 191 36;
+	--tw-amber-900: 120 53 15;
+	--tw-amber-950: 69 26 3;
+
+	--tw-rose-200: 254 205 211;
+	--tw-rose-300: 253 164 175;
+	--tw-rose-400: 251 113 133;
+	--tw-rose-900: 136 19 55;
+	--tw-rose-950: 76 5 25;
+
+	--tw-red-200: 254 202 202;
+	--tw-red-300: 252 165 165;
+	--tw-red-400: 248 113 113;
+	--tw-red-900: 127 29 29;
+	--tw-red-950: 69 10 10;
+
+	--tw-purple-300: 216 180 254;
+	--tw-purple-400: 192 132 252;
+	--tw-purple-900: 88 28 135;
+	--tw-purple-950: 59 7 100;
+
+	--tw-sky-300: 125 211 252;
+	--tw-sky-400: 56 189 248;
+
+	--tw-cyan-300: 103 232 249;
+	--tw-cyan-400: 34 211 238;
+
+	--tw-indigo-400: 129 140 248;
+
+	/* Component Layout Tokens */
+	--topbar-height:            56px;
+	--sidebar-width:            240px;
+	--sidebar-collapsed-width:  64px;
+	--bottombar-height:         28px;
+}
+
+html[data-theme="light"] {
+	color-scheme: light;
+
+	--color-background:         var(--primitives-slate-50);
+	--color-surface:            #ffffff;
+	--color-surface-elevated:   var(--primitives-slate-100);
+	--color-border:             var(--primitives-slate-300);
+	--color-border-subtle:      rgba(15, 23, 42, 0.08);
+	--color-border-focus:       var(--primitives-blue-600);
+
+	--color-text-primary:       var(--primitives-slate-900);
+	--color-text-secondary:     var(--primitives-slate-600);
+	--color-text-muted:         var(--primitives-slate-500);
+
+	--scrollbar-track:          #f1f5f9;
+	--scrollbar-thumb:          #cbd5e1;
+	--scrollbar-thumb-hover:    #94a3b8;
+
+	/* Light Surface Mapping */
+	--tw-dark-950: 248 250 252;
+	--tw-dark-900: 255 255 255;
+	--tw-dark-850: 241 245 249;
+	--tw-dark-800: 226 232 240;
+	--tw-dark-750: 203 213 225;
+	--tw-dark-700: 203 213 225;
+	--tw-dark-600: 148 163 184;
+	--tw-dark-500: 100 116 139;
+	--tw-dark-400: 71 85 105;
+	--tw-dark-300: 51 65 85;
+	--tw-dark-100: 15 23 42;
+	--tw-dark-50:  2 6 23;
+
+	/* Light Foreground & Border Slate Mapping */
+	--tw-slate-50:  15 23 42;
+	--tw-slate-100: 15 23 42;
+	--tw-slate-200: 30 41 59;
+	--tw-slate-300: 51 65 85;
+	--tw-slate-400: 71 85 105;
+	--tw-slate-500: 100 116 139;
+	--tw-slate-600: 148 163 184;
+	--tw-slate-700: 203 213 225;
+	--tw-slate-800: 226 232 240;
+	--tw-slate-900: 241 245 249;
+	--tw-slate-950: 2 6 23;
+
+	/* WCAG AA Accent Text & Soft Tint Mapping for Light Surfaces */
+	--tw-brand-200: 30 64 175;
+	--tw-brand-300: 29 78 216;
+	--tw-brand-400: 37 99 235;
+	--tw-brand-900: 191 219 254;
+	--tw-brand-950: 219 234 254;
+
+	--tw-emerald-200: 6 95 70;
+	--tw-emerald-300: 4 120 87;
+	--tw-emerald-400: 5 150 105;
+	--tw-emerald-900: 167 243 208;
+	--tw-emerald-950: 209 250 229;
+
+	--tw-amber-200: 146 64 14;
+	--tw-amber-300: 180 83 9;
+	--tw-amber-400: 217 119 6;
+	--tw-amber-900: 253 230 138;
+	--tw-amber-950: 254 243 199;
+
+	--tw-rose-200: 159 18 57;
+	--tw-rose-300: 190 18 60;
+	--tw-rose-400: 225 29 72;
+	--tw-rose-900: 254 205 211;
+	--tw-rose-950: 255 228 230;
+
+	--tw-red-200: 153 27 27;
+	--tw-red-300: 185 28 28;
+	--tw-red-400: 220 38 38;
+	--tw-red-900: 254 202 202;
+	--tw-red-950: 254 226 226;
+
+	--tw-purple-300: 109 40 217;
+	--tw-purple-400: 124 58 237;
+	--tw-purple-900: 233 213 255;
+	--tw-purple-950: 243 232 255;
+
+	--tw-sky-300: 3 105 161;
+	--tw-sky-400: 2 132 199;
+
+	--tw-cyan-300: 14 116 144;
+	--tw-cyan-400: 8 145 178;
+
+	--tw-indigo-400: 79 70 229;
 }
 
 @layer base {
-  body {
-    @apply bg-dark-950 text-slate-100 font-sans antialiased selection:bg-brand-500 selection:text-white h-screen overflow-hidden;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  }
+	body {
+		@apply bg-dark-950 text-slate-100 font-sans antialiased selection:bg-brand-500 selection:text-white h-screen overflow-hidden transition-colors duration-150;
+		font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+	}
 
-  /* Financial and code numbers: Tabular nums alignment */
-  .tabular-nums, code, pre, .font-mono {
-    font-variant-numeric: tabular-nums;
-  }
+	/* Financial and code numbers: Tabular nums alignment */
+	.tabular-nums, code, pre, .font-mono {
+		font-variant-numeric: tabular-nums;
+	}
 }
 
-/* Custom Scrollbar - High density dark style */
+/* Custom Scrollbar - Theme-aware high density style */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+	width: 6px;
+	height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #020617;
+	background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 3px;
+	background: var(--scrollbar-thumb);
+	border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+	background: var(--scrollbar-thumb-hover);
 }
 
 /* Focus indicator ring standard (WCAG AA) */
 .focus-ring {
-  outline: none;
+	outline: none;
 }
 .focus-ring:focus-visible {
-  box-shadow: 0 0 0 2px #020617, 0 0 0 4px #3b82f6;
+	box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+	*, ::before, ::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
 }

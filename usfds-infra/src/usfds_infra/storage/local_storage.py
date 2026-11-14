@@ -63,11 +63,16 @@ class LocalFileStorage(IFileStorage):
         """
         src = Path(src_path).resolve()
         if not src.is_file():
-            raise FileNotFoundError(f"Source file does not exist: {src}")
+            resolved_internal = self._resolve_path(str(src_path))
+            if resolved_internal.is_file():
+                src = resolved_internal
+            else:
+                raise FileNotFoundError(f"Source file does not exist: {src}")
 
         target = self._resolve_path(dest_path)
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(src, target)
+        if src != target:
+            shutil.copyfile(src, target)
         return str(target)
 
     def get_file_size(self, file_path: str) -> int:

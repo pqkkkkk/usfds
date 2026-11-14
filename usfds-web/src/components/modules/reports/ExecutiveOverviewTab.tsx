@@ -23,6 +23,7 @@ import {
 	YAxis,
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@/hooks';
 import type { ExecutiveOverviewData } from '@/types';
 
 interface ExecutiveOverviewTabProps {
@@ -36,6 +37,7 @@ function formatCurrency(val: number | undefined | null): string {
 
 export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data, isLoading }) => {
 	const navigate = useNavigate();
+	const { chartTokens } = useTheme();
 
 	if (isLoading) {
 		return (
@@ -72,7 +74,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 						</div>
 					</div>
 					<div className="my-2">
-						<div className="text-2xl font-bold font-mono tabular-nums text-white">
+						<div className="text-2xl font-bold font-mono tabular-nums text-slate-100">
 							{formatCurrency(kpis.gross_scanned_volume)}
 						</div>
 						<div className="text-xs text-slate-400 mt-1 font-mono tabular-nums">
@@ -158,7 +160,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 					</div>
 					<div className="my-2">
 						<div className="flex items-baseline gap-3">
-							<span className="text-2xl font-bold font-mono tabular-nums text-white">
+							<span className="text-2xl font-bold font-mono tabular-nums text-slate-100">
 								{kpis.verified_precision != null ? `${(kpis.verified_precision * 100).toFixed(1)}%` : '—'}
 							</span>
 							<span className="text-xs font-mono tabular-nums px-2 py-0.5 rounded bg-brand-500/15 text-brand-300 border border-brand-500/30">
@@ -183,7 +185,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 					</div>
 					<div className="my-2">
 						<div className="flex items-baseline gap-3">
-							<span className="text-2xl font-bold font-mono tabular-nums text-white">
+							<span className="text-2xl font-bold font-mono tabular-nums text-slate-100">
 								{((kpis.case_resolution_rate ?? 0) * 100).toFixed(1)}%
 							</span>
 							<span className="text-xs font-mono tabular-nums px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
@@ -203,7 +205,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 				<div className="lg:col-span-7 bg-dark-900 border border-dark-700/80 rounded-xl p-5">
 					<div className="flex items-center justify-between mb-4">
 						<div>
-							<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+							<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 								<Filter size={15} className="text-brand-400" />
 								<span>End-to-End Detection & Investigation Funnel</span>
 							</h3>
@@ -261,7 +263,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 					<div>
 						<div className="flex items-center justify-between mb-4">
 							<div>
-								<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+								<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 									<CheckCircle2 size={15} className="text-emerald-400" />
 									<span>Investigation Queue & Priority Breakdown</span>
 								</h3>
@@ -301,7 +303,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 														{formatCurrency(item.amount)}
 													</div>
 												</div>
-												<span className="text-sm font-bold font-mono tabular-nums text-white">
+												<span className="text-sm font-bold font-mono tabular-nums text-slate-100">
 													{item.count}
 												</span>
 											</div>
@@ -331,7 +333,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 														{formatCurrency(item.total_amount)}
 													</div>
 												</div>
-												<span className="text-sm font-bold font-mono tabular-nums text-white">
+												<span className="text-sm font-bold font-mono tabular-nums text-slate-100">
 													{item.total_count}
 												</span>
 											</div>
@@ -348,7 +350,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 			<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-5">
 				<div className="flex items-center justify-between mb-4">
 					<div>
-						<h3 className="text-sm font-semibold text-white flex items-center gap-2">
+						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Activity size={15} className="text-brand-400" />
 							<span>Financial Protection vs. Customer Friction Trend</span>
 						</h3>
@@ -366,24 +368,25 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 					<div className="h-72 w-full">
 						<ResponsiveContainer width="100%" height="100%">
 							<ComposedChart data={financialTrends} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
-								<CartesianGrid strokeDasharray="3 3" stroke="#1E293B" />
-								<XAxis dataKey="job_name" stroke="#64748B" tick={{ fontSize: 11 }} />
+								<CartesianGrid strokeDasharray="3 3" stroke={chartTokens.gridSubtleStroke} />
+								<XAxis dataKey="job_name" stroke={chartTokens.axisStroke} tick={{ fontSize: 11 }} />
 								<YAxis
 									yAxisId="left"
-									stroke="#64748B"
+									stroke={chartTokens.axisStroke}
 									tick={{ fontSize: 11 }}
 									tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
 								/>
 								<YAxis
 									yAxisId="right"
 									orientation="right"
-									stroke="#94A3B8"
+									stroke={chartTokens.axisLabel}
 									tick={{ fontSize: 11 }}
 								/>
 								<Tooltip
 									contentStyle={{
-										backgroundColor: '#0F172A',
-										borderColor: '#334155',
+										backgroundColor: chartTokens.tooltipBg,
+										borderColor: chartTokens.tooltipBorder,
+										color: chartTokens.tooltipText,
 										borderRadius: '0.5rem',
 										fontSize: '12px',
 									}}

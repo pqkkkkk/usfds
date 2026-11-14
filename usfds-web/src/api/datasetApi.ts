@@ -1,4 +1,5 @@
 import { apiClient, axios } from './client';
+import { storageApi, type PresignedDownloadUrlResponse } from './storageApi';
 import type {
   DatasetResponse,
   DatasetDetailResponse,
@@ -85,6 +86,26 @@ export const datasetApi = {
     fallbackFilename: string = 'usfds_dataset_export.zip'
   ): Promise<{ success: boolean; error?: string }> => {
     try {
+      const useS3Presigned = await storageApi.isS3StorageBackend();
+      if (useS3Presigned) {
+        const presignedRes = await apiClient.post<PresignedDownloadUrlResponse>(
+          `/v1/datasets/${datasetId}/artifacts/${artifactId}/export`,
+          req,
+          { presigned: true }
+        );
+        if (!presignedRes.success || !presignedRes.data?.download_url) {
+          return {
+            success: false,
+            error: presignedRes.error || 'Presigned export failed',
+          };
+        }
+        storageApi.triggerBrowserDownload(
+          presignedRes.data.download_url,
+          presignedRes.data.filename || fallbackFilename
+        );
+        return { success: true };
+      }
+
       const response = await axios.post(
         `/api/v1/datasets/${datasetId}/artifacts/${artifactId}/export`,
         req,

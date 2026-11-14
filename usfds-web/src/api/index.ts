@@ -7,3 +7,4 @@ export * from './trainingApi';
 export * from './detectionApi';
 export * from './queryClient';
 export * from './insightReportApi';
+export * from './storageApi';

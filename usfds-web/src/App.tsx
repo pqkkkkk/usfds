@@ -11,7 +11,7 @@ import {
 	ProjectManagementPage,
 	ProjectSettingsPage,
 } from '@/pages';
-import { ProjectProvider, useProject } from '@/hooks';
+import { ProjectProvider, ThemeProvider, useProject } from '@/hooks';
 import { ProjectFormModal } from './components/modules/project_management/ProjectFormModal';
 import type { AppModule } from '@/types';
 
@@ -147,9 +147,11 @@ function AppRoutes() {
 
 export function App() {
 	return (
-		<ProjectProvider>
-			<AppRoutes />
-		</ProjectProvider>
+		<ThemeProvider>
+			<ProjectProvider>
+				<AppRoutes />
+			</ProjectProvider>
+		</ThemeProvider>
 	);
 }
 

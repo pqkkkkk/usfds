@@ -1,81 +1,147 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
-  darkMode: 'class',
-  theme: {
-    extend: {
-      colors: {
-        dark: {
-          950: '#020617', // OLED Deep Black / base slate-950
-          900: '#0b1120', // Surface Panel
-          850: '#0f172a', // Card / Surface
-          800: '#1e293b', // Surface Elevated / Modal / Dropdown
-          750: '#1e293b', // Dark Border (avoid white fallback)
-          700: '#334155', // Border Primary
-          600: '#475569', // Border Subtle / DAG Edge
-          500: '#64748b', // Text Muted / Placeholder
-          400: '#94a3b8', // Text Secondary
-          300: '#cbd5e1',
-          100: '#f1f5f9',
-          50:  '#f8fafc',
-        },
-        brand: {
-          DEFAULT: '#3b82f6',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          glow: 'rgba(59, 130, 246, 0.25)',
-        },
-        emerald: {
-          DEFAULT: '#10b981',
-          400: '#34d399',
-          500: '#10b981',
-          600: '#059669',
-          glow: 'rgba(16, 185, 129, 0.25)',
-        },
-        fraud: {
-          DEFAULT: '#ef4444',
-          400: '#f87171',
-          500: '#ef4444',
-          600: '#dc2626',
-          900: '#7f1d1d',
-          glow: 'rgba(239, 68, 68, 0.25)',
-        },
-        legit: {
-          DEFAULT: '#10b981',
-          400: '#34d399',
-          500: '#10b981',
-          600: '#059669',
-          glow: 'rgba(16, 185, 129, 0.25)',
-        },
-        alarm: {
-          DEFAULT: '#f59e0b',
-          400: '#fbbf24',
-          500: '#f59e0b',
-          600: '#d97706',
-          glow: 'rgba(245, 158, 11, 0.25)',
-        },
-      },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        mono: ['"JetBrains Mono"', '"Fira Code"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
-      },
-      boxShadow: {
-        'glow-blue': '0 0 15px rgba(59, 130, 246, 0.25)',
-        'glow-green': '0 0 15px rgba(16, 185, 129, 0.25)',
-        'glow-red': '0 0 15px rgba(239, 68, 68, 0.25)',
-        'glow-amber': '0 0 15px rgba(245, 158, 11, 0.25)',
-      },
-      spacing: {
-        'topbar': '56px',
-        'bottombar': '28px',
-        'sidebar': '240px',
-        'sidebar-collapsed': '64px',
-      }
-    },
-  },
-  plugins: [],
-}
+	content: [
+		"./index.html",
+		"./src/**/*.{js,ts,jsx,tsx}",
+	],
+	darkMode: 'class',
+	theme: {
+		extend: {
+			colors: {
+				dark: {
+					950: 'rgb(var(--tw-dark-950) / <alpha-value>)',
+					900: 'rgb(var(--tw-dark-900) / <alpha-value>)',
+					850: 'rgb(var(--tw-dark-850) / <alpha-value>)',
+					800: 'rgb(var(--tw-dark-800) / <alpha-value>)',
+					750: 'rgb(var(--tw-dark-750) / <alpha-value>)',
+					700: 'rgb(var(--tw-dark-700) / <alpha-value>)',
+					600: 'rgb(var(--tw-dark-600) / <alpha-value>)',
+					500: 'rgb(var(--tw-dark-500) / <alpha-value>)',
+					400: 'rgb(var(--tw-dark-400) / <alpha-value>)',
+					300: 'rgb(var(--tw-dark-300) / <alpha-value>)',
+					100: 'rgb(var(--tw-dark-100) / <alpha-value>)',
+					50:  'rgb(var(--tw-dark-50) / <alpha-value>)',
+				},
+				slate: {
+					50:  'rgb(var(--tw-slate-50) / <alpha-value>)',
+					100: 'rgb(var(--tw-slate-100) / <alpha-value>)',
+					200: 'rgb(var(--tw-slate-200) / <alpha-value>)',
+					300: 'rgb(var(--tw-slate-300) / <alpha-value>)',
+					400: 'rgb(var(--tw-slate-400) / <alpha-value>)',
+					500: 'rgb(var(--tw-slate-500) / <alpha-value>)',
+					600: 'rgb(var(--tw-slate-600) / <alpha-value>)',
+					700: 'rgb(var(--tw-slate-700) / <alpha-value>)',
+					800: 'rgb(var(--tw-slate-800) / <alpha-value>)',
+					900: 'rgb(var(--tw-slate-900) / <alpha-value>)',
+					950: 'rgb(var(--tw-slate-950) / <alpha-value>)',
+				},
+				brand: {
+					DEFAULT: '#3b82f6',
+					200: 'rgb(var(--tw-brand-200) / <alpha-value>)',
+					300: 'rgb(var(--tw-brand-300) / <alpha-value>)',
+					400: 'rgb(var(--tw-brand-400) / <alpha-value>)',
+					500: '#3b82f6',
+					600: '#2563eb',
+					900: 'rgb(var(--tw-brand-900) / <alpha-value>)',
+					950: 'rgb(var(--tw-brand-950) / <alpha-value>)',
+					glow: 'rgba(59, 130, 246, 0.25)',
+				},
+				blue: {
+					200: 'rgb(var(--tw-brand-200) / <alpha-value>)',
+					300: 'rgb(var(--tw-brand-300) / <alpha-value>)',
+					400: 'rgb(var(--tw-brand-400) / <alpha-value>)',
+					900: 'rgb(var(--tw-brand-900) / <alpha-value>)',
+					950: 'rgb(var(--tw-brand-950) / <alpha-value>)',
+				},
+				emerald: {
+					DEFAULT: '#10b981',
+					200: 'rgb(var(--tw-emerald-200) / <alpha-value>)',
+					300: 'rgb(var(--tw-emerald-300) / <alpha-value>)',
+					400: 'rgb(var(--tw-emerald-400) / <alpha-value>)',
+					500: '#10b981',
+					600: '#059669',
+					900: 'rgb(var(--tw-emerald-900) / <alpha-value>)',
+					950: 'rgb(var(--tw-emerald-950) / <alpha-value>)',
+					glow: 'rgba(16, 185, 129, 0.25)',
+				},
+				amber: {
+					200: 'rgb(var(--tw-amber-200) / <alpha-value>)',
+					300: 'rgb(var(--tw-amber-300) / <alpha-value>)',
+					400: 'rgb(var(--tw-amber-400) / <alpha-value>)',
+					900: 'rgb(var(--tw-amber-900) / <alpha-value>)',
+					950: 'rgb(var(--tw-amber-950) / <alpha-value>)',
+				},
+				rose: {
+					200: 'rgb(var(--tw-rose-200) / <alpha-value>)',
+					300: 'rgb(var(--tw-rose-300) / <alpha-value>)',
+					400: 'rgb(var(--tw-rose-400) / <alpha-value>)',
+					900: 'rgb(var(--tw-rose-900) / <alpha-value>)',
+					950: 'rgb(var(--tw-rose-950) / <alpha-value>)',
+				},
+				red: {
+					200: 'rgb(var(--tw-red-200) / <alpha-value>)',
+					300: 'rgb(var(--tw-red-300) / <alpha-value>)',
+					400: 'rgb(var(--tw-red-400) / <alpha-value>)',
+					900: 'rgb(var(--tw-red-900) / <alpha-value>)',
+					950: 'rgb(var(--tw-red-950) / <alpha-value>)',
+				},
+				purple: {
+					300: 'rgb(var(--tw-purple-300) / <alpha-value>)',
+					400: 'rgb(var(--tw-purple-400) / <alpha-value>)',
+					900: 'rgb(var(--tw-purple-900) / <alpha-value>)',
+					950: 'rgb(var(--tw-purple-950) / <alpha-value>)',
+				},
+				sky: {
+					300: 'rgb(var(--tw-sky-300) / <alpha-value>)',
+					400: 'rgb(var(--tw-sky-400) / <alpha-value>)',
+				},
+				cyan: {
+					300: 'rgb(var(--tw-cyan-300) / <alpha-value>)',
+					400: 'rgb(var(--tw-cyan-400) / <alpha-value>)',
+				},
+				indigo: {
+					400: 'rgb(var(--tw-indigo-400) / <alpha-value>)',
+				},
+				fraud: {
+					DEFAULT: '#ef4444',
+					400: 'rgb(var(--tw-red-400) / <alpha-value>)',
+					500: '#ef4444',
+					600: '#dc2626',
+					900: 'rgb(var(--tw-red-900) / <alpha-value>)',
+					glow: 'rgba(239, 68, 68, 0.25)',
+				},
+				legit: {
+					DEFAULT: '#10b981',
+					400: 'rgb(var(--tw-emerald-400) / <alpha-value>)',
+					500: '#10b981',
+					600: '#059669',
+					glow: 'rgba(16, 185, 129, 0.25)',
+				},
+				alarm: {
+					DEFAULT: '#f59e0b',
+					400: 'rgb(var(--tw-amber-400) / <alpha-value>)',
+					500: '#f59e0b',
+					600: '#d97706',
+					glow: 'rgba(245, 158, 11, 0.25)',
+				},
+			},
+			fontFamily: {
+				sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+				mono: ['"JetBrains Mono"', '"Fira Code"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+			},
+			boxShadow: {
+				'glow-blue': '0 0 15px rgba(59, 130, 246, 0.25)',
+				'glow-green': '0 0 15px rgba(16, 185, 129, 0.25)',
+				'glow-red': '0 0 15px rgba(239, 68, 68, 0.25)',
+				'glow-amber': '0 0 15px rgba(245, 158, 11, 0.25)',
+			},
+			spacing: {
+				'topbar': '56px',
+				'bottombar': '28px',
+				'sidebar': '240px',
+				'sidebar-collapsed': '64px',
+			},
+		},
+	},
+	plugins: [],
+};

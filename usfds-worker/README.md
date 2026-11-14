@@ -4,10 +4,15 @@ Stateless compute worker of the `Client - Server - Worker` deployment. It consum
 enqueues through BullMQ (PostgreSQL backend), runs the existing `usfds-core` executors, reads/writes files
 through S3-compatible storage (RustFS) and records the outcome in PostgreSQL.
 
-| Queue | Job | Executor |
+| Queue | Job | Executor / Service |
 | --- | --- | --- |
-| `usfds-training` | `training_run` | `TrainingRunExecutor` |
-| `usfds-batch-inference` | `batch_inference` | `BatchInferenceExecutor` |
+| `usfds-training` | `training_run` | `TrainingRunExecutor.run` |
+| `usfds-training` | `plugin_dry_run` | `TrainingOrchestrationService.register_plugged_model` |
+| `usfds-batch-inference` | `batch_inference` | `BatchInferenceExecutor.run` |
+| `usfds-batch-inference` | `rule_backtest` | `RuleExecutor.backtest_dataframe` |
+| `usfds-data-pipeline` | `dataset_ingestion` | `DataManagementService.import_dataset` |
+| `usfds-data-pipeline` | `schema_mapping` | `DataManagementService.map_schema` |
+| `usfds-data-pipeline` | `feature_engineering` | `DataManagementService.execute_feature_engineering` |
 
 ## Run
 

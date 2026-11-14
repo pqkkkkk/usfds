@@ -389,7 +389,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 							<div className="text-[10px] font-mono uppercase text-slate-400 mb-1">
 								TOTAL RULE HITS
 							</div>
-							<div className="text-2xl font-bold font-mono text-white tracking-tight">
+							<div className="text-2xl font-bold font-mono text-slate-100 tracking-tight">
 								{backtestResult ? backtestResult.total_hits.toLocaleString() : '—'}
 							</div>
 							<div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
@@ -445,7 +445,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 						{/* Card 3: Recall */}
 						<div className="bg-dark-900 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 transition-all">
 							<div className="text-[10px] font-mono uppercase text-slate-400 mb-1">RECALL</div>
-							<div className="text-2xl font-bold font-mono text-white tracking-tight">
+							<div className="text-2xl font-bold font-mono text-slate-100 tracking-tight">
 								{backtestResult
 									? backtestResult.has_ground_truth
 										? backtestResult.recall.toFixed(3)
@@ -495,7 +495,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 							<div className="text-[10px] font-mono uppercase text-slate-400 mb-1">
 								EXECUTION LATENCY
 							</div>
-							<div className="text-2xl font-bold font-mono text-white tracking-tight">
+							<div className="text-2xl font-bold font-mono text-slate-100 tracking-tight">
 								{backtestResult ? `${backtestResult.execution_time_ms.toFixed(1)} ms` : '—'}
 							</div>
 							<div className="text-[11px] text-slate-400 mt-1">
@@ -625,7 +625,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 											>
 												<td className="py-2.5 px-3 font-bold text-blue-400">{tx.event_id}</td>
 												<td className="py-2.5 px-3 text-slate-400">{tx.timestamp}</td>
-												<td className="py-2.5 px-3 text-white font-bold">
+												<td className="py-2.5 px-3 text-slate-100 font-bold">
 													${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
 												</td>
 												<td className="py-2.5 px-3 text-slate-300">{tx.user_id}</td>

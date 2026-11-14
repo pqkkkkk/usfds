@@ -9,7 +9,15 @@ from usfds_core.domain.schemas.preprocessing_config import (
     FeatureEngineeringConfig,
 )
 from usfds_core.services.data_management.service import DataManagementService
-from usfds_server.dependencies import get_data_management_service
+from usfds_core.storage.base_storage import IFileStorage
+from usfds_infra.job_queue import (
+    JOB_DATASET_INGESTION,
+    JOB_FEATURE_ENGINEERING,
+    JOB_SCHEMA_MAPPING,
+    QUEUE_DATA_PIPELINE,
+)
+from usfds_server.config import settings
+from usfds_server.dependencies import get_data_management_service, get_job_queue, get_storage
 from usfds_server.schemas.base_response import ApiResponse
 from usfds_server.schemas.dataset_api_schemas import (
     DatasetArtifactResponse,
@@ -109,6 +117,34 @@ def import_dataset(
             except ValueError:
                 classification = DataClassification.INTERNAL
 
+        if settings.dispatch_backend == "queue":
+            res = get_job_queue().enqueue_and_wait(
+                QUEUE_DATA_PIPELINE,
+                JOB_DATASET_INGESTION,
+                {
+                    "file_path": req.file_path,
+                    "dataset_name": req.dataset_name,
+                    "display_name": req.display_name,
+                    "description": req.description,
+                    "project_id": str(req.project_id) if req.project_id else None,
+                    "user_id": str(req.user_id) if req.user_id else None,
+                    "contains_pii": req.contains_pii,
+                    "data_classification": classification.value if classification else None,
+                },
+                job_id=f"ingest-{uuid4()}",
+            )
+            dataset, artifacts, lineage = service.get_dataset(UUID(str(res["dataset_id"])))
+            detail = DatasetDetailResponse(
+                dataset=_build_dataset_response(dataset, artifacts),
+                artifacts=[_build_artifact_response(a) for a in artifacts],
+                lineage=lineage.to_dict(),
+            )
+            return ApiResponse.ok(
+                data=detail,
+                status_code=status.HTTP_201_CREATED,
+                message="Dataset imported successfully",
+            )
+
         dataset, artifact = service.import_dataset(
             file_path=req.file_path,
             dataset_name=req.dataset_name,
@@ -190,7 +226,19 @@ def map_schema(
 ) -> ApiResponse[DatasetArtifactResponse]:
     """Map raw columns to standard 5-core FDS fields, convert to mapped.parquet, and validate."""
     try:
-        artifact = service.map_schema(dataset_id=dataset_id, mapping_config=mapping_config)
+        if settings.dispatch_backend == "queue":
+            res = get_job_queue().enqueue_and_wait(
+                QUEUE_DATA_PIPELINE,
+                JOB_SCHEMA_MAPPING,
+                {
+                    "dataset_id": str(dataset_id),
+                    "mapping_config": mapping_config.model_dump(mode="json"),
+                },
+                job_id=f"map-{dataset_id}-{uuid4()}",
+            )
+            artifact = service.get_artifact(dataset_id, UUID(str(res["artifact_id"])))
+        else:
+            artifact = service.map_schema(dataset_id=dataset_id, mapping_config=mapping_config)
         return ApiResponse.ok(
             data=_build_artifact_response(artifact),
             status_code=status.HTTP_201_CREATED,
@@ -227,7 +275,19 @@ def execute_feature_engineering(
 ) -> ApiResponse[DatasetArtifactResponse]:
     """Execute feature engineering pipeline stage from MAPPED artifact."""
     try:
-        artifact = service.execute_feature_engineering(dataset_id, config)
+        if settings.dispatch_backend == "queue":
+            res = get_job_queue().enqueue_and_wait(
+                QUEUE_DATA_PIPELINE,
+                JOB_FEATURE_ENGINEERING,
+                {
+                    "dataset_id": str(dataset_id),
+                    "config": config.model_dump(mode="json"),
+                },
+                job_id=f"fe-{dataset_id}-{uuid4()}",
+            )
+            artifact = service.get_artifact(dataset_id, UUID(str(res["artifact_id"])))
+        else:
+            artifact = service.execute_feature_engineering(dataset_id, config)
         return ApiResponse.ok(
             data=_build_artifact_response(artifact),
             status_code=status.HTTP_201_CREATED,
@@ -245,8 +305,10 @@ def export_normalized_dataset(
     dataset_id: UUID,
     artifact_id: UUID,
     req: ExportDatasetRequest,
+    presigned: bool = Query(False, description="Return a presigned download URL when backed by S3"),
     service: DataManagementService = Depends(get_data_management_service),
-) -> Response:
+    storage: IFileStorage = Depends(get_storage),
+) -> Any:
     """Export normalized dataset files as a compressed ZIP package."""
     try:
         zip_bytes, filename = service.export_dataset(
@@ -258,6 +320,15 @@ def export_normalized_dataset(
             include_schema=req.include_schema,
             file_format=req.file_format,
         )
+        if presigned:
+            export_key = f"exports/datasets/{dataset_id}/{artifact_id}/{filename}"
+            storage.save_bytes(export_key, zip_bytes)
+            dl_url = storage.generate_presigned_download_url(export_key, filename=filename)
+            if dl_url:
+                return ApiResponse.ok(
+                    data={"download_url": dl_url, "filename": filename, "object_key": export_key},
+                    message="Dataset export bundle ready",
+                )
         return Response(
             content=zip_bytes,
             media_type="application/zip",

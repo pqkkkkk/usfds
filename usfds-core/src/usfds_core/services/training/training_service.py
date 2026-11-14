@@ -269,6 +269,11 @@ class TrainingOrchestrationService:
             local_path = Path(model_artifact_path)
             if self.file_storage.exists(model_artifact_path):
                 model_source = self.file_storage.read_bytes(model_artifact_path)
+                if model_artifact_path.replace("\\", "/").lstrip("/").startswith(("uploads/", "staging/")):
+                    try:
+                        self.file_storage.delete(model_artifact_path)
+                    except Exception:
+                        pass
                 model, validation_result = self.plugin_registry.register_from_zip(
                     zip_bytes=model_source,
                     user_id=user_id,

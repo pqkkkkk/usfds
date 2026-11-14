@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -59,15 +59,22 @@ export const InsightReportModule: React.FC = () => {
 	// Load project Detection Jobs for scope toolbar
 	const { data: detectionJobsRes } = useQuery({
 		queryKey: ['detection-jobs', currentProjectId],
-		queryFn: async () => {
-			if (!currentProjectId) {
-				return [];
-			}
-			const res = await detectionApi.listJobs({ projectId: currentProjectId });
-			return res.data || [];
-		},
+		queryFn: () => detectionApi.listJobs({ projectId: currentProjectId! }),
 		enabled: Boolean(currentProjectId),
 	});
+
+	const detectionJobsList = useMemo(() => {
+		if (!detectionJobsRes) {
+			return [];
+		}
+		if (Array.isArray(detectionJobsRes)) {
+			return detectionJobsRes;
+		}
+		if (Array.isArray((detectionJobsRes as any)?.data)) {
+			return (detectionJobsRes as any).data;
+		}
+		return [];
+	}, [detectionJobsRes]);
 
 	// Overview query
 	const { data: overviewData, isLoading: isOverviewLoading } = useQuery({
@@ -120,7 +127,7 @@ export const InsightReportModule: React.FC = () => {
 									className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors cursor-pointer ${
 										isActive
 											? 'bg-brand-600 text-white shadow-sm'
-											: 'text-slate-300 hover:text-white'
+											: 'text-slate-300 hover:text-slate-100'
 									}`}
 								>
 									{tab.icon}
@@ -146,7 +153,7 @@ export const InsightReportModule: React.FC = () => {
 						<ReportScopeToolbar
 							scope={scope}
 							onChange={setScope}
-							detectionJobs={detectionJobsRes || []}
+							detectionJobs={detectionJobsList}
 							scannedJobsCount={overviewData?.available_jobs?.length}
 						/>
 

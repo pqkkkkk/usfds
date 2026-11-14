@@ -40,7 +40,7 @@ export const InvestigationModule = () => {
 							className={({ isActive }) =>
 								`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors ${isActive || isWorkbenchView
 									? 'bg-brand-600 text-white shadow-sm'
-									: 'text-slate-300 hover:text-white'
+									: 'text-slate-300 hover:text-slate-100'
 								}`
 							}
 						>
@@ -52,7 +52,7 @@ export const InvestigationModule = () => {
 							className={({ isActive }) =>
 								`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors ${isActive
 									? 'bg-brand-600 text-white shadow-sm'
-									: 'text-slate-300 hover:text-white'
+									: 'text-slate-300 hover:text-slate-100'
 								}`
 							}
 						>

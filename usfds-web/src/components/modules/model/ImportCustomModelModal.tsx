@@ -12,6 +12,7 @@ import {
 	ChevronRight,
 } from 'lucide-react';
 import { trainingApi } from '../../../api/trainingApi';
+import { storageApi } from '../../../api/storageApi';
 import type {
 	DataFormat,
 	DataModality,
@@ -152,11 +153,25 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 		try {
 			let res;
 			if (sourceMode === 'upload_zip' && selectedFile) {
-				res = await trainingApi.uploadPluggedModelZip({
-					file: selectedFile,
-					projectId,
-					manifestOverride,
-				});
+				const useS3Presigned = await storageApi.isS3StorageBackend();
+				if (useS3Presigned) {
+					const objectKey = await storageApi.uploadFileViaPresignedUrl({
+						file: selectedFile,
+						purpose: 'model_plugin',
+						projectId,
+					});
+					res = await trainingApi.registerPluggedModel({
+						model_artifact_path: objectKey,
+						project_id: projectId,
+						manifest_override: manifestOverride,
+					});
+				} else {
+					res = await trainingApi.uploadPluggedModelZip({
+						file: selectedFile,
+						projectId,
+						manifestOverride,
+					});
+				}
 			} else {
 				res = await trainingApi.registerPluggedModel({
 					model_artifact_path: localPath.trim(),

@@ -4,3 +4,4 @@ export * from './useDatasetImport';
 export * from './useDatasetDetail';
 export * from './useDatasetPipeline';
 export * from './useProjects';
+export * from './useTheme';

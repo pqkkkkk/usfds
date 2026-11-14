@@ -85,17 +85,34 @@ class DatasetIngestionService:
         Project RAW schema, creates the Dataset entity, stores the raw
         data file, computes basic data profiling, and persists the RAW artifact.
         """
-        src_path = Path(file_path).resolve()
-        if not src_path.is_file():
+        path_str = str(file_path).strip()
+        local_p = Path(path_str)
+        is_local = local_p.is_file()
+
+        if is_local:
+            src_path = local_p.resolve()
+            ext = src_path.suffix.lower()
+            file_size = src_path.stat().st_size
+            src_name = src_path.name
+            src_stem = src_path.stem
+        elif self.file_storage.exists(path_str):
+            src_path = Path(path_str)
+            ext = src_path.suffix.lower()
+            file_size = (
+                self.file_storage.get_file_size(path_str)
+                if hasattr(self.file_storage, "get_file_size")
+                else len(self.file_storage.read_bytes(path_str))
+            )
+            src_name = src_path.name
+            src_stem = src_path.stem
+        else:
             raise FileNotFoundError(f"Tệp nguồn không tồn tại trên hệ thống: '{file_path}'")
 
-        ext = src_path.suffix.lower()
         if ext not in self.ALLOWED_EXTENSIONS:
             raise ValueError(
                 f"Định dạng tệp '{ext}' không được hỗ trợ. Vui lòng chọn tệp .csv, .parquet hoặc .json."
             )
 
-        file_size = src_path.stat().st_size
         if file_size == 0:
             raise ValueError("Tệp dữ liệu rỗng (0 bytes). Vui lòng kiểm tra lại nội dung tệp.")
         if file_size > max_file_size:
@@ -107,7 +124,7 @@ class DatasetIngestionService:
         dataset_id = uuid4()
         effective_project_id = project_id or uuid4()
         effective_user_id = user_id or uuid4()
-        effective_name = dataset_name or src_path.stem
+        effective_name = dataset_name or src_stem
         effective_display = display_name or effective_name.replace("_", " ").title()
 
         project = None
@@ -143,18 +160,29 @@ class DatasetIngestionService:
         )
 
         # 2. Copy/save file to storage
-        storage_dest = f"datasets/{dataset_id}/raw/{src_path.name}"
-        if hasattr(self.file_storage, "save_file"):
-            self.file_storage.save_file(src_path, storage_dest)
+        storage_dest = f"datasets/{dataset_id}/raw/{src_name}"
+        if is_local:
+            if hasattr(self.file_storage, "save_file"):
+                self.file_storage.save_file(src_path, storage_dest)
+            else:
+                self.file_storage.save_bytes(storage_dest, src_path.read_bytes())
         else:
-            self.file_storage.save_bytes(storage_dest, src_path.read_bytes())
+            if hasattr(self.file_storage, "save_file"):
+                self.file_storage.save_file(path_str, storage_dest)
+            else:
+                self.file_storage.save_bytes(storage_dest, self.file_storage.read_bytes(path_str))
+            if path_str.replace("\\", "/").lstrip("/").startswith(("uploads/", "staging/")):
+                try:
+                    self.file_storage.delete(path_str)
+                except Exception:
+                    pass
 
         # 3. Read bytes & Parse DataFrame
         try:
             raw_bytes = self.file_storage.read_bytes(storage_dest)
             df = self._load_dataframe_from_bytes(storage_dest, raw_bytes)
             if df.empty or len(df.columns) == 0:
-                raise ValueError(f"Tập dữ liệu '{src_path.name}' không chứa bản ghi hoặc cột nào.")
+                raise ValueError(f"Tập dữ liệu '{src_name}' không chứa bản ghi hoặc cột nào.")
         except Exception:
             try:
                 self.file_storage.delete(storage_dest)

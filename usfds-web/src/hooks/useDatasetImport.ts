@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { datasetApi } from '../api/datasetApi';
+import { storageApi } from '../api/storageApi';
 import { DATASETS_QUERY_KEY } from './useDatasetList';
 import { PROJECTS_QUERY_KEY } from './useProjects';
 import type { ImportDatasetRequest, DatasetDetailResponse, DataClassification } from '../types/dataset';
@@ -53,6 +54,7 @@ export function useDatasetImport({
   const queryClient = useQueryClient();
 
   const [file, setFile] = useState<{ name: string; size: string; path: string } | null>(null);
+  const [rawFile, setRawFile] = useState<File | null>(null);
   const [filePath, setFilePath] = useState('');
   const [datasetName, setDatasetName] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -107,6 +109,7 @@ export function useDatasetImport({
       ? desktopNativePath
       : (filePath && filePath.endsWith(selected.name) ? filePath : `../datasets/${selected.name}`);
 
+    setRawFile(selected);
     setFile({
       name: selected.name,
       size: `${sizeMb} MB`,
@@ -176,12 +179,14 @@ export function useDatasetImport({
 
   const removeFile = useCallback(() => {
     setFile(null);
+    setRawFile(null);
     setFilePath('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
   const resetForm = useCallback(() => {
     setFile(null);
+    setRawFile(null);
     setFilePath('');
     setDatasetName('');
     setDisplayName('');
@@ -194,7 +199,7 @@ export function useDatasetImport({
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!filePath.trim()) {
+    if (!filePath.trim() && !rawFile) {
       setErrorMsg('Vui lòng cung cấp đường dẫn tệp trên hệ thống (Local / Server File Path).');
       return;
     }
@@ -205,24 +210,31 @@ export function useDatasetImport({
 
     setErrorMsg(null);
 
-    const payload: ImportDatasetRequest = {
-      file_path: filePath.trim(),
-      dataset_name: datasetName.trim(),
-      display_name: displayName.trim() || undefined,
-      description: description.trim() || undefined,
-      project_id: defaultProjectId,
-      // Mock user id, deploy as only client app so don't need user management
-      user_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-      contains_pii: containsPii,
-      data_classification: dataClassification,
-    };
-
     try {
+      const resolvedFilePath = await storageApi.resolveStoragePath({
+        file: rawFile,
+        filePath: filePath.trim(),
+        purpose: 'dataset_raw',
+        projectId: defaultProjectId,
+      });
+
+      const payload: ImportDatasetRequest = {
+        file_path: resolvedFilePath,
+        dataset_name: datasetName.trim(),
+        display_name: displayName.trim() || undefined,
+        description: description.trim() || undefined,
+        project_id: defaultProjectId,
+        // Mock user id, deploy as only client app so don't need user management
+        user_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        contains_pii: containsPii,
+        data_classification: dataClassification,
+      };
+
       return await importMutation.mutateAsync(payload);
-    } catch {
-      // Error handled by onError callback in mutation
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Lỗi mạng khi tải lên dataset.');
     }
-  }, [filePath, datasetName, displayName, description, defaultProjectId, containsPii, dataClassification, importMutation]);
+  }, [rawFile, filePath, datasetName, displayName, description, defaultProjectId, containsPii, dataClassification, importMutation]);
 
   return {
     file,

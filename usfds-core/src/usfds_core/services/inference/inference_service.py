@@ -620,6 +620,11 @@ class InferenceService:
         stored_input_path = f"datasets/{project_id}/inferences/inputs/{job_id}/{filename}"
         if self.file_storage:
             self.file_storage.save_bytes(stored_input_path, raw_bytes)
+            if not local_p.is_file() and clean_path_str.replace("\\", "/").lstrip("/").startswith(("uploads/", "staging/")):
+                try:
+                    self.file_storage.delete(clean_path_str)
+                except Exception:
+                    pass
         else:
             stored_input_path = clean_path_str
 

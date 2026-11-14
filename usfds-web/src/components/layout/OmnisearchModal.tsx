@@ -87,7 +87,7 @@ export const OmnisearchModal = ({
                       <Icon className="w-3.5 h-3.5" />
                     </div>
                     <div className="truncate">
-                      <div className="text-slate-200 font-medium group-hover:text-white truncate">
+                      <div className="text-slate-200 font-medium group-hover:text-slate-100 truncate">
                         {item.label}
                       </div>
                       <div className="text-[10px] text-slate-500">

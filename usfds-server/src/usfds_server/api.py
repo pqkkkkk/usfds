@@ -25,6 +25,7 @@ from usfds_server.routers import (
 	insight_report_router,
 	project_router,
 	rule_router,
+	storage_router,
 	training_router,
 )
 from usfds_server.schemas.base_response import ApiResponse
@@ -91,6 +92,7 @@ app.include_router(investigation_router)
 app.include_router(blacklist_router)
 app.include_router(detection_router)
 app.include_router(insight_report_router)
+app.include_router(storage_router)
 
 
 @app.get("/health", tags=["System"])
