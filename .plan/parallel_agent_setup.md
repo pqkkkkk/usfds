@@ -1,7 +1,7 @@
 # Plan: Thiết lập môi trường cho multi AI agent làm việc song song
 
-> **Nguồn:** `docs/issues/README.md` (index ISS-001..034), `.plan/*.md`, `TODO.md`, phân tích code ngày 26-11-14.
-> **Trạng thái:** Phase 0 DONE (26-11-14). Phase 1 chưa bắt đầu; mỗi task cần plan riêng theo skill `usfds-plan`.
+> **Task ID:** `parallel_agent_setup` · **Issues:** ISS-013, ISS-020, ISS-024, ISS-025, ISS-026, ISS-028, ISS-029, ISS-034 · **Spec:** `docs/issues/README.md`
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Done (26-11-14)
 
 ---
 

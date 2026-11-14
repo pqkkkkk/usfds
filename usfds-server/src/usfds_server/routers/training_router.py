@@ -9,13 +9,19 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
 from usfds_core.domain.schemas.model_plugin import ModelPluginManifest
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
-from usfds_core.services.training.training_service import TrainingOrchestrationService
+from usfds_core.services.training.training_service import (
+    ModelLineageGraph,
+    TrainingOrchestrationService,
+)
 from usfds_infra.job_queue import JOB_PLUGIN_DRY_RUN, QUEUE_TRAINING
 from usfds_server.config import settings
 from usfds_server.dependencies import get_job_queue, get_training_service
 from usfds_server.schemas.base_response import ApiResponse
 from usfds_server.schemas.training_api_schemas import (
     ActivateModelVersionRequest,
+    ModelLineageEdgeResponse,
+    ModelLineageNodeResponse,
+    ModelLineageResponse,
     ModelResponse,
     ModelVersionResponse,
     RegisterPluggedModelRequest,
@@ -349,6 +355,46 @@ def get_model_version(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
+def _to_model_lineage_response(graph: ModelLineageGraph) -> ModelLineageResponse:
+    return ModelLineageResponse(
+        root_version_id=graph.root_version_id,
+        root_run_id=graph.root_run_id,
+        nodes=[
+            ModelLineageNodeResponse(
+                id=n.id,
+                node_type=n.node_type,
+                stage=n.stage,
+                label=n.label,
+                created_at=n.created_at,
+                parent_id=n.parent_id,
+                dataset_id=n.dataset_id,
+                metadata=n.metadata,
+            )
+            for n in graph.nodes
+        ],
+        edges=[ModelLineageEdgeResponse(source=e.source, target=e.target) for e in graph.edges],
+    )
+
+
+@router.get(
+    "/versions/{version_id}/lineage",
+    response_model=ApiResponse[ModelLineageResponse],
+    summary="Get upstream data and training lineage DAG for a ModelVersion",
+)
+def get_model_version_lineage(
+    version_id: UUID,
+    service: TrainingOrchestrationService = Depends(get_training_service),
+) -> ApiResponse[ModelLineageResponse]:
+    try:
+        graph = service.get_model_version_lineage(version_id)
+        return ApiResponse.ok(
+            data=_to_model_lineage_response(graph),
+            message="Model version lineage retrieved successfully",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
 @router.post(
     "/versions/{version_id}/activate",
     response_model=ApiResponse[ModelVersionResponse],
@@ -451,6 +497,25 @@ def get_training_run(
         return ApiResponse.ok(
             data=_to_training_run_response(run, dataset_artifact_id=artifact_id),
             message="Training run retrieved successfully",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.get(
+    "/runs/{run_id}/lineage",
+    response_model=ApiResponse[ModelLineageResponse],
+    summary="Get upstream data and training lineage DAG for a TrainingRun",
+)
+def get_training_run_lineage(
+    run_id: UUID,
+    service: TrainingOrchestrationService = Depends(get_training_service),
+) -> ApiResponse[ModelLineageResponse]:
+    try:
+        graph = service.get_training_run_lineage(run_id)
+        return ApiResponse.ok(
+            data=_to_model_lineage_response(graph),
+            message="Training run lineage retrieved successfully",
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

@@ -205,3 +205,26 @@ export interface ModelTrainingJob {
 	createdAt: string;
 	completedAt?: string;
 }
+
+export interface ModelLineageNode {
+	id: string;
+	node_type: 'DATASET_ARTIFACT' | 'TRAINING_RUN' | 'MODEL_VERSION' | string;
+	stage: string;
+	label: string;
+	created_at: string;
+	parent_id: string | null;
+	dataset_id?: string | null;
+	metadata: Record<string, unknown>;
+}
+
+export interface ModelLineageEdge {
+	source: string;
+	target: string;
+}
+
+export interface ModelLineageGraph {
+	root_version_id?: string | null;
+	root_run_id?: string | null;
+	nodes: ModelLineageNode[];
+	edges: ModelLineageEdge[];
+}
