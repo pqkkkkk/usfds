@@ -35,7 +35,7 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-002 | In-use rules can still be deleted | bug | rule-engine | P1 | Open | — | [11-01](11-01-2026.md) |
 | ISS-003 | In-use datasets can still be deleted | bug | data-management | P1 | Open | — | [11-01](11-01-2026.md) |
 | ISS-004 | Double transfer via `uploads/` staging (presigned URL) | improvement | storage | P3 | Open | — | [11-11](11-11-2026.md) |
-| ISS-005 | Mixed Vietnamese/English in usfds-web | improvement | web | P2 | Open | — | [11-13](11-13-2026.md) |
+| ISS-005 | Mixed Vietnamese/English in usfds-web | improvement | web | P2 | Resolved (26-11-14) | — <!-- [26-11-14] --> | [11-13](11-13-2026.md) |
 | ISS-006 | No user management / authentication / RBAC | feature | auth | **P0** | Planned | [user_management_rbac](../../.plan/user_management_rbac.md) | [11-13](11-13-2026.md) |
 | ISS-007 | System metadata (system columns) not manageable | feature | data-management | P2 | Needs spec | — | [11-13](11-13-2026.md) |
 | ISS-008 | No lineage visualization for model versions | feature | training, web | P2 | Needs spec | — | [11-13](11-13-2026.md) |

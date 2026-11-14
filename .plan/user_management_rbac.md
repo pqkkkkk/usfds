@@ -1,143 +1,147 @@
 # Plan: User Management, Authentication & 3-Scope RBAC (`SYSTEM`, `PROJECT`, `OWN`)
 
-> **Issue:** [docs/issues/11-13-2026.md](file:///d:/Thesis/4. Implementation/usfds/docs/issues/11-13-2026.md#L3)  
-> **Reference:** Notion `TASK-88` (*Thiết kế chính sách kiểm soát truy cập cho FDS*)  
-> **Architecture Baseline:** Single-tenant self-hosted (`Client-Server` + `Local Desktop`), Clean Architecture (`usfds-core` -> `usfds-infra` -> `usfds-server` / `usfds-web`).
+> **Task ID:** `user_management_rbac` (= this file name) · **Issues:** ISS-006 · **Spec:** Notion `TASK-88` (*Thiết kế chính sách kiểm soát truy cập cho FDS*), reference RBAC pattern from `src.zip` (`domain/access.ts`, `features/admin/rbac/rules.ts`)
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Draft
 
----
+## 1. Context (facts)
+- Hệ thống hiện tại chưa có authentication hay RBAC: `User` chỉ là dataclass tối giản không có `password_hash`/`status` (`usfds-core/src/usfds_core/domain/entities/system.py:10-15`), chưa có bảng `users` hay các bảng RBAC trong schema baseline (`usfds-infra/src/usfds_infra/database/migrations/versions/0001_baseline_baseline_schema.py`).
+- Backend hiện hardcode định danh giả: `get_actor() -> "local-analyst"` (`usfds-server/src/usfds_server/routers/investigation_router.py:33`), `"mock_user"` (`usfds-server/src/usfds_server/routers/training_router.py:174,189,255,269`), `prepared_by: str = "local-analyst"` (`usfds-server/src/usfds_server/routers/insight_report_router.py:141,170,205`).
+- Frontend hiện hardcode `DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000000'` (`usfds-web/src/hooks/useProjects.tsx:20,105`) và `'local-analyst'` (`usfds-web/src/components/modules/investigation/CaseQueueView.tsx:250`, `usfds-web/src/components/modules/reports/ComplianceReportCenterTab.tsx:36`).
+- Sau Phase 0 (F2, F3), ORM và repository được tách theo domain tại `usfds-infra/src/usfds_infra/database/tables/` và `usfds-infra/src/usfds_infra/database/repos/`, FastAPI dependencies được tách tại `usfds-server/src/usfds_server/providers/`.
+- Pattern RBAC trong `src.zip` (`domain/access.ts`, `features/admin/rbac/rules.ts`):
+  - Entity trung tâm là `ActorContext` (gồm `projects: list[ProjectPermissions]`, `system_role_keys`, `system_permissions`, `is_system_admin`), được load qua `get_actor_context` và sanitize scope theo nhánh (`keep_scopes`: project branch chỉ giữ `OWN`/`PROJECT`, system branch chỉ giữ `SYSTEM`).
+  - Enforcement xoay quanh 4 hàm thống nhất: `can_list`, `can_read`, `can_create`, `can_mutate`.
+  - Management chống leo thang quyền qua `delegation_refusal`, `super_admin_refusal`, `assert_grant_scopes`, `assert_scope_change_allowed`.
 
-## 1. Quyết định Kiến trúc Cốt lõi
+## 2. Goal, scope verdict & non-goals
+- **Goal:** Triển khai User Management, Authentication (`required` với JWT + Refresh Token và `local_auto` cho Desktop) và 3-Scope Data-Driven RBAC (`SYSTEM`, `PROJECT`, `OWN`) theo mô hình `ActorContext` + `can_list`/`can_read`/`can_create`/`can_mutate` trên `usfds-core`, `usfds-infra`, `usfds-server`, `usfds-web`.
+- **Scope:** OK
+- **Non-goals / omitted:**
+  - Không tạo bảng `organizations` (Single-Tenant self-hosted; `platform` + `organization` gộp thành `SYSTEM`).
+  - Không tạo bảng `authz_audit` (giữ tối giản 7 bảng Auth/RBAC).
+  - Không dùng Supabase Auth / `platform_accounts` như `src.zip`; USFDS dùng username + password (`Argon2id`/`bcrypt`) + JWT nội bộ.
+  - Không làm giao diện quản lý API keys (giữ cấu hình trong `.env.example` và `config.py`).
+  - Không sửa `usfds-cli` hoặc `usfds-agent` trong task này.
+- **Assumptions:**
+  - Ánh xạ từ `src.zip`: `own` -> `OWN`, `market` -> `PROJECT`, `global` -> `SYSTEM`; `Market` -> `Project`.
+  - Bảng `project_members` dùng khóa chính phức hợp `(project_id, user_id, role_id)` để **hỗ trợ 1 user giữ nhiều role trong cùng 1 project** mà không cần thêm bảng trung gian.
+  - `project_admin` được phép quản lý `project_members` trong project của mình (bị chặn leo thang quyền bởi `delegation_refusal`); chỉ `system_admin` mới quản lý định nghĩa `roles`/`role_permissions` và `users`.
+  - Toàn bộ migration/query tương thích cả SQLite (Desktop) và PostgreSQL (Client-Server), tuân thủ PG-compat guards.
 
-1. **Bỏ bảng `organizations` — Sử dụng 3 Permission Scopes (`SYSTEM`, `PROJECT`, `OWN`):**
-   - Do hệ thống phục vụ mô hình mỗi tổ chức tự host (Single-Tenant), `platform` và `organization` trùng nhau về ngữ nghĩa. Tinh gọn thành 3 scopes:
-     - **`SYSTEM`**: Quản trị toàn hệ thống (users, system roles, built-in models, system metadata, xem tất cả projects/audit).
-     - **`PROJECT`**: Phân quyền theo từng Project qua `project_members (project_id, user_id, role_id)` (bám sát nguyên tắc *"Access control per project first"* trong `TASK-88`).
-     - **`OWN`**: Tài nguyên cá nhân (`me` profile/password/sessions) và tài nguyên trong Project do user sở hữu/được giao (`created_by == user_id`, `assigned_to == user_id`).
-   - *Non-breaking extensibility:* Nếu sau này mở rộng thành Multi-tenant SaaS, chỉ cần thêm `organizations`, `organization_members`, cột `org_id` trên `projects`/`roles`, và giá trị `ORGANIZATION` vào `RoleScope` mà không phá vỡ cấu trúc hiện tại.
-2. **Data-Driven RBAC:**
-   - Quyền được cấu hình trong DB (`roles`, `permissions`, `role_permissions`) thay vì hardcode role names trong nghiệp vụ. Bổ sung role mới (ví dụ `Risk Manager`) hoặc điều chỉnh ma trận quyền `TASK-88` chỉ là thay đổi dữ liệu seed/cấu hình.
-3. **Authentication (Username + Password) & 2 Chế độ Triển khai:**
-   - **Client-Server (`USFDS_AUTH_MODE=required`):** Xác thực bằng `username` + `password` (hash bằng `Argon2id` / `bcrypt`), cấp **JWT Access Token** (ngắn hạn) + **Refresh Token** (lưu hash trong DB `user_sessions`, hỗ trợ revoke/logout).
-   - **Local Desktop (`USFDS_AUTH_MODE=local_auto`):** Tự động bootstrap 1 tài khoản `system_admin` cục bộ khi khởi động và auto-inject vào `CurrentUser` (không hiển thị màn hình Login).
-   - **No custom UI for API keys:** Toàn bộ cấu hình auth/secret đặt trong `.env.example` và `usfds-server/src/usfds_server/config.py`.
+## 3. Files
+| Action | File | Milestone | Note |
+|---|---|---|---|
+| modify | `usfds-core/src/usfds_core/domain/entities/enums.py` | M1 | append-only: `UserStatus`, `RoleScope`, `GrantScope`, `AuthMode` |
+| modify | `usfds-core/src/usfds_core/domain/entities/system.py` | M1 | mở rộng `User` (`full_name`, `password_hash`, `status`, `last_login_at`, `updated_at`) |
+| create | `usfds-core/src/usfds_core/domain/entities/auth.py` | M1 | `Role`, `Permission`, `RolePermission`, `ProjectMember`, `UserSession`, `ProjectPermissions`, `ActorContext`, `AccessTarget`, `BaseQueryFilter`, `PermissionDeniedError` |
+| create | `usfds-core/src/usfds_core/repositories/base_user_repo.py` | M1 | `IUserRepository` |
+| create | `usfds-core/src/usfds_core/repositories/base_rbac_repo.py` | M1 | `IRoleRepository`, `IPermissionRepository`, `IProjectMemberRepository` (kèm `load_actor_context`) |
+| create | `usfds-core/src/usfds_core/repositories/base_session_repo.py` | M1 | `IUserSessionRepository` |
+| modify | `usfds-core/src/usfds_core/repositories/__init__.py` | M1 | append-only exports |
+| create | `usfds-infra/src/usfds_infra/database/tables/auth.py` | M1 | 7 ORM tables: `users`, `user_sessions`, `roles`, `permissions`, `role_permissions`, `system_user_roles`, `project_members` (PK `(project_id, user_id, role_id)`) |
+| modify | `usfds-infra/src/usfds_infra/database/tables/__init__.py` | M1 | append-only |
+| create | `usfds-infra/src/usfds_infra/database/repos/auth.py` | M1 | `SqlUserRepository`, `SqlRoleRepository`, `SqlPermissionRepository`, `SqlProjectMemberRepository`, `SqlUserSessionRepository` |
+| modify | `usfds-infra/src/usfds_infra/database/repos/__init__.py` | M1 | append-only |
+| modify | `usfds-infra/src/usfds_infra/database/__init__.py` | M1 | append-only |
+| create | `usfds-infra/src/usfds_infra/database/seed_rbac.py` | M1 | seed idempotent 5 roles, permissions, role_permissions, bootstrap admin & backfill `project_members` |
+| migration | `usfds-infra/src/usfds_infra/database/migrations/versions/<rev>_add_auth_and_rbac.py` | M1 | 1 Alembic revision duy nhất |
+| create | `usfds-core/src/usfds_core/services/auth/security.py` | M2 | `IPasswordHasher`, `ITokenProvider` |
+| create | `usfds-core/src/usfds_core/services/auth/auth_service.py` | M2 | `login`, `refresh`, `logout`, `change_password`, `update_own_profile`, `create_user`, `list_users`, `get_user`, `update_user`, `set_user_status`, `reset_password` |
+| create | `usfds-infra/src/usfds_infra/security/__init__.py` | M2 | `PasswordHasher` (`pwdlib[argon2]`/`bcrypt`) & `JwtTokenProvider` (`PyJWT`) |
+| modify | `usfds-server/pyproject.toml` | M2 | thêm `pyjwt`, `pwdlib[argon2]` (hoặc `bcrypt`) |
+| modify | `usfds-server/src/usfds_server/config.py` | M2 | append-only: `auth_mode`, `jwt_secret`, `access_token_expire_minutes`, `refresh_token_expire_days`, `bootstrap_admin_*`, `cors_origins` |
+| modify | `deploy/.env.example` | M2 | append-only auth env vars |
+| modify | `deploy/docker-compose.yml` | M2 | set `USFDS_AUTH_MODE=required` |
+| create | `usfds-server/src/usfds_server/providers/auth.py` | M2 | `get_current_user` (`required` & `local_auto`), `get_auth_service`, `get_authz_service` |
+| modify | `usfds-server/src/usfds_server/dependencies.py` | M2 | gọi `seed_rbac` trong `setup_infrastructure()` |
+| create | `usfds-server/src/usfds_server/schemas/auth_schemas.py` | M2 | schemas cho auth, users, rbac, project members |
+| create | `usfds-server/src/usfds_server/routers/auth_router.py` | M2 | `/api/v1/auth` (`mode`, `login`, `refresh`, `logout`, `me`, `me/password`) |
+| modify | `usfds-server/src/usfds_server/api.py` | M2 | append-only router registration |
+| create | `usfds-core/src/usfds_core/services/auth/access_logic.py` | M3 | port từ `src.zip`: `get_actor_context`, `held_scope`, `broadest_scope`, `effective_scope`, `scope_covers`, `can_list`, `can_read`, `can_create`, `can_mutate`, `group_by_owner` |
+| create | `usfds-core/src/usfds_core/services/auth/authz_service.py` | M3 | `AuthzService` (M3: enforcement `get_actor_context`, `can_list`, `can_read`, `can_create`, `can_mutate`; M4: thêm management methods) |
+| modify | `usfds-core/src/usfds_core/services/project_management/project_service.py` | M3 | lọc `list_projects_for_user` theo `can_list` / `ActorContext`, auto-add creator làm `project_admin` |
+| modify | `usfds-server/src/usfds_server/providers/auth.py` | M3 | thêm `get_actor_context`, `require_permission(...)` |
+| modify | `usfds-server/src/usfds_server/routers/*.py` | M3 | enforce `can_list`/`can_read`/`can_create`/`can_mutate` trên toàn bộ routers, bỏ `mock_user`/`local-analyst`, siết `storage_router.py` |
+| modify | `usfds-core/src/usfds_core/services/auth/access_logic.py` | M4 | bổ sung anti-escalation từ `src.zip`: `delegation_refusal`, `super_admin_refusal`, `role_change_refusal`, `assert_grant_scopes`, `assert_scope_change_allowed`, `is_valid_role_key` |
+| modify | `usfds-core/src/usfds_core/services/auth/authz_service.py` | M4 | quản lý `project_members` (kèm bảo vệ `project_admin` cuối cùng), `system_user_roles`, `roles`, `role_permissions` |
+| create | `usfds-server/src/usfds_server/routers/user_router.py` | M4 | `/api/v1/users` (SYSTEM scope) |
+| create | `usfds-server/src/usfds_server/routers/rbac_router.py` | M4 | `/api/v1/rbac` (`roles`, `permissions`, `roles/{id}/permissions`) |
+| modify | `usfds-server/src/usfds_server/routers/project_router.py` | M4 | thêm `/api/v1/projects/{project_id}/members` |
+| create | `usfds-web/src/types/auth.ts` | M5 | `AuthUser`, `AuthModeResponse`, `LoginRequest`, `RoleDto`, `PermissionDto`, `ProjectMemberDto`, `AdminUserDto` |
+| create | `usfds-web/src/api/authApi.ts` | M5 | auth endpoints |
+| create | `usfds-web/src/api/userAdminApi.ts` | M5 | admin user & rbac endpoints |
+| create | `usfds-web/src/api/projectMemberApi.ts` | M5 | project members endpoints |
+| modify | `usfds-web/src/api/client.ts` | M5 | gắn `Authorization: Bearer`, single-flight refresh khi `401` |
+| create | `usfds-web/src/hooks/useAuth.tsx` | M5 | `AuthProvider`, `hasPermission(code, projectId?)`, `isSystemAdmin`, `logout` |
+| create | `usfds-web/src/pages/LoginPage.tsx` | M5 | màn hình đăng nhập (ẩn khi `local_auto`) |
+| create | `usfds-web/src/pages/AdminUsersPage.tsx` | M5 | quản lý Users & Role-Permission Matrix |
+| create | `usfds-web/src/components/modules/auth/ProfileModal.tsx` | M5 | thông tin tài khoản + đổi mật khẩu |
+| modify | `usfds-web/src/components/modules/project_management/ProjectSettingsView.tsx` | M5 | thêm tab Members & Access |
+| modify | `usfds-web/src/components/layout/Topbar.tsx` | M5 | hiển thị user thật, menu Profile / Admin / Logout |
+| modify | `usfds-web/src/App.tsx` | M5 | route `/login`, `/admin/users`, AuthProvider guard |
+| modify | `usfds-web/src/hooks/useProjects.tsx`, `CaseQueueView.tsx`, `ComplianceReportCenterTab.tsx`, `insightReportApi.ts` | M5 | bỏ `DEFAULT_USER_ID` và `'local-analyst'` |
 
----
+## 4. Dependencies & conflicts (with other tasks on BOARD)
+| # | Check | Answer |
+|---|---|---|
+| D1 | Needs unfinished task? | No (Phase 0 đã Done) |
+| D2 | Needed by unfinished task? | No |
+| C1 | Modified files owned by in-progress task? | No |
+| C2 | Hot-spot files touched | `enums.py`, `repositories/__init__.py`, `database/__init__.py`, `tables/__init__.py`, `repos/__init__.py`, `api.py`, `dependencies.py`, `config.py`, `deploy/.env.example`, `App.tsx`, `client.ts` (append-only) |
+| C3 | Schema change | Yes: 7 bảng Auth/RBAC trong 1 Alembic revision riêng |
+| C4 | Public contract change | Yes: thêm `Authorization: Bearer` khi `USFDS_AUTH_MODE=required`; bỏ `user_id`/`created_by` từ payload -> `usfds-web` cập nhật cùng task trong M5 |
+| C5 | Shared UI shell change | Yes: `usfds-web/src/App.tsx`, `Topbar.tsx`, `client.ts` |
 
-## 2. Thiết kế ERD & Mô hình Dữ liệu
+## 5. Acceptance tests (user reviews this section)
+| Milestone | Test | Given | When | Then | Covers |
+|---|---|---|---|---|---|
+| M1 | `test_schema_supports_multi_role_per_project_and_idempotent_seed` (`usfds-infra/tests/test_auth_repositories.py`) | DB sạch có 1 project cũ chưa có member | Chạy `seed_rbac` 2 lần, rồi gán 2 roles (`data_scientist`, `fraud_analyst`) cho cùng 1 user trên project đó | Seed không trùng lặp; `project_members` lưu được cả 2 roles và `load_actor_context` gộp đủ permissions của cả 2 | ISS-006 |
+| M2 | `test_required_mode_auth_lifecycle` (`usfds-server/tests/test_auth_and_rbac_api.py`) | `USFDS_AUTH_MODE=required`, user active đã seed | `POST /auth/login` -> `GET /auth/me` -> `POST /auth/refresh` -> `POST /auth/logout` | Trả JWT + refresh token; token sau logout bị `401`; user `DISABLED` bị từ chối login và thu hồi session | ISS-006 |
+| M2 | `test_local_auto_mode_bootstraps_admin` (`usfds-server/tests/test_auth_and_rbac_api.py`) | `USFDS_AUTH_MODE=local_auto` | Gọi `GET /api/v1/auth/mode` và `GET /api/v1/auth/me` không kèm Bearer | `mode == local_auto`; `/auth/me` trả về bootstrap local `system_admin` | ISS-006 |
+| M3 | `test_actor_context_and_four_access_checks` (`usfds-core/tests/test_authz_enforcement.py`) | `ActorContext` có `fraud_analyst` (`OWN` cho `rule:update`) ở Project A và không thuộc Project B | Gọi `can_list`, `can_read`, `can_create`, `can_mutate` trên A (owner=self/other) và B | `can_list` trả filter `owner_id=self` cho A, `403` nếu đòi B; `can_mutate` allow A(self), deny A(other) & B | ISS-006 |
+| M3 | `test_router_rbac_isolation_and_storage_guard` (`usfds-server/tests/test_auth_and_rbac_api.py`) | `USFDS_AUTH_MODE=required`, User A thuộc Project 1, không thuộc Project 2 | User A gọi API của Project 2 hoặc `storage/presigned-download` với `object_key` của Project 2 | Server trả `403 Forbidden`; không còn endpoint nào nhận `mock_user`/`local-analyst` | ISS-006 |
+| M4 | `test_delegation_and_system_only_refusal` (`usfds-core/tests/test_authz_management.py`) | `project_admin` chỉ giữ quyền trong Project A | Gọi `assign_project_member` với `system_admin` hoặc role có quyền vượt quá quyền của caller | Bị từ chối (`PermissionDeniedError`), chống leo thang quyền | ISS-006 |
+| M4 | `test_cannot_remove_last_project_admin` (`usfds-core/tests/test_authz_management.py`) | Project A chỉ còn 1 `project_admin` | Gọi xóa hoặc hạ quyền `project_admin` cuối cùng | Raise lỗi nghiệp vụ không cho xóa/hạ quyền | ISS-006 |
+| M4 | `test_admin_user_and_rbac_endpoints` (`usfds-server/tests/test_auth_and_rbac_api.py`) | `system_admin` và `fraud_analyst` | Cả 2 gọi `/api/v1/users`, `/api/v1/rbac/roles/{id}/permissions`, `/api/v1/projects/{id}/members` | `system_admin` thành công (`200`/`201`); `fraud_analyst` bị `403` | ISS-006 |
+| M5 | `test_login_and_permission_gated_ui` (`usfds-web/src/test/authRbac.test.tsx`) | MSW mock `mode=required`, user login với role `fraud_analyst` | Render App, đăng nhập, điều hướng Project Settings & Admin | Ẩn menu Admin Users; tab Members chỉ hiển thị đúng quyền; `401` kích hoạt single-flight refresh | ISS-006 |
 
-### 2.1. Các bảng mới (`usfds-infra/src/usfds_infra/database/auth_models.py`)
+## 6. Milestones & to-do (checkpoints, not stop points: all tests green at each)
+The agent ticks items as it works. This is the task's only to-do list.
 
-| Bảng | Cột chính | Ràng buộc / Ghi chú |
-| :--- | :--- | :--- |
-| **`users`** | `user_id` (PK, UUID), `username` (Unique, Indexed), `email` (Unique, Nullable), `full_name`, `password_hash`, `status` (`ACTIVE` \| `DISABLED`), `last_login_at`, `created_at`, `updated_at` | Thay thế `user_id` / `created_by` giả lập hiện tại. |
-| **`user_sessions`** | `session_id` (PK), `user_id` (FK -> `users`, CASCADE), `refresh_token_hash` (Unique, Indexed), `expires_at`, `revoked_at`, `user_agent`, `ip_address`, `created_at` | Hỗ trợ refresh token rotation, logout và thu hồi ngay khi user bị `DISABLED`. |
-| **`roles`** | `role_id` (PK), `name`, `display_name`, `scope` (`SYSTEM` \| `PROJECT`), `is_system` (Bool), `description`, `created_at`, `updated_at` | `UniqueConstraint("scope", "name")`. Built-in roles có `is_system = True`. |
-| **`permissions`** | `permission_id` (PK), `code` (Unique, `resource:action`), `resource`, `action`, `scope` (`SYSTEM` \| `PROJECT` \| `OWN`), `description` | Catalog chuẩn hóa toàn bộ hành động trên hệ thống. |
-| **`role_permissions`** | `role_id` (PK, FK -> `roles`, CASCADE), `permission_id` (PK, FK -> `permissions`, CASCADE), `grant_scope` (`ALL` \| `OWN`) | Cho phép phân biệt quyền trên toàn Project (`ALL`) hoặc chỉ trên dữ liệu của mình (`OWN`). |
-| **`system_user_roles`** | `user_id` (PK, FK -> `users`, CASCADE), `role_id` (PK, FK -> `roles`, CASCADE), `assigned_by`, `created_at` | Gán role cấp `SYSTEM` (`system_admin`, `system_member`). |
-| **`project_members`** | `project_id` (PK, FK -> `projects`, CASCADE), `user_id` (PK, FK -> `users`, CASCADE), `role_id` (FK -> `roles`), `added_by`, `created_at`, `updated_at` | Gán role cấp `PROJECT` (`project_admin`, `data_scientist`, `fraud_analyst`). |
+- [ ] **M1 — Entities, ORM Tables, Repos, Alembic & Seed** (`usfds-core`, `usfds-infra`):
+  - [ ] [tests] Viết M1 tests trong `usfds-infra/tests/test_auth_repositories.py`; xác nhận fail đúng lý do
+  - [ ] [core] Thêm enums, mở rộng `User`, tạo `entities/auth.py` (kèm `ActorContext`, `ProjectPermissions`, `AccessTarget`, `BaseQueryFilter`), tạo repository interfaces (`base_user_repo.py`, `base_rbac_repo.py`, `base_session_repo.py`)
+  - [ ] [infra] Tạo `tables/auth.py` (PK `(project_id, user_id, role_id)` trên `project_members`), `repos/auth.py`, `seed_rbac.py`, và 1 Alembic migration revision
+  - [ ] [verify] `./scripts/test.sh core infra`
+- [ ] **M2 — Auth: Sign-in, User Lifecycle, JWT & Session Operations** (`usfds-core`, `usfds-infra`, `usfds-server`, `deploy/`):
+  - [ ] [tests] Viết M2 tests trong `usfds-server/tests/test_auth_and_rbac_api.py` (login, refresh, logout, disable, `local_auto`)
+  - [ ] [core] Tạo `security.py` (`IPasswordHasher`, `ITokenProvider`) và `auth_service.py`
+  - [ ] [infra] Tạo `usfds_infra/security/` (`PasswordHasher`, `JwtTokenProvider`)
+  - [ ] [server] Cập nhật `config.py`, `pyproject.toml`, `deploy/`, `dependencies.py` (gọi `seed_rbac`), tạo `providers/auth.py`, `auth_schemas.py`, `auth_router.py`
+  - [ ] [verify] `./scripts/test.sh core infra server`
+- [ ] **M3 — Authz Enforcement (`ActorContext` + `can_list`/`can_read`/`can_create`/`can_mutate`)** (`usfds-core`, `usfds-server`):
+  - [ ] [tests] Viết M3 tests (`usfds-core/tests/test_authz_enforcement.py` và router isolation tests trong `usfds-server/tests/test_auth_and_rbac_api.py`)
+  - [ ] [core] Port `access_logic.py` (`get_actor_context`, `can_list`, `can_read`, `can_create`, `can_mutate`, `group_by_owner`), tạo `authz_service.py` (enforcement), cập nhật `project_service.py`
+  - [ ] [server] Thêm `get_actor_context` & `require_permission` vào `providers/auth.py`; gắn enforcement lên toàn bộ routers hiện có; bỏ `mock_user`/`local-analyst`; siết `storage_router.py`
+  - [ ] [verify] `./scripts/test.sh core infra server`
+- [ ] **M4 — Authz Management (Admin Users, Roles, Project Members & Anti-Escalation)** (`usfds-core`, `usfds-server`):
+  - [ ] [tests] Viết M4 tests (`usfds-core/tests/test_authz_management.py` và admin/member API tests trong `usfds-server/tests/test_auth_and_rbac_api.py`)
+  - [ ] [core] Bổ sung `delegation_refusal`, `super_admin_refusal`, `role_change_refusal`, `assert_grant_scopes`, `assert_scope_change_allowed` vào `access_logic.py` và các hàm quản lý vào `authz_service.py` (kèm bảo vệ `project_admin` cuối cùng)
+  - [ ] [server] Tạo `user_router.py`, `rbac_router.py`, mở rộng `project_router.py` (`/members`)
+  - [ ] [verify] `./scripts/test.sh core infra server`
+- [ ] **M5 — Frontend Auth, Admin & Project Members UI** (`usfds-web`):
+  - [ ] [tests] Viết M5 tests (`usfds-web/src/test/authRbac.test.tsx`) với vitest + MSW
+  - [ ] [web] Tạo `types/auth.ts`, `authApi.ts`, `userAdminApi.ts`, `projectMemberApi.ts`, cập nhật `client.ts` (single-flight refresh) và `useAuth.tsx`
+  - [ ] [web] Tạo `LoginPage.tsx`, `AdminUsersPage.tsx`, `ProfileModal.tsx`, mở rộng `ProjectSettingsView.tsx`, cập nhật `Topbar.tsx`, `App.tsx`, xóa `DEFAULT_USER_ID` & `'local-analyst'`
+  - [ ] [verify] `./scripts/test.sh web` + build/lint
+- [ ] **M6 — Full Regression & Report** (`all`):
+  - [ ] [verify] `./scripts/test.sh` toàn bộ packages
 
-### 2.2. Ma trận Seed Mặc định (Bám sát `TASK-88` & lấp đầy khoảng trống)
+Checkpoint log (the agent appends one line per finished milestone):
+- —
 
-- **System Roles (`scope = SYSTEM`):**
-  - `system_admin`: Toàn quyền `SYSTEM` (`user:*`, `role:*`, `project:create`, `project:list_all`, `audit:system_read`, `model_builtin:manage`) + quyền `PROJECT` đầy đủ khi truy cập bất kỳ project nào.
-  - `system_member`: Quyền cơ bản (`project:create`, `project:list_own`, `own:profile_read`, `own:profile_update`, `own:password_change`, `own:session_manage`). Chỉ thấy và thao tác trên các Project mà mình là thành viên.
-- **Project Roles (`scope = PROJECT`):**
-  - `project_admin` (*Admin*): `project:read/update/delete/reset_schema`, `project_member:read/manage`, `dataset:read/export`, `model:read/update`, `training:read`, `deployment:deploy/undeploy`, `rule:read`, `detection:create/read`, `case:read/assign`, `report:read/create/export`, `audit:read`.
-  - `data_scientist` (*Data Scientist*): `project:read`, `dataset:create/read/update/delete/export`, `model:create/read/update`, `training:create/read`, `deployment:deploy/undeploy`, `rule:create/read/update/delete/dry_run/deploy/undeploy`, `detection:create/read`, `report:read`.
-  - `fraud_analyst` (*Fraud Analyst*): `project:read`, `dataset:read`, `rule:read`, `rule:propose` (`DRAFT`/`SHADOW`), `detection:create/read`, `case:read/claim/manual_review/escalate/reopen`, `blacklist:manage`, `report:read/create/export`, `audit:read` (case audit).
-- **Thuật toán Kiểm tra Quyền (`AuthorizationService.authorize`):**
-  1. Xác thực `CurrentUser` (`status == ACTIVE`).
-  2. Nếu có permission ở scope `SYSTEM` -> **Allow**.
-  3. Nếu request gắn `project_id`: kiểm tra user thuộc `project_members` của `project_id`.
-     - Role trong project có `permission_code` với `grant_scope == ALL` -> **Allow**.
-     - Role trong project có `permission_code` với `grant_scope == OWN` và `resource_owner_id == current_user.user_id` -> **Allow**.
-  4. Nếu request ở scope `OWN` (`target_user_id == current_user.user_id`) -> **Allow**.
-  5. Ngược lại -> Raise `PermissionDeniedError` (`HTTP 403`).
+## 7. Review hotspots (filled in after implementation)
+- —
 
----
-
-## 3. Các Giai đoạn Triển khai Chi tiết
-
-### Phase 1: Core Domain, Interfaces & Services (`usfds-core`)
-1. **[`usfds-core/src/usfds_core/domain/entities/enums.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-core/src/usfds_core/domain/entities/enums.py)**:
-   - Thêm `UserStatus`, `RoleScope`, `GrantScope`, `AuthMode`.
-2. **[`usfds-core/src/usfds_core/domain/entities/auth.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-core/src/usfds_core/domain/entities/auth.py)** *(mới)* & [`system.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-core/src/usfds_core/domain/entities/system.py):
-   - Mở rộng `User` (`full_name`, `password_hash`, `status`, `last_login_at`, `updated_at`), thêm dataclasses `Role`, `Permission`, `RolePermission`, `ProjectMember`, `UserSession`, `CurrentUser`, `PermissionDeniedError`.
-3. **Repository Interfaces (`usfds-core/src/usfds_core/repositories/`)**:
-   - Thêm `base_user_repo.py` (`IUserRepository`), `base_rbac_repo.py` (`IRoleRepository`, `IPermissionRepository`, `IProjectMemberRepository`), `base_session_repo.py` (`IUserSessionRepository`).
-4. **Services (`usfds-core/src/usfds_core/services/auth/`)** *(mới)*:
-   - `security.py`: interface/protocol `IPasswordHasher`, `ITokenProvider`.
-   - `auth_service.py`: `login()`, `refresh()`, `logout()`, `change_password()`, `update_own_profile()`.
-   - `user_service.py`: CRUD user, enable/disable (kèm revoke all sessions), reset password, gán system roles.
-   - `rbac_service.py`: kiểm tra quyền 3 scopes (`SYSTEM`, `PROJECT`, `OWN`), quản lý `project_members` (bảo vệ không xóa `project_admin` cuối cùng).
-5. **Cập nhật [`project_service.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-core/src/usfds_core/services/project_management/project_service.py)**:
-   - Khi `create_project(..., user_id=creator_id)`, tự động thêm `creator_id` vào `project_members` với role `project_admin`.
-   - Hỗ trợ `list_projects_for_user(user_id, is_system_admin)` để cô lập danh sách dự án.
-
-### Phase 2: Database ORM, Repositories & Seeding (`usfds-infra`)
-1. **[`usfds-infra/src/usfds_infra/database/auth_models.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-infra/src/usfds_infra/database/auth_models.py)** *(mới)* & `__init__.py`:
-   - Cài đặt 7 ORM models tương thích cả SQLite và PostgreSQL.
-2. **[`usfds-infra/src/usfds_infra/database/auth_repositories.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-infra/src/usfds_infra/database/auth_repositories.py)** *(mới)*:
-   - Cài đặt `SqlUserRepository`, `SqlRoleRepository`, `SqlPermissionRepository`, `SqlProjectMemberRepository`, `SqlUserSessionRepository`.
-3. **`usfds-infra/src/usfds_infra/security/`** *(mới)* & **`seed_rbac.py`**:
-   - Adapter hash mật khẩu (`Argon2id` hoặc `bcrypt`) và JWT (`PyJWT`).
-   - Seed idempotent toàn bộ `permissions`, `roles` (`system_admin`, `system_member`, `project_admin`, `data_scientist`, `fraud_analyst`), `role_permissions`, bootstrap admin user, và backfill `project_members` cho các project chưa có member.
-
-### Phase 3: Server Config, Auth Middleware, Endpoints & Hardening (`usfds-server` & `deploy/`)
-1. **[`usfds-server/src/usfds_server/config.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-server/src/usfds_server/config.py)**, [`deploy/.env.example`](file:///d:/Thesis/4. Implementation/usfds/deploy/.env.example), [`deploy/docker-compose.yml`](file:///d:/Thesis/4. Implementation/usfds/deploy/docker-compose.yml):
-   - Thêm `USFDS_AUTH_MODE` (`local_auto` cho desktop mặc định khi không set `USFDS_DB_URL`; `required` trong `docker-compose.yml`), `USFDS_JWT_SECRET`, `USFDS_ACCESS_TOKEN_EXPIRE_MINUTES`, `USFDS_REFRESH_TOKEN_EXPIRE_DAYS`, `USFDS_BOOTSTRAP_ADMIN_USERNAME`, `USFDS_BOOTSTRAP_ADMIN_PASSWORD`, `USFDS_CORS_ORIGINS`.
-   - Cập nhật `usfds-server/pyproject.toml` (thêm `pyjwt`, `pwdlib[argon2]` hoặc `bcrypt`).
-2. **`usfds-server/src/usfds_server/auth_dependencies.py`** *(mới)* & [`dependencies.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-server/src/usfds_server/dependencies.py):
-   - `get_current_user`: giải mã Bearer JWT (mode `required`) hoặc trả về bootstrap local admin (mode `local_auto`).
-   - `require_permission(permission_code, project_id_resolver=..., owner_resolver=...)`.
-   - Khởi tạo seed RBAC + bootstrap admin trong `setup_infrastructure()`.
-3. **New Routers (`usfds-server/src/usfds_server/routers/`)**:
-   - `auth_router.py` (`/api/v1/auth`):
-     - `GET /mode` (public: trả `auth_mode` để FE biết có cần trang Login không)
-     - `POST /login`, `POST /refresh`, `POST /logout`
-     - `GET /me`, `PATCH /me`, `POST /me/password`
-   - `user_router.py` (`/api/v1/users` — yêu cầu quyền `SYSTEM`):
-     - `GET /`, `POST /`, `GET /{user_id}`, `PATCH /{user_id}`, `PATCH /{user_id}/status`, `POST /{user_id}/reset-password`, `PUT /{user_id}/system-roles`
-   - `rbac_router.py` (`/api/v1/rbac`):
-     - `GET /roles`, `GET /permissions`, `POST /roles`, `PUT /roles/{role_id}/permissions`
-   - Mở rộng [`project_router.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-server/src/usfds_server/routers/project_router.py):
-     - `GET /api/v1/projects/{project_id}/members`, `POST .../members`, `PATCH .../members/{user_id}`, `DELETE .../members/{user_id}`.
-4. **Enforce Auth & RBAC trên toàn bộ Routers hiện có:**
-   - Áp dụng `require_permission` cho [`project_router.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-server/src/usfds_server/routers/project_router.py), `dataset_router.py`, `rule_router.py`, [`training_router.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-server/src/usfds_server/routers/training_router.py), `detection_router.py`, [`investigation_router.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-server/src/usfds_server/routers/investigation_router.py), [`insight_report_router.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-server/src/usfds_server/routers/insight_report_router.py), [`storage_router.py`](file:///d:/Thesis/4. Implementation/usfds/usfds-server/src/usfds_server/routers/storage_router.py).
-   - **Loại bỏ mọi định danh giả/từ client:** Xóa `get_actor() -> "local-analyst"`, `"mock_user"`, và không lấy `user_id`/`created_by` từ request body — luôn gán từ `current_user.user_id` / `current_user.username`.
-   - **Siết `storage_router.py`:** `presigned-upload` kiểm tra quyền trên `project_id` (bắt buộc với upload nghiệp vụ); `presigned-download` kiểm tra `object_key` thuộc `project_id` mà user có quyền `read`/`export`.
-
-### Phase 4: Frontend Auth, User Management & Project Access UI (`usfds-web`)
-1. **Types & API Clients (`usfds-web/src/types/`, `usfds-web/src/api/`):**
-   - `types/auth.ts`: `AuthUser`, `AuthModeResponse`, `LoginRequest`, `RoleDto`, `PermissionDto`, `ProjectMemberDto`, `AdminUserDto`.
-   - `api/authApi.ts`, `api/userAdminApi.ts`, `api/projectMemberApi.ts`.
-   - Cập nhật [`client.ts`](file:///d:/Thesis/4. Implementation/usfds/usfds-web/src/api/client.ts): tự động gắn `Authorization: Bearer <access_token>`, xử lý `401` bằng single-flight refresh token trước khi fallback về `/login`.
-2. **Global `AuthProvider` (`usfds-web/src/hooks/useAuth.tsx`):**
-   - Khi khởi động: gọi `GET /api/v1/auth/mode`. Nếu `local_auto` -> tự fetch `/auth/me`; nếu `required` -> khôi phục session hoặc chuyển `/login`.
-   - Cung cấp `currentUser`, `hasPermission(code, projectId?)`, `isSystemAdmin`, `logout()`.
-3. **UI Screens & Components (theo [`docs/design-system.md`](file:///d:/Thesis/4. Implementation/usfds/docs/design-system.md)):**
-   - `LoginPage.tsx` (`/login`): giao diện đăng nhập username + password (ẩn trong `local_auto`).
-   - `ProfileModal` / `ProfilePage.tsx`: xem thông tin tài khoản, role hiện tại, đổi mật khẩu (`OWN`).
-   - `AdminUsersPage.tsx` (`/admin/users` cho `system_admin`): quản lý danh sách Users (Tạo user, Sửa thông tin, Bật/Khóa tài khoản, Reset mật khẩu, Gán System Role) + Tab xem/chỉnh sửa Role-Permission Matrix.
-   - Mở rộng [`ProjectSettingsView.tsx`](file:///d:/Thesis/4. Implementation/usfds/usfds-web/src/components/modules/project_management/ProjectSettingsView.tsx): thêm tab **Members & Access** (xem thành viên, thêm thành viên vào dự án kèm chọn `Project Role`, đổi role, xóa thành viên).
-   - Cập nhật [`Topbar.tsx`](file:///d:/Thesis/4. Implementation/usfds/usfds-web/src/components/layout/Topbar.tsx), [`useProjects.tsx`](file:///d:/Thesis/4. Implementation/usfds/usfds-web/src/hooks/useProjects.tsx), [`useDatasetImport.ts`](file:///d:/Thesis/4. Implementation/usfds/usfds-web/src/hooks/useDatasetImport.ts): xóa `DEFAULT_USER_ID` và mock profile `DS / Data Scientist`, hiển thị thông tin user thật + menu Profile / System Admin / Logout; lọc nút thao tác theo `hasPermission`.
-
-### Phase 5: Testing & Verification
-1. **`usfds-core/tests/test_rbac_service.py`**: kiểm thử phân giải quyền 3 scopes (`SYSTEM`, `PROJECT`, `OWN`), cô lập chéo project, ngăn xóa `project_admin` cuối cùng, vòng đời auth/session.
-2. **`usfds-infra/tests/test_auth_repositories.py`**: kiểm thử ORM/repository (`users`, `roles`, `permissions`, `project_members`, `user_sessions`), tính idempotent của seed RBAC.
-3. **`usfds-server/tests/test_auth_and_rbac_api.py`**:
-   - Mode `required`: login, refresh token rotation, logout thu hồi token, `401` khi thiếu token, `403` khi sai role hoặc truy cập project không phải thành viên, `200` khi đủ quyền (`PROJECT` và `OWN`), kiểm tra `storage_router` chặn presigned URL chéo project.
-   - Mode `local_auto`: auto-login admin cục bộ hoạt động bình thường, không làm gãy các test API hiện có.
-4. **Chạy toàn bộ regression suite:** `pytest` ở `usfds-core`, `usfds-infra`, `usfds-server` và `npm run build` + `npm run lint` ở `usfds-web`.
-
----
-
-## 4. Tiêu chí Nghiệm thu (Verifiable Success Criteria)
-- [ ] `usfds-core` & `usfds-infra` hoàn thiện schema 7 bảng Auth/RBAC (`users`, `user_sessions`, `roles`, `permissions`, `role_permissions`, `system_user_roles`, `project_members`) không tạo bảng `organizations`.
-- [ ] Ở `USFDS_AUTH_MODE=required`, mọi API nghiệp vụ đều yêu cầu Bearer JWT hợp lệ và kiểm tra quyền đúng theo 3 scopes (`SYSTEM`, `PROJECT`, `OWN`).
-- [ ] Ở `USFDS_AUTH_MODE=local_auto` (Desktop SQLite), hệ thống tự động bootstrap tài khoản Admin cục bộ và vận hành mượt mà không cần màn hình Login.
-- [ ] Không còn `DEFAULT_USER_ID`, `"local-analyst"`, `"mock_user"`, hay việc tin tưởng `user_id`/`created_by` từ client payload ở backend.
-- [ ] `usfds-web` có đầy đủ Login, Profile/Change Password, Admin User/Role Management, và Project Members Management; build & lint pass sạch.
-- [ ] Toàn bộ unit/API tests mới và hiện có đều pass.
-
+## 8. Open questions
+- — (đã chốt toàn bộ với user)
