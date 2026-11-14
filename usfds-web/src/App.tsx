@@ -10,6 +10,7 @@ import {
 	InsightReportPage,
 	ProjectManagementPage,
 	ProjectSettingsPage,
+	DocsDashboardPage,
 } from '@/pages';
 import { ProjectProvider, ThemeProvider, useProject } from '@/hooks';
 import { ProjectFormModal } from './components/modules/project_management/ProjectFormModal';
@@ -125,6 +126,10 @@ function AppRoutes() {
 	return (
 		<>
 			<Routes>
+				{/* Interactive Docs & Plan Review Dashboard */}
+				<Route path="/__docs/*" element={<DocsDashboardPage />} />
+				<Route path="/docs/*" element={<DocsDashboardPage />} />
+
 				{/* Standalone Project Management Portal (No Left Navigation Sidebar) */}
 				<Route path="/projects/*" element={<ProjectManagementPage />} />
 
