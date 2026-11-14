@@ -15,7 +15,7 @@ export function formatBytes(bytes?: number, decimals: number = 2): string {
  */
 export function formatNumber(num?: number): string {
   if (num === undefined || num === null) return '0';
-  return new Intl.NumberFormat('en-US').format(num);
+  return new Intl.NumberFormat('vi-VN').format(num);
 }
 
 /**
@@ -30,7 +30,7 @@ export function formatPercent(value?: number, decimals: number = 1): string {
  * Format ISO date string into readable local representation
  */
 export function formatDate(dateString?: string): string {
-  if (!dateString) return 'N/A';
+  if (!dateString) return 'Không có';
   try {
     const d = new Date(dateString);
     return new Intl.DateTimeFormat('vi-VN', {

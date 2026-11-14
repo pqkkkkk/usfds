@@ -114,12 +114,12 @@ export function PoliciesView({
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 				<div className="flex items-start justify-between rounded-xl border border-dark-700/80 bg-dark-900 p-4">
 					<div>
-						<p className="text-xs text-slate-400">Active Blocked Entities</p>
+						<p className="text-xs text-slate-400">Thực thể đang bị chặn</p>
 						<p className="mt-1 font-mono text-2xl font-bold text-slate-100">
 							{formatNumber(activeBlacklistCount, 0)}
 						</p>
 						<p className="mt-0.5 text-[11px] text-slate-400">
-							Enforced in project blacklist
+							Đang thực thi trong danh sách đen của dự án
 						</p>
 					</div>
 					<span className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-rose-400">
@@ -133,7 +133,7 @@ export function PoliciesView({
 							{formatNumber(removedBlacklistCount, 0)}
 						</p>
 						<p className="mt-0.5 text-[11px] text-slate-400">
-							Retained in audit history
+							Được giữ trong lịch sử kiểm toán
 						</p>
 					</div>
 					<span className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-emerald-400">
@@ -142,12 +142,12 @@ export function PoliciesView({
 				</div>
 				<div className="flex items-start justify-between rounded-xl border border-dark-700/80 bg-dark-900 p-4">
 					<div>
-						<p className="text-xs text-slate-400">Rules in Feedback Loop</p>
+						<p className="text-xs text-slate-400">Luật trong vòng phản hồi</p>
 						<p className="mt-1 font-mono text-2xl font-bold text-slate-100">
 							{formatNumber(allFeedback.length, 0)}
 						</p>
 						<p className="mt-0.5 text-[11px] text-slate-400">
-							Triggered across investigation cases
+							Được kích hoạt qua các hồ sơ điều tra
 						</p>
 					</div>
 					<span className="rounded-lg border border-sky-500/20 bg-sky-500/10 p-2.5 text-sky-400">
@@ -156,12 +156,12 @@ export function PoliciesView({
 				</div>
 				<div className="flex items-start justify-between rounded-xl border border-dark-700/80 bg-dark-900 p-4">
 					<div>
-						<p className="text-xs text-slate-400">Noisy Rules (FPR &gt; 80%)</p>
+						<p className="text-xs text-slate-400">Luật nhiễu (FPR &gt; 80%)</p>
 						<p className="mt-1 font-mono text-2xl font-bold text-slate-100">
 							{formatNumber(noisyRuleCount, 0)}
 						</p>
 						<p className="mt-0.5 text-[11px] text-slate-400">
-							Recommended for threshold tuning
+							Nên điều chỉnh ngưỡng
 						</p>
 					</div>
 					<span className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-amber-400">
@@ -172,7 +172,7 @@ export function PoliciesView({
 
 			<div
 				role="tablist"
-				aria-label="Investigation policies"
+				aria-label="Chính sách điều tra"
 				className="flex gap-2 border-b border-dark-700/80"
 			>
 				<button
@@ -185,7 +185,7 @@ export function PoliciesView({
 					}`}
 					onClick={() => switchTab('blacklist')}
 				>
-					Entity Blacklist ({activeBlacklistCount} Active)
+					Danh sách đen thực thể ({activeBlacklistCount} đang hoạt động)
 				</button>
 				<button
 					role="tab"
@@ -197,7 +197,7 @@ export function PoliciesView({
 					}`}
 					onClick={() => switchTab('feedback')}
 				>
-					Rule Investigation Feedback ({allFeedback.length})
+					Phản hồi điều tra theo luật ({allFeedback.length})
 				</button>
 			</div>
 
@@ -213,8 +213,8 @@ export function PoliciesView({
 			{activeTab === 'blacklist' ? (
 				<div className="space-y-4">
 					<SectionCard
-						title="Add Entity to Blacklist"
-						subtitle="Block compromised users, cards, devices, IP addresses, or collusive merchants (BUC-07)"
+						title="Thêm thực thể vào danh sách đen"
+						subtitle="Chặn người dùng, thẻ, thiết bị, địa chỉ IP hoặc đơn vị bán hàng móc nối bị xâm phạm (BUC-07)"
 					>
 						<form
 							className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
@@ -223,7 +223,7 @@ export function PoliciesView({
 								addMutation.mutate();
 							}}
 						>
-							<FormField name="Entity Type">
+							<FormField name="Loại thực thể">
 								<select
 									className={INPUT_CLASS}
 									value={entityType}
@@ -238,7 +238,7 @@ export function PoliciesView({
 									))}
 								</select>
 							</FormField>
-							<FormField name="Entity Identifier Value">
+							<FormField name="Giá trị định danh thực thể">
 								<input
 									className={INPUT_CLASS}
 									value={value}
@@ -248,14 +248,14 @@ export function PoliciesView({
 									onChange={(event) => setValue(event.target.value)}
 								/>
 							</FormField>
-							<FormField name="Blocking Reason" hint="Min 10 chars">
+							<FormField name="Lý do chặn" hint="Tối thiểu 10 ký tự">
 								<input
 									className={INPUT_CLASS}
 									value={reason}
 									minLength={10}
 									maxLength={10000}
 									required
-									placeholder="Justification for blocking entity..."
+									placeholder="Lý do chặn thực thể..."
 									onChange={(event) => setReason(event.target.value)}
 								/>
 							</FormField>
@@ -270,15 +270,15 @@ export function PoliciesView({
 								}
 							>
 								<Plus size={15} />
-								<span>Add to Blacklist</span>
+								<span>Thêm vào danh sách đen</span>
 							</button>
 						</form>
 					</SectionCard>
 
 					{removingId && (
 						<SectionCard
-							title="Confirm Blacklist Removal"
-							subtitle="Removing an entity preserves the record with status REMOVED in the audit trail"
+							title="Xác nhận gỡ khỏi danh sách đen"
+							subtitle="Gỡ thực thể sẽ giữ bản ghi với trạng thái REMOVED trong nhật ký kiểm toán"
 						>
 							<form
 								className="flex flex-col gap-3 sm:flex-row sm:items-end"
@@ -288,12 +288,12 @@ export function PoliciesView({
 								}}
 							>
 								<div className="flex-1">
-									<FormField name="Removal Reason" hint="Min 10 chars required">
+									<FormField name="Lý do gỡ" hint="Bắt buộc tối thiểu 10 ký tự">
 										<input
 											className={INPUT_CLASS}
 											required
 											minLength={10}
-											placeholder="Explain why this entity is being unblocked..."
+											placeholder="Giải thích vì sao thực thể này được gỡ chặn..."
 											value={removeReason}
 											onChange={(event) => setRemoveReason(event.target.value)}
 										/>
@@ -309,39 +309,39 @@ export function PoliciesView({
 									}
 								>
 									<Unlock size={14} />
-									<span>Confirm Removal</span>
+									<span>Xác nhận gỡ</span>
 								</button>
 								<button
 									type="button"
 									className={BUTTON_SECONDARY_CLASS}
 									onClick={() => setRemovingId(null)}
 								>
-									Cancel
+									Hủy
 								</button>
 							</form>
 						</SectionCard>
 					)}
 
 					<SectionCard
-						title="Entity Blacklist Registry"
-						subtitle={`Showing ${filteredEntries.length} matching entries`}
+						title="Sổ danh sách đen thực thể"
+						subtitle={`Đang hiển thị ${filteredEntries.length} mục khớp`}
 					>
 						<div className="grid gap-3 sm:grid-cols-3">
-							<FormField name="Search Blacklist">
+							<FormField name="Tìm trong danh sách đen">
 								<input
 									className={INPUT_CLASS}
-									placeholder="Search value or reason..."
+									placeholder="Tìm theo giá trị hoặc lý do..."
 									value={search}
 									onChange={(event) => setSearch(event.target.value)}
 								/>
 							</FormField>
-							<FormField name="Filter Entity Type">
+							<FormField name="Lọc loại thực thể">
 								<select
 									className={INPUT_CLASS}
 									value={typeFilter}
 									onChange={(event) => setTypeFilter(event.target.value)}
 								>
-									<option value="">All entity types</option>
+									<option value="">Tất cả loại thực thể</option>
 									{ENTITY_TYPES.map((kind) => (
 										<option key={kind} value={kind}>
 											{kind}
@@ -349,13 +349,13 @@ export function PoliciesView({
 									))}
 								</select>
 							</FormField>
-							<FormField name="Entry Status">
+							<FormField name="Trạng thái mục">
 								<select
 									className={INPUT_CLASS}
 									value={statusFilter}
 									onChange={(event) => setStatusFilter(event.target.value)}
 								>
-									<option value="">All statuses</option>
+									<option value="">Tất cả trạng thái</option>
 									<option value="ACTIVE">ACTIVE</option>
 									<option value="REMOVED">REMOVED</option>
 								</select>
@@ -364,14 +364,14 @@ export function PoliciesView({
 
 						<div className="overflow-x-auto pt-2">
 							<table className="w-full min-w-[720px] text-left text-xs">
-								<caption className="sr-only">Entity blacklist</caption>
+								<caption className="sr-only">Danh sách đen thực thể</caption>
 								<thead className="border-b border-dark-700/80 text-[11px] uppercase text-slate-400">
 									<tr>
-										<th scope="col" className="py-3 pr-3">Entity Type &amp; Value</th>
-										<th scope="col" className="py-3 pr-3">Status</th>
-										<th scope="col" className="py-3 pr-3">Reason &amp; Source Case</th>
-										<th scope="col" className="py-3 pr-3">Audit Metadata</th>
-										<th scope="col" className="py-3 text-right">Action</th>
+										<th scope="col" className="py-3 pr-3">Loại &amp; giá trị thực thể</th>
+										<th scope="col" className="py-3 pr-3">Trạng thái</th>
+										<th scope="col" className="py-3 pr-3">Lý do &amp; hồ sơ nguồn</th>
+										<th scope="col" className="py-3 pr-3">Siêu dữ liệu kiểm toán</th>
+										<th scope="col" className="py-3 text-right">Thao tác</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-dark-800">
@@ -395,7 +395,7 @@ export function PoliciesView({
 														className="mt-1 inline-block font-mono text-[11px] text-brand-400 hover:underline"
 														to={`/investigation/cases/${entry.source_case_id}`}
 													>
-														View Source Case &rarr;
+														Xem hồ sơ nguồn &rarr;
 													</Link>
 												)}
 											</td>
@@ -406,7 +406,7 @@ export function PoliciesView({
 												</p>
 												{entry.removed_at && (
 													<p className="mt-0.5 text-slate-500">
-														Removed by {entry.removed_by} ({formatDateTime(entry.removed_at)})
+														Gỡ bởi {entry.removed_by} ({formatDateTime(entry.removed_at)})
 													</p>
 												)}
 											</td>
@@ -422,7 +422,7 @@ export function PoliciesView({
 														}}
 													>
 														<Unlock size={14} />
-														<span>Remove</span>
+														<span>Gỡ</span>
 													</button>
 												)}
 											</td>
@@ -432,13 +432,13 @@ export function PoliciesView({
 							</table>
 							{entriesQuery.isPending ? (
 								<p role="status" className="py-6 text-center text-sm text-slate-400">
-									Loading entity blacklist...
+									Đang tải danh sách đen thực thể...
 								</p>
 							) : (
 								!filteredEntries.length &&
 								!entriesQuery.error && (
 									<p className="py-6 text-center text-sm text-slate-400">
-										No blacklist entries match the current filters.
+										Không có mục danh sách đen nào khớp bộ lọc hiện tại.
 									</p>
 								)
 							)}
@@ -447,21 +447,21 @@ export function PoliciesView({
 				</div>
 			) : (
 				<SectionCard
-					title="Rule Verification Feedback Table"
-					subtitle="Evaluate real-world rule precision from analyst-verified ground truth (SUC-18 -> SUC-20)"
+					title="Bảng phản hồi xác minh luật"
+					subtitle="Đánh giá độ chính xác thực tế của luật dựa trên dữ liệu xác minh bởi chuyên viên (SUC-18 -> SUC-20)"
 				>
 					<div className="overflow-x-auto">
 						<table className="w-full min-w-[740px] text-left text-xs">
 							<caption className="sr-only">Verified rule feedback by version</caption>
 							<thead className="border-b border-dark-700/80 text-[11px] uppercase text-slate-400">
 								<tr>
-									<th scope="col" className="py-3 pr-3">Rule Version</th>
-									<th scope="col" className="py-3 pr-3">Cases Triggered</th>
-									<th scope="col" className="py-3 pr-3">Confirmed Fraud (TP)</th>
-									<th scope="col" className="py-3 pr-3">False Positive (FP)</th>
-									<th scope="col" className="py-3 pr-3">Pending Review</th>
-									<th scope="col" className="py-3 pr-3">Verified FPR %</th>
-									<th scope="col" className="py-3 text-right">Action</th>
+									<th scope="col" className="py-3 pr-3">Phiên bản luật</th>
+									<th scope="col" className="py-3 pr-3">Số hồ sơ được kích hoạt</th>
+									<th scope="col" className="py-3 pr-3">Gian lận đã xác nhận (TP)</th>
+									<th scope="col" className="py-3 pr-3">Cảnh báo sai (FP)</th>
+									<th scope="col" className="py-3 pr-3">Đang chờ xem xét</th>
+									<th scope="col" className="py-3 pr-3">Tỷ lệ FPR đã xác minh %</th>
+									<th scope="col" className="py-3 text-right">Thao tác</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-dark-800">
@@ -479,7 +479,7 @@ export function PoliciesView({
 												{isNoisy && (
 													<span className="ml-2 inline-flex items-center gap-1 rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-sans uppercase text-rose-300">
 														<AlertTriangle size={11} />
-														<span>Noisy</span>
+														<span>Nhiều nhiễu</span>
 													</span>
 												)}
 											</td>
@@ -503,7 +503,7 @@ export function PoliciesView({
 													className={BUTTON_SECONDARY_CLASS}
 													to={`/rules/${row.rule_id}/step-builder`}
 												>
-													<span>Tune Rule</span>
+													<span>Điều chỉnh luật</span>
 													<ArrowRight size={14} />
 												</Link>
 											</td>
@@ -514,13 +514,13 @@ export function PoliciesView({
 						</table>
 						{feedbackQuery.isPending ? (
 							<p role="status" className="py-6 text-center text-sm text-slate-400">
-								Loading verified rule feedback...
+								Đang tải phản hồi xác minh luật...
 							</p>
 						) : (
 							!allFeedback.length &&
 							!feedbackQuery.error && (
 								<p className="py-6 text-center text-sm text-slate-400">
-									No verified rule feedback available yet.
+									Chưa có phản hồi xác minh luật.
 								</p>
 							)
 						)}

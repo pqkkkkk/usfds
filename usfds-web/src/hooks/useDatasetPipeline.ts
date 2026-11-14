@@ -36,7 +36,7 @@ export function useDatasetPipeline(datasetId: string | undefined, currentStepId:
       if (!datasetId) return null;
       const res = await datasetApi.getDatasetDetail(datasetId);
       if (!res.success) {
-        throw new Error(res.error || 'Failed to fetch dataset');
+        throw new Error(res.error || 'Không tải được tập dữ liệu');
       }
       return res.data;
     },
@@ -143,29 +143,29 @@ export function useDatasetPipeline(datasetId: string | undefined, currentStepId:
       {
         id: 'step-profiling',
         stepNumber: 1,
-        label: 'Data Profiling',
-        description: 'Inspect distributions & quality metrics',
+        label: 'Phân tích dữ liệu',
+        description: 'Khảo sát phân bố & chỉ số chất lượng',
         state: isStep1Done ? 'completed' : 'active',
       },
       {
         id: 'step-mapping',
         stepNumber: 2,
-        label: 'Schema Mapping',
-        description: 'Map raw fields to canonical schema',
+        label: 'Ánh xạ lược đồ',
+        description: 'Ánh xạ trường thô sang lược đồ chuẩn',
         state: isStep2Done ? 'completed' : 'active',
       },
       {
         id: 'step-validation',
         stepNumber: 3,
-        label: 'Validation Report',
-        description: 'Quality score & constraint audit',
+        label: 'Báo cáo kiểm định',
+        description: 'Điểm chất lượng & kiểm toán ràng buộc',
         state: isStep3Done ? (isStep4Done ? 'completed' : 'active') : 'locked',
       },
       {
         id: 'step-feature-eng',
         stepNumber: 4,
-        label: 'Feature Engineering',
-        description: 'Enrich features to optimize model performance',
+        label: 'Kỹ nghệ đặc trưng',
+        description: 'Làm giàu đặc trưng để tối ưu hiệu năng mô hình',
         state: isStep2Done ? (isStep4Done ? 'completed' : 'active') : 'locked',
       },
     ];
@@ -180,7 +180,7 @@ export function useDatasetPipeline(datasetId: string | undefined, currentStepId:
     // Check if step is locked
     const targetStep = pipelineSteps.find(s => s.id === targetStepId);
     if (targetStep?.state === 'locked') {
-      alert('Bước này chưa sẵn sàng. Vui lòng hoàn thành bước Ánh xạ lược đồ (Schema Mapping) trước.');
+      alert('Bước này chưa sẵn sàng. Vui lòng hoàn thành bước Ánh xạ lược đồ trước.');
       return;
     }
 
@@ -210,30 +210,30 @@ export function useDatasetPipeline(datasetId: string | undefined, currentStepId:
   const proceedButtonText = useMemo(() => {
     switch (currentStepId) {
       case 'step-profiling':
-        return 'Proceed to Schema Mapping';
+        return 'Tiếp tục tới Ánh xạ lược đồ';
       case 'step-mapping':
-        return activeMappedArtifact ? 'Proceed to Validation Report' : 'Save Mapping to Proceed';
+        return activeMappedArtifact ? 'Tiếp tục tới Báo cáo kiểm định' : 'Lưu ánh xạ để tiếp tục';
       case 'step-validation':
-        return 'Proceed to Feature Engineering';
+        return 'Tiếp tục tới Kỹ nghệ đặc trưng';
       case 'step-feature-eng':
-        return 'Proceed to Model Training';
+        return 'Tiếp tục tới Huấn luyện mô hình';
       default:
-        return 'Proceed';
+        return 'Tiếp tục';
     }
   }, [currentStepId, activeMappedArtifact]);
 
   const backButtonText = useMemo(() => {
     switch (currentStepId) {
       case 'step-profiling':
-        return 'Back to Lineage';
+        return 'Quay lại nguồn gốc dữ liệu';
       case 'step-mapping':
-        return 'Back to Profiling';
+        return 'Quay lại phân tích dữ liệu';
       case 'step-validation':
-        return 'Back to Schema Mapping';
+        return 'Quay lại ánh xạ lược đồ';
       case 'step-feature-eng':
-        return 'Back to Validation Report';
+        return 'Quay lại báo cáo kiểm định';
       default:
-        return 'Back';
+        return 'Quay lại';
     }
   }, [currentStepId]);
 
@@ -242,7 +242,7 @@ export function useDatasetPipeline(datasetId: string | undefined, currentStepId:
       handleStepSelect('step-mapping');
     } else if (currentStepId === 'step-mapping') {
       if (!activeMappedArtifact) {
-        alert('Vui lòng cấu hình và nhấn "Lưu ánh xạ lược đồ" để tạo Mapped Artifact trước khi xem Validation Report.');
+        alert('Vui lòng cấu hình và nhấn "Lưu ánh xạ lược đồ" để tạo artifact đã ánh xạ trước khi xem báo cáo kiểm định.');
         return;
       }
       handleStepSelect('step-validation');
@@ -321,7 +321,7 @@ export function useDatasetPipeline(datasetId: string | undefined, currentStepId:
   // 5. Schema Mapping handler
   const mapSchemaMutation = useMutation({
     mutationFn: async (payload: DataMappingConfig) => {
-      if (!datasetId) throw new Error('Dataset ID is missing');
+      if (!datasetId) throw new Error('Thiếu mã tập dữ liệu');
       const res = await datasetApi.mapSchema(datasetId, payload);
       if (!res.success || !res.data) {
         throw new Error(res.error || 'Lưu ánh xạ lược đồ thất bại');
@@ -336,10 +336,10 @@ export function useDatasetPipeline(datasetId: string | undefined, currentStepId:
   // 6. Feature Engineering handler
   const feMutation = useMutation({
     mutationFn: async (payload: FeatureEngineeringConfig) => {
-      if (!datasetId) throw new Error('Dataset ID is missing');
+      if (!datasetId) throw new Error('Thiếu mã tập dữ liệu');
       const res = await datasetApi.executeFeatureEngineering(datasetId, payload);
       if (!res.success || !res.data) {
-        throw new Error(res.error || 'Thực thi Feature Engineering thất bại');
+        throw new Error(res.error || 'Thực thi kỹ nghệ đặc trưng thất bại');
       }
       return res.data;
     },
@@ -359,7 +359,7 @@ export function useDatasetPipeline(datasetId: string | undefined, currentStepId:
       payload: ExportDatasetRequest;
       fallbackFilename?: string;
     }) => {
-      if (!datasetId) throw new Error('Dataset ID is missing');
+      if (!datasetId) throw new Error('Thiếu mã tập dữ liệu');
       const res = await datasetApi.exportDataset(datasetId, artifactId, payload, fallbackFilename);
       if (!res.success) {
         throw new Error(res.error || 'Xuất dữ liệu thất bại');

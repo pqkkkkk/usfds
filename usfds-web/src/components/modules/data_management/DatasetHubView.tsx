@@ -47,9 +47,9 @@ export const DatasetHubView = () => {
     <div className="flex-1 flex flex-col overflow-hidden bg-dark-950">
       {/* Header */}
       <PageHeader
-        title="Data Management"
+        title="Quản lý dữ liệu"
         breadcrumbs={[
-          { label: 'Data Management' }
+          { label: 'Quản lý dữ liệu' }
         ]}
         actions={
           <div className="flex items-center gap-2.5">
@@ -57,7 +57,7 @@ export const DatasetHubView = () => {
               onClick={() => refetch()}
               disabled={isLoading}
               className="p-2 rounded-xl bg-dark-850 hover:bg-dark-800 border border-dark-700 text-slate-400 hover:text-slate-200 transition"
-              title="Refresh Datasets"
+              title="Làm mới danh sách tập dữ liệu"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-400' : ''}`} />
             </button>
@@ -66,7 +66,7 @@ export const DatasetHubView = () => {
               className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
-              <span>Import Dataset</span>
+              <span>Nhập tập dữ liệu</span>
             </button>
           </div>
         }
@@ -79,12 +79,12 @@ export const DatasetHubView = () => {
           {/* Card 1: Total Datasets */}
           <div className="p-4 rounded-2xl bg-dark-900 border border-dark-800 space-y-2">
             <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Total Managed Datasets</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider">Tổng số tập dữ liệu</span>
               <Database className="w-4 h-4 text-brand-400" />
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-black text-slate-100 font-mono tracking-tight">{metrics.totalDatasetsCount}</span>
-              <span className="text-xs text-slate-400">Datasets</span>
+              <span className="text-xs text-slate-400">Tập dữ liệu</span>
               <span className="text-slate-600">•</span>
               <span className="text-xs text-brand-400 font-mono font-bold">{metrics.totalArtifactsCount}</span>
               <span className="text-xs text-slate-400">Artifacts</span>
@@ -94,21 +94,21 @@ export const DatasetHubView = () => {
           {/* Card 2: Model-Ready Feature Sets */}
           <div className="p-4 rounded-2xl bg-dark-900 border border-dark-800 space-y-2">
             <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Model-Ready Datasets</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider">Tập dữ liệu sẵn sàng cho mô hình</span>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-black text-slate-100 font-mono tracking-tight">{metrics.readyDatasetsCount}</span>
-              <span className="text-xs text-slate-400">Datasets Ready</span>
+              <span className="text-xs text-slate-400">Tập dữ liệu đã sẵn sàng</span>
             </div>
             <div className="flex items-center justify-between text-[11px] pt-1 border-t border-dark-850">
-              <span className="text-purple-400 font-medium">Preprocessed</span>
+              <span className="text-purple-400 font-medium">Đã tiền xử lý</span>
             </div>
           </div>
 
           {/* Card 3: Quality Score */}
           <div className="p-4 rounded-2xl bg-dark-900 border border-dark-800 space-y-2">
             <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Average Data Quality</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider">Chất lượng dữ liệu trung bình</span>
               <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                 OPTIMAL
               </span>
@@ -122,7 +122,7 @@ export const DatasetHubView = () => {
                 <div className="h-full bg-emerald-500 w-[94.8%] rounded-full shadow-glow-emerald" />
               </div>
               <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                <span>98.2% schema pass rate</span>
+                <span>98,2% đạt kiểm tra lược đồ</span>
                 <span className="text-emerald-400">0 critical drift</span>
               </div>
             </div>
@@ -140,7 +140,7 @@ export const DatasetHubView = () => {
                 : 'text-slate-400 hover:text-slate-200'
                 }`}
             >
-              All ({metrics.totalDatasetsCount})
+              Tất cả ({metrics.totalDatasetsCount})
             </button>
             <button
               onClick={() => setSelectedStageTab('raw')}
@@ -167,7 +167,7 @@ export const DatasetHubView = () => {
                 : 'text-slate-400 hover:text-slate-200'
                 }`}
             >
-              Model Ready ({metrics.readyDatasetsCount})
+              Sẵn sàng cho mô hình ({metrics.readyDatasetsCount})
             </button>
           </div>
 
@@ -176,7 +176,7 @@ export const DatasetHubView = () => {
             <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-3" />
             <input
               type="text"
-              placeholder="Tìm kiếm dataset theo tên, mô tả..."
+              placeholder="Tìm kiếm tập dữ liệu theo tên, mô tả..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 bg-dark-900 border border-dark-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500"
@@ -201,11 +201,11 @@ export const DatasetHubView = () => {
                   <th className="py-3.5 px-4 font-semibold">Tên Dataset</th>
                   <th className="py-3.5 px-4 font-semibold">Phân loại dữ liệu</th>
                   <th className="py-3.5 px-4 font-semibold">PII</th>
-                  <th className="py-3.5 px-4 font-semibold">Stage mới nhất</th>
-                  <th className="py-3.5 px-4 font-semibold">Quality Score</th>
+                  <th className="py-3.5 px-4 font-semibold">Giai đoạn mới nhất</th>
+                  <th className="py-3.5 px-4 font-semibold">Điểm chất lượng</th>
                   <th className="py-3.5 px-4 font-semibold">Artifacts</th>
                   <th className="py-3.5 px-4 font-semibold">Thời gian tạo</th>
-                  <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
+                  <th className="py-3.5 px-4 font-semibold text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-dark-850">
@@ -265,7 +265,7 @@ export const DatasetHubView = () => {
                               PII
                             </span>
                           ) : (
-                            <span className="text-[10px] text-slate-500">None</span>
+                            <span className="text-[10px] text-slate-500">Không có</span>
                           )}
                         </td>
 
@@ -289,7 +289,7 @@ export const DatasetHubView = () => {
                               <span>{score.toFixed(1)}/100</span>
                             </div>
                           ) : (
-                            <span className="text-[10px] text-slate-500">N/A</span>
+                            <span className="text-[10px] text-slate-500">Không có</span>
                           )}
                         </td>
 
@@ -314,14 +314,14 @@ export const DatasetHubView = () => {
                               onClick={() => navigate(`/datasets/${dataset.dataset_id}`)}
                               className="px-3 py-1.5 rounded-lg bg-brand-500/15 hover:bg-brand-500/25 border border-brand-500/40 text-brand-300 text-xs font-semibold transition flex items-center gap-1"
                             >
-                              <span>Open Detail</span>
+                              <span>Mở chi tiết</span>
                               <ArrowRight className="w-3 h-3" />
                             </button>
 
                             {/* Delete Button */}
                             <button
                               onClick={(e) => deleteDataset(dataset.dataset_id, e)}
-                              title="Delete Dataset"
+                              title="Xóa tập dữ liệu"
                               className="p-1.5 rounded-lg bg-dark-800 hover:bg-rose-500/20 border border-dark-700 text-slate-400 hover:text-rose-400 transition"
                             >
                               <Trash2 className="w-3.5 h-3.5" />

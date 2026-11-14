@@ -12,7 +12,7 @@ import type { ProjectRawSchema } from '../types/project';
 export const AVAILABLE_FEATURE_FIELDS: AvailableFeatureField[] = [
   {
     key: 'amount',
-    label: 'amount (Transaction Amount)',
+    label: 'amount (Số tiền giao dịch)',
     category: 'transaction',
     dataType: 'number',
     unit: 'USD',
@@ -21,7 +21,7 @@ export const AVAILABLE_FEATURE_FIELDS: AvailableFeatureField[] = [
   },
   {
     key: 'is_new_device_24h',
-    label: 'is_new_device_24h (First-seen Device)',
+    label: 'is_new_device_24h (Thiết bị mới trong 24h)',
     category: 'device',
     dataType: 'boolean',
     defaultOperator: '==',
@@ -29,7 +29,7 @@ export const AVAILABLE_FEATURE_FIELDS: AvailableFeatureField[] = [
   },
   {
     key: 'velocity_count_1h',
-    label: 'velocity_count_1h (Transactions in 1h)',
+    label: 'velocity_count_1h (Số giao dịch trong 1 giờ)',
     category: 'velocity',
     dataType: 'number',
     unit: 'swipes',
@@ -46,7 +46,7 @@ export const AVAILABLE_FEATURE_FIELDS: AvailableFeatureField[] = [
   },
   {
     key: 'device_trust_score',
-    label: 'device_trust_score (Device Reputation)',
+    label: 'device_trust_score (Uy tín thiết bị)',
     category: 'device',
     dataType: 'number',
     unit: 'pts',
@@ -55,7 +55,7 @@ export const AVAILABLE_FEATURE_FIELDS: AvailableFeatureField[] = [
   },
   {
     key: 'geo_distance_home',
-    label: 'geo_distance_home (Distance from Home)',
+    label: 'geo_distance_home (Khoảng cách tới nhà)',
     category: 'transaction',
     dataType: 'number',
     unit: 'km',
@@ -73,7 +73,7 @@ export const AVAILABLE_FEATURE_FIELDS: AvailableFeatureField[] = [
   },
   {
     key: 'velocity_sum_24h',
-    label: 'velocity_sum_24h (24-Hour Total Spent)',
+    label: 'velocity_sum_24h (Tổng chi tiêu trong 24 giờ)',
     category: 'velocity',
     dataType: 'number',
     unit: 'USD',
@@ -82,14 +82,14 @@ export const AVAILABLE_FEATURE_FIELDS: AvailableFeatureField[] = [
   },
   {
     key: 'user_id',
-    label: 'user_id (Hashed PAN / User Hash)',
+    label: 'user_id (Băm PAN / băm người dùng)',
     category: 'user',
     dataType: 'string',
     defaultOperator: '==',
   },
   {
     key: 'mcc_code',
-    label: 'mcc_code (Merchant Category Code)',
+    label: 'mcc_code (Mã danh mục đơn vị bán)',
     category: 'merchant',
     dataType: 'string',
     defaultOperator: '==',

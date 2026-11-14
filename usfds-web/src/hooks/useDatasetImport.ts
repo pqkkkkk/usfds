@@ -21,7 +21,7 @@ export const SAMPLE_FILES: SampleFileInfo[] = [
     path: '../datasets/e-commerce-fraud-detection-dataset/raw.csv',
     size: '25.1 MB',
     records: '~150,000',
-    desc: 'E-Commerce Online Fraud Transaction Stream',
+    desc: 'Luồng giao dịch gian lận thương mại điện tử trực tuyến',
     stem: 'ecommerce_fraud_events'
   },
   {
@@ -29,7 +29,7 @@ export const SAMPLE_FILES: SampleFileInfo[] = [
     path: '../datasets/sparkov/raw.csv',
     size: '335 MB',
     records: '~1,850,000',
-    desc: 'Sparkov Simulated Credit Card Fraud Logs',
+    desc: 'Nhật ký gian lận thẻ tín dụng mô phỏng Sparkov',
     stem: 'sparkov_credit_card_fraud'
   },
   {
@@ -37,7 +37,7 @@ export const SAMPLE_FILES: SampleFileInfo[] = [
     path: '../datasets/ieee-cis/raw.csv',
     size: '651 MB',
     records: '~590,000',
-    desc: 'IEEE-CIS Credit Card Benchmark Sample',
+    desc: 'Mẫu benchmark thẻ tín dụng IEEE-CIS',
     stem: 'ieee_cis_transactions'
   }
 ];
@@ -70,7 +70,7 @@ export function useDatasetImport({
     mutationFn: async (payload: ImportDatasetRequest) => {
       const res = await datasetApi.importDataset(payload);
       if (!res.success || !res.data) {
-        throw new Error(res.error || 'Nhập dataset thất bại.');
+        throw new Error(res.error || 'Nhập tập dữ liệu thất bại.');
       }
       return res.data;
     },
@@ -126,7 +126,7 @@ export function useDatasetImport({
     if (window.electronAPI?.openFileDialog) {
       try {
         const selectedPath = await window.electronAPI.openFileDialog({
-          title: 'Select Transaction Dataset File',
+          title: 'Chọn tệp tập dữ liệu giao dịch',
           filters: [
             { name: 'Dataset Files (*.csv, *.parquet, *.json, *.tsv)', extensions: ['csv', 'parquet', 'json', 'tsv'] },
             { name: 'All Files (*.*)', extensions: ['*'] },
@@ -139,7 +139,7 @@ export function useDatasetImport({
 
           setFile({
             name: fileName,
-            size: 'Local Disk File',
+            size: 'Tệp trên máy cục bộ',
             path: selectedPath,
           });
           setFilePath(selectedPath);

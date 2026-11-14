@@ -67,7 +67,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 				<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-4 flex flex-col justify-between">
 					<div className="flex items-center justify-between">
 						<span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-							Gross Scanned Volume
+							Tổng khối lượng đã quét
 						</span>
 						<div className="p-2 rounded-lg bg-slate-800/80 text-slate-300">
 							<DollarSign size={16} />
@@ -87,7 +87,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 				<div className="bg-dark-900 border border-amber-500/30 rounded-xl p-4 flex flex-col justify-between">
 					<div className="flex items-center justify-between">
 						<span className="text-xs font-semibold uppercase tracking-wider text-amber-300">
-							Amount at Risk (Flagged)
+							Số tiền có rủi ro (bị gắn cờ)
 						</span>
 						<div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
 							<AlertTriangle size={16} />
@@ -107,7 +107,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 				<div className="bg-dark-900 border border-emerald-500/30 rounded-xl p-4 flex flex-col justify-between">
 					<div className="flex items-center justify-between">
 						<span className="text-xs font-semibold uppercase tracking-wider text-emerald-300">
-							Confirmed Fraud Prevented
+							Gian lận đã xác nhận được ngăn chặn
 						</span>
 						<div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
 							<ShieldCheck size={16} />
@@ -127,7 +127,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 				<div className="bg-dark-900 border border-rose-500/30 rounded-xl p-4 flex flex-col justify-between">
 					<div className="flex items-center justify-between">
 						<span className="text-xs font-semibold uppercase tracking-wider text-rose-300">
-							False Positive Friction & Insult Rate
+							Ma sát & tỷ lệ phiền toái do dương tính giả
 						</span>
 						<div className="p-2 rounded-lg bg-rose-500/10 text-rose-400">
 							<ShieldAlert size={16} />
@@ -152,7 +152,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 				<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-4 flex flex-col justify-between">
 					<div className="flex items-center justify-between">
 						<span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-							Verified Precision & Alert Ratio
+							Độ chính xác (Precision) đã xác minh & tỷ lệ cảnh báo
 						</span>
 						<div className="p-2 rounded-lg bg-brand-500/10 text-brand-400">
 							<Target size={16} />
@@ -177,7 +177,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 				<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-4 flex flex-col justify-between">
 					<div className="flex items-center justify-between">
 						<span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-							Case Resolution Rate & Backlog
+							Tỷ lệ xử lý hồ sơ & tồn đọng
 						</span>
 						<div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
 							<Clock size={16} />
@@ -207,10 +207,10 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 						<div>
 							<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 								<Filter size={15} className="text-brand-400" />
-								<span>End-to-End Detection & Investigation Funnel</span>
+								<span>Phễu phát hiện & điều tra đầu cuối</span>
 							</h3>
 							<p className="text-xs text-slate-400 mt-0.5">
-								Conversion across Hybrid Inference scanning, Alerting, Case Intake, and Resolution
+								Tỷ lệ chuyển đổi qua quét suy luận kết hợp, cảnh báo, tiếp nhận hồ sơ và xử lý
 							</p>
 						</div>
 					</div>
@@ -265,7 +265,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 							<div>
 								<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 									<CheckCircle2 size={15} className="text-emerald-400" />
-									<span>Investigation Queue & Priority Breakdown</span>
+									<span>Phân tích hàng đợi điều tra & mức ưu tiên</span>
 								</h3>
 								<p className="text-xs text-slate-400 mt-0.5">
 									Distribution of dispatched fraud cases by status and priority
@@ -276,7 +276,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 								onClick={() => navigate('/investigation')}
 								className="inline-flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 font-medium cursor-pointer"
 							>
-								<span>Open Queue</span>
+								<span>Hàng đợi đang mở</span>
 								<ArrowUpRight size={13} />
 							</button>
 						</div>
@@ -284,11 +284,11 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 						<div className="space-y-4">
 							<div>
 								<div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
-									By Case Status
+									Theo trạng thái hồ sơ
 								</div>
 								{statusBreakdown.length === 0 ? (
 									<div className="text-xs text-slate-500 py-3 text-center bg-dark-950 rounded-lg border border-dark-800">
-										No dispatched cases in current scope
+										Chưa có hồ sơ đã chuyển trong phạm vi hiện tại
 									</div>
 								) : (
 									<div className="grid grid-cols-2 gap-2">
@@ -314,11 +314,11 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 
 							<div>
 								<div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
-									By Case Priority
+									Theo mức ưu tiên hồ sơ
 								</div>
 								{priorityBreakdown.length === 0 ? (
 									<div className="text-xs text-slate-500 py-3 text-center bg-dark-950 rounded-lg border border-dark-800">
-										No priority data available
+										Chưa có dữ liệu ưu tiên
 									</div>
 								) : (
 									<div className="grid grid-cols-2 gap-2">
@@ -352,17 +352,17 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 					<div>
 						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Activity size={15} className="text-brand-400" />
-							<span>Financial Protection vs. Customer Friction Trend</span>
+							<span>Xu hướng bảo vệ tài chính so với ma sát khách hàng</span>
 						</h3>
 						<p className="text-xs text-slate-400 mt-0.5">
-							Comparison of Confirmed Fraud Prevented ($) vs. False Positive Friction ($) and Flagged Alert Count across Detection Runs
+							So sánh gian lận đã xác nhận được ngăn chặn ($) với ma sát do dương tính giả ($) và số cảnh báo bị gắn cờ qua các lần quét
 						</p>
 					</div>
 				</div>
 
 				{financialTrends.length === 0 ? (
 					<div className="h-64 flex items-center justify-center text-xs text-slate-500 bg-dark-950 rounded-lg border border-dark-800">
-						No detection run data found in current analytical scope.
+						Không tìm thấy dữ liệu phiên phát hiện trong phạm vi phân tích hiện tại.
 					</div>
 				) : (
 					<div className="h-72 w-full">
@@ -395,14 +395,14 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 								<Bar
 									yAxisId="left"
 									dataKey="confirmed_fraud_amount"
-									name="Confirmed Fraud Prevented ($)"
+									name="Gian lận đã ngăn chặn ($)"
 									fill="#10B981"
 									radius={[4, 4, 0, 0]}
 								/>
 								<Bar
 									yAxisId="left"
 									dataKey="false_positive_amount"
-									name="False Positive Friction ($)"
+									name="Ma sát dương tính giả ($)"
 									fill="#F43F5E"
 									radius={[4, 4, 0, 0]}
 								/>
@@ -410,7 +410,7 @@ export const ExecutiveOverviewTab: React.FC<ExecutiveOverviewTabProps> = ({ data
 									yAxisId="right"
 									type="monotone"
 									dataKey="flagged_count"
-									name="Flagged Transactions"
+									name="Giao dịch bị gắn cờ"
 									stroke="#38BDF8"
 									strokeWidth={2}
 									dot={{ r: 3 }}

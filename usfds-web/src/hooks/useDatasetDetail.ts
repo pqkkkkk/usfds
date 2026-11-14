@@ -26,7 +26,7 @@ export function useDatasetDetail(datasetId: string | undefined) {
       if (!datasetId) return null;
       const res = await datasetApi.getDatasetDetail(datasetId);
       if (!res.success) {
-        throw new Error(res.error || 'Failed to fetch dataset detail');
+        throw new Error(res.error || 'Không tải được chi tiết tập dữ liệu');
       }
       return res.data;
     },
@@ -127,7 +127,7 @@ export function useDatasetDetail(datasetId: string | undefined) {
       payload: ExportDatasetRequest;
       fallbackFilename?: string;
     }) => {
-      if (!datasetId) throw new Error('Dataset ID is missing');
+      if (!datasetId) throw new Error('Thiếu mã tập dữ liệu');
       const res = await datasetApi.exportDataset(datasetId, artifactId, payload, fallbackFilename);
       if (!res.success) {
         throw new Error(res.error || 'Xuất dữ liệu thất bại');
@@ -136,7 +136,7 @@ export function useDatasetDetail(datasetId: string | undefined) {
     },
   });
 
-  const datasetName = datasetDetail?.dataset.dataset_name || 'Dataset Lineage';
+  const datasetName = datasetDetail?.dataset.dataset_name || 'Nguồn gốc tập dữ liệu';
 
   return {
     datasetDetail,

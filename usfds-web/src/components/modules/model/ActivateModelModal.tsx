@@ -125,7 +125,7 @@ const ActivateModelDialogContent: React.FC<Omit<ActivateModelModalProps, 'isOpen
 							</span>
 						</div>
 						<div className="flex items-center justify-between text-xs">
-							<span className="text-slate-400">Phiên bản (SemVer):</span>
+							<span className="text-slate-400">Phiên bản:</span>
 							<span className="font-mono font-bold text-brand-400">v{version.semver}</span>
 						</div>
 						<div className="flex items-center justify-between text-xs">
@@ -141,7 +141,7 @@ const ActivateModelDialogContent: React.FC<Omit<ActivateModelModalProps, 'isOpen
 								<ShieldCheck className="w-3.5 h-3.5" />
 								{version.checksum_sha256
 									? `${version.checksum_sha256.slice(0, 12)}...${version.checksum_sha256.slice(-8)}`
-									: 'Verified on Storage'}
+									: 'Đã xác minh trên kho lưu trữ'}
 							</span>
 						</div>
 					</div>
@@ -179,7 +179,7 @@ const ActivateModelDialogContent: React.FC<Omit<ActivateModelModalProps, 'isOpen
 							htmlFor="activate-desc-input"
 							className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5"
 						>
-							Ghi chú kích hoạt (Release Note)
+							Ghi chú kích hoạt
 						</label>
 						<textarea
 							id="activate-desc-input"
@@ -221,7 +221,7 @@ const ActivateModelDialogContent: React.FC<Omit<ActivateModelModalProps, 'isOpen
 							) : (
 								<>
 									<Rocket className="w-3.5 h-3.5" />
-									<span>Confirm Activate</span>
+									<span>Xác nhận kích hoạt</span>
 								</>
 							)}
 						</button>

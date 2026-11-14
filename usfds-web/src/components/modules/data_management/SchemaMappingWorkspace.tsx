@@ -166,16 +166,16 @@ export const SchemaMappingWorkspace = ({
                   <code className="text-brand-300 font-mono bg-dark-950 px-1.5 py-0.5 rounded border border-dark-800">
                     {mappedArtifact.artifact_id}
                   </code>
-                  . Bạn có thể điều chỉnh cấu hình và nhấn &ldquo;Validate Data&rdquo; trên thanh tiêu đề để xác thực và tạo artifact mới.
+                  . Bạn có thể điều chỉnh cấu hình và nhấn &ldquo;Kiểm định dữ liệu&rdquo; trên thanh tiêu đề để xác thực và tạo artifact mới.
                 </>
               ) : (
                 <>
                   <span className="text-emerald-400 font-medium">Nhánh ánh xạ mới:</span>{' '}
                   Đang khởi tạo cấu hình từ Raw dataset{' '}
                   <code className="text-slate-300 font-mono bg-dark-950 px-1.5 py-0.5 rounded border border-dark-800">
-                    {rawArtifact?.artifact_id || 'Raw Input'}
+                    {rawArtifact?.artifact_id || 'Đầu vào thô'}
                   </code>
-                  . Nhấn nút &ldquo;Validate Data&rdquo; trên thanh tiêu đề để xác thực và chuyển sang bước Validation Report.
+                  . Nhấn nút &ldquo;Kiểm định dữ liệu&rdquo; trên thanh tiêu đề để xác thực và chuyển sang bước báo cáo kiểm định.
                 </>
               )}
             </span>
@@ -187,9 +187,9 @@ export const SchemaMappingWorkspace = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-dark-800 pb-3">
             <div>
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                Schema Field Mapping
+                Ánh xạ trường lược đồ
                 <span className="text-[10px] font-normal normal-case text-slate-500">
-                  (Bind raw transaction fields to canonical targets and optional domain signals)
+                  (Ánh xạ trường giao dịch thô tới trường đích chuẩn và tín hiệu nghiệp vụ tùy chọn)
                 </span>
               </h2>
             </div>
@@ -208,7 +208,7 @@ export const SchemaMappingWorkspace = ({
                 className="px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-750 text-slate-300 border border-dark-700 text-xs font-medium transition flex items-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5 text-brand-400" />
-                <span>Add Optional Attribute</span>
+                <span>Thêm thuộc tính tùy chọn</span>
               </button>
             </div>
           </div>
@@ -219,18 +219,18 @@ export const SchemaMappingWorkspace = ({
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-dark-800 bg-dark-950 text-[10px] uppercase tracking-wider text-slate-400 font-mono">
-                    <th className="py-3 px-4 font-semibold w-1/4">Target Field (Canonical)</th>
-                    <th className="py-3 px-4 font-semibold w-1/4">Source Column (RAW)</th>
-                    <th className="py-3 px-4 font-semibold w-1/4">Parsing / Configuration</th>
-                    <th className="py-3 px-4 font-semibold w-1/6">Sample Value</th>
-                    <th className="py-3 px-4 font-semibold text-center w-12">Action</th>
+                    <th className="py-3 px-4 font-semibold w-1/4">Trường đích chuẩn</th>
+                    <th className="py-3 px-4 font-semibold w-1/4">Cột nguồn</th>
+                    <th className="py-3 px-4 font-semibold w-1/4">Phân tích / cấu hình</th>
+                    <th className="py-3 px-4 font-semibold w-1/6">Giá trị mẫu</th>
+                    <th className="py-3 px-4 font-semibold text-center w-12">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-dark-850">
                   {/* SECTION HEADER: MANDATORY */}
                   <tr className="bg-dark-900/60 text-slate-400">
                     <td colSpan={5} className="py-2 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                      Mandatory Core Slots (5 Required)
+                      Vị trí lõi bắt buộc (5 trường yêu cầu)
                     </td>
                   </tr>
 
@@ -247,7 +247,7 @@ export const SchemaMappingWorkspace = ({
                             <span className="text-rose-400 font-bold">*</span>
                             <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-dark-800 text-slate-400 border border-dark-700">string/uuid</span>
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5">Unique Transaction Identifier</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">Mã định danh giao dịch duy nhất</p>
                         </div>
                       </div>
                     </td>
@@ -266,7 +266,7 @@ export const SchemaMappingWorkspace = ({
                       </div>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-300">
-                      <span className="text-slate-500">Constraint:</span> Unique Primary Key
+                      <span className="text-slate-500">Ràng buộc:</span> Khóa chính duy nhất
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="font-mono text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
@@ -291,7 +291,7 @@ export const SchemaMappingWorkspace = ({
                             <span className="text-rose-400 font-bold">*</span>
                             <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-dark-800 text-slate-400 border border-dark-700">datetime</span>
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5">Transaction Event Timestamp</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">Dấu thời gian sự kiện giao dịch</p>
                         </div>
                       </div>
                     </td>
@@ -311,16 +311,16 @@ export const SchemaMappingWorkspace = ({
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-300">
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-500">Format:</span>
+                        <span className="text-slate-500">Định dạng:</span>
                         <select
                           value={timeFormat}
                           onChange={(e) => setTimeFormat(e.target.value as any)}
                           className="px-2 py-1 bg-dark-900 border border-dark-700 rounded text-xs font-mono text-amber-300 focus:outline-none"
                         >
-                          <option value="auto">Auto Parse</option>
+                          <option value="auto">Tự động phân tích</option>
                           <option value="iso">ISO-8601 UTC</option>
-                          <option value="epoch_s">Epoch Seconds</option>
-                          <option value="epoch_ms">Epoch Milliseconds</option>
+                          <option value="epoch_s">Epoch giây</option>
+                          <option value="epoch_ms">Epoch mili giây</option>
                         </select>
                       </div>
                     </td>
@@ -347,7 +347,7 @@ export const SchemaMappingWorkspace = ({
                             <span className="text-rose-400 font-bold">*</span>
                             <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-dark-800 text-slate-400 border border-dark-700">float64</span>
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5">Monetary Value / Payment</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">Giá trị tiền tệ / thanh toán</p>
                         </div>
                       </div>
                     </td>
@@ -366,7 +366,7 @@ export const SchemaMappingWorkspace = ({
                       </div>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-300">
-                      <span className="text-slate-500">Precision:</span> 2 Decimals ($ &gt; 0)
+                      <span className="text-slate-500">Độ chính xác (Precision):</span> 2 chữ số thập phân ($ &gt; 0)
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="font-mono text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
@@ -391,7 +391,7 @@ export const SchemaMappingWorkspace = ({
                             <span className="text-rose-400 font-bold">*</span>
                             <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-dark-800 text-slate-400 border border-dark-700">string</span>
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5">Account / Card Token</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">Mã token tài khoản / thẻ</p>
                         </div>
                       </div>
                     </td>
@@ -410,7 +410,7 @@ export const SchemaMappingWorkspace = ({
                       </div>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-300">
-                      <span className="text-slate-500">Security:</span> PCI-DSS Tokenized
+                      <span className="text-slate-500">Bảo mật:</span> Đã tokenize theo PCI-DSS
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="font-mono text-xs text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
@@ -435,7 +435,7 @@ export const SchemaMappingWorkspace = ({
                             <span className="text-rose-400 font-bold">*</span>
                             <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-dark-800 text-slate-400 border border-dark-700">binary (0/1)</span>
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5">Ground Truth Fraud Tag</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">Nhãn gian lận thực tế</p>
                         </div>
                       </div>
                     </td>
@@ -454,11 +454,11 @@ export const SchemaMappingWorkspace = ({
                       </div>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-300">
-                      <span className="text-slate-500">Distribution:</span> 0: 99.4% | 1: 0.6%
+                      <span className="text-slate-500">Phân bố:</span> 0: 99,4% | 1: 0,6%
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="font-mono text-xs text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-                        "0 (Legit) / 1 (Fraud)"
+                        "0 (Hợp lệ) / 1 (Gian lận)"
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center text-slate-600 font-mono text-xs">
@@ -474,7 +474,7 @@ export const SchemaMappingWorkspace = ({
                           Optional Domain Attributes ({optionalMappings.length} Configured)
                         </span>
                         <span className="text-[11px] text-slate-500 normal-case">
-                          Retain contextual signals into normalized parquet.
+                          Giữ các tín hiệu ngữ cảnh trong tệp parquet đã chuẩn hóa.
                         </span>
                       </div>
                     </td>
@@ -484,7 +484,7 @@ export const SchemaMappingWorkspace = ({
                   {optionalMappings.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-6 px-4 text-center text-xs text-slate-500 font-mono">
-                        No optional attributes configured. Click "Add Optional Attribute" to preserve contextual signals.
+                        Chưa có thuộc tính tùy chọn nào. Nhấn "Thêm thuộc tính tùy chọn" để giữ các tín hiệu ngữ cảnh.
                       </td>
                     </tr>
                   ) : (
@@ -505,7 +505,7 @@ export const SchemaMappingWorkspace = ({
                                   className="w-full px-2 py-1 bg-dark-900 border border-dark-700 rounded text-xs font-mono text-brand-300 focus:outline-none focus:border-brand-500"
                                 />
                               </div>
-                              <span className="text-[10px] text-slate-500 mt-0.5 block">Contextual Signal</span>
+                              <span className="text-[10px] text-slate-500 mt-0.5 block">Tín hiệu ngữ cảnh</span>
                             </div>
                           </div>
                         </td>
@@ -524,11 +524,11 @@ export const SchemaMappingWorkspace = ({
                           </div>
                         </td>
                         <td className="py-3 px-4 font-mono text-xs text-slate-400">
-                          <span className="text-slate-500">Transform:</span> Passthrough / Inferred Type
+                          <span className="text-slate-500">Biến đổi:</span> Giữ nguyên / Kiểu suy luận
                         </td>
                         <td className="py-3 px-4 font-mono text-xs text-slate-300">
                           <span className="px-2 py-0.5 rounded bg-dark-800 border border-dark-750 text-slate-400">
-                            Auto Inferred
+                            Tự suy luận
                           </span>
                         </td>
                         <td className="py-3 px-4 text-center">
@@ -536,7 +536,7 @@ export const SchemaMappingWorkspace = ({
                             type="button"
                             onClick={() => handleRemoveOptional(idx)}
                             className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
-                            title="Remove attribute"
+                            title="Xóa thuộc tính"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

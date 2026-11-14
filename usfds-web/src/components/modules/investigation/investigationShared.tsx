@@ -152,7 +152,7 @@ export function ScoreBar({
 	showPercent?: boolean;
 }) {
 	if (score == null || Number.isNaN(score)) {
-		return <span className="font-mono text-xs text-slate-400">N/A</span>;
+		return <span className="font-mono text-xs text-slate-400">Không có</span>;
 	}
 	const ratio = Math.max(0, Math.min(1, score / max));
 	const percentValue = Math.round(ratio * 100);

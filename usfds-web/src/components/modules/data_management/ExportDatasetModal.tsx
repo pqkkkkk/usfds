@@ -77,7 +77,7 @@ export const ExportDatasetModal = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                Export Normalized Dataset & Pipeline Artifacts
+                Xuất tập dữ liệu đã chuẩn hóa & artifact pipeline
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
                 Generate secure offline bundles for offline ML modeling, backtesting, or regulatory auditing.
@@ -105,7 +105,7 @@ export const ExportDatasetModal = ({
           <div className="p-3.5 rounded-xl bg-dark-950 border border-dark-800 flex items-center justify-between text-xs">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-slate-400">Source Artifact:</span>
+                <span className="text-slate-400">Artifact nguồn:</span>
                 <span className="px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 font-mono font-bold text-[10px]">
                   {artifact?.pipeline_stage || 'PRE_PROCESSED'}
                 </span>
@@ -116,15 +116,15 @@ export const ExportDatasetModal = ({
               </div>
             </div>
             <div className="text-right">
-              <div className="text-[11px] font-mono text-slate-300">Branch: <span className="text-brand-400 font-bold">main</span></div>
-              <div className="text-[10px] text-slate-500">Total: ~9.0 MB uncompressed</div>
+              <div className="text-[11px] font-mono text-slate-300">Nhánh: <span className="text-brand-400 font-bold">main</span></div>
+              <div className="text-[10px] text-slate-500">Tổng: ~9,0 MB chưa nén</div>
             </div>
           </div>
 
           {/* Select Artifact Components */}
           <div className="space-y-2.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-              Select Artifact Components to Export
+              Chọn thành phần artifact để xuất
             </label>
 
             <div className="space-y-2">
@@ -173,7 +173,7 @@ export const ExportDatasetModal = ({
                   />
                   <div>
                     <div className="text-xs font-mono font-bold text-slate-200">fitted_pipeline.joblib</div>
-                    <div className="text-[10px] text-slate-500">Preprocessing transformers & learned scaling statistics</div>
+                    <div className="text-[10px] text-slate-500">Bộ biến đổi tiền xử lý & thống kê chuẩn hóa đã học</div>
                   </div>
                 </div>
                 <span className="text-xs font-mono text-slate-400">1.2 MB</span>
@@ -190,7 +190,7 @@ export const ExportDatasetModal = ({
                   />
                   <div>
                     <div className="text-xs font-mono font-bold text-slate-200">schema_definition.json</div>
-                    <div className="text-[10px] text-slate-500">Column metadata, data types, and quality audit report</div>
+                    <div className="text-[10px] text-slate-500">Siêu dữ liệu cột, kiểu dữ liệu và báo cáo kiểm toán chất lượng</div>
                   </div>
                 </div>
                 <span className="text-xs font-mono text-slate-400">45 KB</span>
@@ -201,7 +201,7 @@ export const ExportDatasetModal = ({
           {/* File Serialization Format */}
           <div className="space-y-2">
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-              File Serialization Format
+              Định dạng tệp
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label
@@ -285,7 +285,7 @@ export const ExportDatasetModal = ({
           <div className="p-3 rounded-xl bg-dark-950 border border-dark-800/80 flex items-start gap-2.5 text-slate-400 text-[11px]">
             <Lock className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              <span className="font-semibold text-slate-300">Security Compliance:</span> Export event will be logged to Enterprise Audit Trail (Event: #EXP-8941). All cardholder PANs remain salted & masked with SHA-256 tokens under PCI-DSS Level 1 compliance.
+              <span className="font-semibold text-slate-300">Tuân thủ bảo mật:</span> Sự kiện xuất sẽ được ghi vào nhật ký kiểm toán doanh nghiệp (Event: #EXP-8941). Toàn bộ số PAN của chủ thẻ được băm muối & che bằng token SHA-256 theo tiêu chuẩn PCI-DSS Level 1.
             </p>
           </div>
         </div>
@@ -298,7 +298,7 @@ export const ExportDatasetModal = ({
             disabled={isExporting}
             className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-dark-800 transition"
           >
-            Cancel
+            Hủy
           </button>
           <button
             type="button"
@@ -309,12 +309,12 @@ export const ExportDatasetModal = ({
             {isExporting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Archiving & Downloading...</span>
+                <span>Đang nén & tải xuống...</span>
               </>
             ) : (
               <>
                 <Download className="w-3.5 h-3.5" />
-                <span>Download Bundle</span>
+                <span>Tải gói dữ liệu</span>
               </>
             )}
           </button>

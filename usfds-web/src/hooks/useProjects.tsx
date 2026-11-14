@@ -138,7 +138,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 		mutationFn: async (projectId: string) => {
 			const res = await projectApi.resetProjectSchema(projectId);
 			if (!res.success || !res.data) {
-				throw new Error(res.error || 'Đặt lại RAW schema thất bại');
+				throw new Error(res.error || 'Đặt lại lược đồ thô thất bại');
 			}
 			return res.data;
 		},

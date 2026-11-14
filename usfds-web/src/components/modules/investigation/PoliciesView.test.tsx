@@ -39,6 +39,21 @@ describe('PoliciesView', () => {
 		expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 	});
 
+	// Covers ISS-005 (R2): table headers use Vietnamese copy only.
+	it('test_policies_view_column_labels_are_vietnamese', async () => {
+		server.use(
+			http.get(`${API}/v1/blacklist`, () => HttpResponse.json({ success: true, data: [ENTRY] })),
+			http.get(`${API}/v1/cases/rule-feedback`, () => HttpResponse.json({ success: true, data: [] }))
+		);
+
+		renderWithProviders(<PoliciesView projectId={PROJECT_ID} readOnly={false} />);
+
+		await screen.findByText('user-42');
+		expect(screen.getByText('Loại & giá trị thực thể')).toBeInTheDocument();
+		expect(screen.getByText('Lý do & hồ sơ nguồn')).toBeInTheDocument();
+		expect(screen.getByText('Siêu dữ liệu kiểm toán')).toBeInTheDocument();
+	});
+
 	it('shows the server error message on HTTP 500', async () => {
 		server.use(
 			http.get(`${API}/v1/blacklist`, () =>

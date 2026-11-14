@@ -54,7 +54,7 @@ class ApiClient {
           error.response?.data?.error ||
           error.response?.data?.message ||
           error.message ||
-          'Network request failed';
+          'Yêu cầu mạng thất bại';
 
         return Promise.reject(new Error(errorMsg));
       }

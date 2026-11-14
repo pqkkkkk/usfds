@@ -20,10 +20,10 @@ import { ComplianceReportCenterTab } from './reports/ComplianceReportCenterTab';
 type ReportTabKey = 'overview' | 'effectiveness' | 'patterns' | 'compliance';
 
 const REPORT_TABS: { key: ReportTabKey; label: string; icon: React.ReactNode }[] = [
-	{ key: 'overview', label: 'Executive Overview', icon: <BarChart3 size={14} /> },
-	{ key: 'effectiveness', label: 'Model & Rule Effectiveness', icon: <Gauge size={14} /> },
-	{ key: 'patterns', label: 'Typologies & Patterns', icon: <Radar size={14} /> },
-	{ key: 'compliance', label: 'Compliance & SAR Center', icon: <FileCheck2 size={14} /> },
+	{ key: 'overview', label: 'Tổng quan điều hành', icon: <BarChart3 size={14} /> },
+	{ key: 'effectiveness', label: 'Hiệu quả mô hình & luật', icon: <Gauge size={14} /> },
+	{ key: 'patterns', label: 'Loại hình & mẫu hình', icon: <Radar size={14} /> },
+	{ key: 'compliance', label: 'Trung tâm tuân thủ & SAR', icon: <FileCheck2 size={14} /> },
 ];
 
 export const InsightReportModule: React.FC = () => {
@@ -102,20 +102,20 @@ export const InsightReportModule: React.FC = () => {
 	return (
 		<div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-dark-950 text-slate-100">
 			<PageHeader
-				title="Insight & Compliance Reporting"
+				title="Phân tích & báo cáo tuân thủ"
 				subtitle={
 					currentProject
-						? `Phân tích hiệu quả tài chính, đối chuẩn mô hình AI/Rule, nhận diện xu hướng gian lận và trích xuất hồ sơ SAR cho dự án "${currentProject.project_name}"`
+						? `Phân tích hiệu quả tài chính, đối chuẩn mô hình AI/luật, nhận diện xu hướng gian lận và trích xuất hồ sơ SAR cho dự án "${currentProject.project_name}"`
 						: 'Trung tâm phân tích hiệu quả phòng chống gian lận, kiểm định chính sách và báo cáo tuân thủ'
 				}
 				breadcrumbs={[
-					{ label: 'Insight & Report', href: '/reports' },
+					{ label: 'Phân tích & Báo cáo', href: '/reports' },
 					{ label: activeTabMeta.label },
 				]}
 				actions={
 					<nav
 						className="inline-flex flex-wrap items-center rounded-lg border border-dark-700 bg-dark-900 p-1 text-xs"
-						aria-label="Insight & Report tabs"
+						aria-label="Thẻ phân tích & báo cáo"
 					>
 						{REPORT_TABS.map((tab) => {
 							const isActive = activeTab === tab.key;
@@ -142,11 +142,11 @@ export const InsightReportModule: React.FC = () => {
 			<main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
 				{isProjectLoading ? (
 					<div className="rounded-xl border border-dark-700/80 bg-dark-900 p-6 text-sm text-slate-300">
-						Loading project context...
+						Đang tải ngữ cảnh dự án...
 					</div>
 				) : !currentProjectId ? (
 					<div className="rounded-xl border border-dark-700/80 bg-dark-900 p-6 text-sm text-slate-300">
-						Select a project from the top navigation bar to view insights and compliance reports.
+						Chọn một dự án trên thanh điều hướng phía trên để xem phân tích và báo cáo tuân thủ.
 					</div>
 				) : (
 					<>

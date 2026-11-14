@@ -5,7 +5,7 @@ import type { BlacklistEntry, Case, CaseAction, CaseKpis, CasePage, EntityType, 
 async function unwrap<Result>(request: Promise<ApiResponse<Result>>): Promise<Result> {
 	const response = await request;
 	if (!response.success || response.data == null) {
-		throw new Error(response.error || 'Investigation request failed');
+		throw new Error(response.error || 'Yêu cầu điều tra thất bại');
 	}
 	return response.data;
 }

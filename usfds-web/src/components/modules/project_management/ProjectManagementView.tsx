@@ -92,7 +92,7 @@ export const ProjectManagementView: React.FC = () => {
 	const handleToggleArchive = async (proj: ProjectResponse, e: React.MouseEvent) => {
 		e.stopPropagation();
 		const nextStatus: ProjectStatus = proj.status === 'ACTIVE' ? 'ARCHIVED' : 'ACTIVE';
-		const actionLabel = nextStatus === 'ARCHIVED' ? 'lưu trữ (Archive)' : 'khôi phục (Restore)';
+		const actionLabel = nextStatus === 'ARCHIVED' ? 'lưu trữ' : 'khôi phục';
 		if (!window.confirm(`Bạn có chắc muốn ${actionLabel} dự án "${proj.project_name}"?`)) {
 			return;
 		}
@@ -108,7 +108,7 @@ export const ProjectManagementView: React.FC = () => {
 		e.stopPropagation();
 		if (
 			!window.confirm(
-				`Xác nhận xóa vĩnh viễn dự án "${proj.project_name}"?\nToàn bộ tài nguyên thuộc dự án (${proj.datasets_count} Datasets, ${proj.rules_count} Rules) sẽ bị xóa dây chuyền (BR-PM-08).`
+				`Xác nhận xóa vĩnh viễn dự án "${proj.project_name}"?\nToàn bộ tài nguyên thuộc dự án (${proj.datasets_count} tập dữ liệu, ${proj.rules_count} luật) sẽ bị xóa dây chuyền (BR-PM-08).`
 			)
 		) {
 			return;
@@ -138,7 +138,7 @@ export const ProjectManagementView: React.FC = () => {
 						</span>
 						<span className="text-dark-700">|</span>
 						<span className="text-xs font-medium text-slate-400">
-							Project Management Portal
+							Cổng quản lý dự án
 						</span>
 					</div>
 				</div>
@@ -148,8 +148,8 @@ export const ProjectManagementView: React.FC = () => {
 						type="button"
 						onClick={toggleTheme}
 						className="p-2 rounded-xl bg-dark-850 hover:bg-dark-800 border border-dark-700 text-slate-400 hover:text-slate-200 transition"
-						title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-						aria-label={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+						title={isLight ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'}
+						aria-label={isLight ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'}
 					>
 						{isLight ? (
 							<Moon className="w-4 h-4" />
@@ -173,7 +173,7 @@ export const ProjectManagementView: React.FC = () => {
 						className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2"
 					>
 						<Plus className="w-4 h-4" />
-						<span>New Project</span>
+						<span>Dự án mới</span>
 					</button>
 				</div>
 			</header>
@@ -185,11 +185,11 @@ export const ProjectManagementView: React.FC = () => {
 					<div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
 						<div>
 							<h1 className="text-xl font-bold text-slate-100 tracking-tight">
-								Fraud Detection Projects
+								Dự án phát hiện gian lận
 							</h1>
 							<p className="text-xs text-slate-400 mt-1">
-								Chọn một dự án bên dưới để vào không gian làm việc (Data Management, Model
-								Management, Rule Engine, Detection & Investigation).
+								Chọn một dự án bên dưới để vào không gian làm việc:
+								Quản lý dữ liệu, Quản lý mô hình, Động cơ luật, Phát hiện & Điều tra.
 							</p>
 						</div>
 					</div>
@@ -220,7 +220,7 @@ export const ProjectManagementView: React.FC = () => {
 						<div className="p-4 rounded-2xl bg-dark-900 border border-dark-800 space-y-1.5">
 							<div className="flex items-center justify-between text-slate-400">
 								<span className="text-[11px] font-bold uppercase tracking-wider">
-									Total Projects
+									Tổng số dự án
 								</span>
 								<Layers className="w-4 h-4 text-brand-400" />
 							</div>
@@ -228,14 +228,14 @@ export const ProjectManagementView: React.FC = () => {
 								<span className="text-2xl font-black text-slate-100 font-mono">
 									{metrics.totalCount}
 								</span>
-								<span className="text-xs text-slate-400">Projects</span>
+								<span className="text-xs text-slate-400">Dự án</span>
 							</div>
 						</div>
 
 						<div className="p-4 rounded-2xl bg-dark-900 border border-dark-800 space-y-1.5">
 							<div className="flex items-center justify-between text-slate-400">
 								<span className="text-[11px] font-bold uppercase tracking-wider">
-									Last Active Project
+									Dự án hoạt động gần nhất
 								</span>
 								<CheckCircle2 className="w-4 h-4 text-emerald-400" />
 							</div>
@@ -250,7 +250,7 @@ export const ProjectManagementView: React.FC = () => {
 						<div className="p-4 rounded-2xl bg-dark-900 border border-dark-800 space-y-1.5">
 							<div className="flex items-center justify-between text-slate-400">
 								<span className="text-[11px] font-bold uppercase tracking-wider">
-									RAW Schema Locked
+									Lược đồ thô đã khóa
 								</span>
 								<Lock className="w-4 h-4 text-emerald-400" />
 							</div>
@@ -265,16 +265,16 @@ export const ProjectManagementView: React.FC = () => {
 						<div className="p-4 rounded-2xl bg-dark-900 border border-dark-800 space-y-1.5">
 							<div className="flex items-center justify-between text-slate-400">
 								<span className="text-[11px] font-bold uppercase tracking-wider">
-									Active / Archived
+									Đang hoạt động / Đã lưu trữ
 								</span>
 								<Archive className="w-4 h-4 text-amber-400" />
 							</div>
 							<div className="flex items-baseline gap-2 font-mono">
 								<span className="text-2xl font-black text-slate-100">{metrics.activeCount}</span>
-								<span className="text-xs text-emerald-400">Active</span>
+								<span className="text-xs text-emerald-400">Đang hoạt động</span>
 								<span className="text-slate-600">•</span>
 								<span className="text-sm font-bold text-amber-400">{metrics.archivedCount}</span>
-								<span className="text-xs text-slate-400">Archived</span>
+								<span className="text-xs text-slate-400">Đã lưu trữ</span>
 							</div>
 						</div>
 					</div>
@@ -291,7 +291,7 @@ export const ProjectManagementView: React.FC = () => {
 										: 'text-slate-400 hover:text-slate-200'
 								}`}
 							>
-								All ({metrics.totalCount})
+								Tất cả ({metrics.totalCount})
 							</button>
 							<button
 								type="button"
@@ -302,7 +302,7 @@ export const ProjectManagementView: React.FC = () => {
 										: 'text-slate-400 hover:text-slate-200'
 								}`}
 							>
-								Active ({metrics.activeCount})
+								Đang hoạt động ({metrics.activeCount})
 							</button>
 							<button
 								type="button"
@@ -313,7 +313,7 @@ export const ProjectManagementView: React.FC = () => {
 										: 'text-slate-400 hover:text-slate-200'
 								}`}
 							>
-								Archived ({metrics.archivedCount})
+								Đã lưu trữ ({metrics.archivedCount})
 							</button>
 						</div>
 
@@ -338,16 +338,16 @@ export const ProjectManagementView: React.FC = () => {
 								<thead>
 									<tr className="border-b border-dark-800 bg-dark-950 text-[10px] uppercase tracking-wider text-slate-400 font-mono">
 										<th scope="col" className="py-3.5 px-4 font-semibold">
-											Dự án (Project)
+											Dự án
 										</th>
 										<th scope="col" className="py-3.5 px-4 font-semibold">
 											Trạng thái
 										</th>
 										<th scope="col" className="py-3.5 px-4 font-semibold">
-											RAW Schema Contract
+											Hợp đồng lược đồ thô
 										</th>
 										<th scope="col" className="py-3.5 px-4 font-semibold">
-											Tài nguyên (Resources)
+											Tài nguyên
 										</th>
 										<th scope="col" className="py-3.5 px-4 font-semibold">
 											Cập nhật
@@ -441,7 +441,7 @@ export const ProjectManagementView: React.FC = () => {
 																	? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
 																	: 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30'
 															}`}
-															title="Xem chi tiết hoặc đặt lại RAW Schema"
+															title="Xem chi tiết hoặc đặt lại lược đồ thô"
 														>
 															{proj.is_schema_locked ? (
 																<>
@@ -451,7 +451,7 @@ export const ProjectManagementView: React.FC = () => {
 															) : (
 																<>
 																	<Unlock className="w-3 h-3 text-amber-400" />
-																	<span>UNLOCKED</span>
+																	<span>Chưa khóa</span>
 																</>
 															)}
 														</button>
@@ -462,21 +462,21 @@ export const ProjectManagementView: React.FC = () => {
 														<div className="flex items-center gap-3 text-[11px] text-slate-300">
 															<span
 																className="inline-flex items-center gap-1"
-																title="Datasets"
+																title="Tập dữ liệu"
 															>
 																<Database className="w-3.5 h-3.5 text-brand-400" />
 																{proj.datasets_count}
 															</span>
 															<span
 																className="inline-flex items-center gap-1"
-																title="Rules"
+																title="Luật"
 															>
 																<ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
 																{proj.rules_count}
 															</span>
 															<span
 																className="inline-flex items-center gap-1"
-																title="Detection Jobs"
+																title="Tác vụ phát hiện"
 															>
 																<Terminal className="w-3.5 h-3.5 text-purple-400" />
 																{proj.detection_jobs_count}
@@ -502,15 +502,15 @@ export const ProjectManagementView: React.FC = () => {
 																onClick={() => handleEnterWorkspace(proj)}
 																className="px-3 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold transition inline-flex items-center gap-1 shadow-glow-blue"
 															>
-																<span>Open Workspace</span>
+																<span>Mở không gian làm việc</span>
 																<ArrowRight className="w-3 h-3" />
 															</button>
 
 															<button
 																type="button"
 																onClick={() => setInspectingProjectId(proj.project_id)}
-																title="Inspect RAW Schema"
-																aria-label={`Inspect schema for ${proj.project_name}`}
+																title="Kiểm tra lược đồ thô"
+																aria-label={`Kiểm tra lược đồ của ${proj.project_name}`}
 																className="p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-300 hover:text-slate-100 transition"
 															>
 																<Eye className="w-3.5 h-3.5" />
@@ -519,8 +519,8 @@ export const ProjectManagementView: React.FC = () => {
 															<button
 																type="button"
 																onClick={() => setEditingProject(proj)}
-																title="Edit Project"
-																aria-label={`Edit ${proj.project_name}`}
+																title="Chỉnh sửa dự án"
+																aria-label={`Chỉnh sửa ${proj.project_name}`}
 																className="p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-300 hover:text-slate-100 transition"
 															>
 																<Edit3 className="w-3.5 h-3.5" />
@@ -531,8 +531,8 @@ export const ProjectManagementView: React.FC = () => {
 																onClick={(e) => handleToggleArchive(proj, e)}
 																title={
 																	proj.status === 'ACTIVE'
-																		? 'Archive Project'
-																		: 'Restore Project'
+																		? 'Lưu trữ dự án'
+																		: 'Khôi phục dự án'
 																}
 																aria-label={
 																	proj.status === 'ACTIVE'
@@ -551,8 +551,8 @@ export const ProjectManagementView: React.FC = () => {
 															<button
 																type="button"
 																onClick={(e) => handleDeleteProject(proj, e)}
-																title="Delete Project"
-																aria-label={`Delete ${proj.project_name}`}
+																title="Xóa dự án"
+																aria-label={`Xóa ${proj.project_name}`}
 																className="p-1.5 rounded-lg bg-dark-800 hover:bg-rose-500/20 border border-dark-700 text-slate-400 hover:text-rose-400 transition"
 															>
 																<Trash2 className="w-3.5 h-3.5" />

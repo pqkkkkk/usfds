@@ -24,7 +24,7 @@ export function useDatasetList(projectId?: string) {
     queryFn: async () => {
       const res = await datasetApi.listDatasets(projectId);
       if (!res.success) {
-        throw new Error(res.error || 'Failed to fetch datasets');
+        throw new Error(res.error || 'Không tải được danh sách tập dữ liệu');
       }
       return res.data || [];
     },
@@ -35,7 +35,7 @@ export function useDatasetList(projectId?: string) {
     mutationFn: async (id: string) => {
       const res = await datasetApi.deleteDataset(id);
       if (!res.success) {
-        throw new Error(res.error || 'Delete dataset failed');
+        throw new Error(res.error || 'Xóa tập dữ liệu thất bại');
       }
       return id;
     },
@@ -111,7 +111,7 @@ export function useDatasetList(projectId?: string) {
   // Delete single dataset
   const deleteDataset = useCallback(async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!window.confirm(`Bạn có chắc muốn xóa dataset "${id}" cùng toàn bộ artifacts liên quan?`)) {
+    if (!window.confirm(`Bạn có chắc muốn xóa tập dữ liệu "${id}" cùng toàn bộ artifact liên quan?`)) {
       return false;
     }
     try {

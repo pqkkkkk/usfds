@@ -68,7 +68,7 @@ export const Topbar = ({
 					type="button"
 					onClick={onManageProjectsClick}
 					className="flex items-center gap-2.5 pr-4 border-r border-dark-700/80 hover:opacity-90 transition text-left"
-					title="Back to All Projects"
+					title="Quay lại tất cả dự án"
 				>
 					<div className="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/30 flex items-center justify-center text-brand-400 shadow-glow-blue">
 						<ShieldAlert className="w-5 h-5 text-brand-400" />
@@ -86,13 +86,13 @@ export const Topbar = ({
 						type="button"
 						onClick={() => setDropdownOpen(!dropdownOpen)}
 						className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md bg-dark-850 hover:bg-dark-800 border border-dark-700/80 text-xs text-slate-200 transition focus-ring"
-						aria-label="Select Project"
+						aria-label="Chọn dự án"
 						aria-expanded={dropdownOpen}
 					>
 						<Layers className="w-3.5 h-3.5 text-brand-400 shrink-0" />
 						<div className="flex flex-col text-left">
 							<span className="text-[10px] text-slate-400 leading-none flex items-center gap-1.5">
-								<span>Project</span>
+								<span>Dự án</span>
 								{currentProject && (
 									<span
 										className={`inline-flex items-center gap-0.5 text-[9px] font-mono ${
@@ -106,12 +106,12 @@ export const Topbar = ({
 										) : (
 											<Unlock className="w-2.5 h-2.5" />
 										)}
-										{currentProject.is_schema_locked ? 'LOCKED' : 'UNLOCKED'}
+										{currentProject.is_schema_locked ? 'Đã khóa' : 'Chưa khóa'}
 									</span>
 								)}
 							</span>
 							<span className="font-medium text-slate-100 max-w-[190px] truncate mt-0.5">
-								{currentProject ? currentProject.project_name : 'No Project Selected'}
+								{currentProject ? currentProject.project_name : 'Chưa chọn dự án'}
 							</span>
 						</div>
 						<ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1 shrink-0" />
@@ -120,7 +120,7 @@ export const Topbar = ({
 					{dropdownOpen && (
 						<div className="absolute top-full left-0 mt-1.5 w-72 bg-dark-850 border border-dark-700 rounded-xl shadow-2xl py-1.5 z-50 overflow-hidden">
 							<div className="px-3 py-1.5 text-[10px] uppercase font-semibold text-slate-400 border-b border-dark-700/60 flex items-center justify-between font-mono">
-								<span>Workspace Projects ({projects.length})</span>
+								<span>Dự án trong không gian làm việc ({projects.length})</span>
 							</div>
 
 							<div className="max-h-64 overflow-y-auto divide-y divide-dark-800/60">
@@ -150,7 +150,7 @@ export const Topbar = ({
 														<span className="truncate">{proj.project_name}</span>
 														{proj.status === 'ARCHIVED' && (
 															<span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30">
-																ARCHIVED
+																Đã lưu trữ
 															</span>
 														)}
 													</div>
@@ -162,12 +162,12 @@ export const Topbar = ({
 																	: 'text-amber-400'
 															}
 														>
-															{proj.is_schema_locked ? 'Schema Locked' : 'Unlocked'}
+															{proj.is_schema_locked ? 'Lược đồ đã khóa' : 'Chưa khóa'}
 														</span>
 														<span>•</span>
-														<span>{proj.datasets_count} DS</span>
+														<span>{proj.datasets_count} tập dữ liệu</span>
 														<span>•</span>
-														<span>{proj.rules_count} Rules</span>
+														<span>{proj.rules_count} luật</span>
 													</div>
 												</div>
 												{isSelected && (
@@ -190,7 +190,7 @@ export const Topbar = ({
 									className="flex-1 py-1.5 px-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-[11px] font-semibold transition flex items-center justify-center gap-1.5"
 								>
 									<Plus className="w-3.5 h-3.5" />
-									<span>New Project</span>
+									<span>Dự án mới</span>
 								</button>
 								<button
 									type="button"
@@ -201,7 +201,7 @@ export const Topbar = ({
 									className="py-1.5 px-2.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-200 text-[11px] font-medium transition flex items-center justify-center gap-1.5"
 								>
 									<Settings2 className="w-3.5 h-3.5 text-slate-400" />
-									<span>Manage Projects</span>
+									<span>Quản lý dự án</span>
 								</button>
 							</div>
 						</div>
@@ -218,7 +218,7 @@ export const Topbar = ({
 				>
 					<div className="flex items-center gap-2">
 						<Search className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-400" />
-						<span>Search datasets, models, rules, transactions...</span>
+						<span>Tìm kiếm tập dữ liệu, mô hình, luật, giao dịch...</span>
 					</div>
 					<kbd className="px-1.5 py-0.5 rounded text-[10px] bg-dark-850 border border-dark-700 text-slate-400 font-mono">
 						Ctrl+K
@@ -232,7 +232,7 @@ export const Topbar = ({
 					type="button"
 					onClick={onOpenOmnisearch}
 					className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-dark-800 rounded-md transition md:hidden"
-					title="Search"
+					title="Tìm kiếm"
 				>
 					<Search className="w-4 h-4" />
 				</button>
@@ -241,8 +241,8 @@ export const Topbar = ({
 					type="button"
 					onClick={toggleTheme}
 					className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-dark-800 rounded-md transition focus-ring"
-					title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-					aria-label={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+					title={isLight ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'}
+					aria-label={isLight ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'}
 				>
 					{isLight ? (
 						<Moon className="w-4 h-4" />
@@ -254,7 +254,7 @@ export const Topbar = ({
 				<button
 					type="button"
 					className="relative p-1.5 text-slate-400 hover:text-slate-200 hover:bg-dark-800 rounded-md transition focus-ring"
-					aria-label="Notifications"
+					aria-label="Thông báo"
 				>
 					<Bell className="w-4 h-4" />
 					<span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-brand-500"></span>
@@ -266,8 +266,8 @@ export const Topbar = ({
 						DS
 					</div>
 					<div className="hidden xl:flex flex-col text-left">
-						<span className="text-xs font-medium text-slate-200 leading-tight">Data Scientist</span>
-						<span className="text-[10px] text-slate-400">Analyst & ML Eng</span>
+						<span className="text-xs font-medium text-slate-200 leading-tight">Nhà khoa học dữ liệu</span>
+						<span className="text-[10px] text-slate-400">Chuyên viên phân tích & Kỹ sư ML</span>
 					</div>
 				</div>
 			</div>

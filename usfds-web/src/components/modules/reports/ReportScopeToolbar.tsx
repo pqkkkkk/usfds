@@ -30,24 +30,24 @@ export const ReportScopeToolbar: React.FC<ReportScopeToolbarProps> = ({
 			<div className="flex flex-wrap items-center gap-3">
 				<div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400 pr-2 border-r border-dark-700">
 					<Filter size={14} className="text-brand-400" />
-					<span>Analytical Scope</span>
+					<span>Phạm vi phân tích</span>
 				</div>
 
 				{/* Detection Job Selector */}
 				<div className="flex items-center gap-2 bg-dark-950 border border-dark-700/80 rounded-lg px-2.5 py-1.5">
 					<Database size={13} className="text-slate-400 shrink-0" />
 					<select
-						aria-label="Detection Job Scope"
+						aria-label="Phạm vi phiên phát hiện"
 						value={scope.detectionJobId || ''}
 						onChange={(e) => onChange({ ...scope, detectionJobId: e.target.value || undefined })}
 						className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer font-medium"
 					>
 						<option value="" className="bg-dark-900 text-slate-200">
-							All Completed Detection Runs ({completedJobs.length})
+							Tất cả phiên phát hiện đã hoàn thành ({completedJobs.length})
 						</option>
 						{completedJobs.map((job) => (
 							<option key={job.job_id} value={job.job_id} className="bg-dark-900 text-slate-200">
-								{job.job_name || `Job ${job.job_id.slice(0, 8)}`} — {(job.total_records ?? 0).toLocaleString()} txs
+								{job.job_name || `Phiên ${job.job_id.slice(0, 8)}`} — {(job.total_records ?? 0).toLocaleString()} giao dịch
 							</option>
 						))}
 					</select>
@@ -58,7 +58,7 @@ export const ReportScopeToolbar: React.FC<ReportScopeToolbarProps> = ({
 					<Calendar size={13} className="text-slate-400 shrink-0" />
 					<input
 						type="date"
-						aria-label="Date From"
+						aria-label="Từ ngày"
 						value={scope.dateFrom || ''}
 						onChange={(e) => onChange({ ...scope, dateFrom: e.target.value || undefined })}
 						className="bg-transparent text-xs text-slate-200 font-mono focus:outline-none cursor-pointer"
@@ -66,7 +66,7 @@ export const ReportScopeToolbar: React.FC<ReportScopeToolbarProps> = ({
 					<span className="text-slate-600 text-xs">→</span>
 					<input
 						type="date"
-						aria-label="Date To"
+						aria-label="Đến ngày"
 						value={scope.dateTo || ''}
 						onChange={(e) => onChange({ ...scope, dateTo: e.target.value || undefined })}
 						className="bg-transparent text-xs text-slate-200 font-mono focus:outline-none cursor-pointer"
@@ -82,13 +82,13 @@ export const ReportScopeToolbar: React.FC<ReportScopeToolbarProps> = ({
 							? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
 							: 'bg-brand-500/10 border-brand-500/30 text-brand-300'
 					}`}
-					title="Toggle whether unreviewed transactions fall back to dataset ground-truth labels when available"
+					title="Bật/tắt việc dùng nhãn thực tế của tập dữ liệu khi giao dịch chưa xem xét và có nhãn"
 				>
 					<ShieldCheck size={13} />
 					<span>
 						{scope.useDatasetFallback ?? true
-							? 'Ground Truth: Case Verdict + Dataset Fallback'
-							: 'Ground Truth: Verified Cases Only'}
+							? 'Nhãn thực tế: kết luận hồ sơ + dự phòng từ tập dữ liệu'
+							: 'Nhãn thực tế: chỉ hồ sơ đã xác minh'}
 					</span>
 				</button>
 
@@ -106,7 +106,7 @@ export const ReportScopeToolbar: React.FC<ReportScopeToolbarProps> = ({
 						className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs transition-colors cursor-pointer"
 					>
 						<RotateCcw size={12} />
-						<span>Reset</span>
+						<span>Đặt lại</span>
 					</button>
 				)}
 			</div>
