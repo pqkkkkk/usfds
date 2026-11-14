@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -131,6 +131,32 @@ class TrainingRunResponse(BaseModel):
     created_at: datetime
 
 
+class ModelLineageNodeResponse(BaseModel):
+    """API response schema for a single node in a model/run lineage DAG."""
+    id: str
+    node_type: str
+    stage: str
+    label: str
+    created_at: str
+    parent_id: Optional[str] = None
+    dataset_id: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ModelLineageEdgeResponse(BaseModel):
+    """API response schema for a directed edge in a model/run lineage DAG."""
+    source: str
+    target: str
+
+
+class ModelLineageResponse(BaseModel):
+    """API response schema for upstream data & training lineage of a ModelVersion or TrainingRun."""
+    root_version_id: Optional[str] = None
+    root_run_id: Optional[str] = None
+    nodes: List[ModelLineageNodeResponse] = Field(default_factory=list)
+    edges: List[ModelLineageEdgeResponse] = Field(default_factory=list)
+
+
 __all__ = [
     "RegisterPluggedModelRequest",
     "StartTrainingRunRequest",
@@ -138,4 +164,7 @@ __all__ = [
     "ModelResponse",
     "ModelVersionResponse",
     "TrainingRunResponse",
+    "ModelLineageNodeResponse",
+    "ModelLineageEdgeResponse",
+    "ModelLineageResponse",
 ]

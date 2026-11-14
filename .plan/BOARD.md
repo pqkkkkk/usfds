@@ -24,9 +24,10 @@
 |---|---|---|---|---|---|
 | [`user_management_rbac`](user_management_rbac.md) | ISS-006 | Planning (plan drafted before 26-11-14; re-check against the new template) | — | Phase 0 | per plan §3 |
 | [`ui_vietnamese_localization`](ui_vietnamese_localization.md) | ISS-005 | Done (26-11-14) | M5 | — | `usfds-web/src/**` (copy only) |
+| [`model_version_lineage`](model_version_lineage.md) | ISS-008 | Done (26-11-14) | M3 | — | `usfds-core/services/training/**`, `usfds-server/routers/training_router.py`, `usfds-web/src/components/modules/model/**` |
 
 ## Backlog
 Every issue without a task: see [`docs/issues/README.md`](../docs/issues/README.md) (rows whose *Plan / Task* column is `—`).
 
 ## Needs product decision before a task can be planned
-ISS-004, ISS-007, ISS-008, ISS-009, ISS-010, ISS-011.
+ISS-004, ISS-007, ISS-009, ISS-010, ISS-011.

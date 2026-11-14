@@ -25,6 +25,7 @@ import type {
 	TrainingRunResponse,
 } from '../../../types/model';
 import { ActivateModelModal } from './ActivateModelModal';
+import { ModelLineagePanel } from './ModelLineagePanel';
 
 export const TrainingRunDetailView: React.FC = () => {
 	const { runId } = useParams<{ runId: string }>();
@@ -793,6 +794,9 @@ export const TrainingRunDetailView: React.FC = () => {
 								</pre>
 							</div>
 						</div>
+
+						{/* 5. Data & Model Lineage Visualization (ISS-008) */}
+						<ModelLineagePanel runId={run.run_id} />
 					</>
 				)}
 			</div>
