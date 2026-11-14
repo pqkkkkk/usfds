@@ -25,7 +25,7 @@ export const RuleOutcomeCard: React.FC<RuleOutcomeCardProps> = ({
       <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80">
         <Sliders className="w-4 h-4 text-amber-400" />
         <h2 className="text-xs font-bold tracking-wider uppercase text-slate-200 font-mono">
-          EXECUTION OUTCOME &amp; ACTION (THEN)
+          KẾT QUẢ THỰC THI &amp; HÀNH ĐỘNG (THEN)
         </h2>
       </div>
 
@@ -33,7 +33,7 @@ export const RuleOutcomeCard: React.FC<RuleOutcomeCardProps> = ({
         {/* Decision Action: ALLOW, REVIEW, REJECT */}
         <div>
           <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">
-            Decision Action (Hành động khi khớp điều kiện)
+            Hành động quyết định (khi khớp điều kiện)
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* ALLOW */}
@@ -101,7 +101,7 @@ export const RuleOutcomeCard: React.FC<RuleOutcomeCardProps> = ({
         {/* Description (Mô tả quy tắc) */}
         <div>
           <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">
-            Description (Mô tả quy tắc nghiệp vụ)
+            Mô tả quy tắc nghiệp vụ
           </label>
           <textarea
             rows={2}
@@ -112,11 +112,11 @@ export const RuleOutcomeCard: React.FC<RuleOutcomeCardProps> = ({
           />
         </div>
 
-        {/* Change Summary (Tóm tắt thay đổi phiên bản) */}
+        {/* Tóm tắt thay đổi phiên bản */}
         {onChangeChangeSummary && (
           <div>
             <label className="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">
-              Change Summary (Tóm tắt thay đổi phiên bản)
+              Tóm tắt thay đổi phiên bản
             </label>
             <input
               type="text"

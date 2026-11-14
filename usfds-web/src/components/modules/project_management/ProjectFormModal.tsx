@@ -88,7 +88,7 @@ const ProjectFormDialogContent: React.FC<Omit<ProjectFormModalProps, 'isOpen'>> 
 							<p className="text-[11px] text-slate-400 mt-0.5">
 								{isEditMode
 									? 'Chỉnh sửa tên hiển thị, mô tả hoặc trạng thái vận hành của dự án'
-									: 'RAW Schema sẽ tự động khóa khi nạp Dataset đầu tiên (Schema-on-First-Upload)'}
+									: 'Lược đồ thô sẽ tự động khóa khi nạp tập dữ liệu đầu tiên'}
 							</p>
 						</div>
 					</div>
@@ -119,14 +119,14 @@ const ProjectFormDialogContent: React.FC<Omit<ProjectFormModalProps, 'isOpen'>> 
 							htmlFor="project-name-input"
 							className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5"
 						>
-							Tên dự án (Project Name) <span className="text-rose-400">*</span>
+							Tên dự án <span className="text-rose-400">*</span>
 						</label>
 						<input
 							id="project-name-input"
 							type="text"
 							value={projectName}
 							onChange={(e) => setProjectName(e.target.value)}
-							placeholder="Ví dụ: E-Commerce Card Fraud 2026"
+							placeholder="Ví dụ: Gian lận thẻ thương mại điện tử 2026"
 							maxLength={255}
 							required
 							autoFocus
@@ -139,7 +139,7 @@ const ProjectFormDialogContent: React.FC<Omit<ProjectFormModalProps, 'isOpen'>> 
 							htmlFor="project-desc-input"
 							className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5"
 						>
-							Mô tả nghiệp vụ (Description)
+							Mô tả nghiệp vụ
 						</label>
 						<textarea
 							id="project-desc-input"
@@ -155,7 +155,7 @@ const ProjectFormDialogContent: React.FC<Omit<ProjectFormModalProps, 'isOpen'>> 
 					{isEditMode && (
 						<div>
 							<label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-								Trạng thái Dự án (Status)
+								Trạng thái dự án
 							</label>
 							<div className="grid grid-cols-2 gap-2.5">
 								<button
@@ -169,7 +169,7 @@ const ProjectFormDialogContent: React.FC<Omit<ProjectFormModalProps, 'isOpen'>> 
 								>
 									<CheckCircle2 className="w-4 h-4 shrink-0" />
 									<div>
-										<div className="text-xs font-bold font-mono">ACTIVE</div>
+										<div className="text-xs font-bold font-mono">Đang hoạt động</div>
 										<div className="text-[10px] opacity-80">Đang hoạt động</div>
 									</div>
 								</button>
@@ -185,8 +185,8 @@ const ProjectFormDialogContent: React.FC<Omit<ProjectFormModalProps, 'isOpen'>> 
 								>
 									<Archive className="w-4 h-4 shrink-0" />
 									<div>
-										<div className="text-xs font-bold font-mono">ARCHIVED</div>
-										<div className="text-[10px] opacity-80">Lưu trữ (Read-only)</div>
+										<div className="text-xs font-bold font-mono">Đã lưu trữ</div>
+										<div className="text-[10px] opacity-80">Chỉ đọc</div>
 									</div>
 								</button>
 							</div>

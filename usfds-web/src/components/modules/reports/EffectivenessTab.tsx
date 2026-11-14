@@ -77,7 +77,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 					<div>
 						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Sparkles size={15} className="text-brand-400" />
-							<span>AI vs. Deterministic Rule Catch Attribution</span>
+							<span>Phân bổ bắt gian lận: AI so với luật xác định</span>
 						</h3>
 						<p className="text-xs text-slate-400 mt-0.5">
 							Exclusive and overlapping contributions across {attribution.total_caught_fraud_count ?? 0} confirmed fraud events ({formatCurrency(attribution.total_caught_fraud_amount)} prevented)
@@ -90,17 +90,17 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 					<div
 						className="bg-cyan-500 h-full transition-all duration-300"
 						style={{ width: `${aiPct}%` }}
-						title={`AI-Only Catch: ${aiPct.toFixed(1)}%`}
+						title={`Chỉ AI bắt: ${aiPct.toFixed(1)}%`}
 					/>
 					<div
 						className="bg-purple-500 h-full transition-all duration-300"
 						style={{ width: `${overlapPct}%` }}
-						title={`Hybrid Consensus: ${overlapPct.toFixed(1)}%`}
+						title={`Đồng thuận kết hợp: ${overlapPct.toFixed(1)}%`}
 					/>
 					<div
 						className="bg-amber-500 h-full transition-all duration-300"
 						style={{ width: `${rulePct}%` }}
-						title={`Rule-Only Catch: ${rulePct.toFixed(1)}%`}
+						title={`Chỉ luật bắt: ${rulePct.toFixed(1)}%`}
 					/>
 				</div>
 
@@ -108,7 +108,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 					{/* AI-Only Catch */}
 					<div className="bg-dark-950 border border-cyan-500/30 rounded-xl p-4">
 						<div className="flex items-center justify-between text-xs text-cyan-300 font-semibold uppercase tracking-wider">
-							<span>AI-Only Catch (XGBoost)</span>
+							<span>Chỉ AI bắt (XGBoost)</span>
 							<BrainCircuit size={15} className="text-cyan-400" />
 						</div>
 						<div className="mt-2 flex items-baseline justify-between">
@@ -120,14 +120,14 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 							</span>
 						</div>
 						<p className="text-[11px] text-slate-400 mt-1.5">
-							Caught exclusively by ML probability (`model_score &ge; threshold`) with zero rule triggers.
+							Được bắt hoàn toàn bởi xác suất ML (`model_score &ge; threshold`) mà không kích hoạt luật nào.
 						</p>
 					</div>
 
 					{/* Hybrid Consensus */}
 					<div className="bg-dark-950 border border-purple-500/30 rounded-xl p-4">
 						<div className="flex items-center justify-between text-xs text-purple-300 font-semibold uppercase tracking-wider">
-							<span>Hybrid Consensus (AI + Rules)</span>
+							<span>Đồng thuận kết hợp (AI + luật)</span>
 							<ShieldCheck size={15} className="text-purple-400" />
 						</div>
 						<div className="mt-2 flex items-baseline justify-between">
@@ -146,7 +146,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 					{/* Rule-Only Catch */}
 					<div className="bg-dark-950 border border-amber-500/30 rounded-xl p-4">
 						<div className="flex items-center justify-between text-xs text-amber-300 font-semibold uppercase tracking-wider">
-							<span>Rule-Only Catch (Policy)</span>
+							<span>Chỉ luật bắt (chính sách)</span>
 							<Scale size={15} className="text-amber-400" />
 						</div>
 						<div className="mt-2 flex items-baseline justify-between">
@@ -158,7 +158,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 							</span>
 						</div>
 						<p className="text-[11px] text-slate-400 mt-1.5">
-							Caught by business policy rules where `model_score` remained below decision threshold.
+							Được bắt bởi luật chính sách nghiệp vụ khi `model_score` vẫn dưới ngưỡng quyết định.
 						</p>
 					</div>
 				</div>
@@ -170,10 +170,10 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 					<div>
 						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Scale size={15} className="text-emerald-400" />
-							<span>Rule Ground-Truth Leaderboard</span>
+							<span>Bảng xếp hạng luật theo nhãn thực tế</span>
 						</h3>
 						<p className="text-xs text-slate-400 mt-0.5">
-							Empirical Precision, False Positive Rate (FPR), and Prevented Fraud Volume per active policy rule
+							Độ chính xác (Precision) thực nghiệm, tỷ lệ dương tính giả (FPR) và khối lượng gian lận đã ngăn chặn theo từng luật đang hoạt động
 						</p>
 					</div>
 					<button
@@ -181,26 +181,26 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 						onClick={() => navigate('/rules')}
 						className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-xs font-medium text-brand-300 border border-dark-700 transition-colors cursor-pointer"
 					>
-						<span>Tune in Rule Engine</span>
+						<span>Điều chỉnh trong động cơ luật</span>
 						<ArrowUpRight size={13} />
 					</button>
 				</div>
 
 				{ruleLeaderboard.length === 0 ? (
 					<div className="py-8 text-center text-xs text-slate-500 bg-dark-950 rounded-lg border border-dark-800">
-						No rule triggers recorded in the selected analytical scope.
+						Chưa ghi nhận lần kích hoạt luật nào trong phạm vi phân tích đã chọn.
 					</div>
 				) : (
 					<div className="overflow-x-auto">
 						<table className="w-full text-left border-collapse">
 							<thead>
 								<tr className="border-b border-dark-800 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-									<th className="py-2.5 px-3">Rule</th>
-									<th className="py-2.5 px-3">Action</th>
+									<th className="py-2.5 px-3">Luật</th>
+									<th className="py-2.5 px-3">Thao tác</th>
 									<th className="py-2.5 px-3 text-right">Triggers</th>
 									<th className="py-2.5 px-3 text-right">TP / FP</th>
-									<th className="py-2.5 px-3 text-right">Precision</th>
-									<th className="py-2.5 px-3">False Positive Rate</th>
+									<th className="py-2.5 px-3 text-right">Độ chính xác (Precision)</th>
+									<th className="py-2.5 px-3">Tỷ lệ dương tính giả</th>
 									<th className="py-2.5 px-3 text-right">Prevented ($)</th>
 									<th className="py-2.5 px-3 text-center">Diagnostic Badge</th>
 								</tr>
@@ -286,10 +286,10 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 					<div className="mb-4">
 						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Gauge size={15} className="text-cyan-400" />
-							<span>XGBoost Score Calibration (10 Probability Bins)</span>
+							<span>Hiệu chỉnh điểm XGBoost (10 khoảng xác suất)</span>
 						</h3>
 						<p className="text-xs text-slate-400 mt-0.5">
-							Confirmed Fraud vs. False Positive & Unverified volume per probability decile (`0.0–1.0`)
+							Gian lận đã xác nhận so với dương tính giả & chưa xác minh theo từng nhóm xác suất (`0.0–1.0`)
 						</p>
 					</div>
 
@@ -311,19 +311,19 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 								<Legend wrapperStyle={{ fontSize: '12px' }} />
 								<Bar
 									dataKey="confirmed_fraud_count"
-									name="Confirmed Fraud Txs"
+									name="Giao dịch gian lận đã xác nhận"
 									stackId="a"
 									fill="#10B981"
 								/>
 								<Bar
 									dataKey="false_positive_count"
-									name="False Positive Txs"
+									name="Giao dịch dương tính giả"
 									stackId="a"
 									fill="#F43F5E"
 								/>
 								<Bar
 									dataKey="unverified_count"
-									name="Unverified Txs"
+									name="Giao dịch chưa xác minh"
 									stackId="a"
 									fill="#3B82F6"
 									radius={[4, 4, 0, 0]}
@@ -340,10 +340,10 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 							<div>
 								<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 									<Sliders size={15} className="text-brand-400" />
-									<span>What-If Decision Threshold Simulator</span>
+									<span>Mô phỏng ngưỡng quyết định</span>
 								</h3>
 								<p className="text-xs text-slate-400 mt-0.5">
-									Simulate Precision, Recall, and Review Queue volume before redeploying threshold
+									Mô phỏng độ nhạy, độ chính xác (Precision) và khối lượng hàng đợi xem xét trước khi áp dụng ngưỡng mới
 								</p>
 							</div>
 							<span className="px-2.5 py-1 rounded-lg bg-brand-500/15 border border-brand-500/30 font-mono text-sm font-bold text-brand-300">
@@ -353,9 +353,9 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 
 						<div className="my-4 bg-dark-950 border border-dark-800 rounded-xl p-4">
 							<div className="flex items-center justify-between text-xs text-slate-400 font-mono mb-2">
-								<span>0.05 (Aggressive Recall)</span>
-								<span>0.50 (Default)</span>
-								<span>0.95 (Strict Precision)</span>
+								<span>0,05 (ưu tiên độ nhạy)</span>
+								<span>0,50 (mặc định)</span>
+								<span>0,95 — ưu tiên độ chính xác (Precision)</span>
 							</div>
 							<input
 								type="range"
@@ -372,7 +372,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 							<div className="grid grid-cols-2 gap-3">
 								<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
 									<div className="text-[11px] uppercase tracking-wider text-slate-400">
-										Estimated Recall
+										Độ nhạy ước tính
 									</div>
 									<div className="text-xl font-bold font-mono tabular-nums text-emerald-400 mt-1">
 										{((activePoint.estimated_recall ?? 0) * 100).toFixed(1)}%
@@ -384,7 +384,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 
 								<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
 									<div className="text-[11px] uppercase tracking-wider text-slate-400">
-										Estimated Precision
+										Độ chính xác (Precision) ước tính
 									</div>
 									<div className="text-xl font-bold font-mono tabular-nums text-cyan-400 mt-1">
 										{((activePoint.estimated_precision ?? 0) * 100).toFixed(1)}%
@@ -396,7 +396,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 
 								<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
 									<div className="text-[11px] uppercase tracking-wider text-slate-400">
-										Review Queue Volume
+										Khối lượng hàng đợi xem xét
 									</div>
 									<div className="text-xl font-bold font-mono tabular-nums text-slate-100 mt-1">
 										{(activePoint.review_queue_volume ?? 0).toLocaleString()} txs
@@ -408,7 +408,7 @@ export const EffectivenessTab: React.FC<EffectivenessTabProps> = ({ data, isLoad
 
 								<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
 									<div className="text-[11px] uppercase tracking-wider text-slate-400">
-										FP Reduction vs. Baseline
+										Giảm FP so với đường cơ sở
 									</div>
 									<div
 										className={`text-xl font-bold font-mono tabular-nums mt-1 ${

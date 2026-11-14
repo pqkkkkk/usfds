@@ -72,10 +72,10 @@ export const ImportDatasetModal = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                Import Transaction Dataset
+                Nhập tập dữ liệu giao dịch
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Upload historical batch or transaction dump for fraud profiling & canonical schema mapping
+                Tải lên lô dữ liệu lịch sử hoặc bản xuất giao dịch để phân tích gian lận & ánh xạ lược đồ chuẩn
               </p>
             </div>
           </div>
@@ -123,7 +123,7 @@ export const ImportDatasetModal = ({
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <p className="text-xs font-semibold text-slate-200 group-hover:text-brand-300 transition">
-              Select or Drop local transaction file (<span className="text-brand-400 underline">Browse</span>)
+              Chọn hoặc kéo thả tệp giao dịch cục bộ (<span className="text-brand-400 underline">Duyệt</span>)
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5">
               Supports <code className="text-slate-400 font-mono">.csv</code>, <code className="text-slate-400 font-mono">.parquet</code>, <code className="text-slate-400 font-mono">.json</code>
@@ -155,7 +155,7 @@ export const ImportDatasetModal = ({
               {/* Progress Bar Indicator */}
               <div className="space-y-1">
                 <div className="flex justify-between text-[10px] text-slate-400">
-                  <span className="text-emerald-400 font-medium">Ready for Ingestion & Profiling</span>
+                  <span className="text-emerald-400 font-medium">Sẵn sàng để nhập & phân tích</span>
                   <span className="font-mono">100% Ready</span>
                 </div>
                 <div className="h-1.5 w-full bg-dark-800 rounded-full overflow-hidden">
@@ -169,14 +169,14 @@ export const ImportDatasetModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                Dataset Identifier <span className="text-rose-400">*</span>
+                Mã định danh tập dữ liệu <span className="text-rose-400">*</span>
               </label>
               <div className="relative">
                 <input
                   type="text"
                   value={datasetName}
                   onChange={(e) => setDatasetName(e.target.value)}
-                  placeholder="e.g. credit_card_fraud_2026_q3"
+                  placeholder="VD: credit_card_fraud_2026_q3"
                   className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-200 font-mono focus:border-brand-500 focus:outline-none transition"
                   required
                 />
@@ -192,7 +192,7 @@ export const ImportDatasetModal = ({
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. E-Commerce Credit Card Batch 2026 Q3"
+                placeholder="VD: E-Commerce Credit Card Batch 2026 Q3"
                 className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-200 focus:border-brand-500 focus:outline-none transition"
                 required
               />
@@ -209,10 +209,10 @@ export const ImportDatasetModal = ({
               onChange={(e) => setDataClassification(e.target.value as DataClassification)}
               className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-200 focus:border-brand-500 focus:outline-none transition"
             >
-              <option value="CONFIDENTIAL">Confidential (Level 3 - Financial & Transaction Records)</option>
-              <option value="INTERNAL">Internal (Company Internal Analytics)</option>
-              <option value="RESTRICTED">Restricted (Highly Sensitive / Compliance Audited)</option>
-              <option value="PUBLIC">Public (Anonymized Benchmarks & Open Datasets)</option>
+              <option value="CONFIDENTIAL">Bảo mật — Cấp 3: hồ sơ tài chính & giao dịch</option>
+              <option value="INTERNAL">Nội bộ — Phân tích nội bộ công ty</option>
+              <option value="RESTRICTED">Hạn chế — Rất nhạy cảm, đã kiểm toán tuân thủ</option>
+              <option value="PUBLIC">Công khai — Benchmark ẩn danh & tập dữ liệu mở</option>
             </select>
           </div>
 
@@ -222,7 +222,7 @@ export const ImportDatasetModal = ({
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-brand-400" />
                 <span className="text-xs font-semibold text-slate-200">
-                  Contains Personally Identifiable Information (PII)
+                  Chứa thông tin cá nhân nhận diện được (PII)
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -245,7 +245,7 @@ export const ImportDatasetModal = ({
           {/* Description */}
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-              Description / Ingestion Purpose
+              Mô tả / Mục đích nhập liệu
             </label>
             <textarea
               rows={2}
@@ -265,7 +265,7 @@ export const ImportDatasetModal = ({
             disabled={isLoading}
             className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-dark-800 transition"
           >
-            Cancel
+            Hủy
           </button>
           <button
             type="button"
@@ -276,11 +276,11 @@ export const ImportDatasetModal = ({
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Ingesting & Profiling...</span>
+                <span>Đang nhập & phân tích...</span>
               </>
             ) : (
               <>
-                <span>Proceed</span>
+                <span>Tiếp tục</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </>
             )}

@@ -211,15 +211,15 @@ export const RuleWorkspace: React.FC = () => {
 		{
 			id: 'step-builder',
 			stepNumber: 1,
-			label: 'Rule Studio Builder',
-			description: 'Logic DSL & Condition Tree',
+			label: 'Trình thiết kế luật',
+			description: 'DSL logic & cây điều kiện',
 			state: stepId === 'step-builder' ? 'active' : 'completed',
 		},
 		{
 			id: 'step-dryrun',
 			stepNumber: 2,
-			label: 'Dry Run Simulation',
-			description: 'Historical Backtest & Telemetry',
+			label: 'Mô phỏng chạy thử',
+			description: 'Kiểm thử lịch sử & telemetry',
 			state: stepId === 'step-dryrun' ? 'active' : 'completed',
 		},
 	];
@@ -233,12 +233,12 @@ export const RuleWorkspace: React.FC = () => {
 				title={
 					stepId === 'step-builder'
 						? `${ruleCode} - ${ruleName}`
-						: `Dry Run: ${ruleCode}`
+						: `Chạy thử: ${ruleCode}`
 				}
 				badgeColor={stepId === 'step-builder' ? 'blue' : 'purple'}
 				breadcrumbs={[
-					{ label: 'Rule Management', tab: 'catalog' },
-					{ label: ruleCode || 'Rule Studio', tab: 'builder' },
+					{ label: 'Quản lý luật', tab: 'catalog' },
+					{ label: ruleCode || 'Trình thiết kế luật', tab: 'builder' },
 					{ label: currentStep.label },
 				]}
 				onNavigate={(tab) => {
@@ -258,7 +258,7 @@ export const RuleWorkspace: React.FC = () => {
 								className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-slate-800 text-slate-300 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
 							>
 								<ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
-								<span>Danh mục Rules</span>
+								<span>Danh mục luật</span>
 							</button>
 						) : (
 							<button
@@ -267,7 +267,7 @@ export const RuleWorkspace: React.FC = () => {
 								className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-slate-800 text-slate-300 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
 							>
 								<ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
-								<span>Về Studio Builder</span>
+								<span>Về trình thiết kế</span>
 							</button>
 						)}
 
@@ -298,7 +298,7 @@ export const RuleWorkspace: React.FC = () => {
 									) : (
 										<Save className="w-3.5 h-3.5 text-brand-400" />
 									)}
-									<span>{isNew ? 'Save Rule' : 'Save Changes'}</span>
+									<span>{isNew ? 'Lưu luật' : 'Lưu thay đổi'}</span>
 								</button>
 
 								<button
@@ -307,7 +307,7 @@ export const RuleWorkspace: React.FC = () => {
 									disabled={isSaving}
 									className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-1.5 cursor-pointer"
 								>
-									<span>Chuyển sang Dry Run</span>
+									<span>Chuyển sang chạy thử</span>
 									<ArrowRight className="w-3.5 h-3.5" />
 								</button>
 							</>
@@ -321,7 +321,7 @@ export const RuleWorkspace: React.FC = () => {
 								onClick={() => handleSave('ACTIVE')}
 								title={
 									!isSchemaLocked
-										? 'Cần tải lên Dataset đầu tiên để khóa RAW Schema trước khi kích hoạt ACTIVE (BR-PM-04)'
+										? 'Cần tải lên tập dữ liệu đầu tiên để khóa lược đồ thô trước khi kích hoạt ACTIVE (BR-PM-04)'
 										: 'Lưu và kích hoạt quy tắc sang trạng thái ACTIVE'
 								}
 								className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2 cursor-pointer"
@@ -349,7 +349,7 @@ export const RuleWorkspace: React.FC = () => {
 				<div className="mx-6 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-500/40 bg-brand-950/30 px-4 py-2.5 text-xs text-brand-200">
 					<div>
 						<span className="font-semibold text-brand-300">
-							Seeded from Investigation Case:
+							Khởi tạo từ hồ sơ điều tra:
 						</span>{' '}
 						<span className="font-mono">{investigationDraft.name}</span> &mdash;{' '}
 						<span>{investigationDraft.message}</span>
@@ -359,7 +359,7 @@ export const RuleWorkspace: React.FC = () => {
 						onClick={() => navigate(`/investigation/cases/${investigationDraft.source_case_id}`)}
 						className="font-mono text-brand-300 hover:underline cursor-pointer"
 					>
-						Return to Source Case &rarr;
+						Quay lại hồ sơ nguồn &rarr;
 					</button>
 				</div>
 			)}
@@ -369,7 +369,7 @@ export const RuleWorkspace: React.FC = () => {
 				{loading ? (
 					<div className="flex-1 flex items-center justify-center text-slate-400 text-xs gap-2 font-mono">
 						<Loader2 className="w-4 h-4 animate-spin text-brand-400" />
-						<span>Loading rule workspace...</span>
+						<span>Đang tải không gian làm việc luật...</span>
 					</div>
 				) : (
 					<>

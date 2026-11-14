@@ -258,8 +258,8 @@ export const TrainingWizardView: React.FC = () => {
 		{
 			id: 'step-data',
 			stepNumber: 1,
-			label: '1. Training Data',
-			description: 'Select FEATURE_ENGINEERED Artifact',
+			label: '1. Dữ liệu huấn luyện',
+			description: 'Chọn artifact FEATURE_ENGINEERED',
 			state:
 				currentStep === 'step-data'
 					? 'active'
@@ -271,7 +271,7 @@ export const TrainingWizardView: React.FC = () => {
 			id: 'step-model',
 			stepNumber: 2,
 			label: '2. Algorithm & Hyperparameters',
-			description: 'Model & Hyperparameter Config',
+			description: 'Cấu hình mô hình & siêu tham số',
 			state:
 				currentStep === 'step-model'
 					? 'active'
@@ -285,7 +285,7 @@ export const TrainingWizardView: React.FC = () => {
 			id: 'step-review',
 			stepNumber: 3,
 			label: '3. Review & Launch',
-			description: 'Confirm & Dispatch Training Run',
+			description: 'Xác nhận & khởi chạy lượt huấn luyện',
 			state: currentStep === 'step-review' ? 'active' : 'locked',
 		},
 	];
@@ -335,14 +335,14 @@ export const TrainingWizardView: React.FC = () => {
 	return (
 		<div className="flex-1 flex flex-col h-full overflow-hidden bg-dark-950">
 			<PageHeader
-				title="Start Model Training Wizard"
+				title="Trình huấn luyện mô hình"
 				subtitle="Chọn tập dữ liệu FEATURE_ENGINEERED, cấu hình siêu tham số và thực thi huấn luyện mô hình"
-				badge="Model Training"
+				badge="Huấn luyện mô hình"
 				badgeColor="blue"
 				breadcrumbs={[
 					{ label: currentProject?.project_name || 'Project' },
-					{ label: 'Model Management', href: '/models' },
-					{ label: 'New Training Run' },
+					{ label: 'Quản lý mô hình', href: '/models' },
+					{ label: 'Lượt huấn luyện mới' },
 				]}
 				actions={
 					<button
@@ -351,7 +351,7 @@ export const TrainingWizardView: React.FC = () => {
 						className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-slate-300 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
 					>
 						<ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
-						<span>Quay lại Model Hub</span>
+						<span>Quay lại trung tâm mô hình</span>
 					</button>
 				}
 			/>
@@ -387,7 +387,7 @@ export const TrainingWizardView: React.FC = () => {
 					{isLoadingInit ? (
 						<div className="p-12 rounded-xl bg-dark-900 border border-dark-800 flex items-center justify-center gap-2.5 text-xs text-slate-400">
 							<Loader2 className="w-4 h-4 animate-spin text-brand-400" />
-							<span>Đang tải danh mục Dataset Artifacts và Model Registry...</span>
+							<span>Đang tải danh mục artifact tập dữ liệu và sổ đăng ký mô hình...</span>
 						</div>
 					) : currentStep === 'step-data' ? (
 						/* STEP 1: TRAINING DATA */
@@ -402,14 +402,14 @@ export const TrainingWizardView: React.FC = () => {
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<div>
 									<label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-										Chọn Dataset trong Dự án
+										Chọn tập dữ liệu trong dự án
 									</label>
 									<select
 										value={selectedDatasetId}
 										onChange={(e) => handleSelectDataset(e.target.value)}
 										className="w-full px-3 py-2.5 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-100 focus:border-brand-500 focus:outline-none"
 									>
-										<option value="">-- Chọn Dataset --</option>
+										<option value="">-- Chọn tập dữ liệu --</option>
 										{datasets.map((ds) => (
 											<option key={ds.dataset_id} value={ds.dataset_id}>
 												{ds.display_name || ds.dataset_name} ({ds.artifacts_count} artifacts)
@@ -420,7 +420,7 @@ export const TrainingWizardView: React.FC = () => {
 
 								<div>
 									<label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-										Chọn Phiên bản Artifact (`dataset_artifact_id`)
+										Chọn phiên bản artifact (`dataset_artifact_id`)
 									</label>
 									<select
 										value={selectedArtifactId}
@@ -428,7 +428,7 @@ export const TrainingWizardView: React.FC = () => {
 										disabled={!selectedDatasetId}
 										className="w-full px-3 py-2.5 bg-dark-950 border border-dark-700 rounded-lg text-xs font-mono text-slate-100 focus:border-brand-500 focus:outline-none disabled:opacity-50"
 									>
-										<option value="">-- Chọn Artifact FEATURE_ENGINEERED --</option>
+										<option value="">-- Chọn artifact FEATURE_ENGINEERED --</option>
 										{eligibleArtifacts.map((art) => (
 											<option key={art.artifact_id} value={art.artifact_id}>
 												[{art.pipeline_stage}] {art.artifact_id.slice(0, 8)}... ({art.row_count ?? '—'} rows · {art.column_count ?? '—'} cols)
@@ -441,14 +441,14 @@ export const TrainingWizardView: React.FC = () => {
 							{selectedDatasetId && eligibleArtifacts.length === 0 && (
 								<div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-center justify-between gap-4">
 									<span>
-										Dataset này chưa có Artifact nào đạt trạng thái <strong className="font-mono">FEATURE_ENGINEERED</strong>. Vui lòng thực hiện Schema Mapping & Feature Engineering trước.
+										Tập dữ liệu này chưa có artifact nào đạt trạng thái <strong className="font-mono">FEATURE_ENGINEERED</strong>. Vui lòng thực hiện Schema Mapping & Feature Engineering trước.
 									</span>
 									<button
 										type="button"
 										onClick={() => navigate(`/datasets/${selectedDatasetId}`)}
 										className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 font-semibold shrink-0"
 									>
-										Mở Data Pipeline →
+										Mở pipeline dữ liệu →
 									</button>
 								</div>
 							)}
@@ -458,7 +458,7 @@ export const TrainingWizardView: React.FC = () => {
 									<div className="flex items-center justify-between">
 										<span className="text-xs font-bold text-slate-200 flex items-center gap-2">
 											<CheckCircle2 className="w-4 h-4 text-emerald-400" />
-											Thông tin Artifact đã chọn
+											Thông tin artifact đã chọn
 										</span>
 										<span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
 											{selectedArtifact.pipeline_stage}
@@ -500,7 +500,7 @@ export const TrainingWizardView: React.FC = () => {
 									onClick={() => setCurrentStep('step-model')}
 									className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-40 text-white text-xs font-semibold transition flex items-center gap-2"
 								>
-									<span>Next: Algorithm & Hyperparameters</span>
+									<span>Tiếp theo: thuật toán & siêu tham số</span>
 									<ArrowRight className="w-4 h-4" />
 								</button>
 							</div>
@@ -523,7 +523,7 @@ export const TrainingWizardView: React.FC = () => {
 										className="text-[11px] font-semibold text-brand-400 hover:text-brand-300 flex items-center gap-1"
 									>
 										<Code2 className="w-3.5 h-3.5" />
-										<span>+ Import Plugin</span>
+										<span>+ Nhập plugin</span>
 									</button>
 								</div>
 
@@ -576,7 +576,7 @@ export const TrainingWizardView: React.FC = () => {
 										<div className="flex items-center gap-2">
 											<Sliders className="w-4 h-4 text-brand-400" />
 											<h2 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-												Hyperparameters Configuration
+												Cấu hình siêu tham số
 											</h2>
 										</div>
 										<div className="flex items-center gap-2">
@@ -585,7 +585,7 @@ export const TrainingWizardView: React.FC = () => {
 												onClick={() => setJsonEditMode(!jsonEditMode)}
 												className="px-2.5 py-1 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-[11px] font-mono text-slate-300 transition"
 											>
-												{jsonEditMode ? 'Form View' : '{ } Edit JSON'}
+												{jsonEditMode ? 'Chế độ biểu mẫu' : '{ } Chỉnh sửa JSON'}
 											</button>
 											<button
 												type="button"
@@ -593,7 +593,7 @@ export const TrainingWizardView: React.FC = () => {
 												className="px-2.5 py-1 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-[11px] text-slate-300 transition flex items-center gap-1"
 											>
 												<RotateCcw className="w-3 h-3" />
-												<span>Reset Defaults</span>
+												<span>Đặt lại mặc định</span>
 											</button>
 										</div>
 									</div>
@@ -608,7 +608,7 @@ export const TrainingWizardView: React.FC = () => {
 									{jsonEditMode ? (
 										<div>
 											<label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-												Hyperparameters JSON
+												JSON siêu tham số
 											</label>
 											<textarea
 												rows={10}
@@ -701,7 +701,7 @@ export const TrainingWizardView: React.FC = () => {
 										className="px-4 py-2 rounded-xl bg-dark-800 hover:bg-dark-700 text-xs font-medium text-slate-300 transition flex items-center gap-2"
 									>
 										<ArrowLeft className="w-4 h-4" />
-										<span>Back</span>
+										<span>Quay lại</span>
 									</button>
 									<button
 										type="button"
@@ -709,7 +709,7 @@ export const TrainingWizardView: React.FC = () => {
 										onClick={() => setCurrentStep('step-review')}
 										className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-40 text-white text-xs font-semibold transition flex items-center gap-2"
 									>
-										<span>Next: Review & Launch</span>
+										<span>Tiếp theo: xem lại & khởi chạy</span>
 										<ArrowRight className="w-4 h-4" />
 									</button>
 								</div>
@@ -721,7 +721,7 @@ export const TrainingWizardView: React.FC = () => {
 							<div className="flex items-center gap-2.5 border-b border-dark-800 pb-3">
 								<Play className="w-4 h-4 text-emerald-400" />
 								<h2 className="text-sm font-bold text-slate-100">
-									Bước 3: Kiểm tra Cấu hình & Khởi chạy Huấn luyện (Review & Launch)
+									Bước 3: Kiểm tra cấu hình & khởi chạy huấn luyện
 								</h2>
 							</div>
 
@@ -793,7 +793,7 @@ export const TrainingWizardView: React.FC = () => {
 									className="px-4 py-2 rounded-xl bg-dark-800 hover:bg-dark-700 text-xs font-medium text-slate-300 transition flex items-center gap-2"
 								>
 									<ArrowLeft className="w-4 h-4" />
-									<span>Back</span>
+									<span>Quay lại</span>
 								</button>
 
 								<button
@@ -810,7 +810,7 @@ export const TrainingWizardView: React.FC = () => {
 									) : (
 										<>
 											<Play className="w-4 h-4" />
-											<span>Start Training</span>
+											<span>Bắt đầu huấn luyện</span>
 										</>
 									)}
 								</button>

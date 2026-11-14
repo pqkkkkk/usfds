@@ -35,44 +35,44 @@ export const Sidebar = ({
   const modules: ModuleOption[] = [
     {
       id: 'data-management',
-      label: 'Data Management',
-      subLabel: 'Datasets & Lineage',
+      label: 'Quản lý dữ liệu',
+      subLabel: 'Tập dữ liệu & nguồn gốc',
       icon: Database,
     },
     {
       id: 'model-management',
-      label: 'Model Management',
-      subLabel: 'Training & Evaluation',
+      label: 'Quản lý mô hình',
+      subLabel: 'Huấn luyện & đánh giá',
       icon: BrainCircuit,
     },
     {
       id: 'rule-management',
-      label: 'Rule Management',
-      subLabel: 'Studio & Backtest',
+      label: 'Quản lý luật',
+      subLabel: 'Thiết kế & kiểm thử lịch sử',
       icon: ShieldCheck,
     },
     {
       id: 'detection',
-      label: 'Detection',
-      subLabel: 'Inference Jobs',
+      label: 'Phát hiện gian lận',
+      subLabel: 'Tác vụ suy luận',
       icon: Terminal,
     },
     {
       id: 'investigation',
-      label: 'Investigation',
-      subLabel: 'Case Review & Alerts',
+      label: 'Điều tra',
+      subLabel: 'Xem xét hồ sơ & cảnh báo',
       icon: SearchCheck,
     },
     {
       id: 'insight-report',
-      label: 'Insight & Report',
-      subLabel: 'Analytics & Trends',
+      label: 'Phân tích & Báo cáo',
+      subLabel: 'Phân tích & xu hướng',
       icon: BarChart2,
     },
     {
       id: 'project-settings',
-      label: 'Project Settings',
-      subLabel: 'Info & RAW Schema',
+      label: 'Cài đặt dự án',
+      subLabel: 'Thông tin & lược đồ thô',
       icon: Settings,
     },
   ];
@@ -87,7 +87,7 @@ export const Sidebar = ({
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-2">
         {!collapsed && (
           <div className="px-3 pb-1 text-[10px] font-semibold tracking-wider uppercase text-slate-500 font-mono">
-            Navigation
+            Điều hướng
           </div>
         )}
 
@@ -129,14 +129,14 @@ export const Sidebar = ({
         <button
           onClick={onToggleCollapse}
           className="w-full flex items-center justify-center gap-2 py-2 px-2.5 rounded-md hover:bg-dark-800 text-slate-400 hover:text-slate-200 text-xs transition focus-ring"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
         >
           {collapsed ? (
             <ChevronRight className="w-4 h-4" />
           ) : (
             <>
               <ChevronLeft className="w-4 h-4" />
-              <span className="font-medium text-[11px]">Collapse Sidebar</span>
+              <span className="font-medium text-[11px]">Thu gọn thanh bên</span>
             </>
           )}
         </button>

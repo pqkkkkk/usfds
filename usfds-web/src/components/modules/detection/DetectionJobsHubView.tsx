@@ -135,14 +135,14 @@ export function DetectionJobsHubView() {
 	return (
 		<div className="flex-1 flex flex-col overflow-hidden bg-dark-950">
 			<PageHeader
-				title="Detection & Batch Inference Hub"
+				title="Phát hiện gian lận & suy luận theo lô"
 				subtitle={
 					currentProject
-						? `Quản lý các phiên quét phát hiện gian lận kết hợp AI Model & Active Rules cho dự án "${currentProject.project_name}"`
-						: 'Quản lý các phiên quét phát hiện gian lận theo lô (Hybrid Batch Detection)'
+						? `Quản lý các phiên quét phát hiện gian lận kết hợp mô hình AI & luật đang hoạt động cho dự án "${currentProject.project_name}"`
+						: 'Quản lý các phiên quét phát hiện gian lận theo lô'
 				}
 				breadcrumbs={[
-					{ label: 'Detection Jobs' },
+					{ label: 'Các phiên phát hiện' },
 				]}
 				actions={
 					<div className="flex items-center gap-2.5">
@@ -155,7 +155,7 @@ export function DetectionJobsHubView() {
 							<RefreshCw
 								className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin text-brand-400' : ''}`}
 							/>
-							Refresh
+							Làm mới
 						</button>
 						<button
 							type="button"
@@ -163,7 +163,7 @@ export function DetectionJobsHubView() {
 							className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs font-semibold text-white flex items-center gap-2 shadow-lg shadow-brand-600/20 transition"
 						>
 							<Play className="w-3.5 h-3.5 fill-current" />
-							New Detection Job
+							Phiên phát hiện mới
 						</button>
 					</div>
 				}
@@ -175,7 +175,7 @@ export function DetectionJobsHubView() {
 					<div className="p-4 rounded-xl bg-dark-900 border border-dark-800 flex items-start justify-between">
 						<div>
 							<p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
-								Total Detection Jobs
+								Tổng số phiên phát hiện
 							</p>
 							<p className="text-2xl font-bold font-mono text-slate-100 mt-1">
 								{kpis.totalJobs}
@@ -195,7 +195,7 @@ export function DetectionJobsHubView() {
 					<div className="p-4 rounded-xl bg-dark-900 border border-dark-800 flex items-start justify-between">
 						<div>
 							<p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
-								Transactions Scanned
+								Số giao dịch đã quét
 							</p>
 							<p className="text-2xl font-bold font-mono text-slate-100 mt-1">
 								{kpis.totalScanned.toLocaleString()}
@@ -212,7 +212,7 @@ export function DetectionJobsHubView() {
 					<div className="p-4 rounded-xl bg-dark-900 border border-dark-800 flex items-start justify-between">
 						<div>
 							<p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
-								Flagged Anomalies
+								Bất thường bị gắn cờ
 							</p>
 							<p className="text-2xl font-bold font-mono text-rose-400 mt-1">
 								{kpis.totalFlagged.toLocaleString()}
@@ -235,13 +235,13 @@ export function DetectionJobsHubView() {
 					>
 						<div>
 							<p className="text-[11px] font-medium uppercase tracking-wider text-slate-400 group-hover:text-amber-300 transition">
-								Dispatched Cases
+								Hồ sơ đã chuyển
 							</p>
 							<p className="text-2xl font-bold font-mono text-amber-400 mt-1">
 								{totalCases}
 							</p>
 							<p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-								View in Investigation Queue
+								Xem trong hàng đợi điều tra
 								<ArrowUpRight className="w-3 h-3 text-amber-400" />
 							</p>
 						</div>
@@ -259,7 +259,7 @@ export function DetectionJobsHubView() {
 							type="text"
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							placeholder="Search by job name, input dataset/file, or model..."
+							placeholder="Tìm theo tên phiên, tập dữ liệu/tệp đầu vào hoặc mô hình..."
 							className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-brand-500"
 						/>
 					</div>
@@ -286,7 +286,7 @@ export function DetectionJobsHubView() {
 					{isLoading ? (
 						<div className="p-12 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
 							<RefreshCw className="w-5 h-5 animate-spin text-brand-400" />
-							<span>Loading detection jobs...</span>
+							<span>Đang tải các phiên phát hiện...</span>
 						</div>
 					) : filteredJobs.length === 0 ? (
 						<div className="p-12 text-center space-y-3 max-w-md mx-auto">
@@ -294,10 +294,10 @@ export function DetectionJobsHubView() {
 								<ShieldCheck className="w-5 h-5" />
 							</div>
 							<h3 className="text-sm font-semibold text-slate-200">
-								No Detection Jobs Found
+								Chưa có phiên phát hiện nào
 							</h3>
 							<p className="text-xs text-slate-400 leading-relaxed">
-								Khởi tạo một phiên quét phát hiện gian lận mới bằng cách chọn tập dữ liệu ở bước RAW hoặc tải trực tiếp tệp giao dịch lên để chấm điểm với AI Model và bộ luật ACTIVE.
+								Khởi tạo một phiên quét phát hiện gian lận mới bằng cách chọn tập dữ liệu ở bước dữ liệu thô hoặc tải trực tiếp tệp giao dịch lên để chấm điểm với AI Model và bộ luật ACTIVE.
 							</p>
 							<button
 								type="button"
@@ -305,7 +305,7 @@ export function DetectionJobsHubView() {
 								className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs font-semibold text-white inline-flex items-center gap-2 transition"
 							>
 								<Play className="w-3.5 h-3.5 fill-current" />
-								Start First Detection Job
+								Bắt đầu phiên phát hiện đầu tiên
 							</button>
 						</div>
 					) : (
@@ -313,14 +313,14 @@ export function DetectionJobsHubView() {
 							<table className="w-full text-left border-collapse">
 								<thead>
 									<tr className="border-b border-dark-800 bg-dark-950/60 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-										<th className="py-3 px-4">Detection Job</th>
-										<th className="py-3 px-4">Input Source</th>
+										<th className="py-3 px-4">Phiên phát hiện</th>
+										<th className="py-3 px-4">Nguồn đầu vào</th>
 										<th className="py-3 px-4">Hybrid Engine Config</th>
-										<th className="py-3 px-4">Status</th>
+										<th className="py-3 px-4">Trạng thái</th>
 										<th className="py-3 px-4 text-right">Records</th>
 										<th className="py-3 px-4 text-right">Decision Breakdown</th>
 										<th className="py-3 px-4 text-right">Runtime</th>
-										<th className="py-3 px-4 text-right">Actions</th>
+										<th className="py-3 px-4 text-right">Thao tác</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-dark-800/70 text-xs">
@@ -338,12 +338,12 @@ export function DetectionJobsHubView() {
 											meta.dataset_name ||
 											meta.input_file_name ||
 											job.input_path.split(/[/\\]/).pop() ||
-											'Batch Input';
+											'Đầu vào theo lô';
 
 										const hasModel = Boolean(job.model_version_id);
 										const modelTitle = hasModel
-											? `${meta.model_display_name || meta.model_name || 'AI Model'} (v${meta.semver || '1.0.0'})`
-											: 'Rule-Only Mode';
+											? `${meta.model_display_name || meta.model_name || 'Mô hình AI'} (v${meta.semver || '1.0.0'})`
+											: 'Chỉ dùng luật';
 
 										const rejectCount = meta.reject_count ?? 0;
 										const reviewCount = meta.review_count ?? 0;
@@ -360,7 +360,7 @@ export function DetectionJobsHubView() {
 											>
 												<td className="py-3.5 px-4">
 													<div className="font-semibold text-slate-100 group-hover:text-brand-300 transition">
-														{job.job_name || `Job-${job.job_id.slice(0, 8)}`}
+														{job.job_name || `Phiên-${job.job_id.slice(0, 8)}`}
 													</div>
 													<div className="text-[11px] text-slate-500 font-mono mt-0.5">
 														{new Date(job.created_at).toLocaleString()}
@@ -370,7 +370,7 @@ export function DetectionJobsHubView() {
 															className="text-[11px] text-rose-400 mt-1 max-w-xs truncate"
 															title={job.error_message}
 														>
-															Error: {job.error_message}
+															Lỗi: {job.error_message}
 														</div>
 													)}
 												</td>
@@ -388,8 +388,8 @@ export function DetectionJobsHubView() {
 													</div>
 													<div className="text-[10px] text-slate-500 mt-0.5">
 														{isArtifactSource
-															? 'Project RAW Artifact'
-															: 'Direct File Upload'}
+															? 'Artifact RAW của dự án'
+															: 'Tải tệp trực tiếp'}
 													</div>
 												</td>
 
@@ -411,8 +411,8 @@ export function DetectionJobsHubView() {
 																}`}
 														>
 															{job.use_rules
-																? `Rules: ${meta.active_rules_count ?? 'ACTIVE'}`
-																: 'Rules Disabled'}
+																? `Luật: ${meta.active_rules_count ?? 'ACTIVE'}`
+																: 'Đã tắt luật'}
 														</span>
 													</div>
 												</td>
@@ -434,25 +434,25 @@ export function DetectionJobsHubView() {
 													{job.status === 'FAILED' ? (
 														<div className="text-[11px] text-rose-400 font-mono flex items-center justify-end gap-1">
 															<AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-															<span>Scan Failed</span>
+															<span>Quét thất bại</span>
 														</div>
 													) : (
 														<>
 															<div className="flex items-center justify-end gap-1.5 font-mono text-[11px]">
 																<span
-																	title="Immediate Block (REJECT)"
+																	title="Chặn ngay (REJECT)"
 																	className="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30"
 																>
 																	R: {rejectCount}
 																</span>
 																<span
-																	title="Manual Review (REVIEW)"
+																	title="Xem xét thủ công (REVIEW)"
 																	className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30"
 																>
 																	V: {reviewCount}
 																</span>
 																<span
-																	title="Clean (ALLOW)"
+																	title="Sạch (ALLOW)"
 																	className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
 																>
 																	A: {allowCount}
@@ -482,7 +482,7 @@ export function DetectionJobsHubView() {
 														}
 														className="px-2.5 py-1.5 rounded-lg bg-dark-800 hover:bg-brand-600 text-slate-200 hover:text-white text-[11px] font-medium inline-flex items-center gap-1 transition"
 													>
-														View Results
+														Xem kết quả
 														<ArrowUpRight className="w-3.5 h-3.5" />
 													</button>
 												</td>

@@ -132,7 +132,7 @@ export const RuleClauseRow: React.FC<RuleClauseRowProps> = ({
                     setCustomTagInput('');
                   }
                 }}
-                placeholder="Nhập giá trị + Enter"
+                placeholder="Nhập giá trị rồi nhấn Enter"
                 className="bg-dark-900 border border-slate-800 rounded px-2 py-0.5 text-[10px] font-mono text-slate-200 w-28 focus:outline-none focus:border-brand-500"
               />
               <button

@@ -64,7 +64,7 @@ export const RuleCatalogView: React.FC = () => {
 		} else {
 			setErrorMsg(
 				res.error ||
-					`Không thể chuyển trạng thái quy tắc sang ${nextStatus}. Vui lòng kiểm tra RAW Schema của dự án.`
+					`Không thể chuyển trạng thái quy tắc sang ${nextStatus}. Vui lòng kiểm tra lược đồ thô của dự án.`
 			);
 		}
 	};
@@ -112,8 +112,8 @@ export const RuleCatalogView: React.FC = () => {
 		<div className="flex-1 flex flex-col overflow-hidden bg-dark-950">
 			{/* 1. Common Page Header */}
 			<PageHeader
-				title="Rule Management"
-				breadcrumbs={[{ label: 'Rule Management' }]}
+				title="Quản lý luật"
+				breadcrumbs={[{ label: 'Quản lý luật' }]}
 				actions={
 					<div className="flex items-center gap-2.5">
 						<span
@@ -124,19 +124,19 @@ export const RuleCatalogView: React.FC = () => {
 							}`}
 							title={
 								isSchemaLocked
-									? `Dự án đã khóa RAW Schema (${rawColCount} cột)`
-									: 'Dự án chưa khóa RAW Schema (chưa tải lên Dataset đầu tiên)'
+									? `Dự án đã khóa lược đồ thô (${rawColCount} cột)`
+									: 'Dự án chưa khóa lược đồ thô (chưa tải lên tập dữ liệu đầu tiên)'
 							}
 						>
 							{isSchemaLocked ? (
 								<>
 									<Lock className="w-3 h-3" />
-									<span>RAW Schema: {rawColCount} cols</span>
+									<span>Lược đồ thô: {rawColCount} cột</span>
 								</>
 							) : (
 								<>
 									<Unlock className="w-3 h-3" />
-									<span>RAW Schema: Unlocked</span>
+									<span>Lược đồ thô: Chưa khóa</span>
 								</>
 							)}
 						</span>
@@ -157,7 +157,7 @@ export const RuleCatalogView: React.FC = () => {
 							className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2 cursor-pointer"
 						>
 							<Plus className="w-4 h-4" />
-							<span>New Business Rule</span>
+							<span>Luật nghiệp vụ mới</span>
 						</button>
 					</div>
 				}
@@ -270,7 +270,7 @@ export const RuleCatalogView: React.FC = () => {
 									<tr>
 										<td colSpan={6} className="py-12 text-center text-slate-500 font-mono">
 											{rules.length === 0
-												? 'Chưa có quy tắc nghiệp vụ nào trong dự án này. Nhấn "+ New Business Rule" để khởi tạo.'
+												? 'Chưa có quy tắc nghiệp vụ nào trong dự án này. Nhấn "+ Luật nghiệp vụ mới" để khởi tạo.'
 												: 'Không tìm thấy rule nào phù hợp với bộ lọc.'}
 										</td>
 									</tr>
@@ -365,7 +365,7 @@ export const RuleCatalogView: React.FC = () => {
 															type="button"
 															onClick={() => navigate(`/rules/${rule.rule_id}/step-dryrun`)}
 															className="p-1.5 rounded hover:bg-emerald-950/40 text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer"
-															title="Thực thi Dry Run trên dữ liệu lịch sử"
+															title="Chạy thử (dry run) trên dữ liệu lịch sử"
 														>
 															<Play className="w-3.5 h-3.5" />
 														</button>
@@ -373,7 +373,7 @@ export const RuleCatalogView: React.FC = () => {
 															type="button"
 															onClick={() => navigate(`/rules/${rule.rule_id}/step-builder`)}
 															className="p-1.5 rounded hover:bg-dark-800 text-slate-400 hover:text-brand-300 transition-colors cursor-pointer"
-															title="Chỉnh sửa trong Rule Studio"
+															title="Chỉnh sửa trong trình thiết kế luật"
 														>
 															<Edit className="w-3.5 h-3.5" />
 														</button>
@@ -381,7 +381,7 @@ export const RuleCatalogView: React.FC = () => {
 															type="button"
 															onClick={() => handleDeleteRule(rule.rule_id)}
 															className="p-1.5 rounded hover:bg-red-950/30 text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
-															title="Xóa Rule"
+															title="Xóa luật"
 														>
 															<Trash2 className="w-3.5 h-3.5" />
 														</button>

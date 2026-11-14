@@ -112,7 +112,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							}`}
 						>
 							<ClipboardCheck size={14} />
-							<span>Executive Fraud & Policy Audit Report</span>
+							<span>Báo cáo kiểm toán gian lận & chính sách điều hành</span>
 						</button>
 						<button
 							type="button"
@@ -124,7 +124,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							}`}
 						>
 							<ShieldAlert size={14} />
-							<span>Suspicious Activity Report (SAR) Dossier</span>
+							<span>Hồ sơ báo cáo giao dịch đáng ngờ (SAR)</span>
 						</button>
 					</div>
 
@@ -137,7 +137,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors cursor-pointer"
 						>
 							<Printer size={14} />
-							<span>Print / Save PDF</span>
+							<span>In / lưu PDF</span>
 						</button>
 						<button
 							type="button"
@@ -174,7 +174,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 					{template === 'SAR_DOSSIER' && (
 						<div>
 							<label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-								Target Investigation Case
+								Hồ sơ điều tra mục tiêu
 							</label>
 							<select
 								value={selectedCaseId}
@@ -182,7 +182,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								className="w-full bg-dark-950 border border-dark-700/80 rounded-lg px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-brand-500"
 							>
 								{availableCases.length === 0 ? (
-									<option value="">No Investigation Cases Found</option>
+									<option value="">Không tìm thấy hồ sơ điều tra</option>
 								) : (
 									availableCases.map((c) => (
 										<option key={c.case_id} value={c.case_id}>
@@ -196,7 +196,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 
 					<div>
 						<label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-							Prepared By (Analyst / Compliance Officer)
+							Người lập (chuyên viên / cán bộ tuân thủ)
 						</label>
 						<input
 							type="text"
@@ -209,13 +209,13 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 
 					<div className={template === 'EXECUTIVE_AUDIT_REPORT' ? 'md:col-span-2' : ''}>
 						<label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-							Reviewer Sign-Off Notes (Embedded in Export)
+							Ghi chú phê duyệt của người rà soát (đính kèm khi xuất)
 						</label>
 						<input
 							type="text"
 							value={reviewerNotes}
 							onChange={(e) => setReviewerNotes(e.target.value)}
-							placeholder="Optional regulatory or audit sign-off remarks..."
+							placeholder="Nhận xét phê duyệt pháp lý hoặc kiểm toán (không bắt buộc)..."
 							className="w-full bg-dark-950 border border-dark-700/80 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500"
 						/>
 					</div>
@@ -228,7 +228,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 					<div className="h-96 bg-dark-900 border border-dark-700/80 rounded-xl animate-pulse" />
 				) : !sarData || !s1 || !s2 || !s3 || !s4 || !s5 ? (
 					<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-10 text-center text-xs text-slate-400">
-						Select a dispatched case above to preview its 5-section Suspicious Activity Report (SAR) Dossier.
+						Chọn một hồ sơ đã chuyển ở trên để xem trước hồ sơ SAR gồm 5 phần.
 					</div>
 				) : (
 					<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-6 space-y-6">
@@ -239,7 +239,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 									REGULATORY COMPLIANCE DOSSIER • {sarData.report_id}
 								</div>
 								<h2 className="text-lg font-bold text-slate-100 mt-1">
-									Suspicious Activity Report (SAR) — Case {s1.case_code} (Event {s2.primary_event_id})
+									Báo cáo giao dịch đáng ngờ (SAR) — Hồ sơ {s1.case_code} (Sự kiện {s2.primary_event_id})
 								</h2>
 								<p className="text-xs text-slate-400 font-mono mt-1">
 									Project: {sarData.project_name} • Prepared By: {sarData.prepared_by} • Generated:{' '}
@@ -255,16 +255,16 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 						<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 							<div className="bg-dark-950 border border-dark-800 rounded-xl p-4 space-y-2">
 								<h3 className="text-xs font-bold uppercase tracking-wider text-brand-300">
-									Part I — Subject & Case Identification
+									Phần I — Nhận diện đối tượng & hồ sơ
 								</h3>
 								<div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
-									<div className="text-slate-400">Case ID / Code:</div>
+									<div className="text-slate-400">Mã hồ sơ:</div>
 									<div className="text-slate-200 truncate">
 										{s1.case_code} ({s1.case_id.slice(0, 8)})
 									</div>
-									<div className="text-slate-400">Subject (`user_id`):</div>
+									<div className="text-slate-400">Người dùng liên quan (`user_id`):</div>
 									<div className="text-slate-100 font-bold">{s1.subject_user_id}</div>
-									<div className="text-slate-400">Priority / Score:</div>
+									<div className="text-slate-400">Mức ưu tiên / điểm:</div>
 									<div className="text-amber-300">
 										{s1.priority} ({s1.priority_score})
 									</div>
@@ -272,29 +272,29 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 									<div className="text-slate-200">
 										{s1.assigned_to} / {s1.resolved_by}
 									</div>
-									<div className="text-slate-400">Watchlist Status:</div>
+									<div className="text-slate-400">Trạng thái danh sách đen:</div>
 									<div className="text-rose-400 font-bold">
-										{s5.is_subject_blacklisted ? 'ACTIVE ON BLACKLIST' : 'Not Listed'}
+										{s5.is_subject_blacklisted ? 'Đang trong danh sách đen' : 'Không có trong danh sách'}
 									</div>
 								</div>
 							</div>
 
 							<div className="bg-dark-950 border border-dark-800 rounded-xl p-4 space-y-2">
 								<h3 className="text-xs font-bold uppercase tracking-wider text-emerald-300">
-									Part II — Financial Impact Summary
+									Phần II — Tóm tắt tác động tài chính
 								</h3>
 								<div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
-									<div className="text-slate-400">Primary Event ID:</div>
+									<div className="text-slate-400">Mã sự kiện chính:</div>
 									<div className="text-slate-100 font-bold">{s2.primary_event_id}</div>
-									<div className="text-slate-400">Primary Amount:</div>
+									<div className="text-slate-400">Số tiền chính:</div>
 									<div className="text-emerald-400 font-bold text-sm">
 										{formatCurrency(s2.primary_amount)} ({s2.final_action})
 									</div>
-									<div className="text-slate-400">Subject Exposure:</div>
+									<div className="text-slate-400">Mức phơi nhiễm đối tượng:</div>
 									<div className="text-amber-300">
 										{formatCurrency(s2.total_subject_exposure)} ({s2.subject_flagged_tx_count} txs)
 									</div>
-									<div className="text-slate-400">Event Timestamp:</div>
+									<div className="text-slate-400">Thời điểm sự kiện:</div>
 									<div className="text-slate-200">{s2.primary_tx_timestamp}</div>
 								</div>
 							</div>
@@ -304,10 +304,10 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 						<div className="bg-dark-950 border border-dark-800 rounded-xl p-4 space-y-4">
 							<div className="flex items-center justify-between">
 								<h3 className="text-xs font-bold uppercase tracking-wider text-cyan-300">
-									Part III — Hybrid Detection Evidence (XGBoost + SHAP + Rules)
+									Phần III — Bằng chứng phát hiện kết hợp (XGBoost + SHAP + luật)
 								</h3>
 								<span className="text-xs font-mono px-2.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-300">
-									XGBoost Score: {s3.model_score != null ? s3.model_score.toFixed(4) : 'N/A'}
+									Điểm XGBoost: {s3.model_score != null ? s3.model_score.toFixed(4) : 'Không có'}
 								</span>
 							</div>
 
@@ -315,7 +315,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								{/* Top SHAP */}
 								<div>
 									<div className="text-[11px] font-semibold uppercase text-slate-400 mb-2">
-										Top SHAP Feature Contributions
+										Đóng góp đặc trưng SHAP hàng đầu
 									</div>
 									{(s3.top_feature_contributions || []).length === 0 ? (
 										<div className="text-xs text-slate-500">No SHAP telemetry recorded</div>
@@ -347,7 +347,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								{/* Triggered Rules */}
 								<div>
 									<div className="text-[11px] font-semibold uppercase text-slate-400 mb-2">
-										Triggered Policy Rules
+										Luật chính sách đã kích hoạt
 									</div>
 									{(s3.violated_rules || []).length === 0 ? (
 										<div className="text-xs text-slate-500">No deterministic rules triggered</div>
@@ -379,7 +379,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							<h3 className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
 								<Sparkles size={13} />
 								<span>
-									Part IV — Investigation Narrative & Typology ({s4.fraud_typology_label})
+									Phần IV — Diễn giải điều tra & loại hình ({s4.fraud_typology_label})
 								</span>
 							</h3>
 							<p className="text-xs text-slate-200 leading-relaxed">
@@ -387,7 +387,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							</p>
 							{s4.analyst_resolution_summary && (
 								<div className="text-xs font-mono text-emerald-300 pt-1">
-									Analyst Resolution Summary: {s4.analyst_resolution_summary}
+									Tóm tắt xử lý của chuyên viên: {s4.analyst_resolution_summary}
 								</div>
 							)}
 						</div>
@@ -395,7 +395,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 						{/* Part V: Immutable Chain-of-Custody Audit Trail */}
 						<div className="bg-dark-950 border border-dark-800 rounded-xl p-4 space-y-2">
 							<h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-								Part V — Mitigation & Immutable Chain-of-Custody Audit Trail (
+								Phần V — Giảm thiểu & nhật ký kiểm toán chuỗi lưu giữ bất biến (
 								{(s5.audit_trail || []).length} events)
 							</h3>
 							<div className="overflow-x-auto">
@@ -404,8 +404,8 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 										<tr className="border-b border-dark-800 text-[11px] text-slate-400">
 											<th className="py-1.5 px-2">Timestamp (UTC)</th>
 											<th className="py-1.5 px-2">Actor</th>
-											<th className="py-1.5 px-2">Action</th>
-											<th className="py-1.5 px-2">Note / Details</th>
+											<th className="py-1.5 px-2">Thao tác</th>
+											<th className="py-1.5 px-2">Ghi chú / chi tiết</th>
 										</tr>
 									</thead>
 									<tbody className="divide-y divide-dark-800/60">
@@ -435,7 +435,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								EXECUTIVE AUDIT REPORT • {execData.report_id}
 							</div>
 							<h2 className="text-lg font-bold text-slate-100 mt-1">
-								Executive Fraud & Policy Audit Report — {execData.project_name}
+								Báo cáo kiểm toán gian lận & chính sách điều hành — {execData.project_name}
 							</h2>
 							<p className="text-xs text-slate-400 font-mono mt-1">
 								Prepared By: {execData.prepared_by} • Generated: {execData.generated_at} • Ground Truth:{' '}
@@ -448,7 +448,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-xs text-slate-200 border border-dark-700 cursor-pointer"
 						>
 							<Download size={13} />
-							<span>Export Full Report</span>
+							<span>Xuất báo cáo đầy đủ</span>
 						</button>
 					</div>
 
@@ -467,14 +467,14 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							</div>
 						</div>
 						<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
-							<div className="text-[11px] text-rose-400">FP Friction (Insult Rate)</div>
+							<div className="text-[11px] text-rose-400">Ma sát FP (tỷ lệ phiền toái)</div>
 							<div className="text-base font-bold text-rose-400 mt-1">
 								{formatCurrency(execKpis.false_positive_friction_volume)} (
 								{((execKpis.insult_rate ?? 0) * 100).toFixed(2)}%)
 							</div>
 						</div>
 						<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
-							<div className="text-[11px] text-cyan-400">Verified Precision</div>
+							<div className="text-[11px] text-cyan-400">Độ chính xác (Precision) đã xác minh</div>
 							<div className="text-base font-bold text-cyan-400 mt-1">
 								{execKpis.verified_precision != null
 									? `${(execKpis.verified_precision * 100).toFixed(1)}%`

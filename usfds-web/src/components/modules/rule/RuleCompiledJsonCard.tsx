@@ -33,7 +33,7 @@ export const RuleCompiledJsonCard: React.FC<RuleCompiledJsonCardProps> = ({ grou
         <div className="flex items-center gap-2">
           <Code className="w-4 h-4 text-brand-400" />
           <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wider font-mono">
-            Compiled Rule Logic JSON (rule_condition)
+            JSON logic luật đã biên dịch (rule_condition)
           </h3>
         </div>
 
@@ -49,7 +49,7 @@ export const RuleCompiledJsonCard: React.FC<RuleCompiledJsonCardProps> = ({ grou
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Core JsonLogic
+              JsonLogic lõi
             </button>
             <button
               type="button"
@@ -97,11 +97,11 @@ export const RuleCompiledJsonCard: React.FC<RuleCompiledJsonCardProps> = ({ grou
       <div className="mt-2.5 flex items-center justify-between text-[10px] font-mono text-slate-500">
         <span className="flex items-center gap-1.5">
           <Terminal className="w-3 h-3 text-brand-400" />
-          <span>AST Nodes: {nodeCount}</span>
+          <span>Số nút AST: {nodeCount}</span>
         </span>
         <span className="text-emerald-400/90 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
-          Evaluation Latency: ~0.3ms
+          Độ trễ đánh giá: ~0.3ms
         </span>
       </div>
     </div>

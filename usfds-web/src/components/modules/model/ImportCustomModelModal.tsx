@@ -79,7 +79,7 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 		if (electronApi?.openFileDialog) {
 			try {
 				const selected = await electronApi.openFileDialog({
-					filters: [{ name: 'Model Plugin (.zip)', extensions: ['zip'] }],
+					filters: [{ name: 'Gói plugin mô hình (.zip)', extensions: ['zip'] }],
 				});
 				if (selected) {
 					setLocalPath(selected);
@@ -97,7 +97,7 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 		}
 		const trimmedModelName = modelName.trim();
 		if (!trimmedModelName) {
-			throw new Error('Khi bật Manifest Override, trường model_name là bắt buộc.');
+			throw new Error('Khi bật ghi đè manifest, trường model_name là bắt buộc.');
 		}
 		let parsedDefaults: Record<string, any> = {};
 		let parsedSchema: Record<string, any> = {};
@@ -181,14 +181,14 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 			}
 
 			if (!res.success || !res.data) {
-				setErrorMsg(res.error || 'Kiểm định hoặc đăng ký Custom Model Plugin thất bại.');
+				setErrorMsg(res.error || 'Kiểm định hoặc đăng ký plugin mô hình tùy chỉnh thất bại.');
 				return;
 			}
 
 			onSuccess(res.data);
 			onClose();
 		} catch (err: any) {
-			setErrorMsg(err?.message || 'Lỗi khi đăng ký Custom Model Plugin.');
+			setErrorMsg(err?.message || 'Lỗi khi đăng ký plugin mô hình tùy chỉnh.');
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -210,10 +210,10 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 						</div>
 						<div>
 							<h2 id="import-plugin-modal-title" className="text-sm font-bold text-slate-100">
-								Import Custom Model Plugin
+								Nhập plugin mô hình tùy chỉnh
 							</h2>
 							<p className="text-[11px] text-slate-400 mt-0.5">
-								Tích hợp thuật toán học máy tùy chỉnh qua kiểm định 2 giai đoạn (Static AST + Dynamic Dry-Run)
+								Tích hợp thuật toán học máy tùy chỉnh qua kiểm định 2 giai đoạn (AST tĩnh + dry-run động)
 							</p>
 						</div>
 					</div>
@@ -242,7 +242,7 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 					{/* Source Mode Selector */}
 					<div>
 						<label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-							Phương thức nạp gói mã nguồn (Source Method)
+							Phương thức nạp gói mã nguồn
 						</label>
 						<div className="grid grid-cols-2 gap-2.5">
 							<button
@@ -325,7 +325,7 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 								htmlFor="plugin-local-path-input"
 								className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5"
 							>
-								Đường dẫn Gói Plugin (`model_artifact_path`) <span className="text-rose-400">*</span>
+								Đường dẫn gói plugin (`model_artifact_path`) <span className="text-rose-400">*</span>
 							</label>
 							<div className="flex gap-2">
 								<input
@@ -363,7 +363,7 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 						</div>
 					</div>
 
-					{/* Optional Manifest Override */}
+					{/* Ghi đè manifest tùy chọn */}
 					<div className="border border-dark-800 rounded-xl overflow-hidden bg-dark-950/50">
 						<button
 							type="button"
@@ -376,10 +376,10 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 								) : (
 									<ChevronRight className="w-4 h-4 text-slate-400" />
 								)}
-								Khai báo / Ghi đè Manifest (`manifest_override` — Tùy chọn)
+								Khai báo / ghi đè manifest (`manifest_override` — tùy chọn)
 							</span>
 							<span className="text-[10px] font-mono text-slate-400">
-								{enableManifestOverride ? 'ENABLED' : 'BUNDLED plugin_manifest.json'}
+								{enableManifestOverride ? 'ĐÃ BẬT' : 'plugin_manifest.json đi kèm'}
 							</span>
 						</button>
 
@@ -400,13 +400,13 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 									</div>
 									<div>
 										<label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-											Display Name (`display_name`)
+											Tên hiển thị (`display_name`)
 										</label>
 										<input
 											type="text"
 											value={displayName}
 											onChange={(e) => setDisplayName(e.target.value)}
-											placeholder="Custom Logistic Regression"
+											placeholder="Hồi quy logistic tùy chỉnh"
 											className="w-full px-2.5 py-1.5 bg-dark-900 border border-dark-700 rounded-lg text-xs text-slate-100 focus:border-brand-500 focus:outline-none"
 										/>
 									</div>
@@ -432,7 +432,7 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 									</div>
 									<div>
 										<label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-											Data Modality
+											Loại dữ liệu
 										</label>
 										<select
 											value={dataModality}
@@ -447,7 +447,7 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 									</div>
 									<div>
 										<label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-											Input Format
+											Định dạng đầu vào
 										</label>
 										<select
 											value={dataFormat}
@@ -476,7 +476,7 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 								<div className="grid grid-cols-2 gap-3">
 									<div>
 										<label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-											Default Hyperparameters (JSON)
+											Siêu tham số mặc định (JSON)
 										</label>
 										<textarea
 											rows={4}
@@ -487,7 +487,7 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 									</div>
 									<div>
 										<label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-											Hyperparameter Schema (JSON)
+											Lược đồ siêu tham số (JSON)
 										</label>
 										<textarea
 											rows={4}
@@ -519,12 +519,12 @@ export const ImportCustomModelModal: React.FC<ImportCustomModelModalProps> = ({
 							{isSubmitting ? (
 								<>
 									<Loader2 className="w-3.5 h-3.5 animate-spin" />
-									<span>Đang chạy AST & Dry-Run...</span>
+									<span>Đang chạy kiểm tra AST & dry-run...</span>
 								</>
 							) : (
 								<>
 									<ShieldCheck className="w-3.5 h-3.5" />
-									<span>Validate & Register Plugin</span>
+									<span>Kiểm định & đăng ký plugin</span>
 								</>
 							)}
 						</button>

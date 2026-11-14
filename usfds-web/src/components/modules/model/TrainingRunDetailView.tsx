@@ -181,7 +181,7 @@ export const TrainingRunDetailView: React.FC = () => {
 						onClick={() => navigate('/models')}
 						className="px-4 py-2 rounded-xl bg-dark-800 hover:bg-dark-700 text-xs text-slate-200"
 					>
-						Quay lại Model Hub
+						Quay lại trung tâm mô hình
 					</button>
 				</div>
 			</div>
@@ -205,7 +205,7 @@ export const TrainingRunDetailView: React.FC = () => {
 				badgeColor={run.status === 'COMPLETED' ? 'green' : 'amber'}
 				breadcrumbs={[
 					{ label: currentProject?.project_name || 'Project' },
-					{ label: 'Model Management', href: '/models' },
+					{ label: 'Quản lý mô hình', href: '/models' },
 					{ label: run.run_name },
 				]}
 				actions={
@@ -216,7 +216,7 @@ export const TrainingRunDetailView: React.FC = () => {
 							className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-slate-300 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
 						>
 							<ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
-							<span>Model Hub</span>
+							<span>Trung tâm mô hình</span>
 						</button>
 						<button
 							type="button"
@@ -256,7 +256,7 @@ export const TrainingRunDetailView: React.FC = () => {
 						<div className="flex items-center gap-2.5 text-rose-400">
 							<AlertTriangle className="w-5 h-5" />
 							<h2 className="text-sm font-bold">
-								Execution Error Log — Quá trình huấn luyện thất bại
+								Nhật ký lỗi thực thi — Quá trình huấn luyện thất bại
 							</h2>
 						</div>
 						<pre className="p-4 rounded-xl bg-dark-950 border border-dark-800 text-xs font-mono text-rose-300 whitespace-pre-wrap overflow-x-auto">
@@ -273,7 +273,7 @@ export const TrainingRunDetailView: React.FC = () => {
 								className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold transition flex items-center gap-2"
 							>
 								<RotateCcw className="w-3.5 h-3.5" />
-								<span>Retry in Training Wizard</span>
+								<span>Thử lại trong trình huấn luyện</span>
 							</button>
 						</div>
 					</div>
@@ -283,7 +283,7 @@ export const TrainingRunDetailView: React.FC = () => {
 						<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
 							<div className="p-3.5 rounded-xl bg-dark-900 border border-dark-800">
 								<div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-									PR-AUC (Avg Precision)
+									PR-AUC (Độ chính xác (Precision) trung bình)
 								</div>
 								<div className="text-lg font-bold font-mono text-amber-400 mt-1">
 									{typeof customMetrics.pr_auc === 'number'
@@ -305,7 +305,7 @@ export const TrainingRunDetailView: React.FC = () => {
 
 							<div className="p-3.5 rounded-xl bg-dark-900 border border-dark-800">
 								<div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-									F1-Score (Default)
+									F1-Score (mặc định)
 								</div>
 								<div className="text-lg font-bold font-mono text-emerald-400 mt-1">
 									{typeof run.f1_score === 'number' ? run.f1_score.toFixed(4) : '—'}
@@ -314,7 +314,7 @@ export const TrainingRunDetailView: React.FC = () => {
 
 							<div className="p-3.5 rounded-xl bg-dark-900 border border-dark-800">
 								<div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-									F2-Score (Recall-Weighted)
+									F2-Score (ưu tiên độ nhạy)
 								</div>
 								<div className="text-lg font-bold font-mono text-purple-400 mt-1">
 									{typeof customMetrics.f2_score === 'number'
@@ -325,7 +325,7 @@ export const TrainingRunDetailView: React.FC = () => {
 
 							<div className="p-3.5 rounded-xl bg-dark-900 border border-dark-800">
 								<div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-									Precision (Default)
+									Độ chính xác (Precision) — mặc định
 								</div>
 								<div className="text-lg font-bold font-mono text-slate-100 mt-1">
 									{typeof run.precision_score === 'number'
@@ -336,7 +336,7 @@ export const TrainingRunDetailView: React.FC = () => {
 
 							<div className="p-3.5 rounded-xl bg-dark-900 border border-dark-800">
 								<div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-									Recall (Default)
+									Độ nhạy (mặc định)
 								</div>
 								<div className="text-lg font-bold font-mono text-slate-100 mt-1">
 									{typeof run.recall_score === 'number'
@@ -354,7 +354,7 @@ export const TrainingRunDetailView: React.FC = () => {
 									<div className="flex items-center gap-2">
 										<Sliders className="w-4 h-4 text-amber-400" />
 										<h2 className="text-xs font-bold uppercase tracking-wider text-slate-100">
-											Decision Threshold Simulator
+											Mô phỏng ngưỡng quyết định
 										</h2>
 									</div>
 									<span className="px-2.5 py-0.5 rounded-lg font-mono text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
@@ -371,13 +371,13 @@ export const TrainingRunDetailView: React.FC = () => {
 										step="0.01"
 										value={selectedThreshold}
 										onChange={(e) => setSelectedThreshold(parseFloat(e.target.value))}
-										aria-label="Decision Threshold Slider"
+										aria-label="Thanh chọn ngưỡng quyết định"
 										className="w-full accent-amber-400 cursor-pointer"
 									/>
 									<div className="flex justify-between text-[10px] font-mono text-slate-500">
-										<span>0.01 (Max Recall)</span>
-										<span>0.50 (Default)</span>
-										<span>0.99 (Max Precision)</span>
+										<span>0,01 — độ nhạy tối đa</span>
+										<span>0,50 (mặc định)</span>
+										<span>0,99 — độ chính xác (Precision) tối đa</span>
 									</div>
 								</div>
 
@@ -385,7 +385,7 @@ export const TrainingRunDetailView: React.FC = () => {
 								<div className="space-y-1.5">
 									<div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
 										<Star className="w-3 h-3 text-amber-400" />
-										<span>Recommended Operational Presets:</span>
+										<span>Mức ngưỡng vận hành khuyến nghị:</span>
 									</div>
 									<div className="flex flex-wrap gap-2">
 										{recommendedThresholds.best_f1 && (
@@ -486,7 +486,7 @@ export const TrainingRunDetailView: React.FC = () => {
 													: 'text-slate-400'
 											}`}
 										>
-											Count
+											Số lượng
 										</button>
 										<button
 											type="button"
@@ -506,7 +506,7 @@ export const TrainingRunDetailView: React.FC = () => {
 									{/* TN */}
 									<div className="p-4 rounded-xl bg-dark-950 border border-dark-800 flex flex-col justify-between">
 										<div className="flex items-center justify-between text-[11px] text-slate-400">
-											<span>Actual Legit → Pred Legit</span>
+											<span>Thực tế hợp lệ → Dự đoán hợp lệ</span>
 											<span className="font-mono font-bold text-slate-300">TN</span>
 										</div>
 										<div className="text-xl font-bold font-mono text-slate-100 mt-2">
@@ -524,8 +524,8 @@ export const TrainingRunDetailView: React.FC = () => {
 									{/* FP */}
 									<div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col justify-between">
 										<div className="flex items-center justify-between text-[11px] text-amber-300">
-											<span>Actual Legit → Pred Fraud</span>
-											<span className="font-mono font-bold">FP (False Alarm)</span>
+											<span>Thực tế hợp lệ → Dự đoán gian lận</span>
+											<span className="font-mono font-bold">FP (Cảnh báo sai)</span>
 										</div>
 										<div className="text-xl font-bold font-mono text-amber-400 mt-2">
 											{cmDisplayMode === 'count'
@@ -542,8 +542,8 @@ export const TrainingRunDetailView: React.FC = () => {
 									{/* FN */}
 									<div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 flex flex-col justify-between">
 										<div className="flex items-center justify-between text-[11px] text-rose-300">
-											<span>Actual Fraud → Pred Legit</span>
-											<span className="font-mono font-bold">FN (Missed Fraud)</span>
+											<span>Thực tế gian lận → Dự đoán hợp lệ</span>
+											<span className="font-mono font-bold">FN (Bỏ sót gian lận)</span>
 										</div>
 										<div className="text-xl font-bold font-mono text-rose-400 mt-2">
 											{cmDisplayMode === 'count'
@@ -560,8 +560,8 @@ export const TrainingRunDetailView: React.FC = () => {
 									{/* TP */}
 									<div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col justify-between">
 										<div className="flex items-center justify-between text-[11px] text-emerald-300">
-											<span>Actual Fraud → Pred Fraud</span>
-											<span className="font-mono font-bold">TP (Caught Fraud)</span>
+											<span>Thực tế gian lận → Dự đoán gian lận</span>
+											<span className="font-mono font-bold">TP (Bắt được gian lận)</span>
 										</div>
 										<div className="text-xl font-bold font-mono text-emerald-400 mt-2">
 											{cmDisplayMode === 'count'
@@ -585,7 +585,7 @@ export const TrainingRunDetailView: React.FC = () => {
 								<div className="flex items-center justify-between">
 									<span className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
 										<Activity className="w-4 h-4 text-brand-400" />
-										ROC Curve
+										Đường cong ROC
 									</span>
 									<span className="text-xs font-mono text-brand-400 font-bold">
 										AUC = {typeof customMetrics.roc_auc === 'number' ? customMetrics.roc_auc.toFixed(4) : '—'}
@@ -614,7 +614,7 @@ export const TrainingRunDetailView: React.FC = () => {
 											points={renderPolylinePoints(rocCurve.fpr, rocCurve.tpr)}
 										/>
 										<text x="150" y="213" textAnchor="middle" fill={chartTokens.axisLabel} fontSize="9">
-											False Positive Rate (FPR)
+											Tỷ lệ dương tính giả (FPR)
 										</text>
 										<text
 											x="12"
@@ -624,12 +624,12 @@ export const TrainingRunDetailView: React.FC = () => {
 											fontSize="9"
 											transform="rotate(-90 12 105)"
 										>
-											True Positive Rate (TPR)
+											Tỷ lệ dương tính thật (TPR)
 										</text>
 									</svg>
 								) : (
 									<div className="h-48 flex items-center justify-center bg-dark-950 rounded-lg border border-dark-800 text-xs text-slate-500">
-										Không có dữ liệu ROC Curve
+										Không có dữ liệu đường cong ROC
 									</div>
 								)}
 							</div>
@@ -639,7 +639,7 @@ export const TrainingRunDetailView: React.FC = () => {
 								<div className="flex items-center justify-between">
 									<span className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
 										<Activity className="w-4 h-4 text-emerald-400" />
-										Precision-Recall Curve
+										Đường cong độ chính xác (Precision) – độ nhạy
 									</span>
 									<span className="text-xs font-mono text-emerald-400 font-bold">
 										PR-AUC = {typeof customMetrics.pr_auc === 'number' ? customMetrics.pr_auc.toFixed(4) : '—'}
@@ -681,10 +681,10 @@ export const TrainingRunDetailView: React.FC = () => {
 								<div className="flex items-center justify-between">
 									<span className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
 										<BarChart3 className="w-4 h-4 text-amber-400" />
-										Score Distribution
+										Phân bố điểm
 									</span>
 									<span className="text-[10px] font-mono text-slate-400">
-										Blue: Legit · Red: Fraud
+										Xanh: hợp lệ · Đỏ: gian lận
 									</span>
 								</div>
 								{scoreDist && scoreDist.legit_counts?.length ? (
@@ -742,7 +742,7 @@ export const TrainingRunDetailView: React.FC = () => {
 									</svg>
 								) : (
 									<div className="h-48 flex items-center justify-center bg-dark-950 rounded-lg border border-dark-800 text-xs text-slate-500">
-										Không có dữ liệu Score Distribution
+										Không có dữ liệu phân bố điểm
 									</div>
 								)}
 							</div>
@@ -753,7 +753,7 @@ export const TrainingRunDetailView: React.FC = () => {
 							<div className="bg-dark-900 border border-dark-800 rounded-xl p-5 space-y-3">
 								<div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200 border-b border-dark-800 pb-2.5">
 									<ShieldCheck className="w-4 h-4 text-emerald-400" />
-									<span>Model Version & Artifact Integrity</span>
+									<span>Phiên bản mô hình & toàn vẹn artifact</span>
 								</div>
 								<div className="space-y-2 text-xs">
 									<div className="flex justify-between">
@@ -786,7 +786,7 @@ export const TrainingRunDetailView: React.FC = () => {
 							<div className="bg-dark-900 border border-dark-800 rounded-xl p-5 space-y-3">
 								<div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200 border-b border-dark-800 pb-2.5">
 									<FileCode2 className="w-4 h-4 text-brand-400" />
-									<span>Hyperparameters Configuration</span>
+									<span>Cấu hình siêu tham số</span>
 								</div>
 								<pre className="p-3 rounded-xl bg-dark-950 border border-dark-800 text-[11px] font-mono text-slate-200 overflow-x-auto max-h-36">
 									{JSON.stringify(run.hyperparameters || {}, null, 2)}

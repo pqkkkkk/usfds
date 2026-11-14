@@ -80,7 +80,7 @@ export const ProjectSettingsView: React.FC = () => {
 		}
 		if (
 			!window.confirm(
-				`Bạn có chắc muốn mở khóa và đặt lại (Reset) RAW Schema của dự án "${currentProject.project_name}"?`
+				`Bạn có chắc muốn mở khóa và đặt lại lược đồ thô của dự án "${currentProject.project_name}"?`
 			)
 		) {
 			return;
@@ -90,9 +90,9 @@ export const ProjectSettingsView: React.FC = () => {
 		setSuccessMsg(null);
 		try {
 			await resetProjectSchema(currentProject.project_id);
-			setSuccessMsg('Đã mở khóa và đặt lại RAW Schema về trạng thái UNLOCKED.');
+			setSuccessMsg('Đã mở khóa và đặt lại lược đồ thô về trạng thái chưa khóa.');
 		} catch (err: any) {
-			setErrorMsg(err?.message || 'Không thể đặt lại RAW Schema.');
+			setErrorMsg(err?.message || 'Không thể đặt lại lược đồ thô.');
 		} finally {
 			setIsResetting(false);
 		}
@@ -101,10 +101,10 @@ export const ProjectSettingsView: React.FC = () => {
 	return (
 		<div className="flex-1 flex flex-col overflow-hidden bg-dark-950">
 			<PageHeader
-				title="Project Settings & Schema"
+				title="Cài đặt dự án & Lược đồ"
 				breadcrumbs={[
 					{ label: currentProject.project_name },
-					{ label: 'Project Settings' },
+					{ label: 'Cài đặt dự án' },
 				]}
 				actions={
 					<div className="flex items-center gap-2.5">
@@ -124,7 +124,7 @@ export const ProjectSettingsView: React.FC = () => {
 							className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2"
 						>
 							<Edit3 className="w-3.5 h-3.5" />
-							<span>Edit Project Info</span>
+							<span>Chỉnh sửa thông tin dự án</span>
 						</button>
 					</div>
 				}
@@ -183,7 +183,7 @@ export const ProjectSettingsView: React.FC = () => {
 							<div className="p-3 rounded-xl bg-dark-950/70 border border-dark-800/80 space-y-1">
 								<div className="text-[10px] uppercase tracking-wider text-slate-500 font-mono flex items-center gap-1.5">
 									<Hash className="w-3 h-3" />
-									<span>Project ID</span>
+									<span>Mã dự án</span>
 								</div>
 								<div className="font-mono text-[11px] text-slate-200 truncate">
 									{currentProject.project_id}
@@ -193,7 +193,7 @@ export const ProjectSettingsView: React.FC = () => {
 							<div className="p-3 rounded-xl bg-dark-950/70 border border-dark-800/80 space-y-1">
 								<div className="text-[10px] uppercase tracking-wider text-slate-500 font-mono flex items-center gap-1.5">
 									<Calendar className="w-3 h-3" />
-									<span>Created At</span>
+									<span>Ngày tạo</span>
 								</div>
 								<div className="font-mono text-[11px] text-slate-200">
 									{new Date(currentProject.created_at).toLocaleString()}
@@ -203,7 +203,7 @@ export const ProjectSettingsView: React.FC = () => {
 							<div className="p-3 rounded-xl bg-dark-950/70 border border-dark-800/80 space-y-1">
 								<div className="text-[10px] uppercase tracking-wider text-slate-500 font-mono flex items-center gap-1.5">
 									<Calendar className="w-3 h-3" />
-									<span>Last Updated</span>
+									<span>Cập nhật gần nhất</span>
 								</div>
 								<div className="font-mono text-[11px] text-slate-200">
 									{new Date(currentProject.updated_at).toLocaleString()}
@@ -216,7 +216,7 @@ export const ProjectSettingsView: React.FC = () => {
 					<div className="p-5 rounded-2xl bg-dark-900 border border-dark-800 flex flex-col justify-between space-y-4">
 						<div>
 							<h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-								Project Resources
+								Tài nguyên dự án
 							</h3>
 							<p className="text-[11px] text-slate-500 mt-0.5">
 								Tài nguyên cô lập thuộc dự án hiện tại (BR-PM-06)
@@ -226,7 +226,7 @@ export const ProjectSettingsView: React.FC = () => {
 						<div className="grid grid-cols-3 gap-2.5">
 							<div className="p-3 rounded-xl bg-dark-950 border border-dark-800">
 								<div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-mono">
-									<span>Datasets</span>
+									<span>Tập dữ liệu</span>
 									<Database className="w-3.5 h-3.5 text-brand-400" />
 								</div>
 								<div className="text-xl font-black text-slate-100 font-mono mt-1">
@@ -236,7 +236,7 @@ export const ProjectSettingsView: React.FC = () => {
 
 							<div className="p-3 rounded-xl bg-dark-950 border border-dark-800">
 								<div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-mono">
-									<span>Rules</span>
+									<span>Luật</span>
 									<ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
 								</div>
 								<div className="text-xl font-black text-slate-100 font-mono mt-1">
@@ -246,7 +246,7 @@ export const ProjectSettingsView: React.FC = () => {
 
 							<div className="p-3 rounded-xl bg-dark-950 border border-dark-800">
 								<div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-mono">
-									<span>Jobs</span>
+									<span>Tác vụ</span>
 									<Terminal className="w-3.5 h-3.5 text-purple-400" />
 								</div>
 								<div className="text-xl font-black text-slate-100 font-mono mt-1">
@@ -264,12 +264,12 @@ export const ProjectSettingsView: React.FC = () => {
 						<div className="space-y-1">
 							<div className="flex items-center gap-2.5">
 								<h3 className="text-sm font-bold text-slate-100">
-									Project RAW Schema Contract
+									Hợp đồng lược đồ thô dự án
 								</h3>
 								{currentProject.is_schema_locked ? (
 									<span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
 										<Lock className="w-3 h-3" />
-										LOCKED ({totalColumnsCount} Columns)
+										Đã khóa ({totalColumnsCount} cột)
 									</span>
 								) : (
 									<span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30">
@@ -281,11 +281,11 @@ export const ProjectSettingsView: React.FC = () => {
 							<p className="text-xs text-slate-400">
 								{currentProject.is_schema_locked ? (
 									<>
-										Xác lập từ Dataset cơ sở:{' '}
+										Xác lập từ tập dữ liệu cơ sở:{' '}
 										<code className="font-mono text-brand-300">
 											{currentProject.base_dataset_id ||
 												currentProject.raw_schema?.source_dataset_id ||
-												'N/A'}
+												'Không có'}
 										</code>
 										{currentProject.raw_schema?.locked_at && (
 											<>
@@ -298,7 +298,7 @@ export const ProjectSettingsView: React.FC = () => {
 										)}
 									</>
 								) : (
-									'Chưa có Dataset cơ sở. Cấu trúc RAW Schema sẽ tự động khóa khi bạn tải lên Dataset đầu tiên (BR-PM-01).'
+									'Chưa có tập dữ liệu cơ sở. Cấu trúc lược đồ thô sẽ tự động khóa khi bạn tải lên tập dữ liệu đầu tiên (BR-PM-01).'
 								)}
 							</p>
 						</div>
@@ -309,7 +309,7 @@ export const ProjectSettingsView: React.FC = () => {
 									<Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
 									<input
 										type="search"
-										aria-label="Tìm cột trong RAW Schema"
+										aria-label="Tìm cột trong lược đồ thô"
 										placeholder="Tìm tên cột hoặc kiểu dữ liệu..."
 										value={colSearch}
 										onChange={(e) => setColSearch(e.target.value)}
@@ -324,22 +324,22 @@ export const ProjectSettingsView: React.FC = () => {
 								disabled={!canResetSchema || isResetting}
 								title={
 									!currentProject.is_schema_locked
-										? 'Schema đang ở trạng thái mở khóa'
+										? 'Lược đồ đang ở trạng thái mở khóa'
 										: hasDependentResources
-											? 'Cần xóa toàn bộ Datasets, Rules, Jobs trước khi Reset Schema (BR-PM-03)'
-											: 'Mở khóa và đặt lại RAW Schema'
+											? 'Cần xóa toàn bộ tập dữ liệu, luật, tác vụ trước khi đặt lại lược đồ (BR-PM-03)'
+											: 'Mở khóa và đặt lại lược đồ thô'
 								}
 								className="py-1.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed border border-amber-500/30 text-amber-300 text-xs font-semibold transition flex items-center gap-1.5 shrink-0"
 							>
 								{isResetting ? (
 									<>
 										<Loader2 className="w-3.5 h-3.5 animate-spin" />
-										<span>Resetting...</span>
+										<span>Đang đặt lại...</span>
 									</>
 								) : (
 									<>
 										<RotateCcw className="w-3.5 h-3.5" />
-										<span>Reset RAW Schema</span>
+										<span>Đặt lại lược đồ thô</span>
 									</>
 								)}
 							</button>
@@ -354,16 +354,16 @@ export const ProjectSettingsView: React.FC = () => {
 							</div>
 							<div className="space-y-1 max-w-lg mx-auto">
 								<h4 className="text-sm font-bold text-slate-200">
-									RAW Schema chưa được khóa (Schema-on-First-Upload)
+									Lược đồ thô chưa được khóa (tự khóa khi tải lên đầu tiên)
 								</h4>
 								<p className="text-xs text-slate-400 leading-relaxed">
-									Hãy chuyển sang phân hệ <strong>Data Management</strong> và tải lên tập dữ
+									Hãy chuyển sang phân hệ <strong>Quản lý dữ liệu</strong> và tải lên tập dữ
 									liệu giao dịch đầu tiên. Hệ thống sẽ tự động trích xuất danh sách cột cùng kiểu
 									dữ liệu logic (<code className="font-mono">NUMERIC</code>,{' '}
 									<code className="font-mono">STRING</code>,{' '}
 									<code className="font-mono">BOOLEAN</code>,{' '}
 									<code className="font-mono">DATETIME</code>) để khóa làm chuẩn cho toàn bộ
-									Dataset và Rule trong dự án.
+									Tập dữ liệu và luật trong dự án.
 								</p>
 							</div>
 							<div className="pt-2">
@@ -372,7 +372,7 @@ export const ProjectSettingsView: React.FC = () => {
 									onClick={() => navigate('/datasets')}
 									className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition inline-flex items-center gap-2"
 								>
-									<span>Go to Data Management</span>
+									<span>Đi tới Quản lý dữ liệu</span>
 									<ArrowRight className="w-3.5 h-3.5" />
 								</button>
 							</div>
@@ -380,23 +380,23 @@ export const ProjectSettingsView: React.FC = () => {
 					) : (
 						<div className="overflow-x-auto">
 							<table className="w-full text-left text-xs">
-								<caption className="sr-only">Bảng chi tiết các cột trong RAW Schema</caption>
+								<caption className="sr-only">Bảng chi tiết các cột trong lược đồ thô</caption>
 								<thead>
 									<tr className="border-b border-dark-800 bg-dark-950 text-[10px] uppercase tracking-wider text-slate-400 font-mono">
 										<th scope="col" className="py-3 px-4 w-14 font-semibold">
 											#
 										</th>
 										<th scope="col" className="py-3 px-4 font-semibold">
-											Column Name (RAW Field)
+											Tên cột — trường thô
 										</th>
 										<th scope="col" className="py-3 px-4 font-semibold">
-											Logical DataType
+											Kiểu logic
 										</th>
 										<th scope="col" className="py-3 px-4 font-semibold">
-											Physical Dtype
+											Kiểu vật lý
 										</th>
 										<th scope="col" className="py-3 px-4 font-semibold text-right">
-											Nullable Constraint
+											Ràng buộc rỗng
 										</th>
 									</tr>
 								</thead>
