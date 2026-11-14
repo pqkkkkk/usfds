@@ -79,7 +79,7 @@ export const InspectorDrawer = ({
             <button
               onClick={onClose}
               className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-dark-800 rounded-md transition focus-ring"
-              aria-label="Close Inspector"
+              aria-label="Đóng bảng chi tiết"
             >
               <X className="w-4 h-4" />
             </button>

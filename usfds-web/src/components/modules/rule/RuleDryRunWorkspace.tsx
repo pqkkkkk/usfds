@@ -129,7 +129,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 
 			for (const [ds, arts] of details) {
 				for (const art of arts) {
-					const rowsLabel = art.row_count ? `${art.row_count.toLocaleString()} rows` : 'rows N/A';
+					const rowsLabel = art.row_count ? `${art.row_count.toLocaleString()} dòng` : 'Không có số dòng';
 					options.push({
 						dataset: ds,
 						artifact: art,
@@ -158,7 +158,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 
 	const handleRunSimulation = async () => {
 		if (!selectedArtifactId) {
-			setBacktestError('Vui lòng chọn một Dataset Artifact trong dự án để chạy kiểm thử Backtest.');
+			setBacktestError('Vui lòng chọn một artifact tập dữ liệu trong dự án để chạy kiểm thử Backtest.');
 			return;
 		}
 		setIsRunning(true);
@@ -181,7 +181,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 				setBacktestResult(res.data);
 				setFilterTab('ALL');
 			} else {
-				setBacktestError(res.error || 'Không thể thực thi Backtest trên Dataset Artifact đã chọn.');
+				setBacktestError(res.error || 'Không thể thực thi Backtest trên artifact tập dữ liệu đã chọn.');
 			}
 		} finally {
 			setIsRunning(false);
@@ -209,7 +209,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 			if (mode === 'single') {
 				if (!currentRule?.rule_id) {
 					setSingleEvalError(
-						'Quy tắc chưa được lưu vào cơ sở dữ liệu. Vui lòng nhấn "Save Rule" ở Bước 1 trước khi gọi /evaluate.'
+						'Quy tắc chưa được lưu vào cơ sở dữ liệu. Vui lòng nhấn "Lưu luật" ở Bước 1 trước khi gọi /evaluate.'
 					);
 					return;
 				}
@@ -235,7 +235,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 				if (res.success && Array.isArray(res.data)) {
 					setBatchEvalResults(res.data);
 				} else {
-					setSingleEvalError(res.error || 'Lỗi khi đánh giá toàn bộ Active Rules của dự án.');
+					setSingleEvalError(res.error || 'Lỗi khi đánh giá toàn bộ luật đang hoạt động của dự án.');
 				}
 			}
 		} finally {
@@ -287,7 +287,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 						}`}
 					>
 						<Database className="w-3.5 h-3.5" />
-						<span>Historical Dataset Backtest</span>
+						<span>Kiểm thử lịch sử trên tập dữ liệu</span>
 					</button>
 					<button
 						type="button"
@@ -299,7 +299,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 						}`}
 					>
 						<Terminal className="w-3.5 h-3.5" />
-						<span>Single-Transaction Evaluator (/evaluate)</span>
+						<span>Trình đánh giá từng giao dịch (/evaluate)</span>
 					</button>
 				</div>
 			</div>
@@ -312,7 +312,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 							{/* Target Rule Summary Pill */}
 							<div className="border-r border-slate-800 pr-4 hidden lg:block">
 								<span className="block text-[10px] font-mono uppercase text-slate-500 mb-0.5">
-									TARGET RULE
+									LUẬT MỤC TIÊU
 								</span>
 								<div className="text-xs font-semibold text-slate-200 flex items-center gap-1.5 font-mono">
 									<span className="text-brand-400 font-bold">{ruleCode}</span>
@@ -329,7 +329,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 							<div className="flex-1 min-w-[280px] max-w-xl">
 								<label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 flex items-center gap-1.5">
 									<Database className="w-3 h-3 text-brand-400" />
-									<span>EVALUATION DATASET ARTIFACT</span>
+									<span>ARTIFACT TẬP DỮ LIỆU ĐÁNH GIÁ</span>
 								</label>
 								<div className="relative">
 									<select
@@ -341,8 +341,8 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 										{artifactOptions.length === 0 ? (
 											<option value="">
 												{isLoadingArtifacts
-													? 'Đang tải danh sách Dataset của dự án...'
-													: 'Chưa có Dataset Artifact nào trong dự án hiện tại'}
+													? 'Đang tải danh sách tập dữ liệu của dự án...'
+													: 'Chưa có artifact tập dữ liệu nào trong dự án hiện tại'}
 											</option>
 										) : (
 											artifactOptions.map((opt) => (
@@ -376,7 +376,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 									<Play className="w-3.5 h-3.5 fill-white" />
 								)}
 								<span>
-									{isRunning ? 'Đang thực thi Dry Run...' : 'Run Dry Run Simulation'}
+									{isRunning ? 'Đang chạy thử...' : 'Chạy mô phỏng thử'}
 								</span>
 							</button>
 						</div>
@@ -387,7 +387,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 						{/* Card 1: Total Rule Hits */}
 						<div className="bg-dark-900 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 transition-all">
 							<div className="text-[10px] font-mono uppercase text-slate-400 mb-1">
-								TOTAL RULE HITS
+								TỔNG SỐ LẦN LUẬT KÍCH HOẠT
 							</div>
 							<div className="text-2xl font-bold font-mono text-slate-100 tracking-tight">
 								{backtestResult ? backtestResult.total_hits.toLocaleString() : '—'}
@@ -420,7 +420,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 								{backtestResult
 									? backtestResult.has_ground_truth
 										? backtestResult.precision.toFixed(3)
-										: 'N/A'
+										: 'Không có'
 									: '—'}
 							</div>
 							<div className="text-[11px] text-slate-400 mt-1">
@@ -449,7 +449,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 								{backtestResult
 									? backtestResult.has_ground_truth
 										? backtestResult.recall.toFixed(3)
-										: 'N/A'
+										: 'Không có'
 									: '—'}
 							</div>
 							<div className="text-[11px] text-slate-400 mt-1">
@@ -463,7 +463,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 											(FN: {backtestResult.fn.toLocaleString()})
 										</span>
 									) : (
-										<span>Unlabeled dataset</span>
+										<span>Tập dữ liệu chưa gán nhãn</span>
 									)
 								) : (
 									<span>Độ phủ trên tổng gian lận</span>
@@ -474,13 +474,13 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 						{/* Card 4: False Positive Rate */}
 						<div className="bg-dark-900 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 transition-all">
 							<div className="text-[10px] font-mono uppercase text-slate-400 mb-1">
-								FALSE POSITIVE RATE
+								TỶ LỆ DƯƠNG TÍNH GIẢ
 							</div>
 							<div className="text-2xl font-bold font-mono text-emerald-400 tracking-tight">
 								{backtestResult
 									? backtestResult.has_ground_truth
 										? `${(backtestResult.fpr * 100).toFixed(2)}%`
-										: 'N/A'
+										: 'Không có'
 									: '—'}
 							</div>
 							<div className="text-[11px] text-slate-400 mt-1">
@@ -493,7 +493,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 						{/* Card 5: Execution Latency */}
 						<div className="bg-dark-900 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 transition-all">
 							<div className="text-[10px] font-mono uppercase text-slate-400 mb-1">
-								EXECUTION LATENCY
+								ĐỘ TRỄ THỰC THI
 							</div>
 							<div className="text-2xl font-bold font-mono text-slate-100 tracking-tight">
 								{backtestResult ? `${backtestResult.execution_time_ms.toFixed(1)} ms` : '—'}
@@ -508,7 +508,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 									</span>
 								) : (
 									<span>
-										Action:{' '}
+										Hành động:{' '}
 										<strong className="text-amber-400 font-mono">{ruleAction}</strong>
 									</span>
 								)}
@@ -518,7 +518,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 						{/* Card 6: Fraud Prevented */}
 						<div className="bg-dark-900 border border-blue-500/30 hover:border-blue-500/50 rounded-xl p-3.5 transition-all bg-gradient-to-b from-blue-950/20 to-transparent">
 							<div className="text-[10px] font-mono uppercase text-blue-400 mb-1">
-								FRAUD PREVENTED
+								GIAN LẬN ĐÃ NGĂN CHẶN
 							</div>
 							<div className="text-2xl font-bold font-mono text-blue-400 tracking-tight">
 								{backtestResult
@@ -539,12 +539,12 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 						<div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
 							<div className="flex items-center gap-2">
 								<span className="text-xs font-bold font-mono uppercase text-slate-200">
-									SAMPLE HITS INSPECTION MATRIX
+									MA TRẬN KIỂM TRA MẪU KÍCH HOẠT
 								</span>
 								<span className="text-[10px] font-mono text-slate-400 bg-dark-850 px-2 py-0.5 rounded border border-slate-800">
 									{backtestResult
 										? `Showing ${filteredTransactions.length} sample hits (Total hits: ${backtestResult.total_hits.toLocaleString()})`
-										: 'Nhấn "Run Dry Run Simulation" để xem kết quả thực tế'}
+										: 'Nhấn "Chạy mô phỏng thử" để xem kết quả thực tế'}
 								</span>
 							</div>
 
@@ -570,7 +570,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 											: 'text-slate-400 hover:text-slate-200'
 									}`}
 								>
-									True Positives ({tpSamplesCount})
+									Dương tính thật ({tpSamplesCount})
 								</button>
 								<button
 									type="button"
@@ -581,7 +581,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 											: 'text-slate-400 hover:text-slate-200'
 									}`}
 								>
-									False Positives ({fpSamplesCount})
+									Dương tính giả ({fpSamplesCount})
 								</button>
 							</div>
 						</div>
@@ -604,7 +604,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 									{!backtestResult ? (
 										<tr>
 											<td colSpan={7} className="py-10 text-center text-slate-500">
-												Chọn một Dataset Artifact phía trên và nhấn{' '}
+												Chọn một artifact tập dữ liệu phía trên và nhấn{' '}
 												<strong className="text-slate-300">Run Dry Run Simulation</strong> để
 												chạy kiểm thử quy tắc trên dữ liệu thật.
 											</td>
@@ -662,7 +662,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 														onClick={() => setInspectingTx(tx)}
 														className="text-blue-400 hover:text-blue-300 text-[11px] hover:underline font-sans cursor-pointer"
 													>
-														Inspect AST
+														Kiểm tra AST
 													</button>
 												</td>
 											</tr>
@@ -681,10 +681,10 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 						<div className="flex items-center justify-between border-b border-slate-800 pb-3">
 							<div>
 								<h3 className="text-xs font-bold font-mono uppercase text-slate-200">
-									TRANSACTION EXECUTION CONTEXT (JSON)
+									NGỮ CẢNH THỰC THI GIAO DỊCH (JSON)
 								</h3>
 								<p className="text-[11px] text-slate-400 mt-0.5">
-									Kiểm thử trực tiếp quy tắc hiện tại hoặc toàn bộ Active Rules của dự án trên một
+									Kiểm thử trực tiếp quy tắc hiện tại hoặc toàn bộ luật đang hoạt động của dự án trên một
 									giao dịch JSON.
 								</p>
 							</div>
@@ -711,7 +711,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 								className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2 cursor-pointer"
 							>
 								<Play className="w-3.5 h-3.5 fill-white" />
-								<span>Evaluate Current Rule ({ruleCode})</span>
+								<span>Đánh giá luật hiện tại ({ruleCode})</span>
 							</button>
 
 							<button
@@ -721,7 +721,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 								className="px-4 py-2 rounded-lg bg-dark-850 hover:bg-dark-800 border border-slate-700 text-slate-200 text-xs font-medium transition flex items-center gap-2 cursor-pointer"
 							>
 								<ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-								<span>Evaluate All Active Project Rules</span>
+								<span>Đánh giá tất cả luật đang hoạt động của dự án</span>
 							</button>
 						</div>
 					</div>
@@ -730,7 +730,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 					<div className="lg:col-span-6 bg-dark-900 border border-slate-800 rounded-xl p-5 space-y-4">
 						<div className="border-b border-slate-800 pb-3">
 							<h3 className="text-xs font-bold font-mono uppercase text-slate-200">
-								EVALUATION RESULT
+								KẾT QUẢ ĐÁNH GIÁ
 							</h3>
 							<p className="text-[11px] text-slate-400 mt-0.5">
 								Kết quả trả về từ <code className="font-mono text-brand-300">RuleExecutor</code>
@@ -748,10 +748,10 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 								>
 									<div>
 										<div className="text-[10px] font-mono uppercase text-slate-400">
-											Rule {singleEvalResult.rule_code} (v{singleEvalResult.version_number})
+											Luật {singleEvalResult.rule_code} (v{singleEvalResult.version_number})
 										</div>
 										<div className="text-sm font-bold font-mono mt-0.5">
-											{singleEvalResult.is_triggered ? 'TRIGGERED (MATCHED)' : 'NOT TRIGGERED'}
+											{singleEvalResult.is_triggered ? 'ĐÃ KÍCH HOẠT (KHỚP)' : 'CHƯA KÍCH HOẠT'}
 										</div>
 										<div className="text-xs text-slate-400 mt-1">
 											{singleEvalResult.trigger_reason}
@@ -759,7 +759,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 									</div>
 									<div className="text-right font-mono">
 										<span className="px-2.5 py-1 rounded text-xs font-bold bg-dark-950 border border-slate-700">
-											Action: {singleEvalResult.action}
+											Hành động: {singleEvalResult.action}
 										</span>
 										<div className="text-[11px] text-slate-400 mt-1.5">
 											{singleEvalResult.execution_time_ms.toFixed(3)} ms
@@ -808,8 +808,8 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 							</div>
 						) : (
 							<div className="py-12 text-center text-xs text-slate-500 font-mono">
-								Nhấn &ldquo;Evaluate Current Rule&rdquo; hoặc &ldquo;Evaluate All Active Project
-								Rules&rdquo; để xem kết quả.
+								Nhấn &ldquo;Đánh giá luật hiện tại&rdquo; hoặc &ldquo;Đánh giá tất cả luật đang hoạt động của dự án
+								&rdquo; để xem kết quả.
 							</div>
 						)}
 					</div>
@@ -825,7 +825,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 							<div className="flex items-center gap-2">
 								<FileCode2 className="w-4 h-4 text-brand-400" />
 								<h3 className="text-sm font-semibold text-slate-100 font-mono">
-									Inspect AST Evaluation: {inspectingTx.event_id}
+									Kiểm tra đánh giá AST: {inspectingTx.event_id}
 								</h3>
 							</div>
 							<button
@@ -842,14 +842,14 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 							<div className="grid grid-cols-2 gap-3 text-xs">
 								<div className="p-3 bg-dark-950 rounded-lg border border-slate-800">
 									<span className="text-[10px] font-mono uppercase text-slate-500 block">
-										Event Details
+										Chi tiết sự kiện
 									</span>
 									<div className="mt-1 font-mono text-slate-200 space-y-0.5">
 										<div>
 											User ID: <span className="text-blue-400">{inspectingTx.user_id}</span>
 										</div>
 										<div>
-											Amount:{' '}
+											Số tiền:{' '}
 											<span className="text-emerald-400 font-bold">
 												${inspectingTx.amount.toFixed(2)}
 											</span>
@@ -862,11 +862,11 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 
 								<div className="p-3 bg-dark-950 rounded-lg border border-slate-800">
 									<span className="text-[10px] font-mono uppercase text-slate-500 block">
-										Ground Truth vs Rule Action
+										Nhãn thực tế so với hành động luật
 									</span>
 									<div className="mt-1 font-mono text-slate-200 space-y-0.5">
 										<div>
-											Ground Truth:{' '}
+											Nhãn thực tế:{' '}
 											{inspectingTx.ground_truth === 1 ? (
 												<span className="text-rose-400 font-bold">FRAUD (1)</span>
 											) : inspectingTx.ground_truth === 0 ? (
@@ -876,7 +876,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 											)}
 										</div>
 										<div>
-											Predicted Action:{' '}
+											Hành động dự đoán:{' '}
 											<span className="text-amber-400 font-bold">{ruleAction}</span>
 										</div>
 										<div>
@@ -889,7 +889,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 							{/* Matched Clauses Evaluation */}
 							<div>
 								<span className="text-[11px] font-mono uppercase text-slate-400 mb-2 block font-semibold">
-									AST Clause Evaluation Breakdown
+									Chi tiết đánh giá mệnh đề AST
 								</span>
 								<div className="space-y-1.5 font-mono text-xs">
 									{inspectingTx.matched_clauses.map((clause, idx) => (
@@ -912,7 +912,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 							{/* Full Feature Context JSON */}
 							<div>
 								<span className="text-[11px] font-mono uppercase text-slate-400 mb-1.5 block font-semibold">
-									Transaction Feature Context
+									Ngữ cảnh đặc trưng giao dịch
 								</span>
 								<pre className="p-3 bg-dark-950 rounded-lg border border-slate-800 font-mono text-xs text-slate-300 overflow-x-auto">
 									{JSON.stringify(inspectingTx.features, null, 2)}

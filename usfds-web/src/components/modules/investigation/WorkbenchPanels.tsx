@@ -41,8 +41,8 @@ export function SubjectAndBaselineColumn({
 	return (
 		<div className="min-w-0 space-y-4">
 			<SectionCard
-				title="Subject Profile"
-				subtitle="Primary cardholder & flagged event metadata"
+				title="Hồ sơ người liên quan"
+				subtitle="Chủ thẻ chính & siêu dữ liệu sự kiện bị gắn cờ"
 				badge={<StatusBadge value={data.subject_status} />}
 			>
 				<div className="flex items-center gap-2.5 rounded-lg border border-dark-700/80 bg-dark-950 p-3">
@@ -50,7 +50,7 @@ export function SubjectAndBaselineColumn({
 						<User size={16} aria-hidden="true" />
 					</span>
 					<div className="min-w-0">
-						<p className="text-[11px] text-slate-400">Subject User ID</p>
+						<p className="text-[11px] text-slate-400">ID người dùng liên quan</p>
 						<p className="break-all font-mono text-sm font-bold text-slate-100">
 							{item.user_id}
 						</p>
@@ -59,45 +59,45 @@ export function SubjectAndBaselineColumn({
 
 				<dl className="grid grid-cols-2 gap-3 text-xs">
 					<div className="col-span-2 rounded-lg border border-dark-800 bg-dark-950/50 p-2.5">
-						<dt className="text-[11px] text-slate-400">Flagged Event ID</dt>
+						<dt className="text-[11px] text-slate-400">ID sự kiện bị gắn cờ</dt>
 						<dd className="mt-0.5 break-all font-mono font-medium text-slate-100">
 							{item.event_id}
 						</dd>
 					</div>
 					<div className="rounded-lg border border-dark-800 bg-dark-950/50 p-2.5">
-						<dt className="text-[11px] text-slate-400">Transaction Amount</dt>
+						<dt className="text-[11px] text-slate-400">Số tiền giao dịch</dt>
 						<dd className="mt-0.5 font-mono text-sm font-bold tabular-nums text-slate-100">
 							{formatCurrencyAmount(item.amount)}
 						</dd>
 					</div>
 					<div className="rounded-lg border border-dark-800 bg-dark-950/50 p-2.5">
-						<dt className="text-[11px] text-slate-400">Priority Score</dt>
+						<dt className="text-[11px] text-slate-400">Điểm ưu tiên</dt>
 						<dd className="mt-0.5 font-mono text-sm font-bold tabular-nums text-slate-100">
 							{formatNumber(item.priority_score, 1)} / 100
 						</dd>
 					</div>
 					<div className="col-span-2 rounded-lg border border-dark-800 bg-dark-950/50 p-2.5">
-						<dt className="text-[11px] text-slate-400">Transaction Timestamp</dt>
+						<dt className="text-[11px] text-slate-400">Thời điểm giao dịch</dt>
 						<dd className="mt-0.5 font-mono text-slate-200">
 							{formatDateTime(item.tx_timestamp)}
 						</dd>
 					</div>
 					<div className="col-span-2 rounded-lg border border-dark-800 bg-dark-950/50 p-2.5">
-						<dt className="text-[11px] text-slate-400">Assigned Analyst</dt>
+						<dt className="text-[11px] text-slate-400">Chuyên viên được giao</dt>
 						<dd className="mt-0.5 font-mono text-slate-200">
-							{item.assigned_to || 'Unassigned'}
+							{item.assigned_to || 'Chưa giao'}
 						</dd>
 					</div>
 				</dl>
 			</SectionCard>
 
 			<SectionCard
-				title="Historical Baseline"
-				subtitle={`Lookback window prior to transaction (${days} days)`}
+				title="Đường cơ sở lịch sử"
+				subtitle={`Khoảng nhìn lại trước giao dịch (${days} ngày)`}
 				actions={
-					<FormField name="Window">
+					<FormField name="Khoảng thời gian">
 						<select
-							aria-label="Baseline window"
+							aria-label="Khoảng thời gian đường cơ sở"
 							className={INPUT_CLASS}
 							value={days}
 							onChange={(event) => onChangeDays(Number(event.target.value) as 30 | 90)}
@@ -114,7 +114,7 @@ export function SubjectAndBaselineColumn({
 						<div>
 							<p className="font-semibold">New / Cold-Start Account</p>
 							<p className="text-[11px] text-amber-300/90">
-								No prior user history in window. Comparing against Population Baseline.
+								Không có lịch sử người dùng trong khoảng thời gian này. Đang so sánh với đường cơ sở toàn quần thể.
 							</p>
 						</div>
 					</div>
@@ -122,25 +122,25 @@ export function SubjectAndBaselineColumn({
 
 				{!profile.available ? (
 					<p className="text-xs text-slate-400">
-						{profile.message || 'No historical baseline available for this source.'}
+						{profile.message || 'Chưa có đường cơ sở lịch sử cho nguồn này.'}
 					</p>
 				) : (
 					<>
 						<dl className="grid grid-cols-2 gap-2.5 text-xs">
 							<div className="rounded-lg border border-dark-800 bg-dark-950/60 p-2.5">
-								<dt className="text-[11px] text-slate-400">Average Amount</dt>
+								<dt className="text-[11px] text-slate-400">Số tiền trung bình</dt>
 								<dd className="mt-1 font-mono font-semibold tabular-nums text-slate-100">
 									{formatCurrencyAmount(profile.avg_amount)}
 								</dd>
 							</div>
 							<div className="rounded-lg border border-dark-800 bg-dark-950/60 p-2.5">
-								<dt className="text-[11px] text-slate-400">Max Amount</dt>
+								<dt className="text-[11px] text-slate-400">Số tiền tối đa</dt>
 								<dd className="mt-1 font-mono font-semibold tabular-nums text-slate-100">
 									{formatCurrencyAmount(profile.max_amount)}
 								</dd>
 							</div>
 							<div className="rounded-lg border border-dark-800 bg-dark-950/60 p-2.5">
-								<dt className="text-[11px] text-slate-400">Prior Tx Count</dt>
+								<dt className="text-[11px] text-slate-400">Số giao dịch trước đó</dt>
 								<dd className="mt-1 font-mono font-semibold tabular-nums text-slate-100">
 									{formatNumber(profile.history_count, 0)}
 								</dd>
@@ -156,7 +156,7 @@ export function SubjectAndBaselineColumn({
 						<div className="rounded-lg border border-dark-800 bg-dark-950/60 p-2.5 text-xs">
 							<div className="flex items-center gap-1.5 text-[11px] text-slate-400">
 								<Clock size={12} aria-hidden="true" />
-								<span>Common Active Hours (UTC)</span>
+								<span>Khung giờ hoạt động phổ biến (UTC)</span>
 							</div>
 							<div className="mt-1.5 flex flex-wrap gap-1.5">
 								{profile.common_hours_utc && profile.common_hours_utc.length > 0 ? (
@@ -178,8 +178,8 @@ export function SubjectAndBaselineColumn({
 			</SectionCard>
 
 			<SectionCard
-				title={`Related Cases (${data.related_total})`}
-				subtitle="Other flagged cases for the same subject user"
+				title={`Hồ sơ liên quan (${data.related_total})`}
+				subtitle="Các hồ sơ bị gắn cờ khác của cùng người dùng"
 			>
 				<div className="space-y-2.5">
 					{related.map((entry) => (
@@ -203,7 +203,7 @@ export function SubjectAndBaselineColumn({
 								<span className="font-mono tabular-nums">
 									{formatCurrencyAmount(entry.amount)}
 								</span>
-								<span>{entry.assigned_to || 'Unassigned'}</span>
+								<span>{entry.assigned_to || 'Chưa giao'}</span>
 							</div>
 						</div>
 					))}
@@ -215,7 +215,7 @@ export function SubjectAndBaselineColumn({
 							to={`/investigation?user=${encodeURIComponent(item.user_id)}`}
 							className="inline-block text-xs font-medium text-brand-400 hover:underline"
 						>
-							View all {data.related_total} related cases in Queue &rarr;
+							Xem tất cả {data.related_total} hồ sơ liên quan trong hàng đợi &rarr;
 						</Link>
 					)}
 				</div>
@@ -269,17 +269,17 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 	return (
 		<div className="min-w-0 space-y-4">
 			<SectionCard
-				title="Trigger Evidence (AI Model & Rule Engine)"
-				subtitle="Local SHAP feature explanations & violated business rule snapshots"
+				title="Bằng chứng kích hoạt (mô hình AI & động cơ luật)"
+				subtitle="Giải thích đặc trưng cục bộ SHAP & ảnh chụp các luật nghiệp vụ bị vi phạm"
 				badge={<StatusBadge value={item.final_action} />}
 			>
 				<div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-dark-800 bg-dark-950/60 p-3">
 					<div>
-						<p className="text-[11px] text-slate-400">AI Model Fraud Probability</p>
+						<p className="text-[11px] text-slate-400">Xác suất gian lận của mô hình AI</p>
 						<p className="mt-0.5 text-xs text-slate-300">
 							{item.model_version_id
-								? `Model Version: ${item.model_version_id.slice(0, 8)}...`
-								: 'Rule-only detection'}
+								? `Phiên bản mô hình: ${item.model_version_id.slice(0, 8)}...`
+								: 'Chỉ phát hiện bằng luật'}
 						</p>
 					</div>
 					<div className="w-48">
@@ -290,12 +290,12 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 				{contributions.length > 0 ? (
 					<div className="space-y-1.5">
 						<p className="text-xs font-medium text-slate-300">
-							Top Local Feature Contributions (SHAP)
+							Đóng góp đặc trưng cục bộ hàng đầu (SHAP)
 						</p>
 						<div
 							className="h-60 min-w-0 rounded-lg border border-dark-800 bg-dark-950/40 p-2"
 							role="img"
-							aria-label="Local feature contributions"
+							aria-label="Đóng góp đặc trưng cục bộ"
 						>
 							<ResponsiveContainer width="100%" height="100%">
 								<BarChart
@@ -317,7 +317,7 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 									<Tooltip
 										formatter={(value, _name, itemPayload) => [
 											`${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(4)}`,
-											itemPayload?.payload?.formatted_label || 'Contribution',
+											itemPayload?.payload?.formatted_label || 'Đóng góp',
 										]}
 										contentStyle={{
 											background: chartTokens.tooltipBg,
@@ -340,13 +340,13 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 					</div>
 				) : (
 					<p className="rounded-lg border border-dark-800 bg-dark-950/40 p-3 text-xs text-slate-400">
-						No local model explanation (SHAP) available for this transaction.
+						Chưa có giải thích mô hình cục bộ (SHAP) cho giao dịch này.
 					</p>
 				)}
 
 				<div className="space-y-2.5 pt-1">
 					<p className="text-xs font-medium text-slate-300">
-						Triggered Detection Rules ({item.triggered_rules.length})
+						Luật phát hiện đã kích hoạt ({item.triggered_rules.length})
 					</p>
 					{item.triggered_rules.map((rule) => (
 						<div
@@ -389,13 +389,13 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 			</SectionCard>
 
 			<SectionCard
-				title="Interactive Behavioral Timeline"
-				subtitle="Temporal sequence of subject user transactions (Gray: Historical, Red: Current Case)"
+				title="Dòng thời gian hành vi tương tác"
+				subtitle="Chuỗi thời gian giao dịch của người dùng liên quan (Xám: lịch sử, Đỏ: hồ sơ hiện tại)"
 			>
 				<div
 					className="h-60 min-w-0 rounded-lg border border-dark-800 bg-dark-950/40 p-2"
 					role="img"
-					aria-label="Historical transactions and current flagged transaction"
+					aria-label="Giao dịch lịch sử và giao dịch bị gắn cờ hiện tại"
 				>
 					{points.length > 0 ? (
 						<ResponsiveContainer width="100%" height="100%">
@@ -427,33 +427,33 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 								<Scatter
 									data={points.filter((point) => !point.is_current)}
 									fill="#94a3b8"
-									name="Historical"
+									name="Lịch sử"
 									isAnimationActive={false}
 								/>
 								<Scatter
 									data={points.filter((point) => point.is_current)}
 									fill="#f87171"
-									name="Current Case"
+									name="Hồ sơ hiện tại"
 									isAnimationActive={false}
 								/>
 							</ScatterChart>
 						</ResponsiveContainer>
 					) : (
 						<p className="p-4 text-xs text-slate-400">
-							No transaction history available for timeline visualization.
+							Chưa có lịch sử giao dịch để hiển thị dòng thời gian.
 						</p>
 					)}
 				</div>
 				{profile.timeline_truncated && (
 					<p className="text-xs text-amber-300">
-						Showing the latest 500 transactions in the selected window.
+						Đang hiển thị 500 giao dịch gần nhất trong khoảng thời gian đã chọn.
 					</p>
 				)}
 			</SectionCard>
 
 			<SectionCard
-				title="Current vs. Baseline Deviation"
-				subtitle="Side-by-side behavioral attribute check against historical profile"
+				title="Chênh lệch hiện tại so với đường cơ sở"
+				subtitle="Đối chiếu thuộc tính hành vi với hồ sơ lịch sử"
 			>
 				<div className="overflow-x-auto">
 					<table className="w-full text-left text-xs">
@@ -462,8 +462,8 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 							<tr>
 								<th scope="col" className="py-2 pr-3">Attribute</th>
 								<th scope="col" className="py-2 pr-3">Current Value</th>
-								<th scope="col" className="py-2 pr-3">Historical Baseline</th>
-								<th scope="col" className="py-2 text-right">Status</th>
+								<th scope="col" className="py-2 pr-3">Đường cơ sở lịch sử</th>
+								<th scope="col" className="py-2 text-right">Trạng thái</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-dark-800">
@@ -498,8 +498,8 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 										<td className="py-2.5 text-right">
 											{row.is_anomalous ? (
 												<span className="inline-flex items-center gap-1 rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-rose-300">
-													<AlertTriangle size={11} aria-label="Anomalous" />
-													<span>Anomaly</span>
+													<AlertTriangle size={11} aria-label="Bất thường" />
+													<span>Bất thường</span>
 												</span>
 											) : (
 												<span className="text-[11px] text-slate-400">Normal</span>
@@ -514,7 +514,7 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 			</SectionCard>
 
 			<SectionCard
-				title="Transaction Attributes Snapshot"
+				title="Ảnh chụp thuộc tính giao dịch"
 				subtitle={`${Object.keys(item.attributes).length} captured attributes at detection time`}
 				actions={
 					<div className="relative w-44">
@@ -523,8 +523,8 @@ export function EvidenceAndTimelineColumn({ data }: { data: Workbench }) {
 							className="pointer-events-none absolute left-2.5 top-2.5 text-slate-500"
 						/>
 						<input
-							aria-label="Filter transaction attributes"
-							placeholder="Filter attributes..."
+							aria-label="Lọc thuộc tính giao dịch"
+							placeholder="Lọc thuộc tính..."
 							className={`${INPUT_CLASS} pl-7 py-1 text-xs`}
 							value={attrSearch}
 							onChange={(event) => setAttrSearch(event.target.value)}

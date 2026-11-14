@@ -108,18 +108,18 @@ export function DecisionAndAuditColumn({
 	return (
 		<div className="min-w-0 space-y-4">
 			<SectionCard
-				title="Case Resolution & Mitigation"
+				title="Xử lý & giảm thiểu hồ sơ"
 				subtitle={
 					isResolved
-						? 'Final audit verdict & ground-truth label recorded'
-						: 'Record final verdict, ground-truth label, and emergency entity blocking'
+						? 'Đã ghi kết luận kiểm toán cuối cùng & nhãn thực tế'
+						: 'Ghi kết luận cuối, nhãn thực tế và chặn thực thể khẩn cấp'
 				}
 			>
 				{isResolved ? (
 					<div className="space-y-3 text-xs">
 						<div className="rounded-lg border border-dark-700/80 bg-dark-950 p-3 space-y-2">
 							<div className="flex items-center justify-between gap-2">
-								<span className="text-[11px] text-slate-400">Verdict Status</span>
+								<span className="text-[11px] text-slate-400">Trạng thái kết luận</span>
 								<StatusBadge value={item.status} />
 							</div>
 							<div className="flex items-center justify-between gap-2">
@@ -135,7 +135,7 @@ export function DecisionAndAuditColumn({
 								</span>
 							</div>
 							<div className="border-t border-dark-800 pt-2">
-								<p className="text-[11px] text-slate-400">Evidence Summary</p>
+								<p className="text-[11px] text-slate-400">Tóm tắt bằng chứng</p>
 								<p className="mt-1 break-words text-slate-200">
 									{item.resolution_summary}
 								</p>
@@ -155,14 +155,14 @@ export function DecisionAndAuditColumn({
 									onClick={onCreateRuleDraft}
 								>
 									<FilePlus2 size={14} />
-									<span>Create Rule from Case</span>
+									<span>Tạo luật từ hồ sơ</span>
 								</button>
 							)}
 							<Link
 								to={`/reports?tab=compliance&caseId=${item.case_id}`}
 								className={BUTTON_SECONDARY_CLASS}
 							>
-								<span>Export SAR Dossier</span>
+								<span>Xuất hồ sơ SAR</span>
 								<ArrowUpRight size={14} />
 							</Link>
 							{item.status === 'RESOLVED_LEGITIMATE' && item.triggered_rules.length > 0 && (
@@ -170,18 +170,18 @@ export function DecisionAndAuditColumn({
 									to="/investigation/policies?tab=feedback"
 									className={BUTTON_SECONDARY_CLASS}
 								>
-									<span>Review Noisy Rules</span>
+									<span>Xem lại luật nhiễu</span>
 									<ArrowUpRight size={14} />
 								</Link>
 							)}
 						</div>
 
 						<div className="space-y-2.5 border-t border-dark-800 pt-3">
-							<FormField name="Reopen Justification" hint="Min 10 chars (BR-IV-02)">
+							<FormField name="Lý do mở lại" hint="Tối thiểu 10 ký tự (BR-IV-02)">
 								<textarea
 									className={INPUT_CLASS}
 									rows={2}
-									placeholder="Explain why this resolved case must be reopened..."
+									placeholder="Giải thích vì sao hồ sơ đã xử lý này cần mở lại..."
 									value={resolutionSummary}
 									onChange={(event) => setResolutionSummary(event.target.value)}
 								/>
@@ -193,7 +193,7 @@ export function DecisionAndAuditColumn({
 								onClick={handleReopen}
 							>
 								<Unlock size={14} />
-								<span>Reopen Case</span>
+								<span>Mở lại hồ sơ</span>
 							</button>
 						</div>
 					</div>
@@ -209,14 +209,14 @@ export function DecisionAndAuditColumn({
 								}
 							>
 								<UserCheck size={14} />
-								<span>Claim / Assign to Me</span>
+								<span>Nhận / giao cho tôi</span>
 							</button>
 						)}
 
 						<form className="space-y-3" onSubmit={handleResolveSubmit}>
 							<div
 								role="group"
-								aria-label="Select resolution verdict"
+								aria-label="Chọn kết luận xử lý"
 								className="grid grid-cols-2 gap-2 rounded-lg border border-dark-700 bg-dark-950 p-1"
 							>
 								<button
@@ -232,7 +232,7 @@ export function DecisionAndAuditColumn({
 									}`}
 								>
 									<ShieldAlert size={14} aria-hidden="true" />
-									<span>Confirm Fraud</span>
+									<span>Xác nhận gian lận</span>
 								</button>
 								<button
 									type="button"
@@ -247,25 +247,25 @@ export function DecisionAndAuditColumn({
 									}`}
 								>
 									<CheckCircle2 size={14} aria-hidden="true" />
-									<span>Mark Legitimate</span>
+									<span>Đánh dấu hợp lệ</span>
 								</button>
 							</div>
 
 							<FormField
 								name={
 									verdict === 'FRAUD'
-										? 'Fraud Typology Code'
-										: 'False Positive Reason'
+										? 'Mã loại hình gian lận'
+										: 'Lý do cảnh báo sai'
 								}
 							>
 								<select
-									aria-label="Resolution reason"
+									aria-label="Lý do xử lý"
 									className={INPUT_CLASS}
 									value={reason}
 									required
 									onChange={(event) => setReason(event.target.value)}
 								>
-									<option value="">Select reason</option>
+									<option value="">Chọn lý do</option>
 									{(verdict === 'FRAUD' ? FRAUD_REASONS : LEGITIMATE_REASONS).map(
 										(value) => (
 											<option key={value} value={value}>
@@ -276,16 +276,16 @@ export function DecisionAndAuditColumn({
 								</select>
 							</FormField>
 
-							<FormField name="Evidence Summary" hint="Min 10 chars (BR-IV-03)">
+							<FormField name="Tóm tắt bằng chứng" hint="Tối thiểu 10 ký tự (BR-IV-03)">
 								<textarea
-									aria-label="Evidence summary"
+									aria-label="Tóm tắt bằng chứng"
 									className={INPUT_CLASS}
 									rows={3}
 									value={resolutionSummary}
 									required
 									minLength={10}
 									maxLength={10000}
-									placeholder="Summarize investigation findings for audit & SAR compliance..."
+									placeholder="Tóm tắt kết quả điều tra phục vụ kiểm toán & tuân thủ SAR..."
 									onChange={(event) => setResolutionSummary(event.target.value)}
 								/>
 							</FormField>
@@ -293,7 +293,7 @@ export function DecisionAndAuditColumn({
 							{verdict === 'FRAUD' ? (
 								<fieldset className="space-y-2 rounded-lg border border-dark-800 bg-dark-950/60 p-3 text-xs">
 									<legend className="px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-										Emergency Mitigation (Blacklist Entities)
+										Giảm thiểu khẩn cấp (chặn thực thể)
 									</legend>
 									{entities.map((entity) => (
 										<label
@@ -324,12 +324,12 @@ export function DecisionAndAuditColumn({
 							) : (
 								item.triggered_rules.length > 0 && (
 									<div className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/30 bg-amber-950/20 p-2.5 text-xs text-amber-200">
-										<span>Triggered rule caused false alarm?</span>
+										<span>Luật đã kích hoạt gây cảnh báo sai?</span>
 										<Link
 											to="/investigation/policies?tab=feedback"
 											className="inline-flex items-center gap-1 font-semibold text-amber-300 hover:underline"
 										>
-											<span>Flag Noisy Rule</span>
+											<span>Gắn cờ luật nhiễu</span>
 											<ArrowUpRight size={13} />
 										</Link>
 									</div>
@@ -350,8 +350,8 @@ export function DecisionAndAuditColumn({
 								<CheckCircle2 size={14} />
 								<span>
 									{verdict === 'FRAUD'
-										? 'Submit Confirmed Fraud'
-										: 'Submit Legitimate (False Positive)'}
+										? 'Gửi xác nhận gian lận'
+										: 'Gửi xác nhận hợp lệ (cảnh báo sai)'}
 								</span>
 							</button>
 						</form>
@@ -361,14 +361,14 @@ export function DecisionAndAuditColumn({
 
 			{!isResolved && (
 				<SectionCard
-					title="Customer Verification & Escalation"
-					subtitle="Record customer outreach status (BUC-06) or escalate to senior analyst"
+					title="Xác minh khách hàng & leo thang"
+					subtitle="Ghi trạng thái liên hệ khách hàng (BUC-06) hoặc chuyển cho chuyên viên cấp cao"
 				>
-					<FormField name="Verification / Escalation Note" hint="Min 10 chars">
+					<FormField name="Ghi chú xác minh / leo thang" hint="Tối thiểu 10 ký tự">
 						<textarea
 							className={INPUT_CLASS}
 							rows={2}
-							placeholder="Enter customer call outcome or escalation rationale..."
+							placeholder="Nhập kết quả liên hệ khách hàng hoặc lý do leo thang..."
 							value={workflowNote}
 							onChange={(event) => setWorkflowNote(event.target.value)}
 						/>
@@ -380,11 +380,11 @@ export function DecisionAndAuditColumn({
 						onClick={handlePendingCustomer}
 					>
 						<ClipboardCheck size={14} />
-						<span>Mark Pending Customer Response</span>
+						<span>Đánh dấu chờ phản hồi khách hàng</span>
 					</button>
 
 					<div className="space-y-2 border-t border-dark-800 pt-2.5">
-						<FormField name="Escalation Assignee">
+						<FormField name="Người được giao leo thang">
 							<input
 								className={INPUT_CLASS}
 								maxLength={100}
@@ -404,24 +404,24 @@ export function DecisionAndAuditColumn({
 							onClick={handleEscalate}
 						>
 							<ShieldAlert size={14} />
-							<span>Escalate to Critical Priority</span>
+							<span>Leo thang lên mức ưu tiên nghiêm trọng</span>
 						</button>
 					</div>
 				</SectionCard>
 			)}
 
 			<SectionCard
-				title="Investigation Notes"
-				subtitle="Append timestamped observations to audit trail"
+				title="Ghi chú điều tra"
+				subtitle="Thêm quan sát có dấu thời gian vào nhật ký kiểm toán"
 			>
 				<form className="space-y-2.5" onSubmit={handleAddNote}>
-					<FormField name="Note">
+					<FormField name="Ghi chú">
 						<textarea
 							className={INPUT_CLASS}
 							rows={2}
 							maxLength={10000}
 							required
-							placeholder="Add internal investigation note..."
+							placeholder="Thêm ghi chú điều tra nội bộ..."
 							value={investigationNote}
 							onChange={(event) => setInvestigationNote(event.target.value)}
 						/>
@@ -432,14 +432,14 @@ export function DecisionAndAuditColumn({
 						disabled={disabled || !investigationNote.trim()}
 					>
 						<Save size={14} />
-						<span>Add Note</span>
+						<span>Thêm ghi chú</span>
 					</button>
 				</form>
 			</SectionCard>
 
 			<SectionCard
-				title={`Audit Trail (${logs.length})`}
-				subtitle="Immutable log of case state transitions & actions"
+				title={`Nhật ký kiểm toán (${logs.length})`}
+				subtitle="Nhật ký bất biến về chuyển trạng thái & thao tác của hồ sơ"
 			>
 				<ol className="max-h-72 space-y-3 overflow-y-auto pr-1">
 					{logs.map((log) => (
@@ -464,7 +464,7 @@ export function DecisionAndAuditColumn({
 							{Object.keys(log.details || {}).length > 0 && (
 								<details className="pt-1">
 									<summary className="cursor-pointer text-[11px] font-medium text-brand-400 hover:underline">
-										Inspect metadata diff
+										Kiểm tra khác biệt siêu dữ liệu
 									</summary>
 									<pre className="mt-1.5 max-h-36 overflow-auto rounded border border-dark-800 bg-dark-900 p-2 font-mono text-[11px] text-slate-300">
 										{JSON.stringify(log.details, null, 2)}

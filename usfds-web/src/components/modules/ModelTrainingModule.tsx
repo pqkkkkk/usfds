@@ -7,9 +7,9 @@ import { PageHeader } from '../layout/PageHeader';
 import { BrainCircuit } from 'lucide-react';
 
 const MODEL_TRAINING_STEPS: PipelineStep[] = [
-	{ id: 'train-wizard', stepNumber: 1, label: 'Model Training Wizard', description: 'Algorithm & Hyperparams', state: 'active' },
-	{ id: 'train-eval', stepNumber: 2, label: 'Evaluation & Metrics', description: 'PR-AUC & Confusion Matrix', state: 'locked' },
-	{ id: 'model-deploy', stepNumber: 3, label: 'Deploy & Model Ledger', description: 'Shadow vs Active', state: 'locked' }
+	{ id: 'train-wizard', stepNumber: 1, label: 'Trình huấn luyện mô hình', description: 'Thuật toán & siêu tham số', state: 'active' },
+	{ id: 'train-eval', stepNumber: 2, label: 'Đánh giá & chỉ số', description: 'PR-AUC & ma trận nhầm lẫn', state: 'locked' },
+	{ id: 'model-deploy', stepNumber: 3, label: 'Triển khai & sổ mô hình', description: 'Bóng so với đang hoạt động', state: 'locked' }
 ];
 
 export const ModelTrainingModule = () => {
@@ -25,12 +25,12 @@ export const ModelTrainingModule = () => {
 			
 			<div className="flex-1 flex flex-col overflow-hidden">
 				<PageHeader
-					title="Model Training & Evaluation"
+					title="Huấn luyện & đánh giá mô hình"
 					subtitle="Huấn luyện mô hình học máy (LightGBM, XGBoost, CatBoost), tinh chỉnh ngưỡng và đánh giá ma trận"
 					badge="Module"
 					badgeColor="blue"
 					breadcrumbs={[
-						{ label: 'Model Training' },
+						{ label: 'Huấn luyện mô hình' },
 						{ label: currentStep === 'train-wizard' ? 'Wizard' : 'Evaluation' }
 					]}
 				/>

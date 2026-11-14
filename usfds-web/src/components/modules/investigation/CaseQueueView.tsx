@@ -112,30 +112,30 @@ export function CaseQueueView({
 
 	const kpiItems = [
 		{
-			label: 'Open Cases',
+			label: 'Hồ sơ đang mở',
 			value: formatNumber(kpisQuery.data?.open, 0),
-			subtext: 'Waiting for analyst triage',
+			subtext: 'Đang chờ chuyên viên phân loại',
 			icon: Briefcase,
 			accent: 'text-sky-400 bg-sky-500/10 border-sky-500/20',
 		},
 		{
-			label: 'Critical Unresolved',
+			label: 'Nghiêm trọng chưa xử lý',
 			value: formatNumber(kpisQuery.data?.critical, 0),
-			subtext: 'Immediate investigation required',
+			subtext: 'Cần điều tra ngay',
 			icon: AlertTriangle,
 			accent: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
 		},
 		{
-			label: 'In Progress',
+			label: 'Đang xử lý',
 			value: formatNumber(kpisQuery.data?.in_progress, 0),
-			subtext: `Pending customer: ${formatNumber(kpisQuery.data?.pending_customer, 0)}`,
+			subtext: `Chờ khách hàng: ${formatNumber(kpisQuery.data?.pending_customer, 0)}`,
 			icon: ClipboardCheck,
 			accent: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
 		},
 		{
-			label: 'Confirmed Fraud Ratio',
+			label: 'Tỷ lệ gian lận đã xác nhận',
 			value: formatPercent(kpisQuery.data?.confirmed_fraud_ratio),
-			subtext: `Total resolved: ${formatNumber(kpisQuery.data?.resolved, 0)} cases`,
+			subtext: `Tổng đã xử lý: ${formatNumber(kpisQuery.data?.resolved, 0)} hồ sơ`,
 			icon: CheckCircle2,
 			accent: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
 		},
@@ -145,7 +145,7 @@ export function CaseQueueView({
 		<div className="space-y-5">
 			<div
 				className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
-				aria-label="Case statistics"
+				aria-label="Thống kê hồ sơ"
 			>
 				{kpiItems.map((card) => {
 					const Icon = card.icon;
@@ -172,11 +172,11 @@ export function CaseQueueView({
 			<ErrorNotice error={casesQuery.error || kpisQuery.error || claimMutation.error} />
 
 			<SectionCard
-				title="Multi-dimensional Queue Filters"
+				title="Bộ lọc hàng đợi đa chiều"
 				subtitle={
 					userFilterParam
-						? `Filtering cases for Subject User ID: ${userFilterParam}`
-						: 'Narrow down cases by priority, status, rule code, model score, or transaction amount'
+						? `Đang lọc hồ sơ theo ID người dùng liên quan: ${userFilterParam}`
+						: 'Thu hẹp hồ sơ theo mức ưu tiên, trạng thái, mã luật, điểm mô hình hoặc số tiền giao dịch'
 				}
 				badge={<Filter size={14} className="text-slate-400" aria-hidden="true" />}
 				actions={
@@ -187,7 +187,7 @@ export function CaseQueueView({
 							onClick={handleResetFilters}
 						>
 							<RotateCcw size={14} />
-							<span>Reset</span>
+							<span>Đặt lại</span>
 						</button>
 						<button
 							type="button"
@@ -198,13 +198,13 @@ export function CaseQueueView({
 							}}
 						>
 							<RefreshCw size={14} className={casesQuery.isFetching ? 'animate-spin' : ''} />
-							<span>Refresh</span>
+							<span>Làm mới</span>
 						</button>
 					</div>
 				}
 			>
 				<div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-5">
-					<FormField name="Search (Case / Event / User)">
+					<FormField name="Tìm kiếm (hồ sơ / sự kiện / người dùng)">
 						<input
 							className={INPUT_CLASS}
 							placeholder="CASE-2026-..., evt_..., usr_..."
@@ -212,13 +212,13 @@ export function CaseQueueView({
 							onChange={(event) => handleFilterChange('q', event.target.value)}
 						/>
 					</FormField>
-					<FormField name="Status">
+					<FormField name="Trạng thái">
 						<select
 							className={INPUT_CLASS}
 							value={filters.status}
 							onChange={(event) => handleFilterChange('status', event.target.value)}
 						>
-							<option value="">All statuses</option>
+							<option value="">Tất cả trạng thái</option>
 							{CASE_STATUSES.map((status) => (
 								<option key={status} value={status}>
 									{status}
@@ -226,13 +226,13 @@ export function CaseQueueView({
 							))}
 						</select>
 					</FormField>
-					<FormField name="Priority">
+					<FormField name="Mức ưu tiên">
 						<select
 							className={INPUT_CLASS}
 							value={filters.priority}
 							onChange={(event) => handleFilterChange('priority', event.target.value)}
 						>
-							<option value="">All priorities</option>
+							<option value="">Tất cả mức ưu tiên</option>
 							{['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((priority) => (
 								<option key={priority} value={priority}>
 									{priority}
@@ -240,18 +240,18 @@ export function CaseQueueView({
 							))}
 						</select>
 					</FormField>
-					<FormField name="Assignment">
+					<FormField name="Phân công">
 						<select
 							className={INPUT_CLASS}
 							value={filters.assigned_to}
 							onChange={(event) => handleFilterChange('assigned_to', event.target.value)}
 						>
-							<option value="">All analysts</option>
-							<option value="local-analyst">Assigned to me (local-analyst)</option>
-							<option value="unassigned">Unassigned only</option>
+							<option value="">Tất cả chuyên viên</option>
+							<option value="local-analyst">Được giao cho tôi (local-analyst)</option>
+							<option value="unassigned">Chỉ hồ sơ chưa giao</option>
 						</select>
 					</FormField>
-					<FormField name="Triggered Rule Code">
+					<FormField name="Mã luật đã kích hoạt">
 						<input
 							className={INPUT_CLASS}
 							placeholder="e.g. R-001"
@@ -259,7 +259,7 @@ export function CaseQueueView({
 							onChange={(event) => handleFilterChange('rule_code', event.target.value)}
 						/>
 					</FormField>
-					<FormField name="Min Model Score" hint="0.00 - 1.00">
+					<FormField name="Điểm mô hình tối thiểu" hint="0.00 - 1.00">
 						<input
 							type="number"
 							min="0"
@@ -271,7 +271,7 @@ export function CaseQueueView({
 							onChange={(event) => handleFilterChange('min_score', event.target.value)}
 						/>
 					</FormField>
-					<FormField name="Max Model Score" hint="0.00 - 1.00">
+					<FormField name="Điểm mô hình tối đa" hint="0.00 - 1.00">
 						<input
 							type="number"
 							min="0"
@@ -283,7 +283,7 @@ export function CaseQueueView({
 							onChange={(event) => handleFilterChange('max_score', event.target.value)}
 						/>
 					</FormField>
-					<FormField name="Min Amount">
+					<FormField name="Số tiền tối thiểu">
 						<input
 							type="number"
 							min="0"
@@ -294,26 +294,26 @@ export function CaseQueueView({
 							onChange={(event) => handleFilterChange('min_amount', event.target.value)}
 						/>
 					</FormField>
-					<FormField name="Max Amount">
+					<FormField name="Số tiền tối đa">
 						<input
 							type="number"
 							min="0"
 							step="any"
-							placeholder="Any"
+							placeholder="Bất kỳ"
 							className={INPUT_CLASS}
 							value={filters.max_amount}
 							onChange={(event) => handleFilterChange('max_amount', event.target.value)}
 						/>
 					</FormField>
-					<FormField name="Sort Order">
+					<FormField name="Thứ tự sắp xếp">
 						<select
 							className={INPUT_CLASS}
 							value={filters.sort}
 							onChange={(event) => handleFilterChange('sort', event.target.value)}
 						>
-							<option value="priority">Priority score descending</option>
-							<option value="amount">Transaction amount descending</option>
-							<option value="created">Newest created first</option>
+							<option value="priority">Điểm ưu tiên giảm dần</option>
+							<option value="amount">Số tiền giao dịch giảm dần</option>
+							<option value="created">Mới tạo nhất trước</option>
 						</select>
 					</FormField>
 				</div>
@@ -326,24 +326,24 @@ export function CaseQueueView({
 						<strong className="font-mono text-slate-100">{formatNumber(casesQuery.data?.total, 0)}</strong> cases
 					</span>
 					<span className="text-[11px] text-slate-400">
-						Click a Case Code or Investigate to open the 3-Column Workbench
+						Nhấp vào mã hồ sơ hoặc Điều tra để mở không gian làm việc 3 cột
 					</span>
 				</div>
 
 				<div className="overflow-x-auto" aria-busy={casesQuery.isFetching}>
 					<table className="w-full min-w-[1040px] text-left text-xs">
-						<caption className="sr-only">Investigation case queue</caption>
+						<caption className="sr-only">Hàng đợi hồ sơ điều tra</caption>
 						<thead className="border-b border-dark-700/80 bg-dark-950/60 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
 							<tr>
-								<th scope="col" className="px-4 py-3">Case / Event ID</th>
-								<th scope="col" className="px-3 py-3">Subject User</th>
-								<th scope="col" className="px-3 py-3">Amount &amp; Tx Time</th>
-								<th scope="col" className="px-3 py-3">Model / Priority Score</th>
-								<th scope="col" className="px-3 py-3">Action &amp; Triggered Rules</th>
-								<th scope="col" className="px-3 py-3">Priority</th>
-								<th scope="col" className="px-3 py-3">Status</th>
+								<th scope="col" className="px-4 py-3">Mã hồ sơ / sự kiện</th>
+								<th scope="col" className="px-3 py-3">Người dùng liên quan</th>
+								<th scope="col" className="px-3 py-3">Số tiền & thời gian giao dịch</th>
+								<th scope="col" className="px-3 py-3">Điểm mô hình / ưu tiên</th>
+								<th scope="col" className="px-3 py-3">Thao tác & luật đã kích hoạt</th>
+								<th scope="col" className="px-3 py-3">Mức ưu tiên</th>
+								<th scope="col" className="px-3 py-3">Trạng thái</th>
 								<th scope="col" className="px-3 py-3">Assignee</th>
-								<th scope="col" className="px-4 py-3 text-right">Actions</th>
+								<th scope="col" className="px-4 py-3 text-right">Thao tác</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-dark-800">
@@ -374,7 +374,7 @@ export function CaseQueueView({
 									<td className="px-3 py-3">
 										<ScoreBar score={item.model_score} />
 										<span className="mt-1 block font-mono text-[11px] tabular-nums text-slate-400">
-											Priority score: {formatNumber(item.priority_score, 1)}
+											Điểm ưu tiên: {formatNumber(item.priority_score, 1)}
 										</span>
 									</td>
 									<td className="max-w-56 px-3 py-3">
@@ -390,7 +390,7 @@ export function CaseQueueView({
 													</span>
 												))
 											) : (
-												<span className="text-[11px] text-slate-500">ML Score Only</span>
+												<span className="text-[11px] text-slate-500">Chỉ điểm ML</span>
 											)}
 										</div>
 									</td>
@@ -402,7 +402,7 @@ export function CaseQueueView({
 									</td>
 									<td className="px-3 py-3">
 										<span className="font-mono text-[11px] text-slate-300">
-											{item.assigned_to || 'Unassigned'}
+											{item.assigned_to || 'Chưa giao'}
 										</span>
 										<span className="mt-0.5 block text-[10px] text-slate-500">
 											Created {formatDateTime(item.created_at)}
@@ -418,14 +418,14 @@ export function CaseQueueView({
 													onClick={() => claimMutation.mutate(item)}
 												>
 													<UserCheck size={14} />
-													<span>Claim</span>
+													<span>Nhận xử lý</span>
 												</button>
 											)}
 											<Link
 												to={`/investigation/cases/${item.case_id}`}
 												className={BUTTON_PRIMARY_CLASS}
 											>
-												<span>Investigate</span>
+												<span>Điều tra</span>
 												<ArrowUpRight size={14} />
 											</Link>
 										</div>
@@ -437,27 +437,27 @@ export function CaseQueueView({
 
 					{casesQuery.isPending ? (
 						<p role="status" className="p-8 text-center text-sm text-slate-400">
-							Loading investigation cases...
+							Đang tải hồ sơ điều tra...
 						</p>
 					) : !casesQuery.error && !casesQuery.data?.items.length ? (
 						<div className="p-8 text-center text-sm text-slate-400">
-							No investigation cases match the current filters.
+							Không có hồ sơ điều tra nào khớp bộ lọc hiện tại.
 						</div>
 					) : null}
 				</div>
 
 				<div className="flex items-center justify-between border-t border-dark-700/80 bg-dark-850/30 px-4 py-3 text-xs text-slate-300">
-					<span>Page {page}</span>
+					<span>Trang {page}</span>
 					<div className="flex items-center gap-2">
 						<button
 							type="button"
 							className={BUTTON_SECONDARY_CLASS}
 							disabled={page === 1 || casesQuery.isFetching}
 							onClick={() => setPage(page - 1)}
-							aria-label="Previous page"
+							aria-label="Trang trước"
 						>
 							<ArrowLeft size={14} />
-							<span>Previous</span>
+							<span>Trước</span>
 						</button>
 						<button
 							type="button"
@@ -468,9 +468,9 @@ export function CaseQueueView({
 								page * 50 >= casesQuery.data.total
 							}
 							onClick={() => setPage(page + 1)}
-							aria-label="Next page"
+							aria-label="Trang sau"
 						>
-							<span>Next</span>
+							<span>Sau</span>
 							<ArrowRight size={14} />
 						</button>
 					</div>

@@ -227,10 +227,10 @@ export function DetectionJobWizardView() {
 		if (window.electronAPI?.openFileDialog) {
 			try {
 				const selectedPath = await window.electronAPI.openFileDialog({
-					title: 'Select Transaction Batch File for Detection',
+					title: 'Chọn tệp lô giao dịch để phát hiện',
 					filters: [
 						{
-							name: 'Transaction Files (*.csv, *.parquet, *.pq, *.json)',
+							name: 'Tệp giao dịch (*.csv, *.parquet, *.pq, *.json)',
 							extensions: ['csv', 'parquet', 'pq', 'json'],
 						},
 						{ name: 'All Files (*.*)', extensions: ['*'] },
@@ -241,7 +241,7 @@ export function DetectionJobWizardView() {
 					setSelectedRawFile(null);
 					setSelectedFileInfo({
 						name: fileName,
-						size: 'Local Disk File',
+						size: 'Tệp trên máy cục bộ',
 						path: selectedPath,
 					});
 					setInputFilePath(selectedPath);
@@ -278,7 +278,7 @@ export function DetectionJobWizardView() {
 				created_by: 'analyst',
 			});
 			if (!res.success || !res.data) {
-				throw new Error(res.error || 'Failed to start detection job.');
+				throw new Error(res.error || 'Không khởi chạy được phiên phát hiện.');
 			}
 			return res.data;
 		},
@@ -287,7 +287,7 @@ export function DetectionJobWizardView() {
 			navigate(`/detection/jobs/${createdJob.job_id}`);
 		},
 		onError: (err: Error) => {
-			setErrorMsg(err.message || 'Error starting detection job.');
+			setErrorMsg(err.message || 'Lỗi khi khởi chạy phiên phát hiện.');
 		},
 	});
 
@@ -304,8 +304,8 @@ export function DetectionJobWizardView() {
 		{
 			id: 'source',
 			stepNumber: 1,
-			label: 'Input Data Source',
-			description: 'RAW Artifact or File Upload',
+			label: 'Nguồn dữ liệu đầu vào',
+			description: 'Artifact RAW hoặc tải tệp lên',
 			state:
 				activeStep === 'source'
 					? 'active'
@@ -316,8 +316,8 @@ export function DetectionJobWizardView() {
 		{
 			id: 'engine',
 			stepNumber: 2,
-			label: 'Hybrid Detection Engine',
-			description: 'AI Model & Active Rules',
+			label: 'Động cơ phát hiện kết hợp',
+			description: 'Mô hình AI & luật đang hoạt động',
 			state:
 				activeStep === 'engine'
 					? 'active'
@@ -330,8 +330,8 @@ export function DetectionJobWizardView() {
 		{
 			id: 'policy',
 			stepNumber: 3,
-			label: 'Decision Policy & Launch',
-			description: 'Score Threshold & Execution',
+			label: 'Chính sách quyết định & khởi chạy',
+			description: 'Ngưỡng điểm & thực thi',
 			state:
 				activeStep === 'policy'
 					? 'active'
@@ -362,11 +362,11 @@ export function DetectionJobWizardView() {
 			/>
 
 			<PageHeader
-				title="Start Fraud Detection Job"
+				title="Bắt đầu phiên phát hiện gian lận"
 				badgeColor="blue"
 				breadcrumbs={[
-					{ label: 'Detection Jobs', onClick: () => navigate('/detection') },
-					{ label: 'New Detection Job' },
+					{ label: 'Các phiên phát hiện', onClick: () => navigate('/detection') },
+					{ label: 'Phiên phát hiện mới' },
 				]}
 				actions={
 					<button
@@ -375,7 +375,7 @@ export function DetectionJobWizardView() {
 						className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-300 flex items-center gap-1.5 transition"
 					>
 						<ArrowLeft className="w-3.5 h-3.5" />
-						Back to Jobs Hub
+						Quay lại trung tâm phiên
 					</button>
 				}
 			/>
@@ -416,7 +416,7 @@ export function DetectionJobWizardView() {
 									<div>
 										<div className="flex items-center gap-2">
 											<span className="text-xs font-bold text-slate-100">
-												Option 1: Existing Dataset
+												Lựa chọn 1: Tập dữ liệu có sẵn
 											</span>
 										</div>
 									</div>
@@ -444,7 +444,7 @@ export function DetectionJobWizardView() {
 									<div>
 										<div className="flex items-center gap-2">
 											<span className="text-xs font-bold text-slate-100">
-												Option 2: Upload Dataset
+												Lựa chọn 2: Tải tập dữ liệu lên
 											</span>
 										</div>
 									</div>
@@ -457,10 +457,10 @@ export function DetectionJobWizardView() {
 									<div className="flex items-center justify-between">
 										<div>
 											<h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-												Select Project RAW Dataset Artifact
+												Chọn artifact tập dữ liệu RAW của dự án
 											</h3>
 											<p className="text-[11px] text-slate-400 mt-0.5">
-												Only dataset artifacts at stage{' '}
+												Chỉ artifact tập dữ liệu ở giai đoạn{' '}
 												<code className="text-sky-400 font-mono">RAW</code> are eligible for end-to-end batch detection.
 											</p>
 										</div>
@@ -472,7 +472,7 @@ export function DetectionJobWizardView() {
 									{isLoadingArtifacts ? (
 										<div className="p-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
 											<Loader2 className="w-4 h-4 animate-spin text-brand-400" />
-											<span>Loading RAW dataset artifacts...</span>
+											<span>Đang tải artifact tập dữ liệu RAW...</span>
 										</div>
 									) : rawArtifactsList.length === 0 ? (
 										<div className="p-6 rounded-xl bg-dark-950 border border-dark-800 text-center space-y-2">
@@ -486,7 +486,7 @@ export function DetectionJobWizardView() {
 													onClick={() => setSourceOption('FILE_PATH')}
 													className="text-brand-400 underline font-medium"
 												>
-													Option 2: Direct File Upload / File Path
+													Lựa chọn 2: Tải tệp trực tiếp / đường dẫn tệp
 												</button>{' '}
 												để chọn tệp trực tiếp ngay tại đây.
 											</p>
@@ -554,7 +554,7 @@ export function DetectionJobWizardView() {
 									<div className="flex items-center justify-between">
 										<div>
 											<h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-												Direct Transaction File Upload
+												Tải tệp giao dịch trực tiếp
 											</h3>
 											<p className="text-[11px] text-slate-400 mt-0.5">
 												Chọn tệp từ máy tính hoặc nhập đường dẫn tệp (`.csv`, `.parquet`, `.pq`, `.json`).
@@ -563,7 +563,7 @@ export function DetectionJobWizardView() {
 										{currentProject?.is_schema_locked && (
 											<span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono text-emerald-300">
 												<Lock className="w-3 h-3" />
-												Validated against Project RAW Schema
+												Đã kiểm tra theo lược đồ RAW của dự án
 											</span>
 										)}
 									</div>
@@ -599,7 +599,7 @@ export function DetectionJobWizardView() {
 											<FileSpreadsheet className="w-5 h-5" />
 										</div>
 										<p className="text-xs font-semibold text-slate-200 group-hover:text-brand-300 transition">
-											Click to Browse or Drag & Drop Transaction Batch File
+											Nhấp để duyệt hoặc kéo thả tệp lô giao dịch
 										</p>
 										<p className="text-[11px] text-slate-500 mt-1">
 											Supported formats: <code className="font-mono text-slate-300">.csv</code>,{' '}
@@ -644,7 +644,7 @@ export function DetectionJobWizardView() {
 									onClick={() => setActiveStep('engine')}
 									className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-xs font-semibold text-white flex items-center gap-2 transition"
 								>
-									Next: Select Detection Engine
+									Tiếp theo: chọn động cơ phát hiện
 									<ArrowRight className="w-4 h-4" />
 								</button>
 							</div>
@@ -661,10 +661,10 @@ export function DetectionJobWizardView() {
 										<Cpu className="w-4 h-4 text-brand-400" />
 										<div>
 											<h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-												AI Model Version (APPROVED)
+												Phiên bản mô hình AI đã duyệt
 											</h3>
 											<p className="text-[11px] text-slate-400">
-												Select an activated ModelVersion for ML probability scoring, or run in Rule-Only mode.
+												Chọn một phiên bản mô hình đã kích hoạt để chấm xác suất ML, hoặc chạy ở chế độ chỉ dùng luật.
 											</p>
 										</div>
 									</div>
@@ -676,7 +676,7 @@ export function DetectionJobWizardView() {
 								{isLoadingModels ? (
 									<div className="p-6 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
 										<Loader2 className="w-4 h-4 animate-spin text-brand-400" />
-										<span>Loading APPROVED model versions...</span>
+										<span>Đang tải các phiên bản mô hình đã duyệt...</span>
 									</div>
 								) : (
 									<div className="grid grid-cols-1 gap-2.5">
@@ -720,7 +720,7 @@ export function DetectionJobWizardView() {
 															</div>
 															<div className="text-[11px] text-slate-400 mt-0.5">
 																{version.description ||
-																	'Auto-traces Schema Mapping, Feature Engineering & Preprocessing artifacts'}
+																	'Tự động truy vết artifact ánh xạ lược đồ, kỹ nghệ đặc trưng & tiền xử lý'}
 															</div>
 														</div>
 													</div>
@@ -730,7 +730,7 @@ export function DetectionJobWizardView() {
 															θ = {(version.decision_threshold ?? 0.5).toFixed(2)}
 														</div>
 														<div className="text-[10px] text-slate-500">
-															Default Threshold
+															Ngưỡng mặc định
 														</div>
 													</div>
 												</div>
@@ -756,10 +756,10 @@ export function DetectionJobWizardView() {
 												</div>
 												<div>
 													<div className="text-xs font-semibold text-slate-100">
-														Rule-Only Mode (No AI Model Scoring)
+														Chế độ chỉ dùng luật (không chấm điểm mô hình AI)
 													</div>
 													<div className="text-[11px] text-slate-400 mt-0.5">
-														Evaluate transactions strictly using the project's ACTIVE deterministic business rules.
+														Đánh giá giao dịch chỉ dựa trên các luật nghiệp vụ xác định đang ACTIVE của dự án.
 													</div>
 												</div>
 											</div>
@@ -778,10 +778,10 @@ export function DetectionJobWizardView() {
 										<ShieldCheck className="w-4 h-4 text-amber-400" />
 										<div>
 											<h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-												Include Active Business Rules ({activeRules.length} ACTIVE)
+												Bao gồm luật nghiệp vụ đang hoạt động ({activeRules.length})
 											</h3>
 											<p className="text-[11px] text-slate-400">
-												Evaluate all ACTIVE JsonLogic rules in parallel with AI model scoring.
+												Đánh giá tất cả luật JsonLogic ACTIVE song song với chấm điểm mô hình AI.
 											</p>
 										</div>
 									</div>
@@ -793,7 +793,7 @@ export function DetectionJobWizardView() {
 											className="rounded border-dark-700 bg-dark-950 text-brand-500 focus:ring-brand-500"
 										/>
 										<span className="text-xs font-semibold text-slate-200">
-											{useRules ? 'Enabled' : 'Disabled'}
+											{useRules ? 'Bật' : 'Tắt'}
 										</span>
 									</label>
 								</div>
@@ -802,11 +802,11 @@ export function DetectionJobWizardView() {
 									<div className="space-y-2">
 										{isLoadingRules ? (
 											<div className="text-xs text-slate-400 py-3">
-												Loading active rules...
+												Đang tải luật đang hoạt động...
 											</div>
 										) : activeRules.length === 0 ? (
 											<div className="p-3.5 rounded-lg bg-dark-950 border border-dark-800 text-xs text-slate-400">
-												No ACTIVE rules found in this project. Detection will rely on AI Model scoring.
+												Không có luật đang hoạt động trong dự án này. Phát hiện sẽ dựa vào chấm điểm mô hình AI.
 											</div>
 										) : (
 											<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
@@ -848,7 +848,7 @@ export function DetectionJobWizardView() {
 
 							{!canProceedFromEngine && (
 								<div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
-									Rule-Only mode requires at least 1 ACTIVE rule in the project, or select an APPROVED AI Model Version above.
+									Chế độ chỉ dùng luật cần ít nhất 1 luật đang hoạt động trong dự án, hoặc chọn một phiên bản mô hình AI đã duyệt above.
 								</div>
 							)}
 
@@ -859,7 +859,7 @@ export function DetectionJobWizardView() {
 									className="px-4 py-2 rounded-xl bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-300 flex items-center gap-1.5 transition"
 								>
 									<ArrowLeft className="w-4 h-4" />
-									Back
+									Quay lại
 								</button>
 								<button
 									type="button"
@@ -867,7 +867,7 @@ export function DetectionJobWizardView() {
 									onClick={() => setActiveStep('policy')}
 									className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-xs font-semibold text-white flex items-center gap-2 transition"
 								>
-									Next: Decision Policy & Launch
+									Tiếp theo: chính sách quyết định & khởi chạy
 									<ArrowRight className="w-4 h-4" />
 								</button>
 							</div>
@@ -882,10 +882,10 @@ export function DetectionJobWizardView() {
 									<Sliders className="w-4 h-4 text-brand-400" />
 									<div>
 										<h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-											Decision Threshold & Job Identification
+											Ngưỡng quyết định & nhận diện phiên
 										</h3>
 										<p className="text-[11px] text-slate-400">
-											Configure the AI probability cutoff and review the hybrid decision policy before execution.
+											Cấu hình ngưỡng xác suất AI và xem lại chính sách quyết định kết hợp trước khi thực thi.
 										</p>
 									</div>
 								</div>
@@ -893,7 +893,7 @@ export function DetectionJobWizardView() {
 								{/* Job Name */}
 								<div className="space-y-1.5">
 									<label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-										Detection Job Name
+										Tên phiên phát hiện
 									</label>
 									<input
 										type="text"
@@ -910,14 +910,14 @@ export function DetectionJobWizardView() {
 										<div className="flex items-center justify-between">
 											<div>
 												<span className="text-xs font-semibold text-slate-200">
-													AI Risk Score Threshold (θ)
+													Ngưỡng điểm rủi ro AI (θ)
 												</span>
 												<p className="text-[11px] text-slate-400">
-													Transactions with{' '}
+													Giao dịch có{' '}
 													<code className="font-mono text-amber-300">
 														model_score &gt;= {scoreThreshold.toFixed(2)}
 													</code>{' '}
-													are automatically flagged for{' '}
+													được tự động gắn cờ để{' '}
 													<code className="font-mono text-amber-300">REVIEW</code>.
 												</p>
 											</div>
@@ -950,27 +950,27 @@ export function DetectionJobWizardView() {
 									</div>
 								)}
 
-								{/* Hybrid Decision Aggregation Policy Card */}
+								{/* Chính sách tổng hợp quyết định kết hợp Card */}
 								<div className="p-4 rounded-xl bg-dark-950 border border-dark-800 space-y-2.5">
 									<div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-										Hybrid Decision Aggregation Policy
+										Chính sách tổng hợp quyết định kết hợp
 									</div>
 									<div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
 										<div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/25">
 											<div className="font-mono font-bold text-rose-300">
-												1. REJECT (Immediate Block)
+												1. REJECT (chặn ngay)
 											</div>
 											<p className="text-[11px] text-slate-300 mt-1">
-												Triggered when any ACTIVE rule with action{' '}
+												Kích hoạt khi bất kỳ luật ACTIVE nào có hành động{' '}
 												<code className="font-mono text-rose-300">REJECT</code> matches the transaction.
 											</p>
 										</div>
 										<div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25">
 											<div className="font-mono font-bold text-amber-300">
-												2. REVIEW (Analyst Queue)
+												2. REVIEW (hàng đợi chuyên viên)
 											</div>
 											<p className="text-[11px] text-slate-300 mt-1">
-												Triggered when a{' '}
+												Kích hoạt khi một{' '}
 												<code className="font-mono text-amber-300">REVIEW</code> rule matches OR{' '}
 												<code className="font-mono text-amber-300">
 													model_score &gt;= {scoreThreshold.toFixed(2)}
@@ -979,10 +979,10 @@ export function DetectionJobWizardView() {
 										</div>
 										<div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/25">
 											<div className="font-mono font-bold text-emerald-300">
-												3. ALLOW (Clean Pass)
+												3. ALLOW (đạt sạch)
 											</div>
 											<p className="text-[11px] text-slate-300 mt-1">
-												No blocking/review rules triggered and AI risk score is below threshold.
+												Không có luật chặn/xem xét nào được kích hoạt và điểm rủi ro AI dưới ngưỡng.
 											</p>
 										</div>
 									</div>
@@ -992,32 +992,32 @@ export function DetectionJobWizardView() {
 								<div className="p-4 rounded-xl bg-dark-950 border border-dark-800 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
 									<div>
 										<span className="text-[10px] uppercase tracking-wider text-slate-500 block">
-											Input Data Source
+											Nguồn dữ liệu đầu vào
 										</span>
 										<span className="font-semibold text-slate-200 mt-0.5 block truncate">
 											{sourceOption === 'RAW_ARTIFACT'
-												? `${selectedRawArtifactItem?.dataset.display_name || selectedRawArtifactItem?.dataset.dataset_name || 'RAW Artifact'} (RAW)`
+												? `${selectedRawArtifactItem?.dataset.display_name || selectedRawArtifactItem?.dataset.dataset_name || 'Artifact RAW'}`
 												: inputFilePath.split(/[/\\]/).pop() || inputFilePath}
 										</span>
 									</div>
 									<div>
 										<span className="text-[10px] uppercase tracking-wider text-slate-500 block">
-											AI Model Engine
+											Động cơ mô hình AI
 										</span>
 										<span className="font-semibold text-slate-200 mt-0.5 block">
 											{selectedApprovedModel
 												? `${selectedApprovedModel.model.display_name || selectedApprovedModel.model.model_name} (v${selectedApprovedModel.version.semver})`
-												: 'Rule-Only Mode'}
+												: 'Chỉ dùng luật'}
 										</span>
 									</div>
 									<div>
 										<span className="text-[10px] uppercase tracking-wider text-slate-500 block">
-											Active Ruleset
+											Bộ luật đang hoạt động
 										</span>
 										<span className="font-semibold text-slate-200 mt-0.5 block">
 											{useRules
-												? `${activeRules.length} ACTIVE Rule(s) Enabled`
-												: 'Rules Disabled'}
+												? `${activeRules.length} luật ACTIVE đã bật`
+												: 'Đã tắt luật'}
 										</span>
 									</div>
 								</div>
@@ -1030,7 +1030,7 @@ export function DetectionJobWizardView() {
 									className="px-4 py-2 rounded-xl bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-300 flex items-center gap-1.5 transition"
 								>
 									<ArrowLeft className="w-4 h-4" />
-									Back
+									Quay lại
 								</button>
 
 								<button
@@ -1042,12 +1042,12 @@ export function DetectionJobWizardView() {
 									{startJobMutation.isPending ? (
 										<>
 											<Loader2 className="w-4 h-4 animate-spin" />
-											Running Hybrid Detection Scan...
+											Đang chạy quét phát hiện kết hợp...
 										</>
 									) : (
 										<>
 											<Play className="w-4 h-4 fill-current" />
-											Start Detection Job
+											Bắt đầu phiên phát hiện
 										</>
 									)}
 								</button>

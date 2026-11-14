@@ -73,7 +73,7 @@ export const RuleStudioWorkspace: React.FC<RuleStudioWorkspaceProps> = ({
 					<div className="flex items-center gap-2">
 						<Unlock className="w-4 h-4 text-amber-400 shrink-0" />
 						<span>
-							Dự án hiện tại chưa khóa <strong>RAW Schema</strong> (chưa tải lên Dataset đầu tiên). Theo quy tắc{' '}
+							Dự án hiện tại chưa khóa <strong>lược đồ thô</strong> (chưa tải lên tập dữ liệu đầu tiên). Theo quy tắc{' '}
 							<code className="font-mono text-amber-200">BR-PM-04</code>, quy tắc chỉ có thể lưu ở trạng thái{' '}
 							<strong>DRAFT</strong> hoặc <strong>INACTIVE</strong>.
 						</span>
@@ -84,10 +84,10 @@ export const RuleStudioWorkspace: React.FC<RuleStudioWorkspaceProps> = ({
 			{/* 1. Metadata Bar */}
 			<div className="p-4 rounded-xl bg-dark-900 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
 				<div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
-					{/* Rule Code */}
+					{/* Mã luật */}
 					<div className="w-40">
 						<label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1">
-							Rule Code
+							Mã luật
 						</label>
 						<input
 							type="text"
@@ -101,10 +101,10 @@ export const RuleStudioWorkspace: React.FC<RuleStudioWorkspaceProps> = ({
 						/>
 					</div>
 
-					{/* Rule Name */}
+					{/* Tên luật */}
 					<div className="flex-1">
 						<label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1">
-							Rule Name
+							Tên luật
 						</label>
 						<div className="relative">
 							<input
@@ -130,7 +130,7 @@ export const RuleStudioWorkspace: React.FC<RuleStudioWorkspaceProps> = ({
 						>
 							<option value="DRAFT">DRAFT</option>
 							<option value="ACTIVE" disabled={!isSchemaLocked}>
-								ACTIVE {!isSchemaLocked ? '(Cần RAW Schema)' : ''}
+								ACTIVE {!isSchemaLocked ? '(Cần lược đồ thô)' : ''}
 							</option>
 							<option value="INACTIVE">INACTIVE</option>
 						</select>
@@ -154,7 +154,7 @@ export const RuleStudioWorkspace: React.FC<RuleStudioWorkspaceProps> = ({
 							<div className="flex items-center gap-2">
 								<ShieldCheck className="w-4 h-4 text-brand-400" />
 								<h2 className="text-xs font-bold tracking-wider uppercase text-slate-200 font-mono">
-									LOGICAL EVALUATION CONDITIONS (IF)
+									ĐIỀU KIỆN ĐÁNH GIÁ LOGIC (IF)
 								</h2>
 							</div>
 							<span
@@ -167,12 +167,12 @@ export const RuleStudioWorkspace: React.FC<RuleStudioWorkspaceProps> = ({
 								{isSchemaLocked ? (
 									<>
 										<Lock className="w-2.5 h-2.5" />
-										<span>RAW Schema Locked ({availableFields?.length || 0} cols)</span>
+										<span>Lược đồ thô đã khóa ({availableFields?.length || 0} cột)</span>
 									</>
 								) : (
 									<>
 										<Unlock className="w-2.5 h-2.5" />
-										<span>Default Template Fields</span>
+										<span>Trường mẫu mặc định</span>
 									</>
 								)}
 							</span>

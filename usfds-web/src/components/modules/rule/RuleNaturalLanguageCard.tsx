@@ -44,18 +44,18 @@ export const RuleNaturalLanguageCard: React.FC<RuleNaturalLanguageCardProps> = (
         <div className="flex items-center gap-2">
           <MessageSquare className="w-4 h-4 text-brand-400" />
           <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wider font-mono">
-            Natural Language Interpretation
+            Diễn giải ngôn ngữ tự nhiên
           </h3>
         </div>
         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-950/40 text-blue-300 border border-blue-900/50">
-          Auto-synced
+          Tự động đồng bộ
         </span>
       </div>
 
       <div className="mt-3.5 p-4 rounded-lg bg-dark-950 border border-slate-800 text-xs font-sans leading-relaxed text-slate-300 relative">
         <Quote className="w-4 h-4 text-slate-600 absolute top-3.5 left-3.5 select-none" />
         <div className="pl-6 italic">
-          “Trigger {getActionBadge()}{' '}
+          “Kích hoạt {getActionBadge()}{' '}
           <span className="text-slate-200">
             {explanation.replace(/^Trigger (REVIEW|REJECT|ALLOW) /, '')}
           </span>

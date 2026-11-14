@@ -47,7 +47,7 @@ export const RuleVersionHistoryModal: React.FC<RuleVersionHistoryModalProps> = (
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-slate-100">
-                  Version History &amp; Audit Trail
+                  Lịch sử phiên bản &amp; nhật ký kiểm toán
                 </h3>
                 <span className="text-xs font-mono px-2 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800">
                   {rule.rule_code}
@@ -104,7 +104,7 @@ export const RuleVersionHistoryModal: React.FC<RuleVersionHistoryModalProps> = (
                       </span>
                       {isCurrent && (
                         <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
-                          Current Live
+                          Đang hoạt động
                         </span>
                       )}
                     </div>
@@ -138,7 +138,7 @@ export const RuleVersionHistoryModal: React.FC<RuleVersionHistoryModalProps> = (
                       Version v{selectedVersion.version_number} Logic AST Inspector
                     </h4>
                     <span className="text-[11px] text-slate-400">
-                      Action Decision:{' '}
+                      Hành động quyết định:{' '}
                       <strong
                         className={`font-mono ${
                           selectedVersion.action === 'REVIEW'
@@ -162,7 +162,7 @@ export const RuleVersionHistoryModal: React.FC<RuleVersionHistoryModalProps> = (
                     className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Load Into Studio</span>
+                    <span>Tải vào trình thiết kế</span>
                   </button>
                 </div>
 

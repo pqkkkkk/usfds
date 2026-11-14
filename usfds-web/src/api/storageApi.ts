@@ -76,7 +76,7 @@ export const storageApi = {
 		});
 
 		if (!presignRes.success || !presignRes.data) {
-			throw new Error(presignRes.error || 'Failed to obtain presigned upload URL.');
+			throw new Error(presignRes.error || 'Không lấy được URL tải lên đã ký trước.');
 		}
 
 		const { upload_url, object_key } = presignRes.data;

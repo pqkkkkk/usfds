@@ -29,12 +29,12 @@ export const OmnisearchModal = ({
 
   // Quick module launcher
   const quickActions = [
-    { label: 'Data Management (Datasets, Lineage Tree, Schema, Features)', module: 'data-management' as AppModule, type: 'Module', icon: Database },
-    { label: 'Model Management (Training Wizard, Hyperparameters, Evaluation)', module: 'model-management' as AppModule, type: 'Module', icon: BrainCircuit },
-    { label: 'Rule Management (Visual Studio, Historical Backtest, AI Mining)', module: 'rule-management' as AppModule, type: 'Module', icon: ShieldCheck },
-    { label: 'Detection (Batch Inference Jobs & Scoring Execution)', module: 'detection' as AppModule, type: 'Module', icon: Terminal },
-    { label: 'Investigation (Alert Queue, Drilldown & Case Dispatch)', module: 'investigation' as AppModule, type: 'Module', icon: SearchCheck },
-    { label: 'Insight & Report (Fraud Analytics, False Positives, Trends)', module: 'insight-report' as AppModule, type: 'Module', icon: BarChart2 },
+    { label: 'Quản lý dữ liệu — tập dữ liệu, cây nguồn gốc, lược đồ, đặc trưng', module: 'data-management' as AppModule, type: 'Mô-đun', icon: Database },
+    { label: 'Quản lý mô hình — trình huấn luyện, siêu tham số, đánh giá', module: 'model-management' as AppModule, type: 'Mô-đun', icon: BrainCircuit },
+    { label: 'Quản lý luật — thiết kế trực quan, kiểm thử lịch sử, khai phá AI', module: 'rule-management' as AppModule, type: 'Mô-đun', icon: ShieldCheck },
+    { label: 'Phát hiện gian lận — tác vụ suy luận hàng loạt & chấm điểm', module: 'detection' as AppModule, type: 'Mô-đun', icon: Terminal },
+    { label: 'Điều tra — hàng đợi cảnh báo, truy vết & phân công hồ sơ', module: 'investigation' as AppModule, type: 'Mô-đun', icon: SearchCheck },
+    { label: 'Phân tích & Báo cáo — phân tích gian lận, cảnh báo sai, xu hướng', module: 'insight-report' as AppModule, type: 'Mô-đun', icon: BarChart2 },
   ];
 
   const filtered = quickActions.filter(item => 
@@ -46,7 +46,7 @@ export const OmnisearchModal = ({
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
       <div 
         role="dialog"
-        aria-label="Omnisearch"
+        aria-label="Tìm kiếm nhanh"
         className="w-full max-w-xl bg-dark-900 border border-dark-700 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col"
       >
         {/* Input Bar */}
@@ -57,7 +57,7 @@ export const OmnisearchModal = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search module or workflow..."
+            placeholder="Tìm kiếm mô-đun hoặc quy trình..."
             className="flex-1 bg-transparent border-none outline-none text-xs text-slate-100 placeholder:text-slate-500 font-sans"
           />
           <button 
@@ -102,16 +102,16 @@ export const OmnisearchModal = ({
             })
           ) : (
             <div className="py-8 text-center text-xs text-slate-500">
-              No results found for "{query}"
+              Không tìm thấy kết quả cho "{query}"
             </div>
           )}
         </div>
 
         {/* Modal Footer Key Guide */}
         <div className="px-4 py-2 border-t border-dark-800 bg-dark-950/60 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-          <span>USFDS Quick Launcher</span>
+          <span>Trình khởi chạy nhanh USFDS</span>
           <div className="flex items-center gap-2">
-            <span>[Esc] to close</span>
+            <span>[Esc] để đóng</span>
           </div>
         </div>
       </div>

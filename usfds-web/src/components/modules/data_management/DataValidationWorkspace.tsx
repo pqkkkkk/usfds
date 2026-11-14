@@ -81,10 +81,10 @@ export const DataValidationWorkspace = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-100">
-                  Data Quality & Integrity Audit
+                  Kiểm toán chất lượng & toàn vẹn dữ liệu
                 </h2>
                 <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                  {mappedArtifact?.artifact_id ? `Artifact: ${mappedArtifact.artifact_id.slice(0, 8)}` : 'MAPPED'}
+                  {mappedArtifact?.artifact_id ? `Artifact: ${mappedArtifact.artifact_id.slice(0, 8)}` : 'Đã ánh xạ'}
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -95,16 +95,16 @@ export const DataValidationWorkspace = ({
 
           <div className="flex items-center gap-3">
             <div className="px-3 py-1.5 rounded-xl bg-dark-950 border border-dark-800 text-right">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Records</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Tổng số bản ghi</span>
               <span className="text-sm font-bold font-mono text-slate-200">{totalRows.toLocaleString()}</span>
             </div>
             <div className="px-3 py-1.5 rounded-xl bg-dark-950 border border-dark-800 text-right">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Fields</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Tổng số trường</span>
               <span className="text-sm font-bold font-mono text-slate-200">{totalCols}</span>
             </div>
             <div className="px-4 py-2 rounded-xl bg-dark-950 border border-dark-800 flex items-center gap-3">
               <div className="text-right">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Quality Score</div>
+                <div className="text-[10px] uppercase font-bold text-slate-400">Điểm chất lượng</div>
                 <div className={`text-xl font-black font-mono ${
                   qualityScore >= 80 ? 'text-emerald-400' : qualityScore >= 60 ? 'text-amber-400' : 'text-rose-400'
                 }`}>
@@ -133,11 +133,11 @@ export const DataValidationWorkspace = ({
             <div className="flex items-center gap-2">
               <FileCheck className="w-4 h-4 text-brand-400" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                Rule-Based Integrity Checklist
+                Danh sách kiểm tra toàn vẹn theo luật
               </h3>
             </div>
             <span className="text-[11px] font-mono text-slate-400">
-              Automated Financial Data Audits
+              Kiểm toán dữ liệu tài chính tự động
             </span>
           </div>
 
@@ -146,7 +146,7 @@ export const DataValidationWorkspace = ({
             <div className="p-3.5 rounded-xl bg-dark-950 border border-dark-800 flex items-start gap-3">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <div className="space-y-1 flex-1">
-                <div className="font-semibold text-slate-200">Mandatory Schema Slots</div>
+                <div className="font-semibold text-slate-200">Vị trí lược đồ bắt buộc</div>
                 <div className="text-[11px] text-slate-400 leading-relaxed">
                   Đầy đủ 5 trường chuẩn bắt buộc: <code className="text-slate-300 font-mono">event_id, timestamp, amount, user_id, label</code>.
                 </div>
@@ -164,7 +164,7 @@ export const DataValidationWorkspace = ({
                 <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               )}
               <div className="space-y-1 flex-1">
-                <div className="font-semibold text-slate-200">Event ID Collisions</div>
+                <div className="font-semibold text-slate-200">Trùng mã sự kiện (Event ID Collisions)</div>
                 <div className="text-[11px] text-slate-400 leading-relaxed">
                   {duplicateEventIds === 0
                     ? '100% mã định danh giao dịch duy nhất, không có trùng lặp primary key.'
@@ -188,7 +188,7 @@ export const DataValidationWorkspace = ({
                 <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               )}
               <div className="space-y-1 flex-1">
-                <div className="font-semibold text-slate-200">Duplicate Transactions</div>
+                <div className="font-semibold text-slate-200">Giao dịch trùng lặp</div>
                 <div className="text-[11px] text-slate-400 leading-relaxed">
                   {duplicateRows === 0
                     ? 'Không có hàng dữ liệu trùng lặp hoàn toàn trên toàn bộ thuộc tính.'
@@ -212,7 +212,7 @@ export const DataValidationWorkspace = ({
                 <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               )}
               <div className="space-y-1 flex-1">
-                <div className="font-semibold text-slate-200">Temporal Validity</div>
+                <div className="font-semibold text-slate-200">Tính hợp lệ theo thời gian</div>
                 <div className="text-[11px] text-slate-400 leading-relaxed">
                   {futureTimestamps === 0
                     ? 'Tất cả mốc thời gian hợp lệ, không có giao dịch ở tương lai hoặc lỗi timestamp.'
@@ -236,7 +236,7 @@ export const DataValidationWorkspace = ({
                 <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               )}
               <div className="space-y-1 flex-1">
-                <div className="font-semibold text-slate-200">Amount Positivity</div>
+                <div className="font-semibold text-slate-200">Số tiền dương</div>
                 <div className="text-[11px] text-slate-400 leading-relaxed">
                   {nonPositiveAmounts === 0
                     ? '100% số tiền giao dịch > 0, không có giao dịch âm hoặc bằng 0.'
@@ -260,7 +260,7 @@ export const DataValidationWorkspace = ({
                 <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               )}
               <div className="space-y-1 flex-1">
-                <div className="font-semibold text-slate-200">Outlier Detection (&gt; 3σ)</div>
+                <div className="font-semibold text-slate-200">Phát hiện ngoại lai</div>
                 <div className="text-[11px] text-slate-400 leading-relaxed">
                   {amountOutliers === 0
                     ? 'Phân phối số tiền giao dịch ổn định, không có đột biến ngoại lai nghiêm trọng.'
@@ -304,11 +304,11 @@ export const DataValidationWorkspace = ({
               <div className="flex items-center gap-2">
                 <Columns className="w-4 h-4 text-brand-400" />
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                  Field Quality & Null Distribution
+                  Chất lượng trường & phân bố giá trị rỗng
                 </span>
               </div>
               <span className="text-[11px] font-mono text-slate-400">
-                {columnMetricsList.length} Fields Profiled
+                {columnMetricsList.length} trường đã phân tích
               </span>
             </div>
 
@@ -317,12 +317,12 @@ export const DataValidationWorkspace = ({
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-dark-800 bg-dark-950 text-[10px] uppercase tracking-wider text-slate-400 font-mono">
-                      <th className="py-2.5 px-3">Field Name</th>
-                      <th className="py-2.5 px-3">Data Type</th>
-                      <th className="py-2.5 px-3">Null Count</th>
-                      <th className="py-2.5 px-3">Null %</th>
-                      <th className="py-2.5 px-3">Unique Values</th>
-                      <th className="py-2.5 px-3">Sample Values</th>
+                      <th className="py-2.5 px-3">Tên trường</th>
+                      <th className="py-2.5 px-3">Kiểu dữ liệu</th>
+                      <th className="py-2.5 px-3">Số giá trị rỗng</th>
+                      <th className="py-2.5 px-3">Tỷ lệ rỗng</th>
+                      <th className="py-2.5 px-3">Giá trị duy nhất</th>
+                      <th className="py-2.5 px-3">Giá trị mẫu</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-dark-850">
@@ -381,11 +381,11 @@ export const DataValidationWorkspace = ({
             <div className="flex items-center gap-2">
               <Eye className="w-4 h-4 text-brand-400" />
               <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                Mapped Dataset Sample Preview (Real Data)
+                Xem trước mẫu tập dữ liệu đã ánh xạ — dữ liệu thực
               </span>
             </div>
             <span className="text-[11px] font-mono text-slate-400">
-              {sampleRecords.length > 0 ? `Showing first ${sampleRecords.length} records` : 'Schema preview'}
+              {sampleRecords.length > 0 ? `Hiển thị ${sampleRecords.length} bản ghi đầu tiên` : 'Xem trước lược đồ'}
             </span>
           </div>
 
@@ -424,7 +424,7 @@ export const DataValidationWorkspace = ({
                                     </span>
                                   ) : (
                                     <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
-                                      0 (Legit)
+                                      0 (Hợp lệ)
                                     </span>
                                   )}
                                 </td>

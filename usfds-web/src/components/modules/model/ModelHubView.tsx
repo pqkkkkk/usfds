@@ -242,14 +242,14 @@ export const ModelHubView: React.FC = () => {
 	return (
 		<div className="flex-1 flex flex-col h-full overflow-hidden bg-dark-950">
 			<PageHeader
-				title="Model Management"
+				title="Quản lý mô hình"
 				subtitle={
 					currentProject
 						? `Quản lý danh mục mô hình học máy (BUILTIN & SCRIPT), khởi chạy huấn luyện và kích hoạt phiên bản cho dự án "${currentProject.project_name}"`
 						: 'Quản lý danh mục mô hình học máy (BUILTIN & SCRIPT), khởi chạy huấn luyện và kích hoạt phiên bản mô hình'
 				}
 				breadcrumbs={[
-					{ label: 'Model Management' },
+					{ label: 'Quản lý mô hình' },
 				]}
 				actions={
 					<div className="flex items-center gap-2.5">
@@ -269,7 +269,7 @@ export const ModelHubView: React.FC = () => {
 							className="px-3.5 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-semibold text-slate-200 transition flex items-center gap-2 cursor-pointer"
 						>
 							<Code2 className="w-3.5 h-3.5 text-brand-400" />
-							<span>Import Custom Model</span>
+							<span>Nhập mô hình tùy chỉnh</span>
 						</button>
 						<button
 							type="button"
@@ -277,7 +277,7 @@ export const ModelHubView: React.FC = () => {
 							className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2 cursor-pointer"
 						>
 							<Plus className="w-3.5 h-3.5" />
-							<span>New Training Run</span>
+							<span>Lượt huấn luyện mới</span>
 						</button>
 					</div>
 				}
@@ -290,7 +290,7 @@ export const ModelHubView: React.FC = () => {
 					<div className="p-4 rounded-xl bg-dark-900 border border-dark-800 flex items-center justify-between">
 						<div>
 							<div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-								Training Runs
+								Lượt huấn luyện
 							</div>
 							<div className="text-xl font-bold font-mono text-slate-100 mt-1">
 								{kpiStats.totalRuns}
@@ -307,13 +307,13 @@ export const ModelHubView: React.FC = () => {
 					<div className="p-4 rounded-xl bg-dark-900 border border-dark-800 flex items-center justify-between">
 						<div>
 							<div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-								Registered Models
+								Mô hình đã đăng ký
 							</div>
 							<div className="text-xl font-bold font-mono text-slate-100 mt-1">
 								{kpiStats.registeredModelsCount}
 							</div>
 							<div className="text-[11px] text-slate-400 mt-0.5">
-								Built-in & Custom Plugins
+								Plugin tích hợp & tùy chỉnh
 							</div>
 						</div>
 						<div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
@@ -324,13 +324,13 @@ export const ModelHubView: React.FC = () => {
 					<div className="p-4 rounded-xl bg-dark-900 border border-dark-800 flex items-center justify-between">
 						<div>
 							<div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-								Active Versions (Approved)
+								Phiên bản đang dùng (đã duyệt)
 							</div>
 							<div className="text-xl font-bold font-mono text-emerald-400 mt-1">
 								{kpiStats.approvedCount}
 							</div>
 							<div className="text-[11px] text-slate-400 mt-0.5">
-								Ready for Detection
+								Sẵn sàng cho phát hiện
 							</div>
 						</div>
 						<div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
@@ -341,7 +341,7 @@ export const ModelHubView: React.FC = () => {
 					<div className="p-4 rounded-xl bg-dark-900 border border-dark-800 flex items-center justify-between">
 						<div>
 							<div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-								Best PR-AUC
+								PR-AUC tốt nhất
 							</div>
 							<div className="text-xl font-bold font-mono text-amber-400 mt-1">
 								{kpiStats.bestPrAuc !== null ? kpiStats.bestPrAuc.toFixed(4) : '—'}
@@ -367,7 +367,7 @@ export const ModelHubView: React.FC = () => {
 								: 'bg-dark-900 text-slate-400 hover:text-slate-200 border border-dark-800'
 								}`}
 						>
-							Training Runs ({runs.length})
+							Lượt huấn luyện ({runs.length})
 						</button>
 						<button
 							type="button"
@@ -454,7 +454,7 @@ export const ModelHubView: React.FC = () => {
 													onClick={() => navigate('/models/train')}
 													className="text-brand-400 font-semibold hover:underline"
 												>
-													+ New Training Run
+													+ Lượt huấn luyện mới
 												</button>{' '}
 												để bắt đầu.
 											</td>
@@ -485,7 +485,7 @@ export const ModelHubView: React.FC = () => {
 													</td>
 													<td className="py-3 px-4">
 														<div className="font-medium text-slate-200">
-															{modelObj?.display_name || modelObj?.model_name || 'Unknown Model'}
+															{modelObj?.display_name || modelObj?.model_name || 'Mô hình không xác định'}
 														</div>
 														{modelObj && (
 															<span className="text-[10px] font-mono text-slate-400">
@@ -526,7 +526,7 @@ export const ModelHubView: React.FC = () => {
 																className="px-2.5 py-1 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-[11px] font-medium text-slate-200 transition inline-flex items-center gap-1"
 															>
 																<Eye className="w-3.5 h-3.5 text-brand-400" />
-																<span>View</span>
+																<span>Xem</span>
 															</button>
 															{versionObj && versionObj.status !== 'APPROVED' && (
 																<button
@@ -620,7 +620,7 @@ export const ModelHubView: React.FC = () => {
 												className="px-3 py-1.5 rounded-lg bg-brand-500/15 hover:bg-brand-500/25 border border-brand-500/30 text-xs font-semibold text-brand-300 transition flex items-center gap-1.5"
 											>
 												<Play className="w-3.5 h-3.5" />
-												<span>Train Model</span>
+												<span>Huấn luyện mô hình</span>
 											</button>
 										</div>
 									</div>
@@ -676,7 +676,7 @@ export const ModelHubView: React.FC = () => {
 																					onClick={() => navigate(`/models/runs/${ver.run_id}`)}
 																					className="px-2.5 py-1 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-[11px] text-slate-200 transition"
 																				>
-																					View Run
+																					Xem lượt huấn luyện
 																				</button>
 																			)}
 																			<button
@@ -692,7 +692,7 @@ export const ModelHubView: React.FC = () => {
 																				<Rocket className="w-3 h-3" />
 																				<span>
 																					{ver.status === 'APPROVED'
-																						? 'Update Threshold'
+																						? 'Cập nhật ngưỡng'
 																						: 'Activate'}
 																				</span>
 																			</button>
@@ -713,7 +713,7 @@ export const ModelHubView: React.FC = () => {
 				)}
 			</div>
 
-			{/* Import Custom Model Plugin Modal (SUC-17) */}
+			{/* Modal nhập plugin mô hình tùy chỉnh (SUC-17) */}
 			<ImportCustomModelModal
 				isOpen={isImportModalOpen}
 				projectId={projectId}

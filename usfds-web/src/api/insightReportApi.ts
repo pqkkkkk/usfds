@@ -13,7 +13,7 @@ import type {
 async function unwrap<Result>(request: Promise<ApiResponse<Result>>): Promise<Result> {
 	const response = await request;
 	if (!response.success || response.data == null) {
-		throw new Error(response.error || 'Insight & Report request failed');
+		throw new Error(response.error || 'Yêu cầu phân tích & báo cáo thất bại');
 	}
 	return response.data;
 }

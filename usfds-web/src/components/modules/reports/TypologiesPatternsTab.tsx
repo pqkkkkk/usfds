@@ -67,7 +67,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 					<div className="mb-4">
 						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<AlertOctagon size={15} className="text-emerald-400" />
-							<span>Confirmed Fraud Typology Breakdown</span>
+							<span>Phân tích loại hình gian lận đã xác nhận</span>
 						</h3>
 						<p className="text-xs text-slate-400 mt-0.5">
 							Distribution of verified fraud cases by analyst resolution reason (`FRAUD_REASONS`)
@@ -76,7 +76,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 
 					{fraudTypologies.length === 0 ? (
 						<div className="py-10 text-center text-xs text-slate-500 bg-dark-950 rounded-lg border border-dark-800">
-							No resolved fraud cases (`RESOLVED_FRAUD`) recorded yet.
+							Chưa ghi nhận hồ sơ gian lận đã xử lý (`RESOLVED_FRAUD`).
 						</div>
 					) : (
 						<div className="space-y-3">
@@ -114,16 +114,16 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 					<div className="mb-4">
 						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Layers size={15} className="text-rose-400" />
-							<span>False Positive Root-Cause Breakdown</span>
+							<span>Phân tích nguyên nhân gốc của dương tính giả</span>
 						</h3>
 						<p className="text-xs text-slate-400 mt-0.5">
-							Distribution of legitimate cases (`RESOLVED_LEGITIMATE`) by friction root cause (`LEGITIMATE_REASONS`)
+							Phân bố hồ sơ hợp lệ (`RESOLVED_LEGITIMATE`) theo nguyên nhân gốc gây ma sát (`LEGITIMATE_REASONS`)
 						</p>
 					</div>
 
 					{fpReasons.length === 0 ? (
 						<div className="py-10 text-center text-xs text-slate-500 bg-dark-950 rounded-lg border border-dark-800">
-							No resolved false-positive cases (`RESOLVED_LEGITIMATE`) recorded yet.
+							Chưa ghi nhận hồ sơ dương tính giả đã xử lý (`RESOLVED_LEGITIMATE`).
 						</div>
 					) : (
 						<div className="space-y-3">
@@ -163,7 +163,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 					<div>
 						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<Clock size={15} className="text-amber-400" />
-							<span>24-Hour Temporal Risk Profile (UTC)</span>
+							<span>Hồ sơ rủi ro theo 24 giờ (UTC)</span>
 						</h3>
 						<p className="text-xs text-slate-400 mt-0.5">
 							Hourly transaction volume vs. empirical fraud rate across 24 UTC hours (`00:00–23:00`)
@@ -171,7 +171,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 					</div>
 					{peakHours.length > 0 && (
 						<div className="flex items-center gap-2 text-xs font-mono bg-rose-500/10 border border-rose-500/30 text-rose-300 px-3 py-1 rounded-lg">
-							<span>Peak Risk Windows (UTC):</span>
+							<span>Khung rủi ro cao điểm (UTC):</span>
 							<span className="font-bold">
 								{peakHours.map((h) => h.label).join(', ')}
 							</span>
@@ -202,7 +202,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 								}}
 							/>
 							<Legend wrapperStyle={{ fontSize: '12px' }} />
-							<Bar yAxisId="left" dataKey="total_tx_count" name="Total Txs" radius={[3, 3, 0, 0]}>
+							<Bar yAxisId="left" dataKey="total_tx_count" name="Tổng giao dịch" radius={[3, 3, 0, 0]}>
 								{hourlyProfile.map((entry) => (
 									<Cell
 										key={`cell-${entry.hour}`}
@@ -214,7 +214,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 								yAxisId="right"
 								type="monotone"
 								dataKey="fraud_rate_pct"
-								name="Fraud Rate (%)"
+								name="Tỷ lệ gian lận (%)"
 								stroke="#F43F5E"
 								strokeWidth={2}
 								dot={{ r: 2.5 }}
@@ -231,10 +231,10 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 					<div className="mb-4">
 						<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 							<DollarSign size={15} className="text-emerald-400" />
-							<span>Amount Bracket Risk Profile</span>
+							<span>Hồ sơ rủi ro theo khoảng số tiền</span>
 						</h3>
 						<p className="text-xs text-slate-400 mt-0.5">
-							Fraud density and prevented loss across 5 transaction value tiers
+							Mật độ gian lận và thất thoát đã ngăn chặn theo 5 mức giá trị giao dịch
 						</p>
 					</div>
 
@@ -245,7 +245,7 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 									<th className="py-2 px-2.5">Bracket</th>
 									<th className="py-2 px-2.5 text-right">Scanned</th>
 									<th className="py-2 px-2.5 text-right">Flagged</th>
-									<th className="py-2 px-2.5 text-right">Flag Rate</th>
+									<th className="py-2 px-2.5 text-right">Tỷ lệ bị gắn cờ</th>
 									<th className="py-2 px-2.5 text-right">Fraud ($)</th>
 								</tr>
 							</thead>
@@ -278,10 +278,10 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 						<div>
 							<h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
 								<UserX size={15} className="text-rose-400" />
-								<span>Top Flagged Subjects & Active Watchlist Summary</span>
+								<span>Đối tượng bị gắn cờ nhiều nhất & tóm tắt danh sách theo dõi</span>
 							</h3>
 							<p className="text-xs text-slate-400 mt-0.5">
-								Highest-exposure subjects (`user_id`) and active `EntityBlacklist` enforcement status
+								Đối tượng có mức phơi nhiễm cao nhất (`user_id`) và trạng thái thực thi `EntityBlacklist`
 							</p>
 						</div>
 						{watchlistSummary && (
@@ -315,19 +315,19 @@ export const TypologiesPatternsTab: React.FC<TypologiesPatternsTabProps> = ({ da
 					{/* Top Flagged Subjects Table */}
 					{topSubjects.length === 0 ? (
 						<div className="py-8 text-center text-xs text-slate-500 bg-dark-950 rounded-lg border border-dark-800">
-							No flagged subjects in the selected scope.
+							Không có đối tượng bị gắn cờ trong phạm vi đã chọn.
 						</div>
 					) : (
 						<div className="overflow-x-auto">
 							<table className="w-full text-left border-collapse">
 								<thead>
 									<tr className="border-b border-dark-800 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-										<th className="py-2 px-2.5">Subject (`user_id`)</th>
+										<th className="py-2 px-2.5">Người dùng liên quan (`user_id`)</th>
 										<th className="py-2 px-2.5 text-right">Flagged Txs</th>
 										<th className="py-2 px-2.5 text-right">Confirmed Fraud</th>
 										<th className="py-2 px-2.5 text-right">Risk Exposure ($)</th>
-										<th className="py-2 px-2.5 text-right">Peak Score</th>
-										<th className="py-2 px-2.5 text-center">Watchlist</th>
+										<th className="py-2 px-2.5 text-right">Điểm cao nhất</th>
+										<th className="py-2 px-2.5 text-center">Danh sách theo dõi</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-dark-800/60 text-xs font-mono tabular-nums">

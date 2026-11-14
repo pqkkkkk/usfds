@@ -115,9 +115,9 @@ export const FeatureEngineeringWorkspace = ({
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-semibold text-slate-200 block">Làm giàu đặc trưng hành vi (Feature Engineering)</span>
+              <span className="font-semibold text-slate-200 block">Làm giàu đặc trưng hành vi</span>
               <span className="text-slate-400 text-[11px]">
-                Chọn các bộ trích xuất đặc trưng phù hợp bên dưới, sau đó nhấn nút <strong>&ldquo;Run Feature Engineering&rdquo;</strong> trên thanh tiêu đề để thực thi.
+                Chọn các bộ trích xuất đặc trưng phù hợp bên dưới, sau đó nhấn nút <strong>&ldquo;Chạy kỹ nghệ đặc trưng&rdquo;</strong> trên thanh tiêu đề để thực thi.
               </span>
             </div>
           </div>
@@ -140,8 +140,8 @@ export const FeatureEngineeringWorkspace = ({
                     <Clock className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-slate-100">Temporal & Diurnal</h3>
-                    <span className="text-[10px] text-slate-400 font-mono">Time cyclicity signals</span>
+                    <h3 className="text-xs font-bold text-slate-100">Thời gian & chu kỳ ngày</h3>
+                    <span className="text-[10px] text-slate-400 font-mono">Tín hiệu chu kỳ thời gian</span>
                   </div>
                 </div>
                 <input
@@ -186,8 +186,8 @@ export const FeatureEngineeringWorkspace = ({
                     <DollarSign className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-slate-100">Financial Relative Amounts</h3>
-                    <span className="text-[10px] text-slate-400 font-mono">Normalized spending ratio</span>
+                    <h3 className="text-xs font-bold text-slate-100">Số tiền tương đối tài chính</h3>
+                    <span className="text-[10px] text-slate-400 font-mono">Tỷ lệ chi tiêu đã chuẩn hóa</span>
                   </div>
                 </div>
                 <input
@@ -232,8 +232,8 @@ export const FeatureEngineeringWorkspace = ({
                     <Activity className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-slate-100">Velocity & Burst Signals</h3>
-                    <span className="text-[10px] text-slate-400 font-mono">Rolling window aggregations</span>
+                    <h3 className="text-xs font-bold text-slate-100">Tốc độ & tín hiệu bùng nổ</h3>
+                    <span className="text-[10px] text-slate-400 font-mono">Tổng hợp theo cửa sổ trượt</span>
                   </div>
                 </div>
                 <input
@@ -245,7 +245,7 @@ export const FeatureEngineeringWorkspace = ({
               </div>
 
               <p className="text-xs text-slate-400 leading-relaxed">
-                Đo đếm tần suất giao dịch dồn dập (Burst Attack) và biến động số tiền trên các cửa sổ thời gian trượt theo user_id.
+                Đo đếm tần suất giao dịch dồn dập (tấn công dồn dập) và biến động số tiền trên các cửa sổ thời gian trượt theo user_id.
               </p>
 
               {enableVelocity && (
@@ -303,7 +303,7 @@ export const FeatureEngineeringWorkspace = ({
                 </div>
                 <div>
                   <h3 className="text-xs font-bold text-slate-100 flex items-center gap-2">
-                    Enriched Dataset Artifact Generated
+                    Đã tạo artifact tập dữ liệu đã làm giàu
                     <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] font-mono font-bold">
                       {feArtifact.pipeline_stage}
                     </span>
@@ -316,13 +316,13 @@ export const FeatureEngineeringWorkspace = ({
 
               <div className="flex items-center gap-3">
                 <div className="px-3 py-1.5 rounded-xl bg-dark-950 border border-dark-800 text-right">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Records</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Tổng số bản ghi</span>
                   <span className="text-xs font-bold font-mono text-slate-200">
                     {feArtifact.row_count?.toLocaleString() || mappedArtifact?.row_count?.toLocaleString() || '100,000'}
                   </span>
                 </div>
                 <div className="px-3 py-1.5 rounded-xl bg-dark-950 border border-dark-800 text-right">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Features</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Tổng số đặc trưng</span>
                   <span className="text-xs font-bold font-mono text-purple-300">
                     {feArtifact.column_count || generatedFeatureColumns.length}
                   </span>
@@ -355,10 +355,10 @@ export const FeatureEngineeringWorkspace = ({
           <div className="p-6 rounded-2xl bg-dark-900 border border-dashed border-dark-800 text-center space-y-2">
             <Info className="w-6 h-6 text-slate-500 mx-auto" />
             <p className="text-xs text-slate-300 font-medium">
-              Chưa có Feature Engineered Artifact nào cho phiên bản hiện tại.
+              Chưa có artifact kỹ nghệ đặc trưng nào cho phiên bản hiện tại.
             </p>
             <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-              Kiểm tra cấu hình các bộ trích xuất đặc trưng phía trên và nhấn nút <strong>&ldquo;Run Feature Engineering&rdquo;</strong> ở góc trên bên phải để tạo đặc trưng mới.
+              Kiểm tra cấu hình các bộ trích xuất đặc trưng phía trên và nhấn nút <strong>&ldquo;Chạy kỹ nghệ đặc trưng&rdquo;</strong> ở góc trên bên phải để tạo đặc trưng mới.
             </p>
           </div>
         )}

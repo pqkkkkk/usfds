@@ -56,7 +56,7 @@ export const DataPipelineWorkspace = () => {
       <PageHeader
         title={currentStep.label}
         subtitle={currentStep.description}
-        badge={`Step ${currentStep.stepNumber} / 4`}
+        badge={`Bước ${currentStep.stepNumber} / 4`}
         badgeColor={
           currentStep.stepNumber === 1
             ? 'blue'
@@ -67,7 +67,7 @@ export const DataPipelineWorkspace = () => {
                 : 'purple'
         }
         breadcrumbs={[
-          { label: 'Data Management', tab: 'data-hub' },
+          { label: 'Quản lý dữ liệu', tab: 'data-hub' },
           { label: datasetName, tab: 'lineage' },
           { label: currentStep.label }
         ]}
@@ -92,7 +92,7 @@ export const DataPipelineWorkspace = () => {
                 onClick={() => handleStepSelect('step-mapping')}
                 className="px-4 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-1.5"
               >
-                <span>Proceed to Schema Mapping</span>
+                <span>Tiếp tục tới Ánh xạ lược đồ</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}
@@ -117,17 +117,17 @@ export const DataPipelineWorkspace = () => {
                     ? 'bg-dark-700 text-slate-500 cursor-not-allowed border border-dark-600'
                     : 'bg-brand-500 hover:bg-brand-600 text-white'
                 }`}
-                title={!isMappingValid ? 'Please map all required fields (User ID, Timestamp, Amount, Label)' : 'Validate schema and generate validation report'}
+                title={!isMappingValid ? 'Vui lòng ánh xạ tất cả trường bắt buộc (User ID, Timestamp, Amount, Label)' : 'Kiểm định lược đồ và tạo báo cáo kiểm định'}
               >
                 {isSavingMapping ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Validating Data...</span>
+                    <span>Đang kiểm định dữ liệu...</span>
                   </>
                 ) : (
                   <>
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Validate Data</span>
+                    <span>Kiểm định dữ liệu</span>
                   </>
                 )}
               </button>
@@ -139,7 +139,7 @@ export const DataPipelineWorkspace = () => {
                 onClick={() => handleStepSelect('step-feature-eng')}
                 className="px-4 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-1.5"
               >
-                <span>Proceed to Feature Engineering</span>
+                <span>Tiếp tục tới Kỹ nghệ đặc trưng</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}
@@ -165,7 +165,7 @@ export const DataPipelineWorkspace = () => {
                     ) : (
                       <Sparkles className="w-3.5 h-3.5 text-brand-400" />
                     )}
-                    <span>Re-run Features</span>
+                    <span>Chạy lại đặc trưng</span>
                   </button>
                 )}
 
@@ -192,17 +192,17 @@ export const DataPipelineWorkspace = () => {
                   {isExecutingFE ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Running Feature Engineering...</span>
+                      <span>Đang chạy kỹ nghệ đặc trưng...</span>
                     </>
                   ) : activeFeArtifact ? (
                     <>
-                      <span>Proceed to Model Training</span>
+                      <span>Tiếp tục tới Huấn luyện mô hình</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>Run Feature Engineering</span>
+                      <span>Chạy kỹ nghệ đặc trưng</span>
                     </>
                   )}
                 </button>
@@ -226,7 +226,7 @@ export const DataPipelineWorkspace = () => {
         {isLoading && !datasetDetail ? (
           <div className="flex-1 flex items-center justify-center text-slate-400 text-xs gap-2">
             <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
-            <span>Loading workspace data...</span>
+            <span>Đang tải dữ liệu không gian làm việc...</span>
           </div>
         ) : (
           <>

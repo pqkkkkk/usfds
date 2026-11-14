@@ -77,9 +77,9 @@ function CaseWorkbench({
 				res !== null &&
 				'related_assignees' in res &&
 				res.related_assignees.length > 0
-					? ` (Other open cases for this user assigned to: ${res.related_assignees.join(', ')})`
+					? ` (Các hồ sơ mở khác của người dùng này được giao cho: ${res.related_assignees.join(', ')})`
 					: '';
-			setNotice(`Case updated successfully.${relatedWarning}`);
+			setNotice(`Cập nhật hồ sơ thành công.${relatedWarning}`);
 
 			if (variables.action === 'resolve' && autoAdvance) {
 				try {
@@ -117,7 +117,7 @@ function CaseWorkbench({
 				role="status"
 				className="rounded-xl border border-dark-700/80 bg-dark-900 p-8 text-center text-sm text-slate-300"
 			>
-				Loading case investigation workbench...
+				Đang tải không gian làm việc điều tra hồ sơ...
 			</div>
 		);
 	}
@@ -127,7 +127,7 @@ function CaseWorkbench({
 			<div className="space-y-4">
 				<Link to="/investigation" className={BUTTON_SECONDARY_CLASS}>
 					<ArrowLeft size={15} />
-					<span>Back to Case Queue</span>
+					<span>Quay lại hàng đợi hồ sơ</span>
 				</Link>
 				<ErrorNotice error={workbenchQuery.error} />
 			</div>
@@ -143,7 +143,7 @@ function CaseWorkbench({
 				<div className="flex flex-wrap items-center gap-3">
 					<Link to="/investigation" className={BUTTON_SECONDARY_CLASS}>
 						<ArrowLeft size={15} />
-						<span>Case Queue</span>
+						<span>Hàng đợi hồ sơ</span>
 					</Link>
 					<div>
 						<h1 className="break-all font-mono text-base font-bold text-slate-100">
@@ -162,7 +162,7 @@ function CaseWorkbench({
 							checked={autoAdvance}
 							onChange={(event) => setAutoAdvance(event.target.checked)}
 						/>
-						<span>Auto-advance queue</span>
+						<span>Tự động chuyển hồ sơ kế tiếp</span>
 					</label>
 					<StatusBadge value={item.priority} />
 					<StatusBadge value={item.status} />

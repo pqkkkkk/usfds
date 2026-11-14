@@ -11,28 +11,28 @@ export const InvestigationModule = () => {
 	const isWorkbenchView = location.pathname.includes('/investigation/cases/');
 
 	const breadcrumbs = [
-		{ label: 'Investigation', href: '/investigation' },
+		{ label: 'Điều tra', href: '/investigation' },
 		...(isPoliciesView
-			? [{ label: 'Policies & Watchlists' }]
+			? [{ label: 'Chính sách & danh sách theo dõi' }]
 			: isWorkbenchView
-				? [{ label: 'Case Workbench' }]
-				: [{ label: 'Case Queue' }]),
+				? [{ label: 'Không gian làm việc hồ sơ' }]
+				: [{ label: 'Hàng đợi hồ sơ' }]),
 	];
 
 	return (
 		<div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-dark-950 text-slate-100">
 			<PageHeader
-				title="Fraud Investigation & Case Management"
+				title="Điều tra gian lận & quản lý hồ sơ"
 				subtitle={
 					currentProject
 						? `Điều tra hồ sơ giao dịch nghi vấn, đối chiếu chuẩn hành vi lịch sử và phản hồi chính sách cho dự án "${currentProject.project_name}"`
-						: 'Quản lý hàng đợi hồ sơ điều tra, phân tích bằng chứng AI/Rule và cập nhật danh sách chặn thực thể'
+						: 'Quản lý hàng đợi hồ sơ điều tra, phân tích bằng chứng AI/luật và cập nhật danh sách chặn thực thể'
 				}
 				breadcrumbs={breadcrumbs}
 				actions={
 					<nav
 						className="inline-flex items-center rounded-lg border border-dark-700 bg-dark-900 p-1 text-xs"
-						aria-label="Investigation views"
+						aria-label="Chế độ xem điều tra"
 					>
 						<NavLink
 							end
@@ -45,7 +45,7 @@ export const InvestigationModule = () => {
 							}
 						>
 							<Briefcase size={14} aria-hidden="true" />
-							<span>Case Queue</span>
+							<span>Hàng đợi hồ sơ</span>
 						</NavLink>
 						<NavLink
 							to="/investigation/policies"
@@ -57,7 +57,7 @@ export const InvestigationModule = () => {
 							}
 						>
 							<ShieldAlert size={14} aria-hidden="true" />
-							<span>Policies & Watchlists</span>
+							<span>Chính sách & danh sách theo dõi</span>
 						</NavLink>
 					</nav>
 				}
@@ -66,11 +66,11 @@ export const InvestigationModule = () => {
 			<main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
 				{isLoading ? (
 					<div role="status" className="rounded-xl border border-dark-700/80 bg-dark-900 p-6 text-sm text-slate-300">
-						Loading project context...
+						Đang tải ngữ cảnh dự án...
 					</div>
 				) : !currentProjectId ? (
 					<div className="rounded-xl border border-dark-700/80 bg-dark-900 p-6 text-sm text-slate-300">
-						Select a project from the top navigation bar to view investigation cases.
+						Chọn một dự án trên thanh điều hướng phía trên để xem hồ sơ điều tra.
 					</div>
 				) : (
 					<Routes key={currentProjectId}>

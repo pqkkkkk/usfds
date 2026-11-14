@@ -54,7 +54,7 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 		}
 		if (
 			!window.confirm(
-				`Bạn có chắc muốn mở khóa và đặt lại (Reset) RAW Schema của dự án "${project.project_name}"?`
+				`Bạn có chắc muốn mở khóa và đặt lại lược đồ thô của dự án "${project.project_name}"?`
 			)
 		) {
 			return;
@@ -65,9 +65,9 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 		setSuccessMsg(null);
 		try {
 			await onResetSchema(project.project_id);
-			setSuccessMsg('Đã mở khóa và đặt lại RAW Schema thành công.');
+			setSuccessMsg('Đã mở khóa và đặt lại lược đồ thô thành công.');
 		} catch (err: any) {
-			setErrorMsg(err?.message || 'Không thể đặt lại RAW Schema.');
+			setErrorMsg(err?.message || 'Không thể đặt lại lược đồ thô.');
 		} finally {
 			setIsResetting(false);
 		}
@@ -88,12 +88,12 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 							{project.is_schema_locked ? (
 								<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
 									<Lock className="w-3 h-3" />
-									SCHEMA LOCKED
+									LƯỢC ĐỒ ĐÃ KHÓA
 								</span>
 							) : (
 								<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30">
 									<Unlock className="w-3 h-3" />
-									SCHEMA UNLOCKED
+									LƯỢC ĐỒ CHƯA KHÓA
 								</span>
 							)}
 							<span className="text-[11px] text-slate-500 font-mono">
@@ -101,7 +101,7 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 							</span>
 						</div>
 						<h2 id="schema-drawer-title" className="text-base font-bold text-slate-100">
-							{project.project_name} — RAW Schema Contract
+							{project.project_name} — Hợp đồng lược đồ thô
 						</h2>
 						<p className="text-[11px] text-slate-400 font-mono">{project.project_id}</p>
 					</div>
@@ -109,7 +109,7 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 					<button
 						type="button"
 						onClick={onClose}
-						aria-label="Đóng bảng chi tiết Schema"
+						aria-label="Đóng bảng chi tiết lược đồ"
 						className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-dark-800 transition"
 					>
 						<X className="w-4 h-4" />
@@ -142,7 +142,7 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 					<div className="grid grid-cols-3 gap-2.5">
 						<div className="p-3 rounded-xl bg-dark-950 border border-dark-800">
 							<div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-mono">
-								<span>Datasets</span>
+								<span>Tập dữ liệu</span>
 								<Database className="w-3.5 h-3.5 text-brand-400" />
 							</div>
 							<div className="text-lg font-bold text-slate-100 font-mono mt-1">
@@ -151,7 +151,7 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 						</div>
 						<div className="p-3 rounded-xl bg-dark-950 border border-dark-800">
 							<div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-mono">
-								<span>Rules</span>
+								<span>Luật</span>
 								<ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
 							</div>
 							<div className="text-lg font-bold text-slate-100 font-mono mt-1">
@@ -160,7 +160,7 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 						</div>
 						<div className="p-3 rounded-xl bg-dark-950 border border-dark-800">
 							<div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-mono">
-								<span>Jobs</span>
+								<span>Tác vụ</span>
 								<Terminal className="w-3.5 h-3.5 text-purple-400" />
 							</div>
 							<div className="text-lg font-bold text-slate-100 font-mono mt-1">
@@ -174,11 +174,11 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 						<div className="p-6 rounded-2xl bg-dark-950/70 border border-dashed border-dark-700 text-center space-y-2">
 							<Unlock className="w-8 h-8 text-amber-400 mx-auto" />
 							<h3 className="text-xs font-bold text-slate-200">
-								RAW Schema đang Mở khóa (UNLOCKED)
+								Lược đồ thô đang mở khóa
 							</h3>
 							<p className="text-xs text-slate-400 leading-relaxed">
-								Dự án này chưa khóa cấu trúc cột. Ngay khi bạn tải lên Dataset đầu tiên trong
-								phân hệ <strong>Data Management</strong>, hệ thống sẽ tự động trích xuất tên cột
+								Dự án này chưa khóa cấu trúc cột. Ngay khi bạn tải lên tập dữ liệu đầu tiên trong
+								phân hệ <strong>Quản lý dữ liệu</strong>, hệ thống sẽ tự động trích xuất tên cột
 								và kiểu dữ liệu logic để khóa làm chuẩn cho toàn bộ dự án (BR-PM-01).
 							</p>
 						</div>
@@ -192,9 +192,9 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 									</span>
 								</div>
 								<div className="flex items-center justify-between">
-									<span className="text-slate-400">Dataset cơ sở (Base Dataset):</span>
+									<span className="text-slate-400">Tập dữ liệu cơ sở:</span>
 									<span className="font-mono text-[11px] text-brand-300 truncate max-w-[260px]">
-										{project.base_dataset_id || project.raw_schema?.source_dataset_id || 'N/A'}
+										{project.base_dataset_id || project.raw_schema?.source_dataset_id || 'Không có'}
 									</span>
 								</div>
 								{project.raw_schema?.locked_at && (
@@ -209,20 +209,20 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 
 							<div className="border border-dark-800 rounded-xl overflow-hidden bg-dark-950/60">
 								<table className="w-full text-left text-xs">
-									<caption className="sr-only">Bảng cấu trúc cột RAW Schema của dự án</caption>
+									<caption className="sr-only">Bảng cấu trúc cột lược đồ thô của dự án</caption>
 									<thead>
 										<tr className="border-b border-dark-800 bg-dark-950 text-[10px] uppercase tracking-wider text-slate-400 font-mono">
 											<th scope="col" className="py-2.5 px-3 font-semibold">
-												Column Name
+												Tên cột
 											</th>
 											<th scope="col" className="py-2.5 px-3 font-semibold">
-												Logical Type
+												Kiểu logic
 											</th>
 											<th scope="col" className="py-2.5 px-3 font-semibold">
-												Physical Dtype
+												Kiểu vật lý
 											</th>
 											<th scope="col" className="py-2.5 px-3 font-semibold text-right">
-												Nullable
+												Cho phép rỗng
 											</th>
 										</tr>
 									</thead>
@@ -269,16 +269,16 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 					<div className="p-4 rounded-xl bg-dark-950 border border-dark-800 space-y-2.5">
 						<div className="text-xs font-bold text-slate-200 flex items-center gap-2">
 							<RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-							<span>Đặt lại / Mở khóa RAW Schema (BR-PM-03)</span>
+							<span>Đặt lại / Mở khóa lược đồ thô (BR-PM-03)</span>
 						</div>
 						<p className="text-[11px] text-slate-400 leading-relaxed">
 							Chỉ có thể đặt lại <code className="font-mono text-slate-300">raw_schema</code> khi
-							dự án không còn Dataset, Rule hoặc Detection Job phụ thuộc (ví dụ khi bạn vừa tải
+							dự án không còn tập dữ liệu, luật hoặc tác vụ phát hiện phụ thuộc (ví dụ khi bạn vừa tải
 							nhầm file đầu tiên và đã xóa file đó).
 						</p>
 						{hasDependentResources && project.is_schema_locked && (
 							<div className="text-[11px] text-amber-300/90 font-mono bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-								Đang khóa bởi tài nguyên phụ thuộc: {project.datasets_count} Datasets •{' '}
+								Đang khóa bởi tài nguyên phụ thuộc: {project.datasets_count} tập dữ liệu •{' '}
 								{project.rules_count} Rules • {project.detection_jobs_count} Jobs
 							</div>
 						)}
@@ -292,12 +292,12 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 								{isResetting ? (
 									<>
 										<Loader2 className="w-3.5 h-3.5 animate-spin" />
-										<span>Đang mở khóa Schema...</span>
+										<span>Đang mở khóa lược đồ...</span>
 									</>
 								) : (
 									<>
 										<Unlock className="w-3.5 h-3.5" />
-										<span>Reset / Unlock RAW Schema</span>
+										<span>Đặt lại / Mở khóa lược đồ thô</span>
 									</>
 								)}
 							</button>

@@ -96,7 +96,7 @@ export const datasetApi = {
         if (!presignedRes.success || !presignedRes.data?.download_url) {
           return {
             success: false,
-            error: presignedRes.error || 'Presigned export failed',
+            error: presignedRes.error || 'Xuất dữ liệu qua URL ký trước thất bại',
           };
         }
         storageApi.triggerBrowserDownload(

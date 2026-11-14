@@ -65,10 +65,10 @@ export const RuleGroupCard: React.FC<RuleGroupCardProps> = ({
 
   const combinatorBadge =
     group.combinator === 'ALL'
-      ? 'Logical AND'
+      ? 'Logic VÀ'
       : group.combinator === 'ANY'
-      ? 'Logical OR Sub-branch'
-      : 'Logical NOT / NOR';
+      ? 'Nhánh con logic HOẶC'
+      : 'Logic KHÔNG / NOR';
 
   return (
     <div
@@ -93,17 +93,17 @@ export const RuleGroupCard: React.FC<RuleGroupCardProps> = ({
             <select
               value={group.combinator}
               onChange={(e) => handleCombinatorChange(e.target.value as LogicalCombinator)}
-              aria-label="Logic Combinator"
+              aria-label="Bộ kết hợp logic"
               className={`border text-xs font-mono font-semibold rounded-md px-2.5 py-1 pr-6 focus:outline-none cursor-pointer ${combinatorColor}`}
             >
-              <option value="ALL">ALL of</option>
-              <option value="ANY">ANY of</option>
-              <option value="NONE">NONE of</option>
+              <option value="ALL">TẤT CẢ trong</option>
+              <option value="ANY">BẤT KỲ trong</option>
+              <option value="NONE">KHÔNG CÓ trong</option>
             </select>
           </div>
 
           <span className="text-xs text-slate-300">
-            {isRoot ? 'the following conditions are true:' : 'the sub-conditions are true:'}
+            {isRoot ? 'các điều kiện sau đúng:' : 'các điều kiện con sau đúng:'}
           </span>
         </div>
 
@@ -123,7 +123,7 @@ export const RuleGroupCard: React.FC<RuleGroupCardProps> = ({
               type="button"
               onClick={onDeleteGroup}
               className="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-red-950/20 transition-colors"
-              title="Remove sub-group"
+              title="Xóa nhóm con"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -135,7 +135,7 @@ export const RuleGroupCard: React.FC<RuleGroupCardProps> = ({
       <div className="space-y-3">
         {group.clauses.length === 0 ? (
           <div className="py-4 text-center border border-dashed border-slate-800 rounded-lg text-slate-500 text-xs font-mono">
-            Chưa có điều kiện nào. Bấm &ldquo;Add Condition&rdquo; để thiết lập.
+            Chưa có điều kiện nào. Bấm &ldquo;Thêm điều kiện&rdquo; để thiết lập.
           </div>
         ) : (
           group.clauses.map((item, idx) => {
@@ -178,7 +178,7 @@ export const RuleGroupCard: React.FC<RuleGroupCardProps> = ({
           }`}
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>Add Condition</span>
+          <span>Thêm điều kiện</span>
         </button>
 
         {level < 2 && (
@@ -188,7 +188,7 @@ export const RuleGroupCard: React.FC<RuleGroupCardProps> = ({
             className="px-3 py-1.5 rounded-md bg-dark-900 hover:bg-dark-850 border border-slate-800 text-slate-300 hover:border-slate-700 text-xs font-medium transition-colors flex items-center gap-1.5"
           >
             <FolderPlus className="w-3.5 h-3.5 text-slate-400" />
-            <span>Add Nested Group</span>
+            <span>Thêm nhóm lồng</span>
           </button>
         )}
       </div>
