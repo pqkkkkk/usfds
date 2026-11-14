@@ -16,6 +16,7 @@ import {
 	Layers,
 	Award,
 	RefreshCw,
+	GitBranch,
 } from 'lucide-react';
 import { trainingApi } from '../../../api/trainingApi';
 import { useProject } from '../../../hooks/useProjects';
@@ -26,6 +27,7 @@ import type {
 } from '../../../types/model';
 import { ImportCustomModelModal } from './ImportCustomModelModal';
 import { ActivateModelModal } from './ActivateModelModal';
+import { ModelLineageModal } from './ModelLineageModal';
 import { PageHeader } from '../../layout/PageHeader';
 
 export const ModelHubView: React.FC = () => {
@@ -51,6 +53,7 @@ export const ModelHubView: React.FC = () => {
 		version: ModelVersionResponse;
 		model?: ModelResponse | null;
 	} | null>(null);
+	const [lineageVersion, setLineageVersion] = useState<ModelVersionResponse | null>(null);
 
 	const fetchHubData = useCallback(async (silent = false) => {
 		if (!silent) {
@@ -681,6 +684,14 @@ export const ModelHubView: React.FC = () => {
 																			)}
 																			<button
 																				type="button"
+																				onClick={() => setLineageVersion(ver)}
+																				className="px-2.5 py-1 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-[11px] text-cyan-300 transition inline-flex items-center gap-1"
+																			>
+																				<GitBranch className="w-3 h-3" />
+																				<span>Phả hệ</span>
+																			</button>
+																			<button
+																				type="button"
 																				onClick={() =>
 																					setActivatingVersion({
 																						version: ver,
@@ -732,6 +743,13 @@ export const ModelHubView: React.FC = () => {
 				onSuccess={() => {
 					fetchHubData();
 				}}
+			/>
+
+			{/* Model Version Lineage Modal (ISS-008) */}
+			<ModelLineageModal
+				isOpen={Boolean(lineageVersion)}
+				version={lineageVersion}
+				onClose={() => setLineageVersion(null)}
 			/>
 		</div>
 	);

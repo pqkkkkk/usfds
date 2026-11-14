@@ -1,10 +1,12 @@
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Union
 from uuid import UUID
 
+from usfds_core.domain.entities.dataset import DatasetArtifact
 from usfds_core.domain.entities.enums import (
     DatasetRole,
     ExecutionType,
@@ -27,6 +29,32 @@ from usfds_core.storage.base_storage import IFileStorage
 from usfds_core.storage.in_memory_storage import InMemoryFileStorage
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ModelLineageNode:
+    id: str
+    node_type: str
+    stage: str
+    label: str
+    created_at: str
+    parent_id: Optional[str] = None
+    dataset_id: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ModelLineageEdge:
+    source: str
+    target: str
+
+
+@dataclass
+class ModelLineageGraph:
+    root_version_id: Optional[str] = None
+    root_run_id: Optional[str] = None
+    nodes: List[ModelLineageNode] = field(default_factory=list)
+    edges: List[ModelLineageEdge] = field(default_factory=list)
 
 
 class TrainingOrchestrationService:
@@ -449,7 +477,173 @@ class TrainingOrchestrationService:
         if not run:
             raise ValueError(f"TrainingRun with ID {run_id} not found.")
         return run
-        
-        
-        
-        
+
+    def get_model_version_lineage(self, version_id: UUID) -> ModelLineageGraph:
+        """Trace upstream lineage for a ModelVersion (DatasetArtifacts -> TrainingRun -> ModelVersion)."""
+        version = self.get_model_version(version_id)
+        run: Optional[TrainingRun] = (
+            self.training_run_repo.get_by_id(version.run_id)
+            if version.run_id is not None
+            else None
+        )
+        return self._build_lineage_graph(
+            run=run,
+            version=version,
+            root_version_id=str(version.version_id),
+            root_run_id=str(run.run_id) if run is not None else None,
+        )
+
+    def get_training_run_lineage(self, run_id: UUID) -> ModelLineageGraph:
+        """Trace upstream lineage for a TrainingRun (DatasetArtifacts -> TrainingRun [-> ModelVersion])."""
+        run = self.get_training_run(run_id)
+        version: Optional[ModelVersion] = (
+            self.model_version_repo.get_by_id(run.version_id)
+            if run.version_id is not None
+            else None
+        )
+        return self._build_lineage_graph(
+            run=run,
+            version=version,
+            root_version_id=str(version.version_id) if version is not None else None,
+            root_run_id=str(run.run_id),
+        )
+
+    def _build_lineage_graph(
+        self,
+        run: Optional[TrainingRun],
+        version: Optional[ModelVersion],
+        root_version_id: Optional[str],
+        root_run_id: Optional[str],
+    ) -> ModelLineageGraph:
+        nodes: List[ModelLineageNode] = []
+        edges: List[ModelLineageEdge] = []
+        last_node_id: Optional[str] = None
+
+        if run is not None:
+            leaf_artifact_id = self.get_run_dataset_artifact_id(run.run_id)
+            artifact_chain: List[DatasetArtifact] = []
+            visited: Set[UUID] = set()
+            curr_id = leaf_artifact_id
+            while curr_id is not None and curr_id not in visited:
+                visited.add(curr_id)
+                art = self.dataset_artifact_repo.get_by_id(curr_id)
+                if art is None:
+                    break
+                artifact_chain.append(art)
+                curr_id = art.parent_artifact_id
+
+            artifact_chain.reverse()
+            for art in artifact_chain:
+                art_id_str = str(art.artifact_id)
+                stage_str = (
+                    art.pipeline_stage.value
+                    if hasattr(art.pipeline_stage, "value")
+                    else str(art.pipeline_stage)
+                )
+                val_status = (
+                    art.validation_status.value
+                    if hasattr(art.validation_status, "value")
+                    else str(art.validation_status)
+                )
+                nodes.append(
+                    ModelLineageNode(
+                        id=art_id_str,
+                        node_type="DATASET_ARTIFACT",
+                        stage=stage_str,
+                        label=stage_str,
+                        created_at=(
+                            art.created_at.isoformat()
+                            if hasattr(art.created_at, "isoformat")
+                            else str(art.created_at)
+                        ),
+                        parent_id=last_node_id,
+                        dataset_id=str(art.dataset_id),
+                        metadata={
+                            "storage_path": art.storage_path,
+                            "row_count": art.row_count,
+                            "column_count": art.column_count,
+                            "validation_status": val_status,
+                            "checksum_sha256": art.checksum_sha256,
+                            "change_type": art.change_type,
+                        },
+                    )
+                )
+                if last_node_id is not None:
+                    edges.append(ModelLineageEdge(source=last_node_id, target=art_id_str))
+                last_node_id = art_id_str
+
+            run_id_str = str(run.run_id)
+            run_status = (
+                run.status.value if hasattr(run.status, "value") else str(run.status)
+            )
+            model_obj = (
+                self.model_repo.get_by_id(run.model_id)
+                if run.model_id is not None
+                else None
+            )
+            nodes.append(
+                ModelLineageNode(
+                    id=run_id_str,
+                    node_type="TRAINING_RUN",
+                    stage="TRAINING_RUN",
+                    label=run.run_name,
+                    created_at=(
+                        run.created_at.isoformat()
+                        if hasattr(run.created_at, "isoformat")
+                        else str(run.created_at)
+                    ),
+                    parent_id=last_node_id,
+                    metadata={
+                        "run_name": run.run_name,
+                        "status": run_status,
+                        "model_name": model_obj.model_name if model_obj else None,
+                        "display_name": model_obj.display_name if model_obj else None,
+                        "duration_seconds": run.duration_seconds,
+                        "f1_score": run.f1_score,
+                        "compute_target": run.compute_target,
+                    },
+                )
+            )
+            if last_node_id is not None:
+                edges.append(ModelLineageEdge(source=last_node_id, target=run_id_str))
+            last_node_id = run_id_str
+
+        if version is not None:
+            ver_id_str = str(version.version_id)
+            ver_status = (
+                version.status.value
+                if hasattr(version.status, "value")
+                else str(version.status)
+            )
+            nodes.append(
+                ModelLineageNode(
+                    id=ver_id_str,
+                    node_type="MODEL_VERSION",
+                    stage="MODEL_VERSION",
+                    label=f"v{version.semver}",
+                    created_at=(
+                        version.registered_at.isoformat()
+                        if hasattr(version.registered_at, "isoformat")
+                        else str(version.registered_at)
+                    ),
+                    parent_id=last_node_id,
+                    metadata={
+                        "semver": version.semver,
+                        "status": ver_status,
+                        "framework": version.framework,
+                        "decision_threshold": version.decision_threshold,
+                        "checksum_sha256": version.checksum_sha256,
+                        "artifact_uri": version.artifact_uri,
+                    },
+                )
+            )
+            if last_node_id is not None:
+                edges.append(ModelLineageEdge(source=last_node_id, target=ver_id_str))
+
+        return ModelLineageGraph(
+            root_version_id=root_version_id,
+            root_run_id=root_run_id,
+            nodes=nodes,
+            edges=edges,
+        )
+

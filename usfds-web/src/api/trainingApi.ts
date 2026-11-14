@@ -2,6 +2,7 @@ import { apiClient } from './client';
 import type { ApiResponse } from '@/types';
 import type {
 	ActivateModelVersionRequest,
+	ModelLineageGraph,
 	ModelPluginManifest,
 	ModelResponse,
 	ModelVersionResponse,
@@ -104,5 +105,13 @@ export const trainingApi = {
 
 	getTrainingRun: async (runId: string): Promise<ApiResponse<TrainingRunResponse>> => {
 		return apiClient.get<TrainingRunResponse>(`/v1/training/runs/${runId}`);
+	},
+
+	getModelVersionLineage: async (versionId: string): Promise<ApiResponse<ModelLineageGraph>> => {
+		return apiClient.get<ModelLineageGraph>(`/v1/training/versions/${versionId}/lineage`);
+	},
+
+	getTrainingRunLineage: async (runId: string): Promise<ApiResponse<ModelLineageGraph>> => {
+		return apiClient.get<ModelLineageGraph>(`/v1/training/runs/${runId}/lineage`);
 	},
 };
