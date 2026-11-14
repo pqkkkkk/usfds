@@ -55,9 +55,13 @@ def get_db(session_factory: sessionmaker[Session]) -> Generator[Session, None, N
 
 
 def init_db(engine: Engine) -> None:
-    """Create all registered database tables if they do not exist."""
-    Base.metadata.create_all(bind=engine)
-    migrate_case_sources(engine)
+    """Migrate the database to the latest schema revision (Alembic). Safe for new, legacy and current databases."""
+    from usfds_infra.database.migrate import upgrade_database
+
+    upgrade_database(engine)
+    # DEPRECATED [26-11-14]: create_all never altered existing tables (ISS-020); replaced by Alembic migrations.
+    # Base.metadata.create_all(bind=engine)
+    # migrate_case_sources(engine)  # now run once for legacy databases by migrate._run_legacy_fixups
 
 
 def close_db(engine: Engine) -> None:

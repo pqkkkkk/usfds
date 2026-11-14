@@ -52,6 +52,7 @@ class TestDatabaseConnection(unittest.TestCase):
     def test_init_db_and_session_scope(self):
         """Verify table creation and CRUD within session_scope."""
         init_db(self.engine)
+        DummyModel.__table__.create(self.engine, checkfirst=True)  # test-only table is not part of migrations
 
         with session_scope(self.session_factory) as session:
             dummy = DummyModel(name="test_item")
@@ -65,6 +66,7 @@ class TestDatabaseConnection(unittest.TestCase):
     def test_session_rollback_on_error(self):
         """Verify automatic rollback on exception."""
         init_db(self.engine)
+        DummyModel.__table__.create(self.engine, checkfirst=True)  # test-only table is not part of migrations
 
         with self.assertRaises(ValueError):
             with session_scope(self.session_factory) as session:

@@ -20,6 +20,18 @@ JOB_FEATURE_ENGINEERING = "feature_engineering"
 DEFAULT_SCHEMA = "bullmq"
 
 
+def raise_from_failed_reason(failed_reason: Optional[str]) -> None:
+	"""Re-raise a worker failure ("<ExceptionType>: <message>", see usfds-worker main.py) as the original exception type."""
+	reason = str(failed_reason or "Worker job failed")
+	if reason.startswith("FileNotFoundError:"):
+		raise FileNotFoundError(reason.split(":", 1)[1].strip())
+	if reason.startswith("LookupError:"):
+		raise LookupError(reason.split(":", 1)[1].strip())
+	if reason.startswith("ValueError:"):
+		raise ValueError(reason.split(":", 1)[1].strip())
+	raise ValueError(reason)
+
+
 def build_bullmq_opts(db_url: str, schema: str = DEFAULT_SCHEMA) -> Dict[str, Any]:
 	"""BullMQ options for the PostgreSQL backend (tables live in `schema`, migrated automatically)."""
 	return {
@@ -126,14 +138,7 @@ class BullMQJobQueue:
 					if state == "completed":
 						return getattr(current_job, "returnvalue", None)
 					if state == "failed":
-						reason = str(getattr(current_job, "failedReason", None) or "Worker job failed")
-						if reason.startswith("FileNotFoundError:"):
-							raise FileNotFoundError(reason.split(":", 1)[1].strip())
-						if reason.startswith("LookupError:"):
-							raise LookupError(reason.split(":", 1)[1].strip())
-						if reason.startswith("ValueError:"):
-							raise ValueError(reason.split(":", 1)[1].strip())
-						raise ValueError(reason)
+						raise_from_failed_reason(getattr(current_job, "failedReason", None))
 					await asyncio.sleep(poll_interval_seconds)
 				raise TimeoutError(
 					f"Timed out waiting for worker job '{job_name}' on queue '{queue_name}'"

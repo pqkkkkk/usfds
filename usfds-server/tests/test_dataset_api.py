@@ -13,19 +13,20 @@ from usfds_server.api import app
 from usfds_server.config import settings
 
 
-@pytest.fixture(autouse=True)
-def temporary_environment():
-    temp_dir = tempfile.mkdtemp(prefix="usfds_server_test_")
-    db_file = os.path.join(temp_dir, "test.db")
-    storage_path = os.path.join(temp_dir, "storage")
-
-    settings.db_path = db_file
-    settings.storage_dir = storage_path
-
-    yield
-
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir, ignore_errors=True)
+# DEPRECATED [26-11-14]: replaced by the autouse `server_settings` fixture in tests/conftest.py (ISS-025).
+# @pytest.fixture(autouse=True)
+# def temporary_environment():
+#     temp_dir = tempfile.mkdtemp(prefix="usfds_server_test_")
+#     db_file = os.path.join(temp_dir, "test.db")
+#     storage_path = os.path.join(temp_dir, "storage")
+#
+#     settings.db_path = db_file
+#     settings.storage_dir = storage_path
+#
+#     yield
+#
+#     if os.path.exists(temp_dir):
+#         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def test_end_to_end_data_management_pipeline():

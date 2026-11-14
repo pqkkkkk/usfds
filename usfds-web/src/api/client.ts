@@ -14,7 +14,7 @@ const getBaseUrl = (): string => {
       navigator.userAgent.toLowerCase().includes('electron')
     );
     if (isFileProtocol || isElectron) {
-      return 'http://127.0.0.1:8000/api';
+      return 'http://127.0.0.1:8200/api';
     }
   }
   return '/api';

@@ -1,3 +1,19 @@
+> **[26-11-14] FROZEN — history only.** Do not add new items. To-do lists now live in each task's plan file (`.plan/<task_slug>.md`, §6); status is on `.plan/BOARD.md`; finished work goes to `CHANGELOG.md`.
+
+# 14-11-2026 — Parallel-agent setup, Phase 0 (Foundation) — plan: `.plan/parallel_agent_setup.md`
+- [x] [docs] Restructure & index issues: `docs/issues/README.md` (ISS-001..034), IDs + metadata in dated files, new `docs/issues/11-14-2026.md` (`[26-11-14]`)
+- [x] [agent] Skills `usfds-plan` (+ `template.md`) and `usfds-task-workflow`; `.plan/BOARD.md`
+- [x] [agent] Skills `usfds-testing`, `usfds-backend-change`, `usfds-frontend-change`; update `AGENTs.md`; create `CHANGELOG.md`
+- [ ] [docs] Fix SUC ID collisions (ISS-034) — blocked: must be renumbered in Notion first
+- [x] [F0] Pin Python 3.12; `scripts/test.sh`; fix 2 core tests importing infra; replace hand-written S3 fake with moto; untrack `usfds-agent/.env` (ISS-024, ISS-013)
+- [x] [F1] Shared test fixtures + `conftest.py`; server tests without global mutation; `InlineJobQueue` (ISS-025)
+- [x] [F2] Alembic baseline + stamp existing DBs; PG-compat guards G1–G3 (ISS-020)
+- [x] [F3] Split `models.py` / `repositories.py` / `dependencies.py` by domain (ISS-026)
+- [x] [F4] Auth seam `get_current_user()` + central permission map
+- [x] [F5] Web: vitest + MSW harness; unify ports (ISS-029)
+- [ ] [F5] `client.ts` throws (ISS-028) — assessed, deferred to task C4 (61 call sites / 20 files)
+- [x] [verify] `./scripts/test.sh` green without Docker
+
 # 12-11-2026 — Support Light Mode in `usfds-web` — plan: `.plan/light_mode_support.md`
 - [x] [docs] Update `docs/design-system.md` with Light Mode Semantic Tokens (`[26-11-12]`)
 - [x] [fe] Configure RGB CSS variable tokens for `dark.*`, `slate.*`, and status text shades (`300`/`400`) in `usfds-web/src/index.css` and `usfds-web/tailwind.config.js`

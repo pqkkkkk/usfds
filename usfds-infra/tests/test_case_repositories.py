@@ -73,6 +73,8 @@ def test_case_source_migration_preserves_data_and_blocks_legacy_data_loss(tmp_pa
 		assert len(SqliteAuditRepository(session).list_for_entity(project_id, "CASE", str(case.case_id))) == 1
 		assert SqliteBlacklistRepository(session).list_by_project(project_id)[0].source_case_id == case.case_id
 	with engine.begin() as connection:
+		# Simulate a pre-Alembic database again: legacy fix-ups only run when there is no alembic_version table.
+		connection.exec_driver_sql("DROP TABLE alembic_version")
 		connection.exec_driver_sql("CREATE TABLE investigation_cases (case_id TEXT)")
 		connection.exec_driver_sql("INSERT INTO investigation_cases VALUES ('preserve-me')")
 	with pytest.raises(RuntimeError, match="contains data"):

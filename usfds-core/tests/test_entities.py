@@ -18,7 +18,8 @@ from usfds_core.domain.entities import (
     Project,
     RiskLevel,
     Rule,
-    RuleType,
+    RuleStatus,
+    # RuleType,  # DEPRECATED: RuleType removed from domain entities (rule engine redesign)
     RunDataset,
     TrainingRun,
     TrainingRunStatus,
@@ -42,7 +43,7 @@ class TestDomainEnums(unittest.TestCase):
         self.assertEqual(ValidationStatus.PASSED, "PASSED")
         self.assertEqual(DataClassification.CONFIDENTIAL, "CONFIDENTIAL")
         self.assertEqual(RiskLevel.HIGH, "HIGH")
-        self.assertEqual(RuleType.THRESHOLD, "THRESHOLD")
+        # self.assertEqual(RuleType.THRESHOLD, "THRESHOLD")  # DEPRECATED: RuleType removed
         self.assertEqual(TrainingRunStatus.COMPLETED, "COMPLETED")
         self.assertEqual(ModelVersionStatus.APPROVED, "APPROVED")
         self.assertEqual(DeploymentStatus.RUNNING, "RUNNING")
@@ -217,15 +218,14 @@ class TestDetectionEntities(unittest.TestCase):
         project_id = uuid4()
         rule = Rule(
             project_id=project_id,
-            rule_name="High Amount Cross Border Tx",
-            rule_type=RuleType.THRESHOLD,
-            rule_condition={"amount_gt": 10000, "is_cross_border": True},
-            is_active=True,
+            rule_code="R-HIGH-AMOUNT",
+            name="High Amount Cross Border Tx",
+            description="Amount above threshold on cross-border transactions",
         )
         self.assertTrue(is_dataclass(rule))
-        self.assertEqual(rule.rule_type, RuleType.THRESHOLD)
-        self.assertTrue(rule.is_active)
-        self.assertEqual(rule.rule_condition["amount_gt"], 10000)
+        self.assertEqual(rule.project_id, project_id)
+        self.assertEqual(rule.status, RuleStatus.ACTIVE)
+        self.assertIsNone(rule.current_version_id)
 
 
 class TestEntitySerialization(unittest.TestCase):

@@ -5,7 +5,7 @@ const fs = require('fs');
 
 class BackendManager {
   constructor(options = {}) {
-    this.port = options.port || 8000;
+    this.port = options.port || 8200;
     this.host = options.host || '127.0.0.1';
     this.healthUrl = `http://${this.host}:${this.port}/health`;
     this.serverDir = options.serverDir || path.resolve(__dirname, '../../usfds-server');

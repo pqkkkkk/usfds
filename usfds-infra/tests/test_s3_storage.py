@@ -1,61 +1,69 @@
 import unittest
 
+from moto import mock_aws
+
 from usfds_infra.storage.s3_storage import S3FileStorage
 
 
-class _FakeClientError(Exception):
-	def __init__(self, response, operation_name):
-		super().__init__(operation_name)
-		self.response = response
+# DEPRECATED: hand-written _FakeClientError / _FakeS3Client drifted from S3FileStorage (ISS-024);
+# replaced by moto, which emulates the real boto3 S3 API in-process (no network, no Docker).
+# class _FakeClientError(Exception):
+# 	def __init__(self, response, operation_name):
+# 		super().__init__(operation_name)
+# 		self.response = response
+#
+#
+#
+# class _FakeS3Client:
+# 	"""Minimal in-memory stand-in for a boto3 S3 client (no network, no Docker)."""
+#
+# 	def __init__(self):
+# 		self.objects = {}
+#
+# 	def head_bucket(self, Bucket):
+# 		return {}
+#
+# 	def put_object(self, Bucket, Key, Body):
+# 		self.objects[Key] = Body
+#
+# 	def get_object(self, Bucket, Key):
+# 		if Key not in self.objects:
+# 			raise _FakeClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
+# 		body = self.objects[Key]
+# 		return {"Body": type("B", (), {"read": lambda self_: body})()}
+#
+# 	def head_object(self, Bucket, Key):
+# 		if Key not in self.objects:
+# 			raise _FakeClientError({"Error": {"Code": "404"}}, "HeadObject")
+# 		return {"ContentLength": len(self.objects[Key])}
+#
+# 	def delete_object(self, Bucket, Key):
+# 		self.objects.pop(Key, None)
+#
+# 	def copy_object(self, Bucket, CopySource, Key):
+# 		self.objects[Key] = self.objects[CopySource["Key"]]
+#
+# 	def generate_presigned_url(self, ClientMethod, Params, ExpiresIn):
+# 		return f"http://localhost:9000/{Params['Bucket']}/{Params['Key']}?method={ClientMethod}&exp={ExpiresIn}"
+#
+# 	def get_paginator(self, name):
+# 		objects = self.objects
+#
+# 		class _Paginator:
+# 			def paginate(self_, Bucket, Prefix):
+# 				return [{"Contents": [{"Key": k} for k in objects if k.startswith(Prefix)]}]
+#
+# 		return _Paginator()
 
 
-
-class _FakeS3Client:
-	"""Minimal in-memory stand-in for a boto3 S3 client (no network, no Docker)."""
-
-	def __init__(self):
-		self.objects = {}
-
-	def head_bucket(self, Bucket):
-		return {}
-
-	def put_object(self, Bucket, Key, Body):
-		self.objects[Key] = Body
-
-	def get_object(self, Bucket, Key):
-		if Key not in self.objects:
-			raise _FakeClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
-		body = self.objects[Key]
-		return {"Body": type("B", (), {"read": lambda self_: body})()}
-
-	def head_object(self, Bucket, Key):
-		if Key not in self.objects:
-			raise _FakeClientError({"Error": {"Code": "404"}}, "HeadObject")
-		return {"ContentLength": len(self.objects[Key])}
-
-	def delete_object(self, Bucket, Key):
-		self.objects.pop(Key, None)
-
-	def copy_object(self, Bucket, CopySource, Key):
-		self.objects[Key] = self.objects[CopySource["Key"]]
-
-	def generate_presigned_url(self, ClientMethod, Params, ExpiresIn):
-		return f"http://localhost:9000/{Params['Bucket']}/{Params['Key']}?method={ClientMethod}&exp={ExpiresIn}"
-
-	def get_paginator(self, name):
-		objects = self.objects
-
-		class _Paginator:
-			def paginate(self_, Bucket, Prefix):
-				return [{"Contents": [{"Key": k} for k in objects if k.startswith(Prefix)]}]
-
-		return _Paginator()
 
 
 class TestS3FileStorage(unittest.TestCase):
 	def setUp(self):
-		self.client = _FakeS3Client()
-		self.storage = S3FileStorage(bucket="usfds", client=self.client)
+		self._mock = mock_aws()
+		self._mock.start()
+		self.addCleanup(self._mock.stop)
+		self.storage = S3FileStorage(bucket="usfds", access_key="test", secret_key="test", region="us-east-1")
 
 	def test_round_trip_returns_key_and_missing_raises(self):
 		key = self.storage.save_bytes("/models/m1/run1/model.joblib", b"abc")
@@ -83,12 +91,12 @@ class TestS3FileStorage(unittest.TestCase):
 		self.assertEqual(self.storage.read_bytes(copied_key), b"a,b\n1,2\n")
 
 		put_url = self.storage.generate_presigned_upload_url("uploads/test.csv", content_type="text/csv", expires_in=600)
-		self.assertIn("http://localhost:9000/usfds/uploads/test.csv", put_url)
-		self.assertIn("method=put_object", put_url)
+		self.assertIn("/usfds/uploads/test.csv?", put_url)
+		self.assertIn("X-Amz-Expires=600", put_url)
 
 		get_url = self.storage.generate_presigned_download_url(copied_key, filename="export.csv", expires_in=600)
-		self.assertIn("http://localhost:9000/usfds/datasets/d1/raw/raw.csv", get_url)
-		self.assertIn("method=get_object", get_url)
+		self.assertIn("/usfds/datasets/d1/raw/raw.csv?", get_url)
+		self.assertIn("export.csv", get_url)
 
 
 if __name__ == "__main__":

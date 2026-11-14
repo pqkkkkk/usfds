@@ -15,27 +15,29 @@ from usfds_core.services.training.plugins.register import package_directory_to_z
 from usfds_server import dependencies
 from usfds_server.api import app
 from usfds_server.config import settings
+from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetRepository
 
 
-@pytest.fixture(autouse=True)
-def temporary_environment():
-    temp_dir = tempfile.mkdtemp(prefix="usfds_training_api_test_")
-    db_file = os.path.join(temp_dir, "test.db")
-    storage_path = os.path.join(temp_dir, "storage")
-
-    settings.db_path = db_file
-    settings.storage_dir = storage_path
-    dependencies._engine = None
-    dependencies._session_factory = None
-    dependencies._storage = None
-
-    yield temp_dir
-
-    dependencies.teardown_infrastructure()
-    dependencies._session_factory = None
-    dependencies._storage = None
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir, ignore_errors=True)
+# DEPRECATED [26-11-14]: replaced by the autouse `server_settings` fixture in tests/conftest.py (ISS-025).
+# @pytest.fixture(autouse=True)
+# def temporary_environment():
+#     temp_dir = tempfile.mkdtemp(prefix="usfds_training_api_test_")
+#     db_file = os.path.join(temp_dir, "test.db")
+#     storage_path = os.path.join(temp_dir, "storage")
+#
+#     settings.db_path = db_file
+#     settings.storage_dir = storage_path
+#     dependencies._engine = None
+#     dependencies._session_factory = None
+#     dependencies._storage = None
+#
+#     yield temp_dir
+#
+#     dependencies.teardown_infrastructure()
+#     dependencies._session_factory = None
+#     dependencies._storage = None
+#     if os.path.exists(temp_dir):
+#         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def _seed_feature_engineered_artifact(storage_dir: str) -> str:
@@ -43,8 +45,8 @@ def _seed_feature_engineered_artifact(storage_dir: str) -> str:
     assert dependencies._session_factory is not None
     session = dependencies._session_factory()
     try:
-        ds_repo = dependencies.SqliteDatasetRepository(session)
-        art_repo = dependencies.SqliteDatasetArtifactRepository(session)
+        ds_repo = SqliteDatasetRepository(session)
+        art_repo = SqliteDatasetArtifactRepository(session)
         storage = dependencies.get_storage()
 
         rng = np.random.default_rng(42)
@@ -94,7 +96,7 @@ def _seed_feature_engineered_artifact(storage_dir: str) -> str:
         session.close()
 
 
-def test_training_router_builtin_and_plugin_models_lifecycle(temporary_environment):
+def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
     repo_root = Path(__file__).resolve().parent.parent.parent
     lr_plugin_dir = repo_root / "custom-models" / "logistic_regression"
 

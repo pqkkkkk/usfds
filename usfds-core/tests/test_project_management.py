@@ -29,7 +29,7 @@ from usfds_core.services.project_management import (
 from usfds_core.services.rule_engine.executor import RuleExecutor
 from usfds_core.services.rule_engine.manager import RuleManager
 from usfds_core.domain.schemas.rule_schemas import RuleExecutionContext
-from usfds_infra.storage.local_storage import LocalFileStorage
+from usfds_core.storage.in_memory_storage import InMemoryFileStorage
 
 
 class TestProjectManagementAndSchemaGovernance(unittest.TestCase):
@@ -37,7 +37,7 @@ class TestProjectManagementAndSchemaGovernance(unittest.TestCase):
 
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp(prefix="usfds_proj_test_")
-        self.storage = LocalFileStorage(base_dir=self.temp_dir)
+        self.storage = InMemoryFileStorage()
         self.project_repo = InMemoryProjectRepository()
         self.dataset_repo = InMemoryDatasetRepository()
         self.artifact_repo = InMemoryDatasetArtifactRepository()
