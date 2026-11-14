@@ -2,6 +2,14 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-14 — ISS-005: Vietnamese UI copy in usfds-web
+Plan: `.plan/ui_vietnamese_localization.md` · Board: `.plan/BOARD.md`
+
+- User-visible copy in `usfds-web` (layout, data management, project, detection, investigation, reports, model, rule) is Vietnamese. Hard-to-translate terms use `Vietnamese (English)`; only `Precision` does so for now. `Artifact` and acronyms stay English.
+- Formatters: numbers use `vi-VN`; the missing-date placeholder is `Không có`.
+- Tests added for sidebar, topbar, formatters, dataset hub, project management, pipeline labels, detection hub, PoliciesView headers, model hub and rule catalog. `./scripts/test.sh web`: 10 files, 16 tests passed.
+- Not done: `docs/issues/` status for ISS-005 (needs approval for `docs/` edits).
+
 ## 2026-11-14 — Phase 0: Foundation for parallel AI agents
 Plan: `.plan/parallel_agent_setup.md` · Board: `.plan/BOARD.md`
 

@@ -23,6 +23,7 @@
 | Task (plan file) | Issues | Status | Milestone | Depends on | Owned files |
 |---|---|---|---|---|---|
 | [`user_management_rbac`](user_management_rbac.md) | ISS-006 | Planning (plan drafted before 26-11-14; re-check against the new template) | — | Phase 0 | per plan §3 |
+| [`ui_vietnamese_localization`](ui_vietnamese_localization.md) | ISS-005 | Done (26-11-14) | M5 | — | `usfds-web/src/**` (copy only) |
 
 ## Backlog
 Every issue without a task: see [`docs/issues/README.md`](../docs/issues/README.md) (rows whose *Plan / Task* column is `—`).
