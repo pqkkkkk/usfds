@@ -88,3 +88,5 @@ venv/
 .vscode/
 # USFDS deployment secrets
 deploy/.env
+
+.DS_Store
