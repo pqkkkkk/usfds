@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from usfds_core.domain.entities.enums import (
     DetectionJobStatus,
     ProjectStatus,
+    RoleScope,
     TrainingRunStatus,
 )
 from usfds_core.domain.entities.system import Project
@@ -12,6 +13,7 @@ from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactR
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
 from usfds_core.repositories.base_detection_job_repo import IDetectionJobRepository
 from usfds_core.repositories.base_project_repo import IProjectRepository
+from usfds_core.repositories.base_rbac_repo import IProjectMemberRepository, IRoleRepository
 from usfds_core.repositories.base_rule_repo import IRuleRepository
 from usfds_core.repositories.base_training_run_repo import ITrainingRunRepository
 from usfds_core.repositories.in_memory_repos import InMemoryProjectRepository
@@ -32,6 +34,8 @@ class ProjectManagementService:
         training_run_repo: Optional[ITrainingRunRepository] = None,
         detection_job_repo: Optional[IDetectionJobRepository] = None,
         file_storage: Optional[IFileStorage] = None,
+        member_repo: Optional[IProjectMemberRepository] = None,
+        role_repo: Optional[IRoleRepository] = None,
     ) -> None:
         self.project_repo = project_repo or InMemoryProjectRepository()
         self.dataset_repo = dataset_repo
@@ -40,6 +44,8 @@ class ProjectManagementService:
         self.training_run_repo = training_run_repo
         self.detection_job_repo = detection_job_repo
         self.file_storage = file_storage
+        self.member_repo = member_repo
+        self.role_repo = role_repo
 
     def _compute_project_stats(self, project_id: UUID) -> Dict[str, int]:
         datasets_count = (
@@ -124,7 +130,12 @@ class ProjectManagementService:
             created_at=now,
             updated_at=now,
         )
-        return self.project_repo.save(project)
+        saved = self.project_repo.save(project)
+        if self.member_repo is not None and self.role_repo is not None:
+            proj_admin_role = self.role_repo.get_by_scope_and_name(RoleScope.PROJECT, "project_admin")
+            if proj_admin_role is not None:
+                self.member_repo.add_member(saved.project_id, effective_user_id, proj_admin_role.role_id, added_by=effective_user_id)
+        return saved
 
     def get_project(self, project_id: Union[UUID, str]) -> Project:
         """Retrieves a Project by ID or raises LookupError if not found."""

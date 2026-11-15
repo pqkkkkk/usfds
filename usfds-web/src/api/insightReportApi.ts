@@ -40,7 +40,7 @@ export const insightReportApi = {
 	getPatterns: (projectId: string, scope?: ReportScopeFilter) =>
 		unwrap(apiClient.get<TypologiesPatternsData>('/v1/reports/patterns', toScopeParams(projectId, scope))),
 
-	getSarDossier: (projectId: string, caseId: string, preparedBy = 'local-analyst', reviewerNotes = '') =>
+	getSarDossier: (projectId: string, caseId: string, preparedBy = '', reviewerNotes = '') =>
 		unwrap(
 			apiClient.get<SarDossierData>(`/v1/reports/sar/${caseId}`, {
 				project_id: projectId,
@@ -49,7 +49,7 @@ export const insightReportApi = {
 			})
 		),
 
-	getExecutiveSummary: (projectId: string, scope?: ReportScopeFilter, preparedBy = 'local-analyst', reviewerNotes = '') =>
+	getExecutiveSummary: (projectId: string, scope?: ReportScopeFilter, preparedBy = '', reviewerNotes = '') =>
 		unwrap(
 			apiClient.get<ExecutiveAuditReportData>('/v1/reports/executive-summary', {
 				...toScopeParams(projectId, scope),

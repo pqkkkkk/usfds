@@ -4,9 +4,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
+from usfds_core.domain.entities.auth import ActorContext
+from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.insight_report.service import InsightReportService
 from usfds_core.storage.base_storage import IFileStorage
-from usfds_server.dependencies import get_insight_report_service, get_storage
+from usfds_server.dependencies import get_actor_context, get_authz_service, get_insight_report_service, get_storage
 from usfds_server.schemas.base_response import ApiResponse
 
 router = APIRouter(prefix="/api/v1/reports", tags=["Insight & Report"])
@@ -138,15 +140,18 @@ def get_typology_and_patterns(
 def get_sar_dossier(
 	case_id: UUID,
 	project_id: UUID = Query(..., description="Active Project ID"),
-	prepared_by: str = Query("local-analyst", description="Name/ID of report preparer"),
+	prepared_by: Optional[str] = Query(None, description="Name/ID of report preparer"),
 	reviewer_notes: str = Query("", description="Optional compliance reviewer notes"),
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	service: InsightReportService = Depends(get_insight_report_service),
 ) -> ApiResponse[dict[str, Any]]:
+	authz.require_project_permission(actor, "report:create", project_id, action="create")
 	try:
 		data = service.generate_sar_dossier(
 			project_id=project_id,
 			case_id=case_id,
-			prepared_by=prepared_by,
+			prepared_by=prepared_by or actor.username,
 			reviewer_notes=reviewer_notes,
 		)
 		return ApiResponse.ok(data=data, message="SAR Dossier generated successfully")
@@ -167,10 +172,13 @@ def get_executive_audit_report(
 	label_source: Literal["VERIFIED_ONLY", "VERIFIED_WITH_DATASET_FALLBACK"] = Query(
 		"VERIFIED_WITH_DATASET_FALLBACK",
 	),
-	prepared_by: str = Query("local-analyst", description="Name/ID of report preparer"),
+	prepared_by: Optional[str] = Query(None, description="Name/ID of report preparer"),
 	reviewer_notes: str = Query("", description="Optional compliance reviewer notes"),
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	service: InsightReportService = Depends(get_insight_report_service),
 ) -> ApiResponse[dict[str, Any]]:
+	authz.require_project_permission(actor, "report:create", project_id, action="create")
 	try:
 		parsed_jobs = _parse_job_ids(job_ids)
 		data = service.generate_executive_audit_report(
@@ -179,7 +187,7 @@ def get_executive_audit_report(
 			date_from=date_from,
 			date_to=date_to,
 			label_source=label_source,
-			prepared_by=prepared_by,
+			prepared_by=prepared_by or actor.username,
 			reviewer_notes=reviewer_notes,
 		)
 		return ApiResponse.ok(data=data, message="Executive Audit Report generated successfully")
@@ -202,12 +210,15 @@ def export_compliance_report(
 	label_source: Literal["VERIFIED_ONLY", "VERIFIED_WITH_DATASET_FALLBACK"] = Query(
 		"VERIFIED_WITH_DATASET_FALLBACK",
 	),
-	prepared_by: str = Query("local-analyst"),
+	prepared_by: Optional[str] = Query(None),
 	reviewer_notes: str = Query(""),
 	presigned: bool = Query(False, description="Return a presigned download URL when backed by S3"),
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	service: InsightReportService = Depends(get_insight_report_service),
 	storage: IFileStorage = Depends(get_storage),
 ) -> Any:
+	authz.require_project_permission(actor, "report:export", project_id)
 	try:
 		parsed_jobs = _parse_job_ids(job_ids)
 		file_bytes, filename, media_type = service.export_report(
@@ -219,7 +230,7 @@ def export_compliance_report(
 			date_from=date_from,
 			date_to=date_to,
 			label_source=label_source,
-			prepared_by=prepared_by,
+			prepared_by=prepared_by or actor.username,
 			reviewer_notes=reviewer_notes,
 		)
 		if presigned:

@@ -8,16 +8,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
+from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.domain.entities.case import Case, CaseStatus, EntityBlacklist
 from usfds_core.domain.entities.enums import RiskLevel, RuleAction
 from usfds_core.repositories.base_case_repo import CaseConflictError
+from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.investigation.behavior_profile import build_behavior_profile, build_rule_draft
 from usfds_core.services.investigation.case_service import BlacklistService, CaseService, rule_feedback
 from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetRepository, SqliteDetectionJobRepository, SqliteProjectRepository
 from usfds_core.services.inference.executor import prepare_and_validate_input
 from usfds_infra.database.case_repositories import SqliteAuditRepository, SqliteBlacklistRepository, SqliteCaseRepository
 from usfds_infra.storage.local_storage import LocalFileStorage
-from usfds_server.dependencies import get_db, get_storage
+from usfds_server.dependencies import get_actor_context, get_authz_service, get_db, get_storage
 from usfds_server.schemas.base_response import ApiResponse
 from usfds_server.schemas.investigation_api_schemas import (
 	AddBlacklistRequest, CaseActionRequest, CaseIntakeRequest, CaseResponse,
@@ -29,8 +31,8 @@ router = APIRouter(prefix="/api/v1/cases", tags=["Investigation"])
 blacklist_router = APIRouter(prefix="/api/v1/blacklist", tags=["Blacklist"])
 
 
-def get_actor() -> str:
-	return "local-analyst"
+def get_actor(actor: ActorContext = Depends(get_actor_context)) -> str:
+	return actor.username
 
 
 def _service(session: Session) -> CaseService:
@@ -134,7 +136,11 @@ def list_cases(project_id: UUID, status: CaseStatus | None = None, priority: Ris
 		q: str = "", user_id: str | None = None, assigned_to: str | None = None, unassigned: bool = False,
 		rule_code: str | None = None, min_score: float | None = Query(None, ge=0, le=1), max_score: float | None = Query(None, ge=0, le=1),
 		min_amount: float | None = Query(None, ge=0), max_amount: float | None = Query(None, ge=0),
-		sort: Literal["priority", "amount", "created"] = "priority", page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200), session: Session = Depends(get_db)):
+		sort: Literal["priority", "amount", "created"] = "priority", page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200),
+		session: Session = Depends(get_db),
+		actor: ActorContext = Depends(get_actor_context),
+		authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor, "case:read", project_id)
 	_project(session, project_id)
 	if min_score is not None and max_score is not None and min_score > max_score or min_amount is not None and max_amount is not None and min_amount > max_amount:
 		raise HTTPException(400, "Filter range is inverted")
@@ -191,10 +197,11 @@ def draft(case_id: UUID, project_id: UUID, session: Session = Depends(get_db)):
 
 
 @router.post("/{case_id}/notes", response_model=ApiResponse[bool])
-def add_note(case_id: UUID, project_id: UUID, request: NoteRequest, session: Session = Depends(get_db), actor: str = Depends(get_actor)):
+def add_note(case_id: UUID, project_id: UUID, request: NoteRequest, session: Session = Depends(get_db), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor_ctx, "case:manual_review", project_id, action="mutate")
 	_project(session, project_id, True)
 	try:
-		_service(session).add_note(project_id, case_id, actor, request.note)
+		_service(session).add_note(project_id, case_id, actor_ctx.username, request.note)
 		return ApiResponse.ok(True)
 	except (ValueError, LookupError) as error:
 		_error(error)
@@ -238,29 +245,32 @@ def resolve(case_id: UUID, project_id: UUID, request: ResolveCaseRequest, sessio
 
 
 @blacklist_router.get("", response_model=ApiResponse[list[dict]])
-def list_blacklist(project_id: UUID, session: Session = Depends(get_db)):
+def list_blacklist(project_id: UUID, session: Session = Depends(get_db), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor_ctx, "case:read", project_id)
 	_project(session, project_id)
 	return ApiResponse.ok(jsonable_encoder([asdict(entry) for entry in SqliteBlacklistRepository(session).list_by_project(project_id)]))
 
 
 @blacklist_router.post("", status_code=201, response_model=ApiResponse[dict])
-def add_blacklist(request: AddBlacklistRequest, session: Session = Depends(get_db), actor: str = Depends(get_actor)):
+def add_blacklist(request: AddBlacklistRequest, session: Session = Depends(get_db), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor_ctx, "blacklist:manage", request.project_id, action="mutate")
 	_project(session, request.project_id, True)
 	try:
 		if request.source_case_id:
 			_service(session).get(request.project_id, request.source_case_id)
 		entry = BlacklistService(SqliteBlacklistRepository(session), SqliteAuditRepository(session)).add(EntityBlacklist(
-			request.project_id, request.entity_type, request.entity_value, request.reason, actor, source_case_id=request.source_case_id))
+			request.project_id, request.entity_type, request.entity_value, request.reason, actor_ctx.username, source_case_id=request.source_case_id))
 		return ApiResponse.ok(jsonable_encoder(asdict(entry)), status_code=201)
 	except (ValueError, LookupError) as error:
 		_error(error)
 
 
 @blacklist_router.post("/{blacklist_id}/remove", response_model=ApiResponse[dict])
-def remove_blacklist(blacklist_id: UUID, project_id: UUID, request: RemoveBlacklistRequest, session: Session = Depends(get_db), actor: str = Depends(get_actor)):
+def remove_blacklist(blacklist_id: UUID, project_id: UUID, request: RemoveBlacklistRequest, session: Session = Depends(get_db), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor_ctx, "blacklist:manage", project_id, action="mutate")
 	_project(session, project_id, True)
 	try:
-		entry = BlacklistService(SqliteBlacklistRepository(session), SqliteAuditRepository(session)).remove(project_id, blacklist_id, actor, request.reason)
+		entry = BlacklistService(SqliteBlacklistRepository(session), SqliteAuditRepository(session)).remove(project_id, blacklist_id, actor_ctx.username, request.reason)
 		return ApiResponse.ok(jsonable_encoder(asdict(entry)))
 	except (ValueError, LookupError) as error:
 		_error(error)

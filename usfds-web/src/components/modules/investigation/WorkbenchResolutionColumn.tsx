@@ -199,7 +199,7 @@ export function DecisionAndAuditColumn({
 					</div>
 				) : (
 					<div className="space-y-3.5">
-						{item.assigned_to !== 'local-analyst' && (
+						{!item.assigned_to && (
 							<button
 								type="button"
 								className={`${BUTTON_SECONDARY_CLASS} w-full`}

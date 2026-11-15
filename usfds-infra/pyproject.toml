@@ -19,6 +19,8 @@ psycopg = {version = "^3.2", extras = ["binary"]}
 boto3 = "^1.35"
 bullmq = {version = "^3.5", extras = ["postgres"]}
 alembic = "^1.14"
+pyjwt = "^2.15.1"
+bcrypt = "^5.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

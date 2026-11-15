@@ -24,6 +24,7 @@ import {
 import { useProject } from '../../../hooks/useProjects';
 import { useTheme } from '../../../hooks/useTheme';
 import type { ProjectResponse, ProjectStatus } from '../../../types/project';
+import { UserAccountMenu } from '../../layout/UserAccountMenu';
 import { ProjectFormModal } from './ProjectFormModal';
 import { ProjectSchemaDrawer } from './ProjectSchemaDrawer';
 
@@ -175,6 +176,7 @@ export const ProjectManagementView: React.FC = () => {
 						<Plus className="w-4 h-4" />
 						<span>Dự án mới</span>
 					</button>
+					<UserAccountMenu />
 				</div>
 			</header>
 

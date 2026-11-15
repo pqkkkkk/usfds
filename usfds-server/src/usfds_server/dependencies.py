@@ -115,6 +115,15 @@ def setup_infrastructure() -> tuple[Engine, IFileStorage]:
     _session_factory = create_session_factory(_engine)
     init_db(_engine)
     seed_builtin_models(_session_factory)
+    from usfds_infra.database.seed_rbac import seed_rbac
+    from usfds_infra.security import PasswordHasher
+    with _session_factory() as session:
+        seed_rbac(
+            session,
+            bootstrap_username=settings.bootstrap_admin_username,
+            bootstrap_password_hash=PasswordHasher().hash(settings.bootstrap_admin_password),
+        )
+        session.commit()
 
     # 2. Setup file storage (local filesystem or S3-compatible)
     _storage = _build_storage()
@@ -184,6 +193,13 @@ from usfds_server.providers.rule import get_rule_executor, get_rule_manager  # n
 from usfds_server.providers.training import get_training_service  # noqa: E402
 from usfds_server.providers.detection import get_inference_service  # noqa: E402
 from usfds_server.providers.insight import get_insight_report_service  # noqa: E402
+from usfds_server.providers.auth import (  # noqa: E402
+	get_actor_context,
+	get_auth_service,
+	get_authz_service,
+	get_current_user,
+	require_system_permission,
+)
 
 __all__ = [
 	"setup_infrastructure",

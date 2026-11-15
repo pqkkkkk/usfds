@@ -14,6 +14,7 @@ import {
 	Unlock,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
+import { UserAccountMenu } from './UserAccountMenu';
 import type { ProjectResponse } from '../../types/project';
 
 interface TopbarProps {
@@ -260,16 +261,7 @@ export const Topbar = ({
 					<span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-brand-500"></span>
 				</button>
 
-				{/* User profile avatar */}
-				<div className="flex items-center gap-2 pl-2 border-l border-dark-700/80">
-					<div className="w-7 h-7 rounded-full bg-gradient-to-tr from-brand-600 to-emerald-500 flex items-center justify-center text-xs font-bold text-white shadow-sm ring-1 ring-white/10">
-						DS
-					</div>
-					<div className="hidden xl:flex flex-col text-left">
-						<span className="text-xs font-medium text-slate-200 leading-tight">Nhà khoa học dữ liệu</span>
-						<span className="text-[10px] text-slate-400">Chuyên viên phân tích & Kỹ sư ML</span>
-					</div>
-				</div>
+				<UserAccountMenu />
 			</div>
 		</header>
 	);

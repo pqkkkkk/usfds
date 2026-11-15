@@ -6,13 +6,15 @@ from typing import Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
+from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
 from usfds_core.domain.schemas.model_plugin import ModelPluginManifest
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
+from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.training.training_service import TrainingOrchestrationService
 from usfds_infra.job_queue import JOB_PLUGIN_DRY_RUN, QUEUE_TRAINING
 from usfds_server.config import settings
-from usfds_server.dependencies import get_job_queue, get_training_service
+from usfds_server.dependencies import get_actor_context, get_authz_service, get_job_queue, get_training_service
 from usfds_server.schemas.base_response import ApiResponse
 from usfds_server.schemas.training_api_schemas import (
     ActivateModelVersionRequest,
@@ -155,8 +157,14 @@ def _parse_multipart_upload(
 )
 def register_plugged_model(
     request: RegisterPluggedModelRequest,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelResponse]:
+    if request.project_id is not None:
+        authz.require_project_permission(actor, "model:create", request.project_id, action="create")
+    else:
+        authz.require_system_permission(actor, "model_builtin:manage")
     try:
         zip_bytes: Optional[bytes] = None
         if request.zip_base64:
@@ -171,7 +179,7 @@ def register_plugged_model(
                 JOB_PLUGIN_DRY_RUN,
                 {
                     "model_artifact_path": request.model_artifact_path,
-                    "user_id": request.user_id or "mock_user",
+                    "user_id": str(actor.user_id),
                     "project_id": str(request.project_id) if request.project_id else None,
                     "manifest_override": (
                         request.manifest_override.model_dump(mode="json")
@@ -186,7 +194,7 @@ def register_plugged_model(
         else:
             model = service.register_plugged_model(
                 model_artifact_path=request.model_artifact_path,
-                user_id=request.user_id or "mock_user",
+                user_id=str(actor.user_id),
                 project_id=request.project_id,
                 manifest_override=request.manifest_override,
                 zip_bytes=zip_bytes,
@@ -210,6 +218,8 @@ def register_plugged_model(
 )
 async def upload_and_register_plugged_model(
     request: Request,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelResponse]:
     try:
@@ -241,6 +251,10 @@ async def upload_and_register_plugged_model(
         parsed_project_id: Optional[UUID] = (
             UUID(project_id_str.strip()) if project_id_str and project_id_str.strip() else None
         )
+        if parsed_project_id is not None:
+            authz.require_project_permission(actor, "model:create", parsed_project_id, action="create")
+        else:
+            authz.require_system_permission(actor, "model_builtin:manage")
         parsed_manifest: Optional[ModelPluginManifest] = None
         if manifest_json_str and manifest_json_str.strip():
             raw_manifest = json.loads(manifest_json_str)
@@ -252,7 +266,7 @@ async def upload_and_register_plugged_model(
                 JOB_PLUGIN_DRY_RUN,
                 {
                     "zip_base64": base64.b64encode(zip_bytes).decode("ascii"),
-                    "user_id": user_id_str or "mock_user",
+                    "user_id": str(actor.user_id),
                     "project_id": str(parsed_project_id) if parsed_project_id else None,
                     "manifest_override": (
                         parsed_manifest.model_dump(mode="json")
@@ -266,7 +280,7 @@ async def upload_and_register_plugged_model(
         else:
             model = service.register_plugged_model(
                 zip_bytes=zip_bytes,
-                user_id=user_id_str or "mock_user",
+                user_id=str(actor.user_id),
                 project_id=parsed_project_id,
                 manifest_override=parsed_manifest,
             )

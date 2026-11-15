@@ -6,11 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 import pandas as pd
 from sqlalchemy.orm import Session
 
+from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.domain.entities.detection import DetectionJob
+from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.inference.inference_service import InferenceService
 from usfds_core.storage.base_storage import IFileStorage
 from usfds_infra.storage.local_storage import LocalFileStorage
-from usfds_server.dependencies import get_db, get_storage, get_inference_service
+from usfds_server.dependencies import get_actor_context, get_authz_service, get_db, get_storage, get_inference_service
 from usfds_server.routers.investigation_router import _project, _source_frame, get_actor, ingest_request
 from usfds_server.schemas.investigation_api_schemas import CaseIntakeRequest, TransactionSnapshot
 from usfds_server.schemas.base_response import ApiResponse
@@ -65,8 +67,11 @@ def _to_job_response(job: DetectionJob) -> DetectionJobResponse:
 def list_detection_jobs(
 	project_id: UUID = Query(..., description="Project ID to query detection jobs for"),
 	job_status: Optional[str] = Query(None, alias="status", description="Optional status filter"),
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	service: InferenceService = Depends(get_inference_service),
 ) -> ApiResponse[List[DetectionJobResponse]]:
+	authz.require_project_permission(actor, "detection:read", project_id)
 	jobs = service.list_detection_jobs(project_id=project_id, status=job_status)
 	return ApiResponse.ok(
 		data=[_to_job_response(j) for j in jobs],
@@ -82,8 +87,11 @@ def list_detection_jobs(
 )
 def start_detection_job(
 	request: StartDetectionJobRequest,
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	service: InferenceService = Depends(get_inference_service),
 ) -> ApiResponse[DetectionJobResponse]:
+	authz.require_project_permission(actor, "detection:create", request.project_id, action="create")
 	try:
 		job = service.start_detection_job(
 			project_id=request.project_id,
@@ -93,7 +101,7 @@ def start_detection_job(
 			use_rules=request.use_rules,
 			score_threshold=request.score_threshold,
 			job_name=request.job_name,
-			user_name=request.created_by,
+			user_name=actor.username,
 		)
 		return ApiResponse.ok(
 			data=_to_job_response(job),

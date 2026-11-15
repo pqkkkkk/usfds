@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { render } from '@testing-library/react';
 import type { RenderOptions } from '@testing-library/react';
+import { AuthProvider } from '@/hooks/useAuth';
 import { ProjectProvider } from '@/hooks/useProjects';
 import { ThemeProvider } from '@/hooks/useTheme';
 
@@ -30,7 +31,9 @@ export function renderWithProviders(
 			<QueryClientProvider client={queryClient}>
 				<MemoryRouter initialEntries={initialEntries}>
 					<ThemeProvider>
-						<ProjectProvider>{children}</ProjectProvider>
+						<AuthProvider>
+							<ProjectProvider>{children}</ProjectProvider>
+						</AuthProvider>
 					</ThemeProvider>
 				</MemoryRouter>
 			</QueryClientProvider>

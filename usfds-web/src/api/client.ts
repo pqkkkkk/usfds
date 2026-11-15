@@ -22,8 +22,12 @@ const getBaseUrl = (): string => {
 
 const DEFAULT_BASE_URL = getBaseUrl();
 
+export const ACCESS_TOKEN_KEY = 'usfds_access_token';
+export const REFRESH_TOKEN_KEY = 'usfds_refresh_token';
+
 class ApiClient {
   private instance: AxiosInstance;
+  private refreshPromise: Promise<string | null> | null = null;
 
   constructor(baseURL: string = DEFAULT_BASE_URL) {
     this.instance = axios.create({
@@ -35,20 +39,38 @@ class ApiClient {
       },
     });
 
-    // Request Interceptor (đính kèm auth header hoặc trace ID nếu có)
+    // Request Interceptor (đính kèm Bearer token nếu có)
     this.instance.interceptors.request.use(
       (config) => {
-        // Ví dụ: const token = localStorage.getItem('token');
-        // if (token) config.headers.Authorization = `Bearer ${token}`;
+        const token = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null;
+        if (token && config.headers) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
         return config;
       },
       (error) => Promise.reject(error)
     );
 
-    // Response Interceptor (chuẩn hóa response & error)
+    // Response Interceptor (single-flight 401 refresh + chuẩn hóa error)
     this.instance.interceptors.response.use(
       (response: AxiosResponse) => response,
-      (error: AxiosError<any>) => {
+      async (error: AxiosError<any>) => {
+        const originalRequest = error.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined;
+        const reqUrl = originalRequest?.url || '';
+        const isAuthEndpoint = reqUrl.includes('/auth/login') || reqUrl.includes('/auth/refresh');
+
+        if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
+          originalRequest._retry = true;
+          const newToken = await this.refreshAccessToken();
+          if (newToken) {
+            originalRequest.headers = {
+              ...(originalRequest.headers || {}),
+              Authorization: `Bearer ${newToken}`,
+            };
+            return this.instance.request(originalRequest);
+          }
+        }
+
         const errorMsg =
           error.response?.data?.detail ||
           error.response?.data?.error ||
@@ -59,6 +81,38 @@ class ApiClient {
         return Promise.reject(new Error(errorMsg));
       }
     );
+  }
+
+  private async refreshAccessToken(): Promise<string | null> {
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem(REFRESH_TOKEN_KEY) : null;
+    if (!refreshToken) {
+      return null;
+    }
+    this.refreshPromise = (async () => {
+      try {
+        const resp = await this.instance.post<any>('/v1/auth/refresh', { refresh_token: refreshToken });
+        const payload = resp.data?.data ?? resp.data;
+        if (payload?.access_token && payload?.refresh_token) {
+          localStorage.setItem(ACCESS_TOKEN_KEY, payload.access_token);
+          localStorage.setItem(REFRESH_TOKEN_KEY, payload.refresh_token);
+          return payload.access_token as string;
+        }
+        return null;
+      } catch {
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('usfds:auth-expired'));
+        }
+        return null;
+      } finally {
+        this.refreshPromise = null;
+      }
+    })();
+    return this.refreshPromise;
   }
 
   public async get<T = any>(url: string, params?: Record<string, any>, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {

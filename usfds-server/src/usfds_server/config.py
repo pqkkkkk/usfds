@@ -63,5 +63,35 @@ class Settings(BaseModel):
         description="Port number to bind to",
     )
 
+    # Authentication & RBAC
+    auth_mode: str = Field(
+        default_factory=lambda: os.getenv("USFDS_AUTH_MODE", "local_auto").lower(),
+        description="'local_auto' (desktop auto-login) or 'required' (JWT bearer auth)",
+    )
+    jwt_secret: str = Field(
+        default_factory=lambda: os.getenv("USFDS_JWT_SECRET", "dev-insecure-usfds-jwt-secret-change-in-prod"),
+        description="Secret key for HS256 JWT signing",
+    )
+    access_token_expire_minutes: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_ACCESS_TOKEN_EXPIRE_MINUTES", "30")),
+        description="Access token lifetime in minutes",
+    )
+    refresh_token_expire_days: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_REFRESH_TOKEN_EXPIRE_DAYS", "7")),
+        description="Refresh token lifetime in days",
+    )
+    bootstrap_admin_username: str = Field(
+        default_factory=lambda: os.getenv("USFDS_BOOTSTRAP_ADMIN_USERNAME", "admin"),
+        description="Default bootstrap system_admin username",
+    )
+    bootstrap_admin_password: str = Field(
+        default_factory=lambda: os.getenv("USFDS_BOOTSTRAP_ADMIN_PASSWORD", "admin123"),
+        description="Default bootstrap system_admin password",
+    )
+    cors_origins: str = Field(
+        default_factory=lambda: os.getenv("USFDS_CORS_ORIGINS", "*"),
+        description="Comma-separated allowed CORS origins or '*'",
+    )
+
 
 settings = Settings()

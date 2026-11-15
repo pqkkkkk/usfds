@@ -141,3 +141,28 @@ class LogicalDataType(StrEnum):
     STRING = "STRING"
     BOOLEAN = "BOOLEAN"
     DATETIME = "DATETIME"
+
+
+class UserStatus(StrEnum):
+    """Lifecycle status of a user account."""
+    ACTIVE = "ACTIVE"
+    DISABLED = "DISABLED"
+
+
+class RoleScope(StrEnum):
+    """Scope level where a role can be assigned."""
+    SYSTEM = "SYSTEM"
+    PROJECT = "PROJECT"
+
+
+class GrantScope(StrEnum):
+    """Effective permission grant scope."""
+    OWN = "OWN"
+    PROJECT = "PROJECT"
+    SYSTEM = "SYSTEM"
+
+
+class AuthMode(StrEnum):
+    """Authentication enforcement mode."""
+    LOCAL_AUTO = "local_auto"
+    REQUIRED = "required"

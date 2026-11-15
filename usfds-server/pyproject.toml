@@ -20,6 +20,7 @@ uvicorn = "^0.30.0"
 # Development dependencies
 usfds-core = {path = "../usfds-core", develop = true}
 usfds-infra = {path = "../usfds-infra", develop = true}
+python-dotenv = ">=1.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
