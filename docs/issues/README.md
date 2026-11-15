@@ -33,7 +33,7 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 |---|---|---|---|---|---|---|---|
 | ISS-001 | Model artifact format is implicit (training ↔ inference) | bug | training, inference | P1 | Open | — | [11-01](11-01-2026.md) |
 | ISS-002 | In-use rules can still be deleted | bug | rule-engine | P1 | Open | — | [11-01](11-01-2026.md) |
-| ISS-003 | In-use datasets can still be deleted | bug | data-management | P1 | Open | — | [11-01](11-01-2026.md) |
+| ISS-003 | In-use datasets can still be deleted | bug | data-management | P1 | Resolved (26-11-15) | [quick_bugfix_and_cors_hardening](../../.plan/quick_bugfix_and_cors_hardening.md) | [11-01](11-01-2026.md) |
 | ISS-004 | Double transfer via `uploads/` staging (presigned URL) | improvement | storage | P3 | Open | — | [11-11](11-11-2026.md) |
 | ISS-005 | Mixed Vietnamese/English in usfds-web | improvement | web | P2 | Resolved (26-11-14) | — <!-- [26-11-14] --> | [11-13](11-13-2026.md) |
 | ISS-006 | No user management / authentication / RBAC | feature | auth | **P0** | Resolved (26-11-15) | [user_management_rbac](../../.plan/user_management_rbac.md) | [11-13](11-13-2026.md) |
@@ -44,10 +44,10 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-011 | Training jobs cannot be stopped | feature | training, worker | P2 | Needs spec | — | [11-13](11-13-2026.md) |
 | ISS-012 | Large-data analytics in API process with pandas | improvement | insight-report, inference | P2 | Open | — | [11-13](11-13-2026.md) |
 | ISS-013 | Third-party API key committed to git | security | agent, devex | **P0** | Resolved (26-11-15) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
-| ISS-014 | CORS `*` with credentials | security | server | P1 | Open | — | [11-14](11-14-2026.md) |
+| ISS-014 | CORS `*` with credentials | security | server | P1 | Resolved (26-11-15) | [quick_bugfix_and_cors_hardening](../../.plan/quick_bugfix_and_cors_hardening.md) | [11-14](11-14-2026.md) |
 | ISS-015 | Server reads arbitrary client-supplied file paths | security | server, worker | P1 | Resolved (26-11-15) | [presigned_upload_and_file_io_guard](../../.plan/presigned_upload_and_file_io_guard.md) <!-- [26-11-15] --> | [11-14](11-14-2026.md) |
 | ISS-016 | Plugin upload has no size limit | security | server, training | P2 | Open | — | [11-14](11-14-2026.md) |
-| ISS-017 | `delete_dataset` never deletes artifact files | bug | data-management | P1 | Open | — | [11-14](11-14-2026.md) |
+| ISS-017 | `delete_dataset` never deletes artifact files | bug | data-management | P1 | Resolved (26-11-15) | [quick_bugfix_and_cors_hardening](../../.plan/quick_bugfix_and_cors_hardening.md) | [11-14](11-14-2026.md) |
 | ISS-018 | Case filter by rule code only works on SQLite | bug | investigation, infra | P1 | Open | — | [11-14](11-14-2026.md) |
 | ISS-019 | Async plugin upload blocks event loop | bug | server | P1 | Open | — | [11-14](11-14-2026.md) |
 | ISS-020 | No schema migrations (create_all only) | bug | infra | **P0** | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
@@ -65,7 +65,7 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-032 | Web data fetching/typing inconsistent | tech-debt | web | P3 | Open | — | [11-14](11-14-2026.md) |
 | ISS-033 | `usfds-agent` not runnable | tech-debt | agent | P3 | Open | — | [11-14](11-14-2026.md) |
 | ISS-034 | Documentation inconsistencies (SUC IDs, links) | docs | docs | P2 | In progress | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
-| ISS-035 | Reading a model with `risk_level` raises NameError | bug | training, infra | P2 | Open | — | [11-14](11-14-2026.md) |
+| ISS-035 | Reading a model with `risk_level` raises NameError | bug | training, infra | P2 | Resolved (26-11-15) | [quick_bugfix_and_cors_hardening](../../.plan/quick_bugfix_and_cors_hardening.md) | [11-14](11-14-2026.md) |
 | ISS-036 | Dataset import & exports inconsistent across S3 presigned and Electron local modes | bug | web, storage, server | P1 | Resolved (26-11-15) | [presigned_upload_and_file_io_guard](../../.plan/presigned_upload_and_file_io_guard.md) <!-- [26-11-15] --> | [11-15](11-15-2026.md) |
 
 Older resolved bugs (pre-ISS numbering) are kept in [`docs/bugs.md`](../bugs.md).

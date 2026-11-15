@@ -4,7 +4,7 @@ from typing import Any, List, Optional, Union
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from usfds_core.domain.entities.enums import DatasetRole, ExecutionType, ModelVersionStatus, TrainingRunStatus
+from usfds_core.domain.entities.enums import DatasetRole, ExecutionType, ModelVersionStatus, RiskLevel, TrainingRunStatus
 from usfds_core.domain.entities.model import Model, ModelVersion, RunDataset, TrainingRun
 from usfds_core.repositories.base_model_repo import IModelRepository
 from usfds_core.repositories.base_model_version_repo import IModelVersionRepository
@@ -41,7 +41,6 @@ class SqliteModelRepository(IModelRepository):
             except ValueError:
                 exec_type = record.execution_type
 
-        # TODO: ISS-035 — RiskLevel is never imported; a record with risk_level raises NameError here.
         risk_val: Optional[Union[RiskLevel, str]] = None
         if record.risk_level:
             try:
@@ -416,6 +415,26 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
         stmt = (
             select(TrainingRunModel)
             .where(TrainingRunModel.model_id == str(model_id))
+            .order_by(TrainingRunModel.created_at.desc())
+        )
+        records = self.session.execute(stmt).scalars().all()
+        return [self._to_entity(r) for r in records]
+
+    def list_active_by_artifact_ids(self, artifact_ids: List[UUID]) -> List[TrainingRun]:
+        if not artifact_ids:
+            return []
+        str_ids = [str(aid) for aid in artifact_ids]
+        stmt = (
+            select(TrainingRunModel)
+            .join(RunDatasetModel, RunDatasetModel.run_id == TrainingRunModel.run_id)
+            .where(
+                RunDatasetModel.dataset_artifact_id.in_(str_ids),
+                TrainingRunModel.status.in_([
+                    TrainingRunStatus.PENDING.value,
+                    TrainingRunStatus.RUNNING.value,
+                ]),
+            )
+            .distinct()
             .order_by(TrainingRunModel.created_at.desc())
         )
         records = self.session.execute(stmt).scalars().all()

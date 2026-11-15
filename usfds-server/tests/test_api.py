@@ -82,3 +82,27 @@ def test_presigned_storage_endpoints_with_s3_backend(monkeypatch):
         assert dl_data["filename"] == "custom.csv"
         assert "op=get_object" in dl_data["download_url"]
 
+
+def test_cors_allows_configured_origin_with_credentials(client):
+	"""ISS-014: Default local dev origin is allowed with credentials."""
+	res = client.get("/health", headers={"Origin": "http://localhost:5173"})
+	assert res.status_code == 200
+	assert res.headers.get("access-control-allow-origin") == "http://localhost:5173"
+	assert res.headers.get("access-control-allow-credentials") == "true"
+
+
+def test_cors_rejects_unlisted_origin(client):
+	"""ISS-014: Unlisted origin does not receive access-control-allow-origin."""
+	res = client.get("/health", headers={"Origin": "https://evil.example.com"})
+	assert res.status_code == 200
+	assert res.headers.get("access-control-allow-origin") is None
+
+
+def test_cors_wildcard_disables_credentials():
+	"""ISS-014: Wildcard '*' origin disables allow_credentials."""
+	from usfds_server.api import build_cors_options
+
+	origins, allow_credentials = build_cors_options("*")
+	assert origins == ["*"]
+	assert allow_credentials is False
+

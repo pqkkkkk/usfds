@@ -316,3 +316,195 @@ def test_local_storage_mode_imports_from_external_local_filesystem_path(tmp_path
         assert res.status_code == 201, res.text
         data = res.json()["data"]
         assert data["artifacts"][0]["storage_path"].startswith("datasets/")
+
+
+def test_delete_dataset_removes_artifact_files_from_storage(client, server_session_factory, server_settings):
+	"""ISS-017: Deleting a dataset removes artifact files stored outside datasets/{dataset_id}/ as well."""
+	from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
+	from usfds_core.domain.entities.enums import DataClassification, PipelineStage
+	from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetRepository, session_scope
+
+	dataset_id = uuid4()
+	artifact_id = uuid4()
+	external_rel_path = f"custom_artifacts/{artifact_id}/mapped.parquet"
+	full_file = Path(server_settings.storage_dir) / external_rel_path
+	full_file.parent.mkdir(parents=True, exist_ok=True)
+	full_file.write_bytes(b"parquet-bytes")
+
+	with session_scope(server_session_factory) as session:
+		SqliteDatasetRepository(session).save(
+			Dataset(
+				dataset_id=dataset_id,
+				project_id=uuid4(),
+				user_id=uuid4(),
+				dataset_name="ds_cleanup",
+				data_classification=DataClassification.INTERNAL,
+			)
+		)
+		SqliteDatasetArtifactRepository(session).save(
+			DatasetArtifact(
+				artifact_id=artifact_id,
+				dataset_id=dataset_id,
+				pipeline_stage=PipelineStage.MAPPED,
+				storage_path=external_rel_path,
+			)
+		)
+
+	res = client.delete(f"/api/v1/datasets/{dataset_id}")
+	assert res.status_code == 200, res.text
+	assert not full_file.exists()
+
+
+def test_delete_dataset_used_by_active_training_run_returns_409(client, server_session_factory, server_settings):
+	"""ISS-003: Deleting a dataset linked to a RUNNING TrainingRun returns 409 Conflict."""
+	from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
+	from usfds_core.domain.entities.enums import ExecutionType, PipelineStage, TrainingRunStatus
+	from usfds_core.domain.entities.model import Model, TrainingRun
+	from usfds_infra.database import (
+		SqliteDatasetArtifactRepository,
+		SqliteDatasetRepository,
+		SqliteModelRepository,
+		SqliteTrainingRunRepository,
+		session_scope,
+	)
+
+	project_id = uuid4()
+	user_id = uuid4()
+	dataset_id = uuid4()
+	artifact_id = uuid4()
+	rel_path = f"datasets/{dataset_id}/raw/data.csv"
+	full_file = Path(server_settings.storage_dir) / rel_path
+	full_file.parent.mkdir(parents=True, exist_ok=True)
+	full_file.write_text("a,b\n1,2\n", encoding="utf-8")
+
+	with session_scope(server_session_factory) as session:
+		SqliteDatasetRepository(session).save(
+			Dataset(dataset_id=dataset_id, project_id=project_id, user_id=user_id, dataset_name="ds_in_train")
+		)
+		SqliteDatasetArtifactRepository(session).save(
+			DatasetArtifact(
+				artifact_id=artifact_id,
+				dataset_id=dataset_id,
+				pipeline_stage=PipelineStage.RAW,
+				storage_path=rel_path,
+			)
+		)
+		model = SqliteModelRepository(session).save(
+			Model(project_id=project_id, user_id=user_id, model_name="m1", execution_type=ExecutionType.BUILTIN)
+		)
+		run = SqliteTrainingRunRepository(session).save(
+			TrainingRun(
+				project_id=project_id,
+				model_id=model.model_id,
+				run_name="active_run",
+				status=TrainingRunStatus.RUNNING,
+			)
+		)
+		SqliteTrainingRunRepository(session).link_dataset(run.run_id, artifact_id)
+
+	res = client.delete(f"/api/v1/datasets/{dataset_id}")
+	assert res.status_code == 409, res.text
+	assert full_file.exists()
+
+
+def test_delete_dataset_used_by_active_detection_job_returns_409(client, server_session_factory, server_settings):
+	"""ISS-003: Deleting a dataset targeted by a PENDING DetectionJob returns 409 Conflict."""
+	from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
+	from usfds_core.domain.entities.detection import DetectionJob
+	from usfds_core.domain.entities.enums import DetectionJobStatus, PipelineStage
+	from usfds_infra.database import (
+		SqliteDatasetArtifactRepository,
+		SqliteDatasetRepository,
+		SqliteDetectionJobRepository,
+		session_scope,
+	)
+
+	project_id = uuid4()
+	dataset_id = uuid4()
+	artifact_id = uuid4()
+	rel_path = f"datasets/{dataset_id}/raw/data.csv"
+	full_file = Path(server_settings.storage_dir) / rel_path
+	full_file.parent.mkdir(parents=True, exist_ok=True)
+	full_file.write_text("a,b\n1,2\n", encoding="utf-8")
+
+	with session_scope(server_session_factory) as session:
+		SqliteDatasetRepository(session).save(
+			Dataset(dataset_id=dataset_id, project_id=project_id, user_id=uuid4(), dataset_name="ds_in_detect")
+		)
+		SqliteDatasetArtifactRepository(session).save(
+			DatasetArtifact(
+				artifact_id=artifact_id,
+				dataset_id=dataset_id,
+				pipeline_stage=PipelineStage.RAW,
+				storage_path=rel_path,
+			)
+		)
+		SqliteDetectionJobRepository(session).save(
+			DetectionJob(
+				project_id=project_id,
+				target_artifact_id=artifact_id,
+				input_path=rel_path,
+				status=DetectionJobStatus.PENDING,
+			)
+		)
+
+	res = client.delete(f"/api/v1/datasets/{dataset_id}")
+	assert res.status_code == 409, res.text
+	assert full_file.exists()
+
+
+def test_delete_dataset_with_completed_jobs_succeeds(client, server_session_factory):
+	"""ISS-003: Deleting a dataset whose TrainingRun and DetectionJob are COMPLETED succeeds."""
+	from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
+	from usfds_core.domain.entities.detection import DetectionJob
+	from usfds_core.domain.entities.enums import DetectionJobStatus, ExecutionType, PipelineStage, TrainingRunStatus
+	from usfds_core.domain.entities.model import Model, TrainingRun
+	from usfds_infra.database import (
+		SqliteDatasetArtifactRepository,
+		SqliteDatasetRepository,
+		SqliteDetectionJobRepository,
+		SqliteModelRepository,
+		SqliteTrainingRunRepository,
+		session_scope,
+	)
+
+	project_id = uuid4()
+	user_id = uuid4()
+	dataset_id = uuid4()
+	artifact_id = uuid4()
+
+	with session_scope(server_session_factory) as session:
+		SqliteDatasetRepository(session).save(
+			Dataset(dataset_id=dataset_id, project_id=project_id, user_id=user_id, dataset_name="ds_completed")
+		)
+		SqliteDatasetArtifactRepository(session).save(
+			DatasetArtifact(
+				artifact_id=artifact_id,
+				dataset_id=dataset_id,
+				pipeline_stage=PipelineStage.RAW,
+				storage_path=f"datasets/{dataset_id}/raw/data.csv",
+			)
+		)
+		model = SqliteModelRepository(session).save(
+			Model(project_id=project_id, user_id=user_id, model_name="m2", execution_type=ExecutionType.BUILTIN)
+		)
+		run = SqliteTrainingRunRepository(session).save(
+			TrainingRun(
+				project_id=project_id,
+				model_id=model.model_id,
+				run_name="completed_run",
+				status=TrainingRunStatus.COMPLETED,
+			)
+		)
+		SqliteTrainingRunRepository(session).link_dataset(run.run_id, artifact_id)
+		SqliteDetectionJobRepository(session).save(
+			DetectionJob(
+				project_id=project_id,
+				target_artifact_id=artifact_id,
+				input_path="datasets/x/raw/data.csv",
+				status=DetectionJobStatus.COMPLETED,
+			)
+		)
+
+	res = client.delete(f"/api/v1/datasets/{dataset_id}")
+	assert res.status_code == 200, res.text

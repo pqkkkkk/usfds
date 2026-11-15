@@ -81,6 +81,17 @@ class InMemoryTrainingRunRepository(ITrainingRunRepository):
     def list_by_model(self, model_id: UUID) -> List[TrainingRun]:
         return [r for r in self._runs.values() if r.model_id == model_id]
 
+    def list_active_by_artifact_ids(self, artifact_ids: List[UUID]) -> List[TrainingRun]:
+        if not artifact_ids:
+            return []
+        target_ids = set(artifact_ids)
+        linked_run_ids = {l.run_id for l in self._links if l.dataset_artifact_id in target_ids}
+        return [
+            r for r in self._runs.values()
+            if r.run_id in linked_run_ids
+            and (r.status.value if hasattr(r.status, "value") else str(r.status)) in ("PENDING", "RUNNING")
+        ]
+
 
 class InMemoryModelVersionRepository(IModelVersionRepository):
     """In-memory store for model versions."""
@@ -329,6 +340,16 @@ class InMemoryDetectionJobRepository(IDetectionJobRepository):
 
     def list_by_project(self, project_id: UUID) -> List[DetectionJob]:
         return [j for j in self._jobs.values() if j.project_id == project_id]
+
+    def list_active_by_target_artifact_ids(self, artifact_ids: List[UUID]) -> List[DetectionJob]:
+        if not artifact_ids:
+            return []
+        target_ids = set(artifact_ids)
+        return [
+            j for j in self._jobs.values()
+            if j.target_artifact_id in target_ids
+            and (j.status.value if hasattr(j.status, "value") else str(j.status)) in ("PENDING", "RUNNING")
+        ]
 
 
 class InMemoryRuleRepository(IRuleRepository):

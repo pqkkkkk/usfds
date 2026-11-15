@@ -229,6 +229,10 @@ def delete_dataset(
         service.delete_dataset(dataset_id)
         return ApiResponse.ok(data=None, message="Dataset deleted successfully")
     except ValueError as e:
+        from usfds_core.services.data_management.service import DatasetInUseError
+
+        if isinstance(e, DatasetInUseError):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 

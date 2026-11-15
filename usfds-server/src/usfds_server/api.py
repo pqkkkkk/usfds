@@ -54,11 +54,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+def build_cors_options(cors_origins: str) -> tuple[list[str], bool]:
+    """Parse comma-separated CORS origins; disable credentials when wildcard '*' is used (ISS-014)."""
+    origins = [origin.strip() for origin in (cors_origins or "").split(",") if origin.strip()]
+    if not origins or "*" in origins:
+        return ["*"], False
+    return origins, True
+
+
+_cors_origins, _cors_allow_credentials = build_cors_options(settings.cors_origins)
+
 # Enable CORS for desktop and web clients
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

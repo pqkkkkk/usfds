@@ -89,7 +89,10 @@ class Settings(BaseModel):
         description="Default bootstrap system_admin password",
     )
     cors_origins: str = Field(
-        default_factory=lambda: os.getenv("USFDS_CORS_ORIGINS", "*"),
+        default_factory=lambda: os.getenv(
+            "USFDS_CORS_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8200,http://127.0.0.1:8200",
+        ),
         description="Comma-separated allowed CORS origins or '*'",
     )
 

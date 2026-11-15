@@ -12,7 +12,9 @@ from usfds_core.domain.schemas.preprocessing_config import (
 )
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
+from usfds_core.repositories.base_detection_job_repo import IDetectionJobRepository
 from usfds_core.repositories.base_project_repo import IProjectRepository
+from usfds_core.repositories.base_training_run_repo import ITrainingRunRepository
 from usfds_core.services.data_management.export import DatasetExportService
 from usfds_core.services.data_management.ingestion import DatasetIngestionService
 from usfds_core.services.data_management.lineage import DataLineageService, LineageGraph
@@ -24,6 +26,10 @@ from usfds_core.services.preprocessing.feature_engineering_service import (
 )
 from usfds_core.services.project_management.project_service import ProjectManagementService
 from usfds_core.storage.base_storage import IFileStorage
+
+
+class DatasetInUseError(ValueError):
+    """Raised when attempting to delete a dataset currently referenced by active runs or jobs."""
 
 
 class DataManagementService:
@@ -40,6 +46,8 @@ class DataManagementService:
         file_storage: IFileStorage,
         project_repo: Optional[IProjectRepository] = None,
         project_service: Optional[ProjectManagementService] = None,
+        training_run_repo: Optional[ITrainingRunRepository] = None,
+        detection_job_repo: Optional[IDetectionJobRepository] = None,
         ingestion_service: Optional[DatasetIngestionService] = None,
         profiling_service: Optional[DataProfilingService] = None,
         mapping_service: Optional[DataMappingService] = None,
@@ -53,6 +61,8 @@ class DataManagementService:
         self.file_storage = file_storage
         self.project_repo = project_repo
         self.project_service = project_service
+        self.training_run_repo = training_run_repo
+        self.detection_job_repo = detection_job_repo
 
         self.profiling_service = profiling_service or DataProfilingService()
         self.validation_service = validation_service or DataQualityValidationService()
@@ -114,24 +124,42 @@ class DataManagementService:
         if not dataset:
             raise ValueError(f"Dataset '{dataset_id}' không tồn tại.")
 
-        # 1. Clean up individual artifact files from storage
-        try:
-            artifacts = self.artifact_repo.get_by_dataset_id(dataset_id)
-            for artifact in artifacts:
-                paths_to_delete = set()
-                if artifact.storage_path:
-                    paths_to_delete.add(artifact.storage_path)
-                if artifact.output_paths:
-                    for p in artifact.output_paths.values():
-                        if isinstance(p, str):
-                            paths_to_delete.add(p)
-                for path in paths_to_delete:
-                    try:
-                        self.file_storage.delete(path)
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+        artifacts = self.artifact_repo.list_by_dataset(dataset_id)
+        artifact_ids = [a.artifact_id for a in artifacts]
+
+        # Guard against deleting datasets currently in use by active workloads (ISS-003)
+        if artifact_ids:
+            if self.training_run_repo is not None:
+                active_runs = self.training_run_repo.list_active_by_artifact_ids(artifact_ids)
+                if active_runs:
+                    raise DatasetInUseError(
+                        f"Không thể xóa dataset '{dataset_id}' vì đang được sử dụng bởi "
+                        f"{len(active_runs)} tiến trình huấn luyện (TrainingRun) ở trạng thái PENDING/RUNNING."
+                    )
+            if self.detection_job_repo is not None:
+                active_jobs = self.detection_job_repo.list_active_by_target_artifact_ids(artifact_ids)
+                if active_jobs:
+                    raise DatasetInUseError(
+                        f"Không thể xóa dataset '{dataset_id}' vì đang được sử dụng bởi "
+                        f"{len(active_jobs)} tác vụ phát hiện (DetectionJob) ở trạng thái PENDING/RUNNING."
+                    )
+
+        # 1. Clean up individual artifact files from storage (ISS-017)
+        for artifact in artifacts:
+            paths_to_delete = set()
+            if artifact.storage_path:
+                paths_to_delete.add(artifact.storage_path)
+            if artifact.output_paths:
+                for p in artifact.output_paths.values():
+                    if isinstance(p, str):
+                        paths_to_delete.add(p)
+            for path in paths_to_delete:
+                try:
+                    self.file_storage.delete(path)
+                except FileNotFoundError:
+                    pass
+                except Exception:
+                    pass
 
         # 2. Also clean up dataset storage directory in storage
         try:

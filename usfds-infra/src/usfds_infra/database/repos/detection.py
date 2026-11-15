@@ -147,3 +147,21 @@ class SqliteDetectionJobRepository(IDetectionJobRepository):
         records = self.session.execute(stmt).scalars().all()
         return [self._to_entity(r) for r in records]
 
+    def list_active_by_target_artifact_ids(self, artifact_ids: List[UUID]) -> List[DetectionJob]:
+        if not artifact_ids:
+            return []
+        str_ids = [str(aid) for aid in artifact_ids]
+        stmt = (
+            select(DetectionJobModel)
+            .where(
+                DetectionJobModel.target_artifact_id.in_(str_ids),
+                DetectionJobModel.status.in_([
+                    DetectionJobStatus.PENDING.value,
+                    DetectionJobStatus.RUNNING.value,
+                ]),
+            )
+            .order_by(DetectionJobModel.created_at.desc())
+        )
+        records = self.session.execute(stmt).scalars().all()
+        return [self._to_entity(r) for r in records]
+

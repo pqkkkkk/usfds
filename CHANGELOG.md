@@ -2,6 +2,14 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-15 — ISS-035, ISS-014, ISS-017 & ISS-003: Quick Bugfix & CORS Hardening
+Plan: `.plan/quick_bugfix_and_cors_hardening.md` · Board: `.plan/BOARD.md`
+
+- Infra (`SqliteModelRepository`): imported `RiskLevel` in `repos/model.py` so reading models with non-null `risk_level` no longer raises `NameError` (`ISS-035`).
+- Core & Infra (`DataManagementService.delete_dataset`): fixed `artifact_repo.list_by_dataset` call and removed the outer `except Exception: pass` so artifact files are deleted from storage (`ISS-017`); added `list_active_by_artifact_ids` (`ITrainingRunRepository`) and `list_active_by_target_artifact_ids` (`IDetectionJobRepository`) to block deleting datasets referenced by `PENDING`/`RUNNING` runs or jobs (`DatasetInUseError` → `409 Conflict`, `ISS-003`).
+- Server (`api.py`, `config.py`): wired `settings.cors_origins` into `CORSMiddleware` via `build_cors_options`, changed default `USFDS_CORS_ORIGINS` to local dev origins, and disabled `allow_credentials` when wildcard `*` is configured (`ISS-014`).
+- Tests: `core` (`149 passed, 15 skipped`), `infra` (`35 passed, 1 xfailed`), `server` (`30 passed`).
+
 ## 2026-11-15 — ISS-015 & ISS-036: Presigned Upload/Export & `IFileStorage` File I/O Guard
 Plan: `.plan/presigned_upload_and_file_io_guard.md` · Board: `.plan/BOARD.md`
 

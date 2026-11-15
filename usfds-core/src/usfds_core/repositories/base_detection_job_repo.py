@@ -27,3 +27,8 @@ class IDetectionJobRepository(ABC):
     def list_by_project(self, project_id: UUID) -> List[DetectionJob]:
         """List all detection jobs associated with a project."""
         pass
+
+    @abstractmethod
+    def list_active_by_target_artifact_ids(self, artifact_ids: List[UUID]) -> List[DetectionJob]:
+        """List PENDING or RUNNING detection jobs targeting any of the given dataset artifact IDs."""
+        pass
