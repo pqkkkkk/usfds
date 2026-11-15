@@ -36,14 +36,14 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-003 | In-use datasets can still be deleted | bug | data-management | P1 | Open | — | [11-01](11-01-2026.md) |
 | ISS-004 | Double transfer via `uploads/` staging (presigned URL) | improvement | storage | P3 | Open | — | [11-11](11-11-2026.md) |
 | ISS-005 | Mixed Vietnamese/English in usfds-web | improvement | web | P2 | Resolved (26-11-14) | — <!-- [26-11-14] --> | [11-13](11-13-2026.md) |
-| ISS-006 | No user management / authentication / RBAC | feature | auth | **P0** | Planned | [user_management_rbac](../../.plan/user_management_rbac.md) | [11-13](11-13-2026.md) |
+| ISS-006 | No user management / authentication / RBAC | feature | auth | **P0** | Resolved (26-11-15) | [user_management_rbac](../../.plan/user_management_rbac.md) | [11-13](11-13-2026.md) |
 | ISS-007 | System metadata (system columns) not manageable | feature | data-management | P2 | Needs spec | — | [11-13](11-13-2026.md) |
 | ISS-008 | No lineage visualization for model versions | feature | training, web | P2 | Resolved (26-11-14) | [model_version_lineage](../../.plan/model_version_lineage.md) <!-- [26-11-14] --> | [11-13](11-13-2026.md) |
 | ISS-009 | Training only on local dedicated worker | feature | training, worker | P3 | Needs spec | — | [11-13](11-13-2026.md) |
 | ISS-010 | Model versioning has no semantics; duplicate versions possible | improvement | training | P2 | Needs spec | — | [11-13](11-13-2026.md) |
 | ISS-011 | Training jobs cannot be stopped | feature | training, worker | P2 | Needs spec | — | [11-13](11-13-2026.md) |
 | ISS-012 | Large-data analytics in API process with pandas | improvement | insight-report, inference | P2 | Open | — | [11-13](11-13-2026.md) |
-| ISS-013 | Third-party API key committed to git | security | agent, devex | **P0** | In progress (rotate key) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
+| ISS-013 | Third-party API key committed to git | security | agent, devex | **P0** | Resolved (26-11-15) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-014 | CORS `*` with credentials | security | server | P1 | Open | — | [11-14](11-14-2026.md) |
 | ISS-015 | Server reads arbitrary client-supplied file paths | security | server, worker | P1 | Open | — | [11-14](11-14-2026.md) |
 | ISS-016 | Plugin upload has no size limit | security | server, training | P2 | Open | — | [11-14](11-14-2026.md) |

@@ -1,7 +1,7 @@
 # Plan: User Management, Authentication & 3-Scope RBAC (`SYSTEM`, `PROJECT`, `OWN`)
 
 > **Task ID:** `user_management_rbac` (= this file name) · **Issues:** ISS-006 · **Spec:** Notion `TASK-88` (*Thiết kế chính sách kiểm soát truy cập cho FDS*), reference RBAC pattern from `src.zip` (`domain/access.ts`, `features/admin/rbac/rules.ts`)
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Draft
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Done (26-11-15)
 
 ## 1. Context (facts)
 - Hệ thống hiện tại chưa có authentication hay RBAC: `User` chỉ là dataclass tối giản không có `password_hash`/`status` (`usfds-core/src/usfds_core/domain/entities/system.py:10-15`), chưa có bảng `users` hay các bảng RBAC trong schema baseline (`usfds-infra/src/usfds_infra/database/migrations/versions/0001_baseline_baseline_schema.py`).

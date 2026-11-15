@@ -11,6 +11,6 @@
 | Task (plan file) | Issues | Status | Milestone | Depends on | Owned files |
 |---|---|---|---|---|---|
 | [`parallel_agent_setup`](parallel_agent_setup.md) | ISS-013, ISS-020, ISS-024, ISS-025, ISS-026, ISS-028, ISS-029, ISS-034 | Done (26-11-14) | F0–F6 | — | `scripts/test.sh`, `usfds-infra/src/usfds_infra/{database,testing}/**`, `usfds-server/src/usfds_server/providers/**`, `.claude/skills/**` |
-| [`user_management_rbac`](user_management_rbac.md) | ISS-006 | Planning (plan drafted before 26-11-14; re-check against the new template) | — | `parallel_agent_setup` | per plan §3 |
+| [`user_management_rbac`](user_management_rbac.md) | ISS-006 | Done (26-11-15) | — | `parallel_agent_setup` | per plan §3 |
 | [`ui_vietnamese_localization`](ui_vietnamese_localization.md) | ISS-005 | Done (26-11-14) | M5 | — | `usfds-web/src/**` (copy only) |
 | [`model_version_lineage`](model_version_lineage.md) | ISS-008 | Done (26-11-14) | M3 | — | `usfds-core/services/training/**`, `usfds-server/routers/training_router.py`, `usfds-web/src/components/modules/model/**` |

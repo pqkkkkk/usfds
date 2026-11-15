@@ -1,7 +1,7 @@
 # Plan: Vietnamese UI copy in usfds-web
 
 > **Task ID:** `ui_vietnamese_localization` (= this file name) · **Issues:** ISS-005 (one task, no split, user decision 26-11-14) · **Spec:** — (no copy spec; glossary in §2) · **Notion:** —
-> **Conflict verdict:** PARALLEL-SAFE (overlap with planned RBAC noted in §4) · **Status:** Approved (26-11-14) — milestones checkpoint-approved one by one
+> **Conflict verdict:** PARALLEL-SAFE (overlap with planned RBAC noted in §4) · **Status:** Done (26-11-15)
 
 ## 1. Context (facts)
 - No i18n layer. `usfds-web/package.json` has no i18n dependency; strings are hardcoded in JSX. Decision: no i18n library (user, 26-11-14).
