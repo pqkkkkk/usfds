@@ -30,6 +30,7 @@ export interface LineageRawNode {
   created_at: string;
   parent_id: string | null;
   name?: string;
+  label?: string;
   rows?: number;
   checksum?: string;
 }

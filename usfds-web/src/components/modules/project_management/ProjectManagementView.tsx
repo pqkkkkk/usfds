@@ -147,6 +147,15 @@ export const ProjectManagementView: React.FC = () => {
 				<div className="flex items-center gap-3">
 					<button
 						type="button"
+						onClick={() => navigate('/__docs')}
+						className="px-3 py-2 rounded-xl bg-dark-850 hover:bg-dark-800 border border-brand-500/30 text-brand-300 hover:text-brand-200 text-xs font-mono font-semibold transition flex items-center gap-1.5"
+						title="Mở bảng điều khiển Review Plan, Issues & Tài liệu"
+					>
+						<Terminal className="w-3.5 h-3.5 text-brand-400" />
+						<span>Tài liệu & Plan</span>
+					</button>
+					<button
+						type="button"
 						onClick={toggleTheme}
 						className="p-2 rounded-xl bg-dark-850 hover:bg-dark-800 border border-dark-700 text-slate-400 hover:text-slate-200 transition"
 						title={isLight ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'}

@@ -12,6 +12,7 @@ import {
 	ProjectSettingsPage,
 	LoginPage,
 	AdminUsersPage,
+	DocsDashboardPage,
 } from '@/pages';
 import { AuthProvider, ProjectProvider, ThemeProvider, useAuth, useProject } from '@/hooks';
 import { ProjectFormModal } from './components/modules/project_management/ProjectFormModal';
@@ -135,6 +136,9 @@ function AppRoutes() {
 			<Routes>
 				<Route path="/login" element={<LoginPage />} />
 				<Route path="/admin/users" element={<AdminUsersPage />} />
+				{/* Interactive Docs & Plan Review Dashboard */}
+				<Route path="/__docs/*" element={<DocsDashboardPage />} />
+				<Route path="/docs/*" element={<DocsDashboardPage />} />
 
 				{/* Standalone Project Management Portal (No Left Navigation Sidebar) */}
 				<Route path="/projects/*" element={<ProjectManagementPage />} />

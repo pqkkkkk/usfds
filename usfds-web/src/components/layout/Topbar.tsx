@@ -229,6 +229,13 @@ export const Topbar = ({
 
 			{/* System Status Indicator & Controls */}
 			<div className="flex items-center gap-3">
+				<a
+					href="/__docs"
+					className="px-2.5 py-1 rounded-md bg-dark-850 hover:bg-dark-800 border border-brand-500/30 text-brand-300 text-xs font-mono font-semibold transition hidden sm:inline-flex items-center gap-1.5"
+					title="Mở bảng điều khiển Review Plan, Issues & Tài liệu"
+				>
+					<span>Tài liệu & Plan</span>
+				</a>
 				<button
 					type="button"
 					onClick={onOpenOmnisearch}

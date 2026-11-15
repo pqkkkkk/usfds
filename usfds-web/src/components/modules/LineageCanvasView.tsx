@@ -2,7 +2,9 @@ import {
   Database, 
   FileSpreadsheet, 
   Sparkles, 
-  Clock 
+  Clock,
+  Cpu,
+  Layers
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import type { LineageCanvasNode } from '../../types/navigation';
@@ -45,6 +47,25 @@ export const LineageCanvasView = ({
           accent: '#10b981',
           icon: FileSpreadsheet
         };
+      case 'TRAINING_RUN':
+        return {
+          border: 'border-amber-500/40',
+          selectedBorder: 'border-amber-400 ring-2 ring-amber-500/30',
+          badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+          iconBg: 'bg-amber-500/10 text-amber-400',
+          accent: '#f59e0b',
+          icon: Cpu
+        };
+      case 'MODEL_VERSION':
+        return {
+          border: 'border-cyan-500/40',
+          selectedBorder: 'border-cyan-400 ring-2 ring-cyan-500/30',
+          badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+          iconBg: 'bg-cyan-500/10 text-cyan-400',
+          accent: '#06b6d4',
+          icon: Layers
+        };
+      case 'FEATURE_ENGINEERED':
       case 'PRE_PROCESSED':
       default:
         return {
@@ -184,10 +205,10 @@ export const LineageCanvasView = ({
                 </span>
               </div>
 
-              {/* Bottom row: Artifact ID + Timestamp */}
+              {/* Bottom row: Label or Artifact ID + Timestamp */}
               <div className="space-y-0.5">
                 <div className="text-xs font-mono font-medium text-slate-200 group-hover:text-slate-100 truncate">
-                  {node.id.slice(0, 14)}...
+                  {node.label || `${node.id.slice(0, 14)}...`}
                 </div>
                 <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono">
                   <Clock className="w-2.5 h-2.5" />
