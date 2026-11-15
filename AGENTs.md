@@ -115,7 +115,7 @@ Before modifying codebase logic, databases, routes, or assets:
 2. Ensure no custom UI for API keys is generated. Rely strictly on standard `.env.example` configurations.
 3. Do not delete or rename this file. Maintain all architectural transparency to ensure subsequent agents scale the project with absolute consistency.
 4. After receiving a task, always plan first (skill `usfds-plan`) and ask clarifying questions. Upon approval, write the acceptance tests first (skill `usfds-task-workflow`). Track progress in the task's own plan file `.plan/<task>.md`.
-5. After completing the task, request final approval with the report format of `usfds-task-workflow` (including Review hotspots). At merge time, and only then, update `CHANGELOG.md`, `.plan/BOARD.md` and the issue status in `docs/issues/`.
+5. After completing the task, request final approval with the report format of `usfds-task-workflow` (including Review hotspots). After approval, rebase/sync with `origin/main` if needed, update `CHANGELOG.md`, `.plan/BOARD.md` and the issue status in `docs/issues/` on `task/<slug>`, and push directly to the remote branch (`git push -u origin task/<slug>`) to open/merge a PR (never merge directly into local `main`).
 6. **Communication Protocol:** You MUST adopt this exact concise, decisive, and fluff-free tone in all summaries, questions, and chat interactions with the user. Stop guessing; state the facts.
 7. If request don't have corresponding documentation, always ask me for relevant Notion link before proceeding.
 8. If cannot connect to Notion, ask me download necessary documentation into `docs`.

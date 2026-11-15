@@ -74,7 +74,8 @@ Choose code where a wrong decision would still let the tests pass, or would corr
 
 Also copy the hotspots into plan §7.
 
-## 5. After user approval (merge time)
-Done by the merging agent or the user:
-- Rebase onto `main`; if there is an Alembic revision, update `down_revision` to the current head and re-run tests.
+## 5. After user approval (push & PR)
+Done by the agent on `task/<task_slug>` (never merge directly into local `main`):
+- Fetch and rebase onto `origin/main` if needed; if there is an Alembic revision, update `down_revision` to the current head and re-run `./scripts/test.sh`.
 - Update `CHANGELOG.md`, `.plan/BOARD.md`, and the ISS status in `docs/issues/` (both the dated file and `README.md`). Set the plan's status to `Done (YY-MM-DD)`.
+- Commit and push directly to the corresponding remote branch: `git push -u origin task/<task_slug>` (so the user can review and merge via PR).

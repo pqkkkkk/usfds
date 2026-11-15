@@ -93,7 +93,7 @@ Không có tool nào đảm bảo 100% nếu không chạy PG thật. Phương �
 2. **Test first:** viết acceptance test, chạy và xác nhận test đỏ.
 3. **Implement** đến khi `./scripts/test.sh <pkg>` xanh, gồm guard G1–G3.
 4. **Report:** kết quả test, file thay đổi, **Review hotspots** (2–5 điểm logic quan trọng nhất, dạng `path:line` kèm lý do), giả định, việc bỏ dở.
-5. **Merge:** user duyệt → merge → cập nhật `TODO.md`, `CHANGELOG.md`, `BOARD.md`, và trạng thái ISS.
+5. **Push & PR:** user duyệt → rebase lên `origin/main` (nếu cần), cập nhật `CHANGELOG.md`, `BOARD.md`, trạng thái ISS và plan `Done (YY-MM-DD)` → `git push -u origin task/<slug>` để mở/merge PR (không merge trực tiếp vào `main` local).
 
 ### 4.2 Tài nguyên
 | File | Nội dung |
@@ -110,9 +110,9 @@ Plan file chính là task card; không tạo thêm thư mục `.tasks/`.
 
 ### 4.3 Quy tắc song song
 - Mỗi agent dùng một git worktree + branch `task/<id>`.
-- **Alembic:** mỗi task một revision. Trước khi merge phải rebase `down_revision` lên head mới nhất; gate kiểm tra chỉ có 1 head.
+- **Alembic:** mỗi task một revision. Trước khi push/PR phải rebase `down_revision` lên head mới nhất của `origin/main`; gate kiểm tra chỉ có 1 head.
 - **Hot-spot file** (sau F3): chỉ append vào danh sách đăng ký; không reformat.
-- **TODO.md / CHANGELOG.md / BOARD.md:** agent không sửa trong branch. Chỉ cập nhật lúc merge (đã duyệt, khác quy tắc 4 cũ).
+- **TODO.md / CHANGELOG.md / BOARD.md:** agent không sửa `TODO.md`; chỉ cập nhật `CHANGELOG.md` và `BOARD.md` trên nhánh `task/<id>` sau khi user duyệt báo cáo để push lên remote chuẩn bị PR.
 
 ---
 
