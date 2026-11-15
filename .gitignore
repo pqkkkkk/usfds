@@ -92,3 +92,4 @@ deploy/.env
 usfds-web/.env
 usfds-server/.env
 usfds-agent/.env
+usfds-worker/.env

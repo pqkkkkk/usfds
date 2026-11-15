@@ -86,27 +86,18 @@ class DatasetIngestionService:
         data file, computes basic data profiling, and persists the RAW artifact.
         """
         path_str = str(file_path).strip()
-        local_p = Path(path_str)
-        is_local = local_p.is_file()
-
-        if is_local:
-            src_path = local_p.resolve()
-            ext = src_path.suffix.lower()
-            file_size = src_path.stat().st_size
-            src_name = src_path.name
-            src_stem = src_path.stem
-        elif self.file_storage.exists(path_str):
-            src_path = Path(path_str)
-            ext = src_path.suffix.lower()
-            file_size = (
-                self.file_storage.get_file_size(path_str)
-                if hasattr(self.file_storage, "get_file_size")
-                else len(self.file_storage.read_bytes(path_str))
-            )
-            src_name = src_path.name
-            src_stem = src_path.stem
-        else:
+        if not self.file_storage.exists(path_str):
             raise FileNotFoundError(f"Tệp nguồn không tồn tại trên hệ thống: '{file_path}'")
+
+        src_path = Path(path_str)
+        ext = src_path.suffix.lower()
+        file_size = (
+            self.file_storage.get_file_size(path_str)
+            if hasattr(self.file_storage, "get_file_size")
+            else len(self.file_storage.read_bytes(path_str))
+        )
+        src_name = src_path.name
+        src_stem = src_path.stem
 
         if ext not in self.ALLOWED_EXTENSIONS:
             raise ValueError(
@@ -161,21 +152,15 @@ class DatasetIngestionService:
 
         # 2. Copy/save file to storage
         storage_dest = f"datasets/{dataset_id}/raw/{src_name}"
-        if is_local:
-            if hasattr(self.file_storage, "save_file"):
-                self.file_storage.save_file(src_path, storage_dest)
-            else:
-                self.file_storage.save_bytes(storage_dest, src_path.read_bytes())
+        if hasattr(self.file_storage, "save_file"):
+            self.file_storage.save_file(path_str, storage_dest)
         else:
-            if hasattr(self.file_storage, "save_file"):
-                self.file_storage.save_file(path_str, storage_dest)
-            else:
-                self.file_storage.save_bytes(storage_dest, self.file_storage.read_bytes(path_str))
-            if path_str.replace("\\", "/").lstrip("/").startswith(("uploads/", "staging/")):
-                try:
-                    self.file_storage.delete(path_str)
-                except Exception:
-                    pass
+            self.file_storage.save_bytes(storage_dest, self.file_storage.read_bytes(path_str))
+        if path_str.replace("\\", "/").lstrip("/").startswith(("uploads/", "staging/")):
+            try:
+                self.file_storage.delete(path_str)
+            except Exception:
+                pass
 
         # 3. Read bytes & Parse DataFrame
         try:

@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Dict, List
 from usfds_core.storage.base_storage import IFileStorage
 
@@ -18,16 +19,19 @@ class InMemoryFileStorage(IFileStorage):
         return file_path
 
     def read_bytes(self, file_path: str) -> bytes:
-        """Reads bytes from the in-memory store. Raises FileNotFoundError if missing."""
+        """Reads bytes from the in-memory store (or local test file fallback). Raises FileNotFoundError if missing."""
         norm_path = self._normalize_path(file_path)
-        if norm_path not in self._storage:
-            raise FileNotFoundError(f"File '{file_path}' not found in in-memory storage.")
-        return self._storage[norm_path]
+        if norm_path in self._storage:
+            return self._storage[norm_path]
+        local_p = Path(file_path)
+        if local_p.is_file():
+            return local_p.read_bytes()
+        raise FileNotFoundError(f"File '{file_path}' not found in in-memory storage.")
 
     def exists(self, file_path: str) -> bool:
-        """Checks if the given file exists in memory."""
+        """Checks if the given file exists in memory (or local test file fallback)."""
         norm_path = self._normalize_path(file_path)
-        return norm_path in self._storage
+        return norm_path in self._storage or Path(file_path).is_file()
 
     def delete(self, file_path: str) -> bool:
         """Deletes a file from the in-memory storage if present."""

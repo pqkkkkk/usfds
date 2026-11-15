@@ -106,17 +106,21 @@ export const insightReportApi = {
 		preparedBy?: string;
 		reviewerNotes?: string;
 	}): Promise<void> => {
+		const reportType = params.template === 'SAR_DOSSIER' ? 'sar' : 'executive';
+		const queryParams = {
+			...toScopeParams(params.projectId, params.scope),
+			report_type: reportType,
+			file_format: params.format,
+			case_id: params.caseId,
+			prepared_by: params.preparedBy,
+			reviewer_notes: params.reviewerNotes,
+		};
 		const useS3Presigned = await storageApi.isS3StorageBackend();
-		if (useS3Presigned && params.format !== 'html') {
+		if (useS3Presigned) {
 			const res = await apiClient.get<PresignedDownloadUrlResponse>(
 				'/v1/reports/export',
 				{
-					...toScopeParams(params.projectId, params.scope),
-					report_type: params.template === 'SAR_DOSSIER' ? 'sar' : 'executive',
-					file_format: params.format,
-					case_id: params.caseId,
-					prepared_by: params.preparedBy,
-					reviewer_notes: params.reviewerNotes,
+					...queryParams,
 					presigned: true,
 				}
 			);
@@ -128,7 +132,15 @@ export const insightReportApi = {
 				return;
 			}
 		}
-		const url = insightReportApi.getExportUrl(params);
-		window.open(url, '_blank', 'noopener,noreferrer');
+		const response = await apiClient.getRawAxios().get('/v1/reports/export', {
+			params: queryParams,
+			responseType: 'blob',
+		});
+		const fallbackName = `usfds_${reportType}_report.${params.format}`;
+		const filename = storageApi.extractFilenameFromDisposition(
+			response.headers['content-disposition'],
+			fallbackName
+		);
+		storageApi.triggerBlobDownload(new Blob([response.data]), filename);
 	},
 };

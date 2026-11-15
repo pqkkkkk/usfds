@@ -1,7 +1,12 @@
 import asyncio
 import logging
+from pathlib import Path
 import signal
 from typing import Any, Callable, Dict
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from usfds_infra.database import create_postgres_engine, create_session_factory
 from usfds_infra.job_queue import (

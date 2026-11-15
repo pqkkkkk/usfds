@@ -55,12 +55,15 @@ class InMemoryStorage(IFileStorage):
         return file_path
 
     def read_bytes(self, file_path: str) -> bytes:
-        if file_path not in self.files:
-            raise FileNotFoundError(f"File {file_path} not found in in-memory storage")
-        return self.files[file_path]
+        if file_path in self.files:
+            return self.files[file_path]
+        p = Path(file_path)
+        if p.is_file():
+            return p.read_bytes()
+        raise FileNotFoundError(f"File {file_path} not found in in-memory storage")
 
     def exists(self, file_path: str) -> bool:
-        return file_path in self.files
+        return file_path in self.files or Path(file_path).is_file()
 
 
 class DiskStorage(IFileStorage):

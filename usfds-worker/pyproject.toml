@@ -18,6 +18,7 @@ usfds-worker = "usfds_worker.main:run_worker"
 python = ">=3.12"
 usfds-core = {path = "../usfds-core", develop = true}
 usfds-infra = {path = "../usfds-infra", develop = true}
+python-dotenv = ">=1.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

@@ -344,17 +344,10 @@ def _load_artifact_dataframe(
     artifact_path: str,
     storage: LocalFileStorage,
 ) -> pd.DataFrame:
-    """Loads a DataFrame (Parquet or CSV) from LocalFileStorage or local filesystem."""
-    raw_bytes: Optional[bytes] = None
-    if storage.exists(artifact_path):
-        raw_bytes = storage.read_bytes(artifact_path)
-    else:
-        local_p = Path(artifact_path)
-        if local_p.is_file():
-            raw_bytes = local_p.read_bytes()
-
-    if raw_bytes is None:
+    """Loads a DataFrame (Parquet or CSV) from IFileStorage."""
+    if not storage.exists(artifact_path):
         raise FileNotFoundError(f"Dataset artifact file not found at '{artifact_path}'")
+    raw_bytes = storage.read_bytes(artifact_path)
 
     lower_path = artifact_path.lower()
     if lower_path.endswith(".csv"):

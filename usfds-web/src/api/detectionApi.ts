@@ -78,13 +78,15 @@ export const detectionApi = {
 		fileFormat?: 'csv' | 'parquet';
 		onlyFlagged?: boolean;
 	}): Promise<void> => {
+		const fmt = params.fileFormat || 'csv';
+		const flagged = Boolean(params.onlyFlagged);
 		const useS3Presigned = await storageApi.isS3StorageBackend();
 		if (useS3Presigned) {
 			const res = await apiClient.get<PresignedDownloadUrlResponse>(
 				`/v1/detection/jobs/${params.jobId}/export`,
 				{
-					file_format: params.fileFormat || 'csv',
-					only_flagged: Boolean(params.onlyFlagged),
+					file_format: fmt,
+					only_flagged: flagged,
 					presigned: true,
 				}
 			);
@@ -96,8 +98,22 @@ export const detectionApi = {
 				return;
 			}
 		}
-		const url = detectionApi.getExportUrl(params);
-		window.open(url, '_blank');
+		const response = await apiClient.getRawAxios().get(
+			`/v1/detection/jobs/${params.jobId}/export`,
+			{
+				params: {
+					file_format: fmt,
+					only_flagged: flagged,
+				},
+				responseType: 'blob',
+			}
+		);
+		const fallbackName = `detection_${params.jobId}.${fmt}`;
+		const filename = storageApi.extractFilenameFromDisposition(
+			response.headers['content-disposition'],
+			fallbackName
+		);
+		storageApi.triggerBlobDownload(new Blob([response.data]), filename);
 	},
 
 	sendToInvestigation: async (

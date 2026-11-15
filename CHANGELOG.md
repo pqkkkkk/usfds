@@ -2,6 +2,14 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-15 — ISS-015 & ISS-036: Presigned Upload/Export & `IFileStorage` File I/O Guard
+Plan: `.plan/presigned_upload_and_file_io_guard.md` · Board: `.plan/BOARD.md`
+
+- Web (`usfds-web`): fixed `storageApi.resolveStoragePath`, `useDatasetImport`, `ImportDatasetModal` (`.pq,.txt`), and `DetectionJobWizardView` so browser S3 mode uploads via presigned URLs without fabricating `../datasets/...` paths, while Electron local mode keeps native paths; unified `datasetApi.exportDataset`, `detectionApi.exportResults`, and `insightReportApi.exportReport` (including `html`) to use presigned URLs on S3 and authenticated `apiClient.getRawAxios()` blobs on local mode.
+- Core & Infra (`usfds-core`, `usfds-infra`): consolidated all file existence/read/copy checks into `IFileStorage` (`LocalFileStorage._resolve_path` handles local/Electron paths; `S3FileStorage.save_file` no longer reads server local paths, resolving `ISS-015`); removed 11 scattered `Path(...).is_file()` fallbacks across core services, `rule_router`, and `usfds-worker`.
+- Server & Worker (`usfds-server`, `usfds-worker`): updated `dataset_router.import_dataset` and `handle_dataset_ingestion` to pass `actor.user_id` and `actor.username`.
+- Tests: `./scripts/test.sh` passed across all 6 packages (`core` 149 passed / 15 skipped, `infra` 34 passed / 1 xfailed, `server` 23 passed, `worker` 3 passed, `cli` passed, `web` 12 files / 23 tests passed).
+
 ## 2026-11-14 — ISS-008: Model version & training run data lineage visualization
 Plan: `.plan/model_version_lineage.md` · Board: `.plan/BOARD.md`
 

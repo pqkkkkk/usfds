@@ -133,7 +133,8 @@ def import_dataset(
                     "display_name": req.display_name,
                     "description": req.description,
                     "project_id": str(req.project_id) if req.project_id else None,
-                    "user_id": str(req.user_id) if req.user_id else None,
+                    "user_id": str(actor.user_id),
+                    "user_name": actor.username,
                     "contains_pii": req.contains_pii,
                     "data_classification": classification.value if classification else None,
                 },
@@ -157,9 +158,10 @@ def import_dataset(
             display_name=req.display_name,
             description=req.description,
             project_id=req.project_id,
-            user_id=req.user_id,
+            user_id=actor.user_id,
             contains_pii=req.contains_pii,
             data_classification=classification,
+            user_name=actor.username,
         )
         lineage = service.get_lineage(dataset.dataset_id)
         detail = DatasetDetailResponse(

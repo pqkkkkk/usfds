@@ -13,14 +13,21 @@ class LocalFileStorage(IFileStorage):
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def _resolve_path(self, file_path: str) -> Path:
-        """Resolve a relative or absolute path against base_dir.
-        
-        Relative paths are joined with base_dir. Absolute paths are returned as is.
+        """Resolve a relative or absolute path against base_dir or local filesystem.
+
+        Absolute paths are returned as is. Relative paths prefer `base_dir`,
+        with fallback to an existing file relative to cwd for local desktop usage.
         """
         p = Path(file_path)
         if p.is_absolute():
             return p
-        return (self.base_dir / p).resolve()
+        base_candidate = (self.base_dir / p).resolve()
+        if base_candidate.exists():
+            return base_candidate
+        cwd_candidate = p.resolve()
+        if cwd_candidate.is_file():
+            return cwd_candidate
+        return base_candidate
 
     def get_absolute_path(self, file_path: str) -> Path:
         """Get the absolute filesystem Path for a given relative or absolute file_path."""

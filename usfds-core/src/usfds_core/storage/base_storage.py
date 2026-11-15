@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 
 class IFileStorage(ABC):
@@ -27,6 +28,10 @@ class IFileStorage(ABC):
     def get_file_size(self, file_path: str) -> int:
         """Return file size in bytes."""
         return len(self.read_bytes(file_path))
+
+    def save_file(self, src_path: Union[str, Path], dest_path: str) -> str:
+        """Copy or store a file from `src_path` to `dest_path`."""
+        return self.save_bytes(dest_path, self.read_bytes(str(src_path)))
 
     def generate_presigned_upload_url(
         self,

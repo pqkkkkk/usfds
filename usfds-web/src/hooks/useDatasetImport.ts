@@ -104,22 +104,21 @@ export function useDatasetImport({
       desktopNativePath = (selected as any).path || '';
     }
 
-    console.log("Resolved desktop native path:", desktopNativePath);
     const resolvedPath = desktopNativePath && desktopNativePath.length > 0
       ? desktopNativePath
-      : (filePath && filePath.endsWith(selected.name) ? filePath : `../datasets/${selected.name}`);
+      : '';
 
     setRawFile(selected);
     setFile({
       name: selected.name,
       size: `${sizeMb} MB`,
-      path: resolvedPath,
+      path: resolvedPath || selected.name,
     });
     setFilePath(resolvedPath);
     setDatasetName(cleanStem);
     setDisplayName(selected.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').toUpperCase());
     setErrorMsg(null);
-  }, [filePath]);
+  }, []);
 
   // Handle opening native file chooser on Desktop, or HTML input fallback
   const handleBrowseNativeFile = useCallback(async () => {
@@ -137,6 +136,7 @@ export function useDatasetImport({
           const fileName = selectedPath.split(/[/\\]/).pop() || 'dataset.csv';
           const cleanStem = fileName.replace(/\.[^/.]+$/, '').toLowerCase().replace(/[^a-z0-9_]/g, '_');
 
+          setRawFile(null);
           setFile({
             name: fileName,
             size: 'Tệp trên máy cục bộ',
@@ -224,8 +224,6 @@ export function useDatasetImport({
         display_name: displayName.trim() || undefined,
         description: description.trim() || undefined,
         project_id: defaultProjectId,
-        // Mock user id, deploy as only client app so don't need user management
-        user_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
         contains_pii: containsPii,
         data_classification: dataClassification,
       };

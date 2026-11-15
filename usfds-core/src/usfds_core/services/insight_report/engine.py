@@ -124,9 +124,6 @@ class DuckDBInsightEngine:
 	def _read_parquet_bytes(self, storage_path: str) -> Optional[bytes]:
 		if not storage_path:
 			return None
-		local_path = Path(storage_path)
-		if local_path.is_file():
-			return local_path.read_bytes()
 		if self.file_storage and self.file_storage.exists(storage_path):
 			try:
 				return self.file_storage.read_bytes(storage_path)

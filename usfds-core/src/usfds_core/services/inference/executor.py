@@ -253,12 +253,8 @@ class BatchInferenceExecutor:
         self.notifier = notifier
 
     def _read_bytes(self, file_path_or_storage: Union[str, Path]) -> bytes:
-        """Reads file bytes directly from local filesystem or through IFileStorage."""
-        path_str = str(file_path_or_storage)
-        p = Path(path_str)
-        if p.is_file():
-            return p.read_bytes()
-        return self.file_storage.read_bytes(path_str)
+        """Reads file bytes through IFileStorage."""
+        return self.file_storage.read_bytes(str(file_path_or_storage))
 
     def _try_load_companion_preprocessor(self, model_uri: str, workspace: InferenceWorkspace) -> Optional[Any]:
         """Attempt to load `preprocessor.joblib` saved alongside `model.joblib` for FEATURE_ENGINEERED models."""

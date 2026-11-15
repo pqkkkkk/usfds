@@ -33,38 +33,25 @@ class FeatureEngineeringExecutionService:
     def __init__(self, file_storage: IFileStorage):
         self.file_storage = file_storage
 
-    def _load_dataframe(self, file_path_or_storage: Union[str, Path]) -> pd.DataFrame:
-        """Loads data from local path or storage into a pandas DataFrame based on file format."""
-        path_str = str(file_path_or_storage)
-        p = Path(path_str)
-        if p.is_file():
-            if path_str.endswith(".parquet") or path_str.endswith(".pq"):
-                return pd.read_parquet(p)
-            elif path_str.endswith(".csv") or path_str.endswith(".txt"):
-                return pd.read_csv(p)
-            elif path_str.endswith(".json"):
-                return pd.read_json(p)
-            else:
-                try:
-                    return pd.read_parquet(p)
-                except Exception:
-                    return pd.read_csv(p)
-
-        raw_bytes = self.file_storage.read_bytes(path_str)
+    def _load_dataframe_from_bytes(self, path_str: str, raw_bytes: bytes) -> pd.DataFrame:
+        """Parses DataFrame from raw bytes based on file extension."""
         buffer = io.BytesIO(raw_bytes)
-
         if path_str.endswith(".parquet") or path_str.endswith(".pq"):
             return pd.read_parquet(buffer)
         elif path_str.endswith(".csv") or path_str.endswith(".txt"):
             return pd.read_csv(buffer)
         elif path_str.endswith(".json"):
             return pd.read_json(buffer)
-        else:
-            try:
-                return pd.read_parquet(buffer)
-            except Exception:
-                buffer.seek(0)
-                return pd.read_csv(buffer)
+        try:
+            return pd.read_parquet(buffer)
+        except Exception:
+            buffer.seek(0)
+            return pd.read_csv(buffer)
+
+    def _load_dataframe(self, file_path_or_storage: Union[str, Path]) -> pd.DataFrame:
+        """Loads data from IFileStorage into a pandas DataFrame based on file format."""
+        path_str = str(file_path_or_storage)
+        return self._load_dataframe_from_bytes(path_str, self.file_storage.read_bytes(path_str))
 
     def execute(
         self,
@@ -125,7 +112,7 @@ class FeatureEngineeringExecutionService:
             with open(mapped_input_file, "wb") as f:
                 f.write(raw_bytes)
 
-            df = self._load_dataframe(mapped_input_file)
+            df = self._load_dataframe_from_bytes(input_file_path, raw_bytes)
             if df.empty:
                 return DatasetArtifact(
                     dataset_id=parent_artifact.dataset_id,

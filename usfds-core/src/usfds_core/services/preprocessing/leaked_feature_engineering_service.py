@@ -36,22 +36,8 @@ class LeakedFeatureEngineeringExecutionService:
         self.file_storage = file_storage
 
     def _load_dataframe(self, file_path_or_storage: Union[str, Path]) -> pd.DataFrame:
-        """Loads data from local path or storage into a pandas DataFrame based on file format."""
+        """Loads data from IFileStorage into a pandas DataFrame based on file format."""
         path_str = str(file_path_or_storage)
-        p = Path(path_str)
-        if p.is_file():
-            if path_str.endswith(".parquet") or path_str.endswith(".pq"):
-                return pd.read_parquet(p)
-            elif path_str.endswith(".csv") or path_str.endswith(".txt"):
-                return pd.read_csv(p)
-            elif path_str.endswith(".json"):
-                return pd.read_json(p)
-            else:
-                try:
-                    return pd.read_parquet(p)
-                except Exception:
-                    return pd.read_csv(p)
-
         raw_bytes = self.file_storage.read_bytes(path_str)
         buffer = io.BytesIO(raw_bytes)
 

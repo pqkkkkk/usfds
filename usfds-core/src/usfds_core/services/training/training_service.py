@@ -308,17 +308,9 @@ class TrainingOrchestrationService:
                     manifest_override=manifest_override,
                     project_id=project_id,
                 )
-            elif local_path.is_dir():
+            elif hasattr(self.file_storage, "base_dir") and local_path.is_dir():
                 model, validation_result = self.plugin_registry.register_from_directory(
                     plugin_dir=local_path,
-                    user_id=user_id,
-                    manifest_override=manifest_override,
-                    project_id=project_id,
-                )
-            elif local_path.is_file():
-                model_source = local_path.read_bytes()
-                model, validation_result = self.plugin_registry.register_from_zip(
-                    zip_bytes=model_source,
                     user_id=user_id,
                     manifest_override=manifest_override,
                     project_id=project_id,
@@ -403,14 +395,10 @@ class TrainingOrchestrationService:
         if not version.artifact_uri:
             raise ValueError("ModelVersion has no artifact_uri registered.")
 
-        # 1. Read artifact bytes from storage or local filesystem to verify existence & SHA-256 checksum
+        # 1. Read artifact bytes from IFileStorage to verify existence & SHA-256 checksum
         artifact_bytes: Optional[bytes] = None
         if self.file_storage.exists(version.artifact_uri):
             artifact_bytes = self.file_storage.read_bytes(version.artifact_uri)
-        else:
-            local_p = Path(version.artifact_uri)
-            if local_p.is_file():
-                artifact_bytes = local_p.read_bytes()
 
         if artifact_bytes is None:
             raise ValueError(

@@ -199,3 +199,120 @@ def test_end_to_end_data_management_pipeline():
         assert res_check.status_code == 404
         assert res_check.json()["success"] is False
         assert res_check.json()["statusCode"] == 404
+
+
+def test_import_dataset_from_presigned_s3_staging_key_copies_and_cleans_staging(monkeypatch):
+    from moto import mock_aws
+    from usfds_infra.storage.s3_storage import S3FileStorage
+    import usfds_server.dependencies as deps
+    from usfds_server.dependencies import SYSTEM_USER_ID
+
+    with mock_aws():
+        s3_storage = S3FileStorage(
+            bucket="usfds",
+            access_key="test",
+            secret_key="test",
+            region="us-east-1",
+        )
+        with TestClient(app) as client:
+            monkeypatch.setattr(deps, "_storage", s3_storage)
+
+            up_res = client.post(
+                "/api/v1/storage/presigned-upload",
+                json={"filename": "tx.csv", "purpose": "dataset_raw", "content_type": "text/csv"},
+            )
+            assert up_res.status_code == 200, up_res.text
+            object_key = up_res.json()["data"]["object_key"]
+            assert object_key.startswith("uploads/dataset_raw/")
+
+            csv_bytes = (
+                "TransactionID,TxTime,TxAmount,AccountNo,IsFraud\n"
+                "TX_1,2024-01-01 10:00:00,100.0,ACC_1,0\n"
+                "TX_2,2024-01-01 10:05:00,250.0,ACC_2,1\n"
+            ).encode("utf-8")
+            s3_storage.save_bytes(object_key, csv_bytes)
+            assert s3_storage.exists(object_key)
+
+            res = client.post(
+                "/api/v1/datasets/import",
+                json={
+                    "file_path": object_key,
+                    "dataset_name": "presigned_s3_ds",
+                    "project_id": str(uuid4()),
+                },
+            )
+            assert res.status_code == 201, res.text
+            data = res.json()["data"]
+            me_res = client.get("/api/v1/auth/me")
+            assert me_res.status_code == 200
+            assert data["dataset"]["user_id"] == me_res.json()["data"]["user_id"]
+            raw_art = data["artifacts"][0]
+            assert raw_art["storage_path"].startswith("datasets/")
+            assert s3_storage.exists(raw_art["storage_path"])
+            assert not s3_storage.exists(object_key)
+
+
+def test_s3_storage_mode_rejects_server_local_filesystem_paths(monkeypatch, tmp_path):
+    from moto import mock_aws
+    from usfds_infra.storage.s3_storage import S3FileStorage
+    import usfds_server.dependencies as deps
+
+    local_secret = tmp_path / "secret.csv"
+    local_secret.write_text(
+        "TransactionID,TxTime,TxAmount,AccountNo,IsFraud\n"
+        "TX_1,2024-01-01 10:00:00,100.0,ACC_1,0\n",
+        encoding="utf-8",
+    )
+
+    with mock_aws():
+        s3_storage = S3FileStorage(
+            bucket="usfds",
+            access_key="test",
+            secret_key="test",
+            region="us-east-1",
+        )
+        with TestClient(app) as client:
+            monkeypatch.setattr(deps, "_storage", s3_storage)
+
+            res_import = client.post(
+                "/api/v1/datasets/import",
+                json={
+                    "file_path": str(local_secret),
+                    "dataset_name": "should_fail_local_read",
+                    "project_id": str(uuid4()),
+                },
+            )
+            assert res_import.status_code == 404, res_import.text
+
+            res_detect = client.post(
+                "/api/v1/detection/jobs",
+                json={
+                    "project_id": str(uuid4()),
+                    "input_file_path": str(local_secret),
+                    "use_rules": True,
+                },
+            )
+            assert res_detect.status_code in (400, 404), res_detect.text
+
+
+def test_local_storage_mode_imports_from_external_local_filesystem_path(tmp_path):
+    external_csv = tmp_path / "external_desktop_file.csv"
+    external_csv.write_text(
+        "TransactionID,TxTime,TxAmount,AccountNo,IsFraud\n"
+        "TX_1,2024-01-01 10:00:00,100.0,ACC_1,0\n"
+        "TX_2,2024-01-01 10:05:00,250.0,ACC_2,1\n",
+        encoding="utf-8",
+    )
+
+    with TestClient(app) as client:
+        res = client.post(
+            "/api/v1/datasets/import",
+            json={
+                "file_path": str(external_csv),
+                "dataset_name": "electron_external_ds",
+                "project_id": str(uuid4()),
+            },
+        )
+        assert res.status_code == 201, res.text
+        data = res.json()["data"]
+        assert data["artifacts"][0]["storage_path"].startswith("datasets/")

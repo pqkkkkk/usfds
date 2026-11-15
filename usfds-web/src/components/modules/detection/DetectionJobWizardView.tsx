@@ -207,20 +207,18 @@ export function DetectionJobWizardView() {
 			const resolvedPath =
 				desktopNativePath && desktopNativePath.length > 0
 					? desktopNativePath
-					: inputFilePath && inputFilePath.endsWith(selected.name)
-						? inputFilePath
-						: `../datasets/${selected.name}`;
+					: '';
 
 			setSelectedRawFile(selected);
 			setSelectedFileInfo({
 				name: selected.name,
 				size: `${sizeMb} MB`,
-				path: resolvedPath,
+				path: resolvedPath || selected.name,
 			});
 			setInputFilePath(resolvedPath);
 			setErrorMsg(null);
 		},
-		[inputFilePath]
+		[]
 	);
 
 	const handleBrowseNativeFile = useCallback(async () => {
@@ -294,7 +292,7 @@ export function DetectionJobWizardView() {
 	const canProceedFromSource =
 		sourceOption === 'RAW_ARTIFACT'
 			? Boolean(selectedRawArtifactId)
-			: Boolean(inputFilePath.trim());
+			: Boolean(selectedRawFile || inputFilePath.trim());
 
 	const canProceedFromEngine =
 		selectedModelVersionId !== 'RULE_ONLY' ||
@@ -997,7 +995,9 @@ export function DetectionJobWizardView() {
 										<span className="font-semibold text-slate-200 mt-0.5 block truncate">
 											{sourceOption === 'RAW_ARTIFACT'
 												? `${selectedRawArtifactItem?.dataset.display_name || selectedRawArtifactItem?.dataset.dataset_name || 'Artifact RAW'}`
-												: inputFilePath.split(/[/\\]/).pop() || inputFilePath}
+												: selectedFileInfo?.name ||
+													inputFilePath.split(/[/\\]/).pop() ||
+													inputFilePath}
 										</span>
 									</div>
 									<div>

@@ -136,12 +136,9 @@ class S3FileStorage(IFileStorage):
 		return bool(keys)
 
 	def save_file(self, src_path: Union[str, Path], dest_path: str) -> str:
-		"""Upload a local file or copy an existing S3 object key to `dest_path` without loading it into memory."""
-		local_src = Path(src_path)
+		"""Copy an existing S3 object key to `dest_path` without loading it into memory."""
+		# DEPRECATED [26-11-15]: ISS-015 - Removed `if Path(src_path).is_file()` so S3FileStorage never reads server local paths.
 		key = self._key(dest_path)
-		if local_src.is_file():
-			self._client.upload_file(str(local_src.resolve()), self.bucket, key)
-			return key
 		src_key = self._key(src_path)
 		if self.exists(src_key):
 			if src_key != key:

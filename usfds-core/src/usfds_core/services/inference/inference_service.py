@@ -92,12 +92,8 @@ class InferenceService:
         self.schema_validator = ProjectSchemaValidator()
 
     def _read_bytes(self, file_path_or_storage: Union[str, Path]) -> bytes:
-        """Reads file bytes directly from local filesystem or through IFileStorage."""
-        path_str = str(file_path_or_storage)
-        p = Path(path_str)
-        if p.is_file():
-            return p.read_bytes()
-        return self.file_storage.read_bytes(path_str)
+        """Reads file bytes through IFileStorage."""
+        return self.file_storage.read_bytes(str(file_path_or_storage))
 
     def _validate_deployment(self, deployment_id: UUID) -> Pipeline:
         """Retrieves and validates the deployment and its pipeline lineage."""
@@ -581,14 +577,9 @@ class InferenceService:
                 f"Unsupported file format '{ext}'. Supported formats: .csv, .parquet, .pq, .json."
             )
 
-        raw_bytes: Optional[bytes] = None
-        local_p = Path(clean_path_str)
-        if local_p.is_file():
-            raw_bytes = local_p.read_bytes()
-        elif self.file_storage and self.file_storage.exists(clean_path_str):
-            raw_bytes = self.file_storage.read_bytes(clean_path_str)
-        else:
+        if not (self.file_storage and self.file_storage.exists(clean_path_str)):
             raise FileNotFoundError(f"Input file not found at '{clean_path_str}'.")
+        raw_bytes = self.file_storage.read_bytes(clean_path_str)
 
         if not raw_bytes:
             raise ValueError(f"Input file '{clean_path_str}' is empty (0 bytes).")
@@ -616,17 +607,14 @@ class InferenceService:
                 raise ValueError(" ".join(val_res.errors))
 
         # Persist input snapshot into storage for reproducible auditability
-        filename = local_p.name or f"batch_input{ext}"
+        filename = Path(clean_path_str).name or f"batch_input{ext}"
         stored_input_path = f"datasets/{project_id}/inferences/inputs/{job_id}/{filename}"
-        if self.file_storage:
-            self.file_storage.save_bytes(stored_input_path, raw_bytes)
-            if not local_p.is_file() and clean_path_str.replace("\\", "/").lstrip("/").startswith(("uploads/", "staging/")):
-                try:
-                    self.file_storage.delete(clean_path_str)
-                except Exception:
-                    pass
-        else:
-            stored_input_path = clean_path_str
+        self.file_storage.save_bytes(stored_input_path, raw_bytes)
+        if clean_path_str.replace("\\", "/").lstrip("/").startswith(("uploads/", "staging/")):
+            try:
+                self.file_storage.delete(clean_path_str)
+            except Exception:
+                pass
 
         return stored_input_path, {
             "input_source_type": "FILE",

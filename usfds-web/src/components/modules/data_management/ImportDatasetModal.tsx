@@ -116,7 +116,7 @@ export const ImportDatasetModal = ({
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
-              accept=".csv,.parquet,.json"
+              accept=".csv,.parquet,.pq,.json,.txt"
               className="hidden"
             />
             <div className="w-10 h-10 rounded-xl bg-dark-850 group-hover:bg-brand-500/20 text-slate-400 group-hover:text-brand-400 mx-auto flex items-center justify-center transition mb-2">

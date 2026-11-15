@@ -80,17 +80,10 @@ def _build_data_management_service(session: Session, storage: IFileStorage) -> D
 
 
 def _load_artifact_dataframe(artifact_path: str, storage: IFileStorage) -> pd.DataFrame:
-	"""Load a Parquet or CSV DataFrame from IFileStorage or local path."""
-	raw_bytes: Optional[bytes] = None
-	if storage.exists(artifact_path):
-		raw_bytes = storage.read_bytes(artifact_path)
-	else:
-		local_p = Path(artifact_path)
-		if local_p.is_file():
-			raw_bytes = local_p.read_bytes()
-
-	if raw_bytes is None:
+	"""Load a Parquet or CSV DataFrame from IFileStorage."""
+	if not storage.exists(artifact_path):
 		raise FileNotFoundError(f"Dataset artifact file not found at '{artifact_path}'")
+	raw_bytes = storage.read_bytes(artifact_path)
 
 	if artifact_path.lower().endswith(".csv"):
 		return pd.read_csv(io.BytesIO(raw_bytes))
@@ -210,6 +203,7 @@ def handle_dataset_ingestion(ctx: WorkerContext, data: Dict[str, Any]) -> Dict[s
 			user_id=user_id,
 			contains_pii=bool(data.get("contains_pii", False)),
 			data_classification=classification,
+			user_name=str(data.get("user_name") or "system"),
 		)
 		session.commit()
 		return {

@@ -32,15 +32,8 @@ class TrainingRunExecutor:
         self.notifier = notifier
 
     def _read_bytes(self, path_or_uri: Union[str, Path]) -> bytes:
-        """Read bytes from IFileStorage or local filesystem fallback."""
-        path_str = str(path_or_uri)
-        if self.file_storage.exists(path_str):
-            return self.file_storage.read_bytes(path_str)
-        local_p = Path(path_str)
-        if local_p.is_file():
-            return local_p.read_bytes()
-        # Let file_storage raise the canonical FileNotFoundError
-        return self.file_storage.read_bytes(path_str)
+        """Read bytes from IFileStorage."""
+        return self.file_storage.read_bytes(str(path_or_uri))
 
     def _resolve_script_entrypoint(
         self,

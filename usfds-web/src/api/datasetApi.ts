@@ -1,4 +1,4 @@
-import { apiClient, axios } from './client';
+import { apiClient } from './client';
 import { storageApi, type PresignedDownloadUrlResponse } from './storageApi';
 import type {
   DatasetResponse,
@@ -106,8 +106,8 @@ export const datasetApi = {
         return { success: true };
       }
 
-      const response = await axios.post(
-        `/api/v1/datasets/${datasetId}/artifacts/${artifactId}/export`,
+      const response = await apiClient.getRawAxios().post(
+        `/v1/datasets/${datasetId}/artifacts/${artifactId}/export`,
         req,
         {
           responseType: 'blob',
@@ -117,26 +117,12 @@ export const datasetApi = {
         }
       );
 
-      // Extract filename from header or fallback
-      let filename = fallbackFilename;
-      const disposition = response.headers['content-disposition'];
-      if (disposition && disposition.includes('filename=')) {
-        const match = disposition.match(/filename=(?:["']?)([^"';]+)(?:["']?)/);
-        if (match && match[1]) {
-          filename = match[1].trim();
-        }
-      }
-
-      // Trigger browser download
+      const filename = storageApi.extractFilenameFromDisposition(
+        response.headers['content-disposition'],
+        fallbackFilename
+      );
       const blob = new Blob([response.data], { type: 'application/zip' });
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
+      storageApi.triggerBlobDownload(blob, filename);
 
       return { success: true };
     } catch (err: any) {

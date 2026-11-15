@@ -22,6 +22,10 @@ export type PresignedDownloadUrlResponse = PresignedDownloadData;
 let cachedStorageType: string | null = null;
 
 export const storageApi = {
+	clearStorageTypeCache: (): void => {
+		cachedStorageType = null;
+	},
+
 	isS3StorageBackend: async (): Promise<boolean> => {
 		if (cachedStorageType !== null) {
 			return cachedStorageType === 's3';
@@ -103,7 +107,13 @@ export const storageApi = {
 				projectId: params.projectId,
 			});
 		}
-		return (params.filePath || '').trim();
+		const trimmedPath = (params.filePath || '').trim();
+		if (!isS3 && params.file && !trimmedPath) {
+			throw new Error(
+				'Chế độ lưu trữ cục bộ (local) chỉ hỗ trợ chọn tệp trên ứng dụng Electron Desktop. Vui lòng bật S3 backend hoặc sử dụng bản Desktop.'
+			);
+		}
+		return trimmedPath;
 	},
 
 	triggerBrowserDownload: (url: string, filename?: string): void => {
@@ -115,5 +125,24 @@ export const storageApi = {
 		document.body.appendChild(link);
 		link.click();
 		document.body.removeChild(link);
+	},
+
+	triggerBlobDownload: (blob: Blob, filename: string): void => {
+		const downloadUrl = window.URL.createObjectURL(blob);
+		storageApi.triggerBrowserDownload(downloadUrl, filename);
+		window.URL.revokeObjectURL(downloadUrl);
+	},
+
+	extractFilenameFromDisposition: (
+		disposition: string | undefined,
+		fallbackFilename: string
+	): string => {
+		if (disposition && disposition.includes('filename=')) {
+			const match = disposition.match(/filename=(?:["']?)([^"';]+)(?:["']?)/);
+			if (match && match[1]) {
+				return match[1].trim();
+			}
+		}
+		return fallbackFilename;
 	},
 };

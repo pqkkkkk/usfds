@@ -36,33 +36,8 @@ class PreprocessingExecutionService:
     def __init__(self, file_storage: IFileStorage):
         self.file_storage = file_storage
 
-    def _load_dataframe(self, file_path_or_storage: Union[str, Path]) -> pd.DataFrame:
-        """Loads data from local path or storage into a pandas DataFrame based on file format."""
-        path_str = str(file_path_or_storage)
-        p = Path(path_str)
-        if p.is_file():
-            try:
-                if path_str.endswith(".parquet") or path_str.endswith(".pq"):
-                    try:
-                        df = pd.read_parquet(p)
-                    except Exception:
-                        df = pd.read_csv(p)
-                elif path_str.endswith(".csv") or path_str.endswith(".txt"):
-                    df = pd.read_csv(p)
-                elif path_str.endswith(".json"):
-                    df = pd.read_json(p)
-                else:
-                    try:
-                        df = pd.read_parquet(p)
-                    except Exception:
-                        df = pd.read_csv(p)
-            except pd.errors.EmptyDataError:
-                raise ValueError("Loaded dataset is empty.")
-            if df.empty:
-                raise ValueError("Loaded dataset is empty.")
-            return df
-
-        raw_bytes = self.file_storage.read_bytes(path_str)
+    def _load_dataframe_from_bytes(self, path_str: str, raw_bytes: bytes) -> pd.DataFrame:
+        """Parses DataFrame from raw bytes based on file extension."""
         if not raw_bytes or len(raw_bytes.strip()) == 0:
             raise ValueError("Loaded dataset is empty.")
         buffer = io.BytesIO(raw_bytes)
@@ -86,6 +61,11 @@ class PreprocessingExecutionService:
         if df.empty:
             raise ValueError("Loaded dataset is empty.")
         return df
+
+    def _load_dataframe(self, file_path_or_storage: Union[str, Path]) -> pd.DataFrame:
+        """Loads data from IFileStorage into a pandas DataFrame based on file format."""
+        path_str = str(file_path_or_storage)
+        return self._load_dataframe_from_bytes(path_str, self.file_storage.read_bytes(path_str))
 
     def _resolve_target_col(self, df: pd.DataFrame, target_col_name: str) -> str:
         """Resolves target column with alias matching (label, Class, target, is_fraud)."""
@@ -193,8 +173,8 @@ class PreprocessingExecutionService:
             with open(test_input_file, "wb") as f:
                 f.write(test_bytes)
 
-            train_df = self._load_dataframe(train_input_file)
-            test_df = self._load_dataframe(test_input_file)
+            train_df = self._load_dataframe_from_bytes(train_storage_path, train_bytes)
+            test_df = self._load_dataframe_from_bytes(test_storage_path, test_bytes)
 
             # 3. Extract Target Label
             target_col = self._resolve_target_col(train_df, config.split.target_column)

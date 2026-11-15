@@ -45,7 +45,7 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-012 | Large-data analytics in API process with pandas | improvement | insight-report, inference | P2 | Open | — | [11-13](11-13-2026.md) |
 | ISS-013 | Third-party API key committed to git | security | agent, devex | **P0** | Resolved (26-11-15) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-014 | CORS `*` with credentials | security | server | P1 | Open | — | [11-14](11-14-2026.md) |
-| ISS-015 | Server reads arbitrary client-supplied file paths | security | server, worker | P1 | Open | — | [11-14](11-14-2026.md) |
+| ISS-015 | Server reads arbitrary client-supplied file paths | security | server, worker | P1 | Resolved (26-11-15) | [presigned_upload_and_file_io_guard](../../.plan/presigned_upload_and_file_io_guard.md) <!-- [26-11-15] --> | [11-14](11-14-2026.md) |
 | ISS-016 | Plugin upload has no size limit | security | server, training | P2 | Open | — | [11-14](11-14-2026.md) |
 | ISS-017 | `delete_dataset` never deletes artifact files | bug | data-management | P1 | Open | — | [11-14](11-14-2026.md) |
 | ISS-018 | Case filter by rule code only works on SQLite | bug | investigation, infra | P1 | Open | — | [11-14](11-14-2026.md) |
@@ -66,5 +66,6 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-033 | `usfds-agent` not runnable | tech-debt | agent | P3 | Open | — | [11-14](11-14-2026.md) |
 | ISS-034 | Documentation inconsistencies (SUC IDs, links) | docs | docs | P2 | In progress | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-035 | Reading a model with `risk_level` raises NameError | bug | training, infra | P2 | Open | — | [11-14](11-14-2026.md) |
+| ISS-036 | Dataset import & exports inconsistent across S3 presigned and Electron local modes | bug | web, storage, server | P1 | Resolved (26-11-15) | [presigned_upload_and_file_io_guard](../../.plan/presigned_upload_and_file_io_guard.md) <!-- [26-11-15] --> | [11-15](11-15-2026.md) |
 
 Older resolved bugs (pre-ISS numbering) are kept in [`docs/bugs.md`](../bugs.md).
