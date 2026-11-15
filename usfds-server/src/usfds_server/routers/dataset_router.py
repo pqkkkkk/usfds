@@ -2,12 +2,14 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
+from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
 from usfds_core.domain.entities.enums import DataClassification
 from usfds_core.domain.schemas.preprocessing_config import (
     DataMappingConfig,
     FeatureEngineeringConfig,
 )
+from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.data_management.service import DataManagementService
 from usfds_core.storage.base_storage import IFileStorage
 from usfds_infra.job_queue import (
@@ -17,7 +19,7 @@ from usfds_infra.job_queue import (
     QUEUE_DATA_PIPELINE,
 )
 from usfds_server.config import settings
-from usfds_server.dependencies import get_data_management_service, get_job_queue, get_storage
+from usfds_server.dependencies import get_actor_context, get_authz_service, get_data_management_service, get_job_queue, get_storage
 from usfds_server.schemas.base_response import ApiResponse
 from usfds_server.schemas.dataset_api_schemas import (
     DatasetArtifactResponse,
@@ -104,11 +106,15 @@ def _build_artifact_response(art: DatasetArtifact) -> DatasetArtifactResponse:
 @router.post("/import", response_model=ApiResponse[DatasetDetailResponse], status_code=status.HTTP_201_CREATED)
 def import_dataset(
     req: ImportDatasetRequest,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
 ) -> ApiResponse[DatasetDetailResponse]:
     """Entry point for Data Management: Ingest raw dataset from local file path, create Dataset entity,
     compute basic data profiling, and generate RAW artifact in one step.
     """
+    if req.project_id is not None:
+        authz.require_project_permission(actor, "dataset:create", req.project_id, action="create")
     try:
         classification = None
         if req.data_classification:
@@ -176,10 +182,17 @@ def import_dataset(
 def list_datasets(
     project_id: Optional[UUID] = Query(None, description="Filter by Project ID"),
     search: Optional[str] = Query(None, description="Search query by name or description"),
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
 ) -> ApiResponse[List[DatasetResponse]]:
     """List all datasets with latest pipeline stage and quality score summary."""
+    if project_id is not None:
+        authz.require_project_permission(actor, "dataset:read", project_id)
     items = service.list_datasets(project_id=project_id, search=search)
+    if project_id is None and not actor.is_system_admin:
+        member_pids = {p.project_id for p in actor.projects}
+        items = [(ds, arts) for ds, arts in items if ds.project_id in member_pids]
     return ApiResponse.ok(
         data=[_build_dataset_response(ds, arts) for ds, arts in items],
         message="Datasets retrieved successfully",

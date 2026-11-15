@@ -5,9 +5,11 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 import pandas as pd
 
+from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.domain.entities.enums import RuleAction, RuleStatus
 from usfds_core.domain.entities.rule import Rule, RuleVersion
 from usfds_core.domain.schemas.rule_schemas import RuleExecutionContext
+from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.rule_engine.executor import RuleExecutor
 from usfds_core.services.rule_engine.manager import RuleManager
 from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetRepository
@@ -15,7 +17,9 @@ from usfds_infra.job_queue import JOB_RULE_BACKTEST, QUEUE_BATCH_INFERENCE
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_server.config import settings
 from usfds_server.dependencies import (
+    get_actor_context,
     get_artifact_repo,
+    get_authz_service,
     get_dataset_repo,
     get_job_queue,
     get_rule_executor,
@@ -82,8 +86,15 @@ def _to_rule_response(rule: Rule, current_version: Optional[RuleVersion] = None)
 )
 def create_rule(
     request: CreateRuleRequest,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
 ) -> ApiResponse[RuleResponse]:
+    perm = "rule:propose" if request.status == RuleStatus.DRAFT else "rule:create"
+    try:
+        authz.require_project_permission(actor, perm, request.project_id, action="create")
+    except Exception:
+        authz.require_project_permission(actor, "rule:create", request.project_id, action="create")
     try:
         rule, version = manager.create_rule(
             project_id=request.project_id,
@@ -92,7 +103,7 @@ def create_rule(
             description=request.description or "",
             condition=request.condition,
             action=request.action,
-            created_by=request.created_by,
+            created_by=actor.username,
             change_summary=request.change_summary,
             status=request.status,
         )
@@ -115,8 +126,11 @@ def create_rule(
 def list_rules(
     project_id: UUID = Query(..., description="Project ID to query rules for"),
     rule_status: Optional[RuleStatus] = Query(None, alias="status", description="Filter by ACTIVE / INACTIVE / DRAFT"),
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
 ) -> ApiResponse[List[RuleResponse]]:
+    authz.require_project_permission(actor, "rule:read", project_id)
     rules = manager.get_rules_by_project(project_id, status=rule_status)
     rule_responses = []
     for r in rules:

@@ -3,16 +3,21 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Union
 from uuid import UUID, uuid4
 
-from usfds_core.domain.entities.enums import ProjectStatus
+from usfds_core.domain.entities.enums import ProjectStatus, UserStatus
 
 
 @dataclass
 class User:
     """Represents a user within the FDS system."""
     username: str
-    email: str
+    email: Optional[str] = None
     user_id: UUID = field(default_factory=uuid4)
+    full_name: Optional[str] = None
+    password_hash: str = ""
+    status: Union[UserStatus, str] = UserStatus.ACTIVE
+    last_login_at: Optional[datetime] = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass

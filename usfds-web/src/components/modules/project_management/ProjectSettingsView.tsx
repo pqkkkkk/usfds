@@ -23,6 +23,7 @@ import { PageHeader } from '../../layout/PageHeader';
 import { useProject } from '../../../hooks/useProjects';
 import type { LogicalDataType } from '../../../types/project';
 import { ProjectFormModal } from './ProjectFormModal';
+import { ProjectMembersSection } from './ProjectMembersSection';
 
 const LOGICAL_TYPE_STYLES: Record<LogicalDataType, string> = {
 	NUMERIC: 'bg-brand-500/15 text-brand-300 border-brand-500/30',
@@ -451,6 +452,9 @@ export const ProjectSettingsView: React.FC = () => {
 						</div>
 					)}
 				</div>
+
+				{/* Section 3: Project Members & Access */}
+				<ProjectMembersSection projectId={currentProject.project_id} />
 			</div>
 
 			{/* Edit Project Modal */}

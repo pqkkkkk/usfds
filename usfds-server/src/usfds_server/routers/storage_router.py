@@ -5,8 +5,10 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+from usfds_core.domain.entities.auth import ActorContext, PermissionDeniedError
 from usfds_core.storage.base_storage import IFileStorage
-from usfds_server.dependencies import get_storage
+from usfds_core.services.auth.authz_service import AuthzService
+from usfds_server.dependencies import get_actor_context, get_authz_service, get_storage
 from usfds_server.schemas.base_response import ApiResponse
 
 router = APIRouter(prefix="/api/v1/storage", tags=["Storage"])
@@ -50,8 +52,24 @@ class PresignedDownloadResponse(BaseModel):
 )
 def create_presigned_upload_url(
 	req: PresignedUploadRequest,
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	storage: IFileStorage = Depends(get_storage),
 ) -> ApiResponse[PresignedUploadResponse]:
+	if req.purpose in ("dataset_raw", "detection_input"):
+		if req.project_id is None:
+			if not actor.is_system_admin:
+				raise HTTPException(
+					status_code=status.HTTP_400_BAD_REQUEST,
+					detail=f"project_id is required for purpose '{req.purpose}'.",
+				)
+		else:
+			perm = "dataset:create" if req.purpose == "dataset_raw" else "detection:create"
+			authz.require_project_permission(actor, perm, req.project_id, action="create")
+	elif req.project_id is not None:
+		authz.require_project_permission(actor, "model:create", req.project_id, action="create")
+	elif not actor.is_system_admin:
+		raise PermissionDeniedError("System admin permission required for global model plugin upload")
 	safe_name = Path(req.filename.strip()).name
 	if not safe_name:
 		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename.")
@@ -97,9 +115,22 @@ def create_presigned_download_url(
 	object_key: str = Query(..., min_length=1, description="Storage object key"),
 	filename: Optional[str] = Query(None, description="Optional attachment filename"),
 	expires_in: int = Query(900, ge=60, le=86400, description="URL expiration time in seconds"),
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	storage: IFileStorage = Depends(get_storage),
 ) -> ApiResponse[PresignedDownloadResponse]:
 	clean_key = object_key.strip().lstrip("/")
+	if not actor.is_system_admin:
+		project_uuid: Optional[UUID] = None
+		for part in clean_key.split("/"):
+			try:
+				project_uuid = UUID(part)
+				break
+			except ValueError:
+				continue
+		if project_uuid is None:
+			raise PermissionDeniedError("Cannot verify project ownership for object key")
+		authz.require_project_permission(actor, "project:read", project_uuid)
 	resolved_name = Path(filename.strip()).name if filename and filename.strip() else Path(clean_key).name
 	try:
 		download_url = storage.generate_presigned_download_url(

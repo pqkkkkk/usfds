@@ -247,7 +247,6 @@ export function CaseQueueView({
 							onChange={(event) => handleFilterChange('assigned_to', event.target.value)}
 						>
 							<option value="">Tất cả chuyên viên</option>
-							<option value="local-analyst">Được giao cho tôi (local-analyst)</option>
 							<option value="unassigned">Chỉ hồ sơ chưa giao</option>
 						</select>
 					</FormField>

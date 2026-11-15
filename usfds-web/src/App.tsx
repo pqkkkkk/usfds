@@ -10,9 +10,11 @@ import {
 	InsightReportPage,
 	ProjectManagementPage,
 	ProjectSettingsPage,
+	LoginPage,
+	AdminUsersPage,
 	DocsDashboardPage,
 } from '@/pages';
-import { ProjectProvider, ThemeProvider, useProject } from '@/hooks';
+import { AuthProvider, ProjectProvider, ThemeProvider, useAuth, useProject } from '@/hooks';
 import { ProjectFormModal } from './components/modules/project_management/ProjectFormModal';
 import type { AppModule } from '@/types';
 
@@ -122,10 +124,18 @@ function WorkspaceShell() {
 
 function AppRoutes() {
 	const { isCreateModalOpen, closeCreateModal, createProject } = useProject();
+	const { authMode, isLoading, isAuthenticated } = useAuth();
+	const location = useLocation();
+
+	if (authMode === 'required' && !isLoading && !isAuthenticated && location.pathname !== '/login') {
+		return <Navigate to="/login" replace />;
+	}
 
 	return (
 		<>
 			<Routes>
+				<Route path="/login" element={<LoginPage />} />
+				<Route path="/admin/users" element={<AdminUsersPage />} />
 				{/* Interactive Docs & Plan Review Dashboard */}
 				<Route path="/__docs/*" element={<DocsDashboardPage />} />
 				<Route path="/docs/*" element={<DocsDashboardPage />} />
@@ -153,9 +163,11 @@ function AppRoutes() {
 export function App() {
 	return (
 		<ThemeProvider>
-			<ProjectProvider>
-				<AppRoutes />
-			</ProjectProvider>
+			<AuthProvider>
+				<ProjectProvider>
+					<AppRoutes />
+				</ProjectProvider>
+			</AuthProvider>
 		</ThemeProvider>
 	);
 }

@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Dict
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -7,7 +8,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import uvicorn
+from dotenv import load_dotenv
 
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
+from usfds_core.domain.entities.auth import AuthenticationError, PermissionDeniedError
 from usfds_core.storage.base_storage import IFileStorage
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_server.config import settings
@@ -20,16 +25,18 @@ from usfds_server.dependencies import (
 
 from usfds_server.routers.investigation_router import blacklist_router, router as investigation_router
 from usfds_server.routers import (
+	auth_router,
 	dataset_router,
 	detection_router,
 	insight_report_router,
 	project_router,
+	rbac_router,
 	rule_router,
 	storage_router,
 	training_router,
+	user_router,
 )
 from usfds_server.schemas.base_response import ApiResponse
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -83,7 +90,34 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
+@app.exception_handler(AuthenticationError)
+async def auth_exception_handler(request: Request, exc: AuthenticationError):
+    return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content=ApiResponse.fail(
+            error=str(exc),
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            message="Unauthorized",
+        ).model_dump(by_alias=True),
+    )
+
+
+@app.exception_handler(PermissionDeniedError)
+async def permission_exception_handler(request: Request, exc: PermissionDeniedError):
+    return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
+        content=ApiResponse.fail(
+            error=str(exc),
+            status_code=status.HTTP_403_FORBIDDEN,
+            message="Forbidden",
+        ).model_dump(by_alias=True),
+    )
+
+
 # Register routers
+app.include_router(auth_router.router)
+app.include_router(user_router.router)
+app.include_router(rbac_router.router)
 app.include_router(project_router)
 app.include_router(dataset_router)
 app.include_router(rule_router)

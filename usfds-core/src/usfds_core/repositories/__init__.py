@@ -20,6 +20,13 @@ from usfds_core.repositories.in_memory_repos import (
     InMemoryTrainingRunRepository,
 )
 from usfds_core.repositories.pipeline_repo import IPipelineRepository
+from usfds_core.repositories.base_user_repo import IUserRepository
+from usfds_core.repositories.base_session_repo import IUserSessionRepository
+from usfds_core.repositories.base_rbac_repo import (
+    IPermissionRepository,
+    IProjectMemberRepository,
+    IRoleRepository,
+)
 
 __all__ = [
     "IProjectRepository",
@@ -33,6 +40,11 @@ __all__ = [
     "IInvestigationRepository",
     "IRuleRepository",
     "IRuleVersionRepository",
+    "IUserRepository",
+    "IUserSessionRepository",
+    "IRoleRepository",
+    "IPermissionRepository",
+    "IProjectMemberRepository",
     "InMemoryProjectRepository",
     "InMemoryDatasetRepository",
     "InMemoryModelRepository",

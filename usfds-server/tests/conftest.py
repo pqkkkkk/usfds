@@ -27,6 +27,7 @@ def server_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 		"db_url": None,
 		"storage_backend": "local",
 		"dispatch_backend": "sync",
+		"auth_mode": "local_auto",
 	}
 	for name, value in overrides.items():
 		monkeypatch.setattr(settings, name, value)

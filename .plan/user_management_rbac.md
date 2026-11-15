@@ -108,40 +108,49 @@
 ## 6. Milestones & to-do (checkpoints, not stop points: all tests green at each)
 The agent ticks items as it works. This is the task's only to-do list.
 
-- [ ] **M1 — Entities, ORM Tables, Repos, Alembic & Seed** (`usfds-core`, `usfds-infra`):
-  - [ ] [tests] Viết M1 tests trong `usfds-infra/tests/test_auth_repositories.py`; xác nhận fail đúng lý do
-  - [ ] [core] Thêm enums, mở rộng `User`, tạo `entities/auth.py` (kèm `ActorContext`, `ProjectPermissions`, `AccessTarget`, `BaseQueryFilter`), tạo repository interfaces (`base_user_repo.py`, `base_rbac_repo.py`, `base_session_repo.py`)
-  - [ ] [infra] Tạo `tables/auth.py` (PK `(project_id, user_id, role_id)` trên `project_members`), `repos/auth.py`, `seed_rbac.py`, và 1 Alembic migration revision
-  - [ ] [verify] `./scripts/test.sh core infra`
-- [ ] **M2 — Auth: Sign-in, User Lifecycle, JWT & Session Operations** (`usfds-core`, `usfds-infra`, `usfds-server`, `deploy/`):
-  - [ ] [tests] Viết M2 tests trong `usfds-server/tests/test_auth_and_rbac_api.py` (login, refresh, logout, disable, `local_auto`)
-  - [ ] [core] Tạo `security.py` (`IPasswordHasher`, `ITokenProvider`) và `auth_service.py`
-  - [ ] [infra] Tạo `usfds_infra/security/` (`PasswordHasher`, `JwtTokenProvider`)
-  - [ ] [server] Cập nhật `config.py`, `pyproject.toml`, `deploy/`, `dependencies.py` (gọi `seed_rbac`), tạo `providers/auth.py`, `auth_schemas.py`, `auth_router.py`
-  - [ ] [verify] `./scripts/test.sh core infra server`
-- [ ] **M3 — Authz Enforcement (`ActorContext` + `can_list`/`can_read`/`can_create`/`can_mutate`)** (`usfds-core`, `usfds-server`):
-  - [ ] [tests] Viết M3 tests (`usfds-core/tests/test_authz_enforcement.py` và router isolation tests trong `usfds-server/tests/test_auth_and_rbac_api.py`)
-  - [ ] [core] Port `access_logic.py` (`get_actor_context`, `can_list`, `can_read`, `can_create`, `can_mutate`, `group_by_owner`), tạo `authz_service.py` (enforcement), cập nhật `project_service.py`
-  - [ ] [server] Thêm `get_actor_context` & `require_permission` vào `providers/auth.py`; gắn enforcement lên toàn bộ routers hiện có; bỏ `mock_user`/`local-analyst`; siết `storage_router.py`
-  - [ ] [verify] `./scripts/test.sh core infra server`
-- [ ] **M4 — Authz Management (Admin Users, Roles, Project Members & Anti-Escalation)** (`usfds-core`, `usfds-server`):
-  - [ ] [tests] Viết M4 tests (`usfds-core/tests/test_authz_management.py` và admin/member API tests trong `usfds-server/tests/test_auth_and_rbac_api.py`)
-  - [ ] [core] Bổ sung `delegation_refusal`, `super_admin_refusal`, `role_change_refusal`, `assert_grant_scopes`, `assert_scope_change_allowed` vào `access_logic.py` và các hàm quản lý vào `authz_service.py` (kèm bảo vệ `project_admin` cuối cùng)
-  - [ ] [server] Tạo `user_router.py`, `rbac_router.py`, mở rộng `project_router.py` (`/members`)
-  - [ ] [verify] `./scripts/test.sh core infra server`
-- [ ] **M5 — Frontend Auth, Admin & Project Members UI** (`usfds-web`):
-  - [ ] [tests] Viết M5 tests (`usfds-web/src/test/authRbac.test.tsx`) với vitest + MSW
-  - [ ] [web] Tạo `types/auth.ts`, `authApi.ts`, `userAdminApi.ts`, `projectMemberApi.ts`, cập nhật `client.ts` (single-flight refresh) và `useAuth.tsx`
-  - [ ] [web] Tạo `LoginPage.tsx`, `AdminUsersPage.tsx`, `ProfileModal.tsx`, mở rộng `ProjectSettingsView.tsx`, cập nhật `Topbar.tsx`, `App.tsx`, xóa `DEFAULT_USER_ID` & `'local-analyst'`
-  - [ ] [verify] `./scripts/test.sh web` + build/lint
-- [ ] **M6 — Full Regression & Report** (`all`):
-  - [ ] [verify] `./scripts/test.sh` toàn bộ packages
+- [x] **M1 — Entities, ORM Tables, Repos, Alembic & Seed** (`usfds-core`, `usfds-infra`):
+  - [x] [tests] Viết M1 tests trong `usfds-infra/tests/test_auth_repositories.py`; xác nhận fail đúng lý do
+  - [x] [core] Thêm enums, mở rộng `User`, tạo `entities/auth.py` (kèm `ActorContext`, `ProjectPermissions`, `AccessTarget`, `BaseQueryFilter`), tạo repository interfaces (`base_user_repo.py`, `base_rbac_repo.py`, `base_session_repo.py`)
+  - [x] [infra] Tạo `tables/auth.py` (PK `(project_id, user_id, role_id)` trên `project_members`), `repos/auth.py`, `seed_rbac.py`, và 1 Alembic migration revision
+  - [x] [verify] `./scripts/test.sh core infra`
+- [x] **M2 — Auth: Sign-in, User Lifecycle, JWT & Session Operations** (`usfds-core`, `usfds-infra`, `usfds-server`, `deploy/`):
+  - [x] [tests] Viết M2 tests trong `usfds-server/tests/test_auth_and_rbac_api.py` (login, refresh, logout, disable, `local_auto`)
+  - [x] [core] Tạo `security.py` (`IPasswordHasher`, `ITokenProvider`) và `auth_service.py`
+  - [x] [infra] Tạo `usfds_infra/security/` (`PasswordHasher`, `JwtTokenProvider`)
+  - [x] [server] Cập nhật `config.py`, `pyproject.toml`, `deploy/`, `dependencies.py` (gọi `seed_rbac`), tạo `providers/auth.py`, `auth_schemas.py`, `auth_router.py`
+  - [x] [verify] `./scripts/test.sh core infra server`
+- [x] **M3 — Authz Enforcement (`ActorContext` + `can_list`/`can_read`/`can_create`/`can_mutate`)** (`usfds-core`, `usfds-server`):
+  - [x] [tests] Viết M3 tests (`usfds-core/tests/test_authz_enforcement.py` và router isolation tests trong `usfds-server/tests/test_auth_and_rbac_api.py`)
+  - [x] [core] Port `access_logic.py` (`get_actor_context`, `can_list`, `can_read`, `can_create`, `can_mutate`, `group_by_owner`), tạo `authz_service.py` (enforcement), cập nhật `project_service.py`
+  - [x] [server] Thêm `get_actor_context` & `require_permission` vào `providers/auth.py`; gắn enforcement lên toàn bộ routers hiện có; bỏ `mock_user`/`local-analyst`; siết `storage_router.py`
+  - [x] [verify] `./scripts/test.sh core infra server`
+- [x] **M4 — Authz Management (Admin Users, Roles, Project Members & Anti-Escalation)** (`usfds-core`, `usfds-server`):
+  - [x] [tests] Viết M4 tests (`usfds-core/tests/test_authz_management.py` và admin/member API tests trong `usfds-server/tests/test_auth_and_rbac_api.py`)
+  - [x] [core] Bổ sung `delegation_refusal`, `super_admin_refusal`, `role_change_refusal`, `assert_grant_scopes`, `assert_scope_change_allowed` vào `access_logic.py` và các hàm quản lý vào `authz_service.py` (kèm bảo vệ `project_admin` cuối cùng)
+  - [x] [server] Tạo `user_router.py`, `rbac_router.py`, mở rộng `project_router.py` (`/members`)
+  - [x] [verify] `./scripts/test.sh core infra server`
+- [x] **M5 — Frontend Auth, Admin & Project Members UI** (`usfds-web`):
+  - [x] [tests] Viết M5 tests (`usfds-web/src/test/authRbac.test.tsx`) với vitest + MSW
+  - [x] [web] Tạo `types/auth.ts`, `authApi.ts`, `userAdminApi.ts`, `projectMemberApi.ts`, cập nhật `client.ts` (single-flight refresh) và `useAuth.tsx`
+  - [x] [web] Tạo `LoginPage.tsx`, `AdminUsersPage.tsx`, `ProfileModal.tsx`, mở rộng `ProjectSettingsView.tsx`, cập nhật `Topbar.tsx`, `App.tsx`, xóa `DEFAULT_USER_ID` & `'local-analyst'`
+  - [x] [verify] `./scripts/test.sh web` + build/lint
+- [x] **M6 — Full Regression & Report** (`all`):
+  - [x] [verify] `./scripts/test.sh` toàn bộ packages
 
 Checkpoint log (the agent appends one line per finished milestone):
-- —
+- M1: `infra` passed (`33 passed, 1 xfailed in 1.48s`) — 7 tables, Alembic migration `b1b7b507e88d`, `seed_rbac`, `ActorContext` & repo interfaces.
+- M2: `server` auth tests passed (`2 passed`) — `AuthService`, JWT/bcrypt, `/api/v1/auth/*`, `local_auto` & `required` modes.
+- M3: `server` passed (`17 passed, 19 warnings in 10.75s`) — `access_logic.py`, `AuthzService` enforcement, all routers & `storage_router` guarded.
+- M4: `core` (`146 passed, 15 skipped`), `infra` (`33 passed, 1 xfailed`), `server` (`18 passed, 20 warnings`) — anti-escalation rules, `user_router`, `rbac_router`, `/projects/{id}/members`.
+- M5: `web` passed (`11 passed (11)` test files, `17 passed (17)` tests), `tsc -b && vite build` + `oxlint` (`0` errors) — Login, Admin Users, Profile, Project Members grouped UI & `UserAccountMenu` on `/projects`.
+- M6: `core` (`146 passed, 15 skipped`), `infra` (`34 passed, 1 xfailed`), `server` (`18 passed, 26 warnings`), `web` (`17 passed`) — 2-level `ActorContext` (`load_actor_context` + `load_project_actor_context`), `can_list` on `GET /projects`, ready to push to `origin/task/user_management_rbac`.
 
 ## 7. Review hotspots (filled in after implementation)
-- —
+1. `usfds-core/src/usfds_core/services/auth/access_logic.py:101-193` (M3): `effective_scope`, `can_read`, `can_mutate`, `can_create`, `can_list` — enforces 3-scope (`OWN`/`PROJECT`/`SYSTEM`) isolation and prevents cross-project or cross-owner leakage; covered by `test_actor_context_and_four_access_checks`.
+2. `usfds-core/src/usfds_core/services/auth/access_logic.py:200-279` (M4): `delegation_refusal`, `super_admin_refusal`, `role_change_refusal`, `assert_grant_scopes` — anti-privilege-escalation rules; covered by `test_delegation_and_system_only_refusal`.
+3. `usfds-infra/src/usfds_infra/database/repos/auth.py:70-139, 480-548` (M1/M4): `SqlUserRepository.load_actor_context` and `SqlProjectMemberRepository.load_project_actor_context` — builds system-level & project-level actor contexts, deduplicates roles and `OWN`/`PROJECT` scopes; covered by `test_load_actor_context_and_load_project_actor_context`.
+4. `usfds-server/src/usfds_server/routers/project_router.py:85-115, 220-360` (M3/M4): `can_list` enforcement on `GET /projects` and grouped `ProjectMemberDto` endpoints (`/members`, `/members/{user_id}/roles`); covered by `test_router_rbac_isolation_and_storage_guard` & `test_admin_user_and_rbac_endpoints`.
+5. `usfds-web/src/api/client.ts:100-179` & `usfds-web/src/hooks/useAuth.tsx:55-84` (M5): single-flight 401 refresh lock and `/auth/login` + `/auth/me` hydration; covered by `test_login_and_permission_gated_ui`.
 
 ## 8. Open questions
 - — (đã chốt toàn bộ với user)

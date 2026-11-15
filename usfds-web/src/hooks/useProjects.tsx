@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectApi } from '../api/projectApi';
+import { useAuth } from './useAuth';
 import type {
 	CreateProjectRequest,
 	ProjectResponse,
@@ -17,7 +18,6 @@ import type {
 
 export const PROJECTS_QUERY_KEY = ['projects'] as const;
 const ACTIVE_PROJECT_STORAGE_KEY = 'usfds_active_project_id';
-export const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000000';
 
 interface ProjectContextValue {
 	projects: ProjectResponse[];
@@ -49,6 +49,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 		return null;
 	});
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+	const { isAuthenticated } = useAuth();
 
 	const {
 		data: projects = [],
@@ -58,6 +59,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 		refetch,
 	} = useQuery<ProjectResponse[]>({
 		queryKey: PROJECTS_QUERY_KEY,
+		enabled: isAuthenticated,
 		queryFn: async () => {
 			const res = await projectApi.listProjects();
 			if (!res.success) {
@@ -100,10 +102,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
 	const createMutation = useMutation({
 		mutationFn: async (payload: CreateProjectRequest) => {
-			const res = await projectApi.createProject({
-				...payload,
-				user_id: payload.user_id || DEFAULT_USER_ID,
-			});
+			const res = await projectApi.createProject(payload);
 			if (!res.success || !res.data) {
 				throw new Error(res.error || 'Tạo dự án thất bại');
 			}

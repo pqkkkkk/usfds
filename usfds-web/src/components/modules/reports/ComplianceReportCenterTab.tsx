@@ -33,7 +33,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 		initialCaseId ? 'SAR_DOSSIER' : 'EXECUTIVE_AUDIT_REPORT'
 	);
 	const [selectedCaseId, setSelectedCaseId] = useState<string>(initialCaseId || '');
-	const [preparedBy, setPreparedBy] = useState<string>('local-analyst');
+	const [preparedBy, setPreparedBy] = useState<string>('');
 	const [reviewerNotes, setReviewerNotes] = useState<string>('');
 
 	// Load project cases for SAR Dossier selection
@@ -202,7 +202,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							type="text"
 							value={preparedBy}
 							onChange={(e) => setPreparedBy(e.target.value)}
-							placeholder="local-analyst"
+							placeholder="Tên chuyên viên phụ trách"
 							className="w-full bg-dark-950 border border-dark-700/80 rounded-lg px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-brand-500"
 						/>
 					</div>

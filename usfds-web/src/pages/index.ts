@@ -6,4 +6,6 @@ export * from './InvestigationPage';
 export * from './InsightReportPage';
 export * from './ProjectManagementPage';
 export * from './ProjectSettingsPage';
+export * from './LoginPage';
+export * from './AdminUsersPage';
 export * from './DocsDashboardPage';

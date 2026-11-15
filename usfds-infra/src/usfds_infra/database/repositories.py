@@ -11,6 +11,13 @@ from usfds_infra.database.repos.model import (
 	SqliteTrainingRunRepository,
 )
 from usfds_infra.database.repos.detection import SqliteDetectionJobRepository
+from usfds_infra.database.repos.auth import (
+	SqlPermissionRepository,
+	SqlProjectMemberRepository,
+	SqlRoleRepository,
+	SqlUserRepository,
+	SqlUserSessionRepository,
+)
 
 __all__ = [
 	"SqliteProjectRepository",
@@ -22,4 +29,9 @@ __all__ = [
 	"SqliteModelVersionRepository",
 	"SqliteTrainingRunRepository",
 	"SqliteDetectionJobRepository",
+	"SqlUserRepository",
+	"SqlUserSessionRepository",
+	"SqlRoleRepository",
+	"SqlPermissionRepository",
+	"SqlProjectMemberRepository",
 ]

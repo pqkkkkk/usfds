@@ -8,6 +8,15 @@ from usfds_infra.database.tables.dataset import DatasetArtifactModel, DatasetMod
 from usfds_infra.database.tables.rule import RuleModel, RuleVersionModel
 from usfds_infra.database.tables.model import MLModel, ModelVersionModel, RunDatasetModel, TrainingRunModel
 from usfds_infra.database.tables.detection import DetectionJobModel
+from usfds_infra.database.tables.auth import (
+	PermissionModel,
+	ProjectMemberModel,
+	RoleModel,
+	RolePermissionModel,
+	SystemUserRoleModel,
+	UserModel,
+	UserSessionModel,
+)
 
 __all__ = [
 	"ProjectModel",
@@ -20,4 +29,11 @@ __all__ = [
 	"TrainingRunModel",
 	"RunDatasetModel",
 	"DetectionJobModel",
+	"UserModel",
+	"UserSessionModel",
+	"RoleModel",
+	"PermissionModel",
+	"RolePermissionModel",
+	"SystemUserRoleModel",
+	"ProjectMemberModel",
 ]

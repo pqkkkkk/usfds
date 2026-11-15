@@ -28,9 +28,9 @@ def test_actor_is_backend_owned():
 		return {"actor": actor}
 
 	with TestClient(actor_app) as client:
-		assert client.get("/actor").json() == {"actor": "local-analyst"}
-		assert client.get("/actor", headers={"X-Actor": "spoofed"}).json() == {"actor": "local-analyst"}
-		assert actor_app.openapi()["paths"]["/actor"]["get"].get("parameters", []) == []
+		assert client.get("/actor").json() == {"actor": "admin"}
+		assert client.get("/actor", headers={"X-Actor": "spoofed"}).json() == {"actor": "admin"}
+		assert [p for p in actor_app.openapi()["paths"]["/actor"]["get"].get("parameters", []) if p.get("name") == "X-Actor"] == []
 
 	from usfds_server.schemas.investigation_api_schemas import CaseIntakeRequest
 	request = CaseIntakeRequest.model_validate({"project_id": str(uuid4()), "detection_job_id": str(uuid4()),
@@ -78,7 +78,7 @@ def test_investigation_contract_and_independent_resolution(tmp_path):
 			params = {"project_id": str(project_id)}
 			first = client.post(url + "/claim", params=params, json={"expected_version": 1})
 			assert first.status_code == 200, first.text
-			assert first.json()["data"]["case"]["assigned_to"] == "local-analyst"
+			assert first.json()["data"]["case"]["assigned_to"] == "admin"
 			assert client.post(url + "/claim", params=params, json={"expected_version": 1}).status_code == 409
 			second = client.post(f"/api/v1/cases/{ids[1]}/claim", params=params, json={"expected_version": 1})
 			assert second.json()["data"]["related_assignees"] == []
@@ -90,7 +90,7 @@ def test_investigation_contract_and_independent_resolution(tmp_path):
 			resolved = client.post(url + "/resolve", params=params, json=decision)
 			assert resolved.status_code == 200, resolved.text
 			assert resolved.json()["data"]["case"]["verified_label"] == 1
-			assert resolved.json()["data"]["case"]["resolved_by"] == "local-analyst"
+			assert resolved.json()["data"]["case"]["resolved_by"] == "admin"
 			assert client.get(f"/api/v1/cases/{ids[1]}", params=params).json()["data"]["status"] == "IN_PROGRESS"
 			for window in (None, 30, 90):
 				window_params = params if window is None else {**params, "days": window}

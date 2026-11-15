@@ -3,7 +3,8 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 COPY usfds-web/package.json usfds-web/package-lock.json ./
-RUN npm ci
+# TODO: temporary workaround for Netskope SSL inspection; replace with BuildKit CA secret
+RUN npm_config_strict_ssl=false npm ci
 
 COPY usfds-web/ ./
 RUN npm run build
