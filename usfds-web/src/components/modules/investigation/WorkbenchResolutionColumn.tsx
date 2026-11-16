@@ -11,6 +11,7 @@ import {
 	UserCheck,
 } from 'lucide-react';
 import type { CaseAction, EntityType, Workbench } from '../../../types/investigation';
+import { useActorContext } from '@/hooks/useActorContext';
 import {
 	BUTTON_DANGER_CLASS,
 	BUTTON_PRIMARY_CLASS,
@@ -27,20 +28,32 @@ import {
 } from './investigationShared';
 
 export function DecisionAndAuditColumn({
+	projectId,
 	data,
 	disabled,
 	draftPending,
 	onMutate,
 	onCreateRuleDraft,
 }: {
+	projectId: string;
 	data: Workbench;
 	disabled: boolean;
 	draftPending: boolean;
 	onMutate: (action: string, payload: CaseAction, noteText?: string) => void;
 	onCreateRuleDraft: () => void;
 }) {
+	const { features } = useActorContext(projectId);
+	const canClaim = features.claimCase.allowed;
+	const canAssign = features.assignCase.allowed;
+	const canReview = features.reviewCase.allowed;
+	const canEscalate = features.escalateCase.allowed;
+	const canReopen = features.reopenCase.allowed;
+	const canCreateRule = features.createRule.allowed;
+	const canCreateReport = features.createReport.allowed;
+
 	const { case: item, audit_logs: logs } = data;
 	const isResolved = item.status.startsWith('RESOLVED');
+	const [assignTo, setAssignTo] = useState('');
 
 	const [verdict, setVerdict] = useState<'FRAUD' | 'LEGITIMATE'>('FRAUD');
 	const [reason, setReason] = useState('');
@@ -147,7 +160,7 @@ export function DecisionAndAuditColumn({
 						</div>
 
 						<div className="flex flex-wrap gap-2">
-							{item.status === 'RESOLVED_FRAUD' && (
+							{item.status === 'RESOLVED_FRAUD' && canCreateRule && (
 								<button
 									type="button"
 									className={BUTTON_PRIMARY_CLASS}
@@ -158,13 +171,15 @@ export function DecisionAndAuditColumn({
 									<span>Tạo luật từ hồ sơ</span>
 								</button>
 							)}
-							<Link
-								to={`/reports?tab=compliance&caseId=${item.case_id}`}
-								className={BUTTON_SECONDARY_CLASS}
-							>
-								<span>Xuất hồ sơ SAR</span>
-								<ArrowUpRight size={14} />
-							</Link>
+							{canCreateReport && (
+								<Link
+									to={`/reports?tab=compliance&caseId=${item.case_id}`}
+									className={BUTTON_SECONDARY_CLASS}
+								>
+									<span>Xuất hồ sơ SAR</span>
+									<ArrowUpRight size={14} />
+								</Link>
+							)}
 							{item.status === 'RESOLVED_LEGITIMATE' && item.triggered_rules.length > 0 && (
 								<Link
 									to="/investigation/policies?tab=feedback"
@@ -176,30 +191,32 @@ export function DecisionAndAuditColumn({
 							)}
 						</div>
 
-						<div className="space-y-2.5 border-t border-dark-800 pt-3">
-							<FormField name="Lý do mở lại" hint="Tối thiểu 10 ký tự (BR-IV-02)">
-								<textarea
-									className={INPUT_CLASS}
-									rows={2}
-									placeholder="Giải thích vì sao hồ sơ đã xử lý này cần mở lại..."
-									value={resolutionSummary}
-									onChange={(event) => setResolutionSummary(event.target.value)}
-								/>
-							</FormField>
-							<button
-								type="button"
-								className={BUTTON_SECONDARY_CLASS}
-								disabled={disabled || resolutionSummary.trim().length < 10}
-								onClick={handleReopen}
-							>
-								<Unlock size={14} />
-								<span>Mở lại hồ sơ</span>
-							</button>
-						</div>
+						{canReopen && (
+							<div className="space-y-2.5 border-t border-dark-800 pt-3">
+								<FormField name="Lý do mở lại" hint="Tối thiểu 10 ký tự (BR-IV-02)">
+									<textarea
+										className={INPUT_CLASS}
+										rows={2}
+										placeholder="Giải thích vì sao hồ sơ đã xử lý này cần mở lại..."
+										value={resolutionSummary}
+										onChange={(event) => setResolutionSummary(event.target.value)}
+									/>
+								</FormField>
+								<button
+									type="button"
+									className={BUTTON_SECONDARY_CLASS}
+									disabled={disabled || resolutionSummary.trim().length < 10}
+									onClick={handleReopen}
+								>
+									<Unlock size={14} />
+									<span>Mở lại hồ sơ</span>
+								</button>
+							</div>
+						)}
 					</div>
 				) : (
 					<div className="space-y-3.5">
-						{!item.assigned_to && (
+						{!item.assigned_to && canClaim && (
 							<button
 								type="button"
 								className={`${BUTTON_SECONDARY_CLASS} w-full`}
@@ -213,7 +230,41 @@ export function DecisionAndAuditColumn({
 							</button>
 						)}
 
-						<form className="space-y-3" onSubmit={handleResolveSubmit}>
+						{canAssign && (
+							<form
+								className="flex gap-2"
+								onSubmit={(event) => {
+									event.preventDefault();
+									if (!assignTo.trim()) {
+										return;
+									}
+									onMutate('claim', {
+										expected_version: item.version,
+										assignee: assignTo.trim(),
+									});
+									setAssignTo('');
+								}}
+							>
+								<input
+									aria-label="Phân công cho chuyên viên"
+									className={INPUT_CLASS}
+									placeholder="Tên đăng nhập chuyên viên..."
+									value={assignTo}
+									onChange={(event) => setAssignTo(event.target.value)}
+								/>
+								<button
+									type="submit"
+									className={`${BUTTON_SECONDARY_CLASS} shrink-0`}
+									disabled={disabled || !assignTo.trim()}
+								>
+									<UserCheck size={14} />
+									<span>Phân công</span>
+								</button>
+							</form>
+						)}
+
+						{canReview && (
+							<form className="space-y-3" onSubmit={handleResolveSubmit}>
 							<div
 								role="group"
 								aria-label="Chọn kết luận xử lý"
@@ -355,11 +406,12 @@ export function DecisionAndAuditColumn({
 								</span>
 							</button>
 						</form>
+						)}
 					</div>
 				)}
 			</SectionCard>
 
-			{!isResolved && (
+			{!isResolved && (canReview || canEscalate) && (
 				<SectionCard
 					title="Xác minh khách hàng & leo thang"
 					subtitle="Ghi trạng thái liên hệ khách hàng (BUC-06) hoặc chuyển cho chuyên viên cấp cao"
@@ -373,69 +425,75 @@ export function DecisionAndAuditColumn({
 							onChange={(event) => setWorkflowNote(event.target.value)}
 						/>
 					</FormField>
-					<button
-						type="button"
-						className={`${BUTTON_SECONDARY_CLASS} w-full`}
-						disabled={disabled || workflowNote.trim().length < 10}
-						onClick={handlePendingCustomer}
-					>
-						<ClipboardCheck size={14} />
-						<span>Đánh dấu chờ phản hồi khách hàng</span>
-					</button>
-
-					<div className="space-y-2 border-t border-dark-800 pt-2.5">
-						<FormField name="Người được giao leo thang">
-							<input
-								className={INPUT_CLASS}
-								maxLength={100}
-								placeholder="e.g. senior-risk-manager"
-								value={assignee}
-								onChange={(event) => setAssignee(event.target.value)}
-							/>
-						</FormField>
+					{canReview && (
 						<button
 							type="button"
 							className={`${BUTTON_SECONDARY_CLASS} w-full`}
-							disabled={
-								disabled ||
-								!assignee.trim() ||
-								workflowNote.trim().length < 10
-							}
-							onClick={handleEscalate}
+							disabled={disabled || workflowNote.trim().length < 10}
+							onClick={handlePendingCustomer}
 						>
-							<ShieldAlert size={14} />
-							<span>Leo thang lên mức ưu tiên nghiêm trọng</span>
+							<ClipboardCheck size={14} />
+							<span>Đánh dấu chờ phản hồi khách hàng</span>
 						</button>
-					</div>
+					)}
+
+					{canEscalate && (
+						<div className="space-y-2 border-t border-dark-800 pt-2.5">
+							<FormField name="Người được giao leo thang">
+								<input
+									className={INPUT_CLASS}
+									maxLength={100}
+									placeholder="e.g. senior-risk-manager"
+									value={assignee}
+									onChange={(event) => setAssignee(event.target.value)}
+								/>
+							</FormField>
+							<button
+								type="button"
+								className={`${BUTTON_SECONDARY_CLASS} w-full`}
+								disabled={
+									disabled ||
+									!assignee.trim() ||
+									workflowNote.trim().length < 10
+								}
+								onClick={handleEscalate}
+							>
+								<ShieldAlert size={14} />
+								<span>Leo thang lên mức ưu tiên nghiêm trọng</span>
+							</button>
+						</div>
+					)}
 				</SectionCard>
 			)}
 
-			<SectionCard
-				title="Ghi chú điều tra"
-				subtitle="Thêm quan sát có dấu thời gian vào nhật ký kiểm toán"
-			>
-				<form className="space-y-2.5" onSubmit={handleAddNote}>
-					<FormField name="Ghi chú">
-						<textarea
-							className={INPUT_CLASS}
-							rows={2}
-							maxLength={10000}
-							required
-							placeholder="Thêm ghi chú điều tra nội bộ..."
-							value={investigationNote}
-							onChange={(event) => setInvestigationNote(event.target.value)}
-						/>
-					</FormField>
-					<button
-						type="submit"
-						className={BUTTON_SECONDARY_CLASS}
-						disabled={disabled || !investigationNote.trim()}
-					>
-						<Save size={14} />
-						<span>Thêm ghi chú</span>
-					</button>
-				</form>
-			</SectionCard>
+			{canReview && (
+				<SectionCard
+					title="Ghi chú điều tra"
+					subtitle="Thêm quan sát có dấu thời gian vào nhật ký kiểm toán"
+				>
+					<form className="space-y-2.5" onSubmit={handleAddNote}>
+						<FormField name="Ghi chú">
+							<textarea
+								className={INPUT_CLASS}
+								rows={2}
+								maxLength={10000}
+								required
+								placeholder="Thêm ghi chú điều tra nội bộ..."
+								value={investigationNote}
+								onChange={(event) => setInvestigationNote(event.target.value)}
+							/>
+						</FormField>
+						<button
+							type="submit"
+							className={BUTTON_SECONDARY_CLASS}
+							disabled={disabled || !investigationNote.trim()}
+						>
+							<Save size={14} />
+							<span>Thêm ghi chú</span>
+						</button>
+					</form>
+				</SectionCard>
+			)}
 
 			<SectionCard
 				title={`Nhật ký kiểm toán (${logs.length})`}

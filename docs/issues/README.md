@@ -67,5 +67,6 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-034 | Documentation inconsistencies (SUC IDs, links) | docs | docs | P2 | In progress | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-035 | Reading a model with `risk_level` raises NameError | bug | training, infra | P2 | Resolved (26-11-15) | [quick_bugfix_and_cors_hardening](../../.plan/quick_bugfix_and_cors_hardening.md) | [11-14](11-14-2026.md) |
 | ISS-036 | Dataset import & exports inconsistent across S3 presigned and Electron local modes | bug | web, storage, server | P1 | Resolved (26-11-15) | [presigned_upload_and_file_io_guard](../../.plan/presigned_upload_and_file_io_guard.md) <!-- [26-11-15] --> | [11-15](11-15-2026.md) |
+| ISS-037 | Feature visibility gating by ActorContext and missing router permission enforcement | feature | auth, server, web | P1 | Resolved (26-11-16) | [rbac_feature_visibility](../../.plan/rbac_feature_visibility.md) <!-- [26-11-16] --> | [11-16](11-16-2026.md) |
 
 Older resolved bugs (pre-ISS numbering) are kept in [`docs/bugs.md`](../bugs.md).

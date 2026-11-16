@@ -11,6 +11,7 @@ import {
 	Unlock,
 } from 'lucide-react';
 import { investigationApi } from '../../../api/investigationApi';
+import { useActorContext } from '@/hooks/useActorContext';
 import type { EntityType } from '../../../types/investigation';
 import {
 	BUTTON_DANGER_CLASS,
@@ -36,6 +37,8 @@ export function PoliciesView({
 	readOnly: boolean;
 }) {
 	const queryClient = useQueryClient();
+	const { features } = useActorContext(projectId);
+	const canManageBlacklist = features.manageBlacklist.allowed;
 	const [searchParams, setSearchParams] = useSearchParams();
 	const activeTab =
 		searchParams.get('tab') === 'feedback' ? 'feedback' : 'blacklist';
@@ -212,70 +215,72 @@ export function PoliciesView({
 
 			{activeTab === 'blacklist' ? (
 				<div className="space-y-4">
-					<SectionCard
-						title="Thêm thực thể vào danh sách đen"
-						subtitle="Chặn người dùng, thẻ, thiết bị, địa chỉ IP hoặc đơn vị bán hàng móc nối bị xâm phạm (BUC-07)"
-					>
-						<form
-							className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
-							onSubmit={(event) => {
-								event.preventDefault();
-								addMutation.mutate();
-							}}
+					{canManageBlacklist && (
+						<SectionCard
+							title="Thêm thực thể vào danh sách đen"
+							subtitle="Chặn người dùng, thẻ, thiết bị, địa chỉ IP hoặc đơn vị bán hàng móc nối bị xâm phạm (BUC-07)"
 						>
-							<FormField name="Loại thực thể">
-								<select
-									className={INPUT_CLASS}
-									value={entityType}
-									onChange={(event) =>
-										setEntityType(event.target.value as EntityType)
+							<form
+								className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+								onSubmit={(event) => {
+									event.preventDefault();
+									addMutation.mutate();
+								}}
+							>
+								<FormField name="Loại thực thể">
+									<select
+										className={INPUT_CLASS}
+										value={entityType}
+										onChange={(event) =>
+											setEntityType(event.target.value as EntityType)
+										}
+									>
+										{ENTITY_TYPES.map((kind) => (
+											<option key={kind} value={kind}>
+												{kind}
+											</option>
+										))}
+									</select>
+								</FormField>
+								<FormField name="Giá trị định danh thực thể">
+									<input
+										className={INPUT_CLASS}
+										value={value}
+										maxLength={255}
+										required
+										placeholder="e.g. usr_1092, dev_88a..."
+										onChange={(event) => setValue(event.target.value)}
+									/>
+								</FormField>
+								<FormField name="Lý do chặn" hint="Tối thiểu 10 ký tự">
+									<input
+										className={INPUT_CLASS}
+										value={reason}
+										minLength={10}
+										maxLength={10000}
+										required
+										placeholder="Lý do chặn thực thể..."
+										onChange={(event) => setReason(event.target.value)}
+									/>
+								</FormField>
+								<button
+									type="submit"
+									className={`${BUTTON_DANGER_CLASS} self-end`}
+									disabled={
+										readOnly ||
+										addMutation.isPending ||
+										!value.trim() ||
+										reason.trim().length < 10
 									}
 								>
-									{ENTITY_TYPES.map((kind) => (
-										<option key={kind} value={kind}>
-											{kind}
-										</option>
-									))}
-								</select>
-							</FormField>
-							<FormField name="Giá trị định danh thực thể">
-								<input
-									className={INPUT_CLASS}
-									value={value}
-									maxLength={255}
-									required
-									placeholder="e.g. usr_1092, dev_88a..."
-									onChange={(event) => setValue(event.target.value)}
-								/>
-							</FormField>
-							<FormField name="Lý do chặn" hint="Tối thiểu 10 ký tự">
-								<input
-									className={INPUT_CLASS}
-									value={reason}
-									minLength={10}
-									maxLength={10000}
-									required
-									placeholder="Lý do chặn thực thể..."
-									onChange={(event) => setReason(event.target.value)}
-								/>
-							</FormField>
-							<button
-								type="submit"
-								className={`${BUTTON_DANGER_CLASS} self-end`}
-								disabled={
-									readOnly ||
-									addMutation.isPending ||
-									!value.trim() ||
-									reason.trim().length < 10
-								}
-							>
-								<Plus size={15} />
-								<span>Thêm vào danh sách đen</span>
-							</button>
-						</form>
-					</SectionCard>
+									<Plus size={15} />
+									<span>Thêm vào danh sách đen</span>
+								</button>
+							</form>
+						</SectionCard>
+					)}
 
-					{removingId && (
+					{canManageBlacklist && removingId && (
 						<SectionCard
 							title="Xác nhận gỡ khỏi danh sách đen"
 							subtitle="Gỡ thực thể sẽ giữ bản ghi với trạng thái REMOVED trong nhật ký kiểm toán"
@@ -411,7 +416,7 @@ export function PoliciesView({
 												)}
 											</td>
 											<td className="py-3 text-right">
-												{entry.status === 'ACTIVE' && (
+												{entry.status === 'ACTIVE' && canManageBlacklist && (
 													<button
 														type="button"
 														className={BUTTON_SECONDARY_CLASS}

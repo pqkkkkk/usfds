@@ -1,13 +1,13 @@
 """Idempotent RBAC seeding and legacy project member backfill."""
 from typing import Dict, List, Tuple
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from usfds_core.domain.entities.enums import GrantScope, RoleScope, UserStatus
 from usfds_core.domain.entities.auth import Permission, Role, RolePermission
 from usfds_core.domain.entities.system import User
-from usfds_infra.database.models import ProjectModel, RolePermissionModel, SystemUserRoleModel
+from usfds_infra.database.models import PermissionModel, ProjectModel, RolePermissionModel, SystemUserRoleModel
 from usfds_infra.database.repos.auth import (
 	SqlPermissionRepository,
 	SqlProjectMemberRepository,
@@ -54,12 +54,13 @@ PERMISSION_CATALOG: List[Tuple[str, str, str, GrantScope, str]] = [
 	("rule:read", "rule", "read", GrantScope.PROJECT, "View rules"),
 	("rule:update", "rule", "update", GrantScope.PROJECT, "Update rules"),
 	("rule:delete", "rule", "delete", GrantScope.PROJECT, "Delete rules"),
-	("rule:propose", "rule", "propose", GrantScope.PROJECT, "Propose draft/shadow rules"),
 	("rule:dry_run", "rule", "dry_run", GrantScope.PROJECT, "Dry-run rules"),
 	("rule:deploy", "rule", "deploy", GrantScope.PROJECT, "Deploy/activate rules"),
 	("rule:undeploy", "rule", "undeploy", GrantScope.PROJECT, "Deactivate rules"),
 	("detection:create", "detection", "create", GrantScope.PROJECT, "Run batch detection"),
 	("detection:read", "detection", "read", GrantScope.PROJECT, "View detection jobs and results"),
+	("detection:export", "detection", "export", GrantScope.PROJECT, "Export detection job results"),
+	("case:create", "case", "create", GrantScope.PROJECT, "Create investigation cases from detection"),
 	("case:read", "case", "read", GrantScope.PROJECT, "View investigation cases"),
 	("case:assign", "case", "assign", GrantScope.PROJECT, "Assign investigation cases"),
 	("case:claim", "case", "claim", GrantScope.PROJECT, "Claim unassigned cases"),
@@ -108,6 +109,8 @@ ROLE_GRANTS: Dict[str, List[Tuple[str, GrantScope]]] = {
 		("rule:read", GrantScope.PROJECT),
 		("detection:create", GrantScope.PROJECT),
 		("detection:read", GrantScope.PROJECT),
+		("detection:export", GrantScope.PROJECT),
+		("case:create", GrantScope.PROJECT),
 		("case:read", GrantScope.PROJECT),
 		("case:assign", GrantScope.PROJECT),
 		("report:read", GrantScope.PROJECT),
@@ -138,15 +141,17 @@ ROLE_GRANTS: Dict[str, List[Tuple[str, GrantScope]]] = {
 		("rule:undeploy", GrantScope.PROJECT),
 		("detection:create", GrantScope.PROJECT),
 		("detection:read", GrantScope.PROJECT),
+		("detection:export", GrantScope.PROJECT),
 		("report:read", GrantScope.PROJECT),
 	],
 	"fraud_analyst": [
 		("project:read", GrantScope.PROJECT),
 		("dataset:read", GrantScope.PROJECT),
 		("rule:read", GrantScope.PROJECT),
-		("rule:propose", GrantScope.PROJECT),
 		("detection:create", GrantScope.PROJECT),
 		("detection:read", GrantScope.PROJECT),
+		("detection:export", GrantScope.PROJECT),
+		("case:create", GrantScope.PROJECT),
 		("case:read", GrantScope.PROJECT),
 		("case:claim", GrantScope.PROJECT),
 		("case:manual_review", GrantScope.PROJECT),
@@ -173,6 +178,17 @@ def seed_rbac(
 	role_repo = SqlRoleRepository(session)
 	user_repo = SqlUserRepository(session)
 	member_repo = SqlProjectMemberRepository(session)
+
+	# Remove obsolete permissions (e.g. rule:propose removed in ISS-037) idempotently
+	obsolete_perm = perm_repo.get_by_code("rule:propose")
+	if obsolete_perm is not None:
+		session.execute(
+			delete(RolePermissionModel).where(RolePermissionModel.permission_id == str(obsolete_perm.permission_id))
+		)
+		session.execute(
+			delete(PermissionModel).where(PermissionModel.permission_id == str(obsolete_perm.permission_id))
+		)
+		session.flush()
 
 	perm_by_code: Dict[str, Permission] = {}
 	for code, resource, action, scope, desc in PERMISSION_CATALOG:

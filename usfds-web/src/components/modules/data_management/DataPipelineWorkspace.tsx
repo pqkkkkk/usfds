@@ -7,6 +7,8 @@ import { SchemaMappingWorkspace } from './SchemaMappingWorkspace';
 import { DataValidationWorkspace } from './DataValidationWorkspace';
 import { FeatureEngineeringWorkspace } from './FeatureEngineeringWorkspace';
 import { useDatasetPipeline } from '../../../hooks/useDatasetPipeline';
+import { useProject } from '@/hooks/useProjects';
+import { useActorContext } from '@/hooks/useActorContext';
 import type { DataMappingConfig, FeatureEngineeringConfig } from '../../../types/dataset';
 import {
   ArrowLeft,
@@ -19,6 +21,10 @@ import {
 export const DataPipelineWorkspace = () => {
   const { datasetId, stepId = 'step-profiling' } = useParams<{ datasetId: string; stepId: string }>();
   const navigate = useNavigate();
+  const { currentProjectId } = useProject();
+  const { features } = useActorContext(currentProjectId);
+  const canUpdateDataset = features.updateDataset.allowed;
+  const canOpenModels = features.modelManagement.allowed;
 
   const [mappingConfig, setMappingConfig] = useState<DataMappingConfig | null>(null);
   const [isMappingValid, setIsMappingValid] = useState<boolean>(false);
@@ -87,7 +93,7 @@ export const DataPipelineWorkspace = () => {
             </button>
 
             {/* Step 1: Profiling -> Proceed to Mapping */}
-            {stepId === 'step-profiling' && (
+            {stepId === 'step-profiling' && canUpdateDataset && (
               <button
                 onClick={() => handleStepSelect('step-mapping')}
                 className="px-4 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-1.5"
@@ -98,7 +104,7 @@ export const DataPipelineWorkspace = () => {
             )}
 
             {/* Step 2: Schema Mapping -> Validate Data action */}
-            {stepId === 'step-mapping' && (
+            {stepId === 'step-mapping' && canUpdateDataset && (
               <button
                 onClick={async () => {
                   if (!mappingConfig || !isMappingValid || isSavingMapping) return;
@@ -134,7 +140,7 @@ export const DataPipelineWorkspace = () => {
             )}
 
             {/* Step 3: Validation Report -> Proceed to Feature Engineering */}
-            {stepId === 'step-validation' && (
+            {stepId === 'step-validation' && canUpdateDataset && (
               <button
                 onClick={() => handleStepSelect('step-feature-eng')}
                 className="px-4 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-1.5"
@@ -147,7 +153,7 @@ export const DataPipelineWorkspace = () => {
             {/* Step 4: Feature Engineering -> Execute & Proceed to Training */}
             {stepId === 'step-feature-eng' && (
               <div className="flex items-center gap-2">
-                {activeFeArtifact && (
+                {activeFeArtifact && canUpdateDataset && (
                   <button
                     onClick={async () => {
                       if (!feConfig || isExecutingFE) return;
@@ -169,43 +175,45 @@ export const DataPipelineWorkspace = () => {
                   </button>
                 )}
 
-                <button
-                  onClick={async () => {
-                    if (activeFeArtifact) {
-                      navigate('/models');
-                    } else {
-                      if (!feConfig || isExecutingFE) return;
-                      try {
-                        await executeFeatureEngineering(feConfig);
-                      } catch (e) {
-                        console.error('Feature engineering failed:', e);
+                {((activeFeArtifact && canOpenModels) || (!activeFeArtifact && canUpdateDataset)) && (
+                  <button
+                    onClick={async () => {
+                      if (activeFeArtifact) {
+                        navigate('/models');
+                      } else {
+                        if (!feConfig || isExecutingFE) return;
+                        try {
+                          await executeFeatureEngineering(feConfig);
+                        } catch (e) {
+                          console.error('Feature engineering failed:', e);
+                        }
                       }
-                    }
-                  }}
-                  disabled={!activeFeArtifact && (!feConfig || isExecutingFE)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                    !activeFeArtifact && (!feConfig || isExecutingFE)
-                      ? 'bg-dark-700 text-slate-500 cursor-not-allowed border border-dark-600'
-                      : 'bg-brand-500 hover:bg-brand-600 text-white shadow-glow-blue'
-                  }`}
-                >
-                  {isExecutingFE ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Đang chạy kỹ nghệ đặc trưng...</span>
-                    </>
-                  ) : activeFeArtifact ? (
-                    <>
-                      <span>Tiếp tục tới Huấn luyện mô hình</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Chạy kỹ nghệ đặc trưng</span>
-                    </>
-                  )}
-                </button>
+                    }}
+                    disabled={!activeFeArtifact && (!feConfig || isExecutingFE)}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                      !activeFeArtifact && (!feConfig || isExecutingFE)
+                        ? 'bg-dark-700 text-slate-500 cursor-not-allowed border border-dark-600'
+                        : 'bg-brand-500 hover:bg-brand-600 text-white shadow-glow-blue'
+                    }`}
+                  >
+                    {isExecutingFE ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Đang chạy kỹ nghệ đặc trưng...</span>
+                      </>
+                    ) : activeFeArtifact ? (
+                      <>
+                        <span>Tiếp tục tới Huấn luyện mô hình</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Chạy kỹ nghệ đặc trưng</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
           </div>

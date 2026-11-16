@@ -116,7 +116,7 @@ def set_user_status(
 	auth_service: AuthService = Depends(get_auth_service),
 	authz: AuthzService = Depends(get_authz_service),
 ) -> ApiResponse[AdminUserResponse]:
-	authz.require_system_permission(actor, "user:manage")
+	authz.require_system_permission(actor, "user:update")
 	try:
 		next_status = UserStatus(request.status)
 		user = auth_service.set_user_status(user_id=user_id, status=next_status)
@@ -135,7 +135,7 @@ def reset_password(
 	auth_service: AuthService = Depends(get_auth_service),
 	authz: AuthzService = Depends(get_authz_service),
 ) -> ApiResponse[bool]:
-	authz.require_system_permission(actor, "user:manage")
+	authz.require_system_permission(actor, "user:reset_password")
 	try:
 		auth_service.reset_password(user_id=user_id, new_password=request.new_password)
 		return ApiResponse.ok(data=True, message="Password reset successfully")
@@ -152,7 +152,7 @@ def set_system_roles(
 	actor: ActorContext = Depends(get_actor_context),
 	authz: AuthzService = Depends(get_authz_service),
 ) -> ApiResponse[List[str]]:
-	authz.require_system_permission(actor, "user:manage")
+	authz.require_system_permission(actor, "user:update")
 	try:
 		role_keys: List[str] = []
 		for rid in request.role_ids:

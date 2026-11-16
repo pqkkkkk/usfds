@@ -330,3 +330,178 @@ def test_admin_user_and_rbac_endpoints(server_settings, monkeypatch):
 			json={"user_id": analyst_id, "role_id": custom_role_id},
 			headers=analyst_headers,
 		).status_code == 403
+
+
+def test_all_project_routers_enforce_permissions_without_rule_propose(server_settings, monkeypatch):
+	"""ISS-037: Permission catalog removes rule:propose, adds detection:export & case:create, fixes user/member perms, and all project routers enforce 403."""
+	from fastapi.testclient import TestClient
+	from usfds_core.domain.entities.dataset import Dataset
+	from usfds_core.domain.entities.detection import DetectionJob
+	from usfds_core.domain.entities.enums import RuleAction, RuleStatus
+	from usfds_infra.database.repos.dataset import SqliteDatasetRepository
+	from usfds_infra.database.repos.detection import SqliteDetectionJobRepository
+	from usfds_infra.database.repos.rule import SqliteRuleRepository
+	from usfds_core.domain.entities.rule import Rule
+	from usfds_server import dependencies
+	from usfds_server.api import app
+
+	monkeypatch.setattr(server_settings, "auth_mode", "required")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_username", "admin")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_password", "AdminPass123!")
+
+	with TestClient(app) as test_client:
+		admin_login = test_client.post("/api/v1/auth/login", json={"username": "admin", "password": "AdminPass123!"})
+		admin_headers = {"Authorization": f"Bearer {admin_login.json()['data']['access_token']}"}
+
+		# 1. Permission catalog has detection:export & case:create and does NOT have rule:propose
+		perms = test_client.get("/api/v1/rbac/permissions", headers=admin_headers).json()["data"]
+		perm_codes = {p["code"] for p in perms}
+		assert "rule:propose" not in perm_codes
+		assert "detection:export" in perm_codes
+		assert "case:create" in perm_codes
+
+		# 2. Setup project + dataset + rule + detection job
+		proj_res = test_client.post("/api/v1/projects", json={"project_name": "Hardened Project"}, headers=admin_headers)
+		project_id = proj_res.json()["data"]["project_id"]
+		from uuid import UUID
+		project_uuid = UUID(project_id)
+
+		ds_id = uuid4()
+		rule_id = uuid4()
+		job_id = uuid4()
+		with dependencies._session_factory() as session:
+			SqliteDatasetRepository(session).save(
+				Dataset(dataset_id=ds_id, project_id=project_uuid, user_id=uuid4(), dataset_name="ds_test")
+			)
+			SqliteRuleRepository(session).save(
+				Rule(
+					rule_id=rule_id,
+					project_id=project_uuid,
+					rule_code="R-900",
+					name="Test Rule",
+					description="Test Rule",
+					status=RuleStatus.DRAFT,
+					created_by="admin",
+				)
+			)
+			SqliteDetectionJobRepository(session).save(
+				DetectionJob(
+					job_id=job_id,
+					project_id=project_uuid,
+					job_name="job_test",
+					input_path="datasets/raw.csv",
+				)
+			)
+			session.commit()
+
+		# 3. Create fraud_analyst, data_scientist, and a non-super-admin user_manager
+		roles = test_client.get("/api/v1/rbac/roles", headers=admin_headers).json()["data"]
+		fa_role = next(r for r in roles if r["name"] == "fraud_analyst")
+		ds_role = next(r for r in roles if r["name"] == "data_scientist")
+
+		# fraud_analyst has rule:read only (PA-A) and detection:export + case:create
+		fa_codes = {g["permission_code"] for g in fa_role["grants"]}
+		assert "rule:propose" not in fa_codes
+		assert "rule:read" in fa_codes
+		assert "rule:create" not in fa_codes
+		assert "detection:export" in fa_codes
+		assert "case:create" in fa_codes
+
+		um_role = test_client.post(
+			"/api/v1/rbac/roles",
+			json={
+				"name": "user_mgr",
+				"display_name": "User Manager",
+				"scope": "SYSTEM",
+				"grants": [
+					{"permission_code": "user:read", "grant_scope": "SYSTEM"},
+					{"permission_code": "user:update", "grant_scope": "SYSTEM"},
+					{"permission_code": "user:reset_password", "grant_scope": "SYSTEM"},
+				],
+			},
+			headers=admin_headers,
+		).json()["data"]
+
+		test_client.post(
+			"/api/v1/users",
+			json={"username": "um1", "password": "UserMgr123!", "system_roles": ["user_mgr"]},
+			headers=admin_headers,
+		)
+		fa_user = test_client.post(
+			f"/api/v1/projects/{project_id}/members",
+			json={"username": "fa1", "password": "AnalystPass123!", "role_id": fa_role["role_id"]},
+			headers=admin_headers,
+		).json()["data"]
+		test_client.post(
+			f"/api/v1/projects/{project_id}/members",
+			json={"username": "ds1", "password": "ScientistPass123!", "role_id": ds_role["role_id"]},
+			headers=admin_headers,
+		)
+
+		fa_token = test_client.post("/api/v1/auth/login", json={"username": "fa1", "password": "AnalystPass123!"}).json()["data"]["access_token"]
+		ds_token = test_client.post("/api/v1/auth/login", json={"username": "ds1", "password": "ScientistPass123!"}).json()["data"]["access_token"]
+		um_token = test_client.post("/api/v1/auth/login", json={"username": "um1", "password": "UserMgr123!"}).json()["data"]["access_token"]
+
+		fa_headers = {"Authorization": f"Bearer {fa_token}"}
+		ds_headers = {"Authorization": f"Bearer {ds_token}"}
+		um_headers = {"Authorization": f"Bearer {um_token}"}
+
+		# 4. user_manager uses user:update and user:reset_password (not missing "user:manage")
+		assert test_client.patch(
+			f"/api/v1/users/{fa_user['user_id']}/status",
+			json={"status": "DISABLED"},
+			headers=um_headers,
+		).status_code == 200
+		assert test_client.patch(
+			f"/api/v1/users/{fa_user['user_id']}/status",
+			json={"status": "ACTIVE"},
+			headers=um_headers,
+		).status_code == 200
+		assert test_client.post(
+			f"/api/v1/users/{fa_user['user_id']}/reset-password",
+			json={"new_password": "NewPassword123!"},
+			headers=um_headers,
+		).status_code == 200
+
+		# 5. list_project_members requires project_member:read (fraud_analyst & data_scientist get 403)
+		assert test_client.get(f"/api/v1/projects/{project_id}/members", headers=fa_headers).status_code == 403
+		assert test_client.get(f"/api/v1/projects/{project_id}/members", headers=ds_headers).status_code == 403
+
+		# 6. fraud_analyst gets 403 on dataset delete/mapping/fe/export, rule create/update/delete/status/backtest, model/training
+		assert test_client.delete(f"/api/v1/datasets/{ds_id}", headers=fa_headers).status_code == 403
+		assert test_client.post(
+			"/api/v1/rules",
+			json={
+				"project_id": project_id,
+				"rule_code": "R-901",
+				"name": "Draft",
+				"condition": {"==": [1, 1]},
+				"action": RuleAction.REVIEW.value,
+				"status": RuleStatus.DRAFT.value,
+			},
+			headers=fa_headers,
+		).status_code == 403
+		assert test_client.delete(f"/api/v1/rules/{rule_id}", headers=fa_headers).status_code == 403
+		assert test_client.patch(
+			f"/api/v1/rules/{rule_id}/status",
+			json={"status": "ACTIVE"},
+			headers=fa_headers,
+		).status_code == 403
+		assert test_client.post(
+			"/api/v1/rules/evaluate-batch",
+			json={"project_id": project_id, "transaction_id": "t1", "raw_features": {}},
+			headers=fa_headers,
+		).status_code == 403
+		assert test_client.get(f"/api/v1/training/models?project_id={project_id}", headers=fa_headers).status_code == 403
+		assert test_client.get(f"/api/v1/training/runs?project_id={project_id}", headers=fa_headers).status_code == 403
+
+		# 7. data_scientist gets 403 on investigation sub-endpoints, send-to-investigation, and SAR/executive creation
+		assert test_client.get(f"/api/v1/cases/kpis?project_id={project_id}", headers=ds_headers).status_code == 403
+		assert test_client.get(f"/api/v1/cases/rule-feedback?project_id={project_id}", headers=ds_headers).status_code == 403
+		assert test_client.post(
+			f"/api/v1/detection/jobs/{job_id}/send-to-investigation",
+			json={"event_ids": ["e1"]},
+			headers=ds_headers,
+		).status_code == 403
+		assert test_client.get(f"/api/v1/reports/executive-summary?project_id={project_id}", headers=ds_headers).status_code == 403
+		assert test_client.get(f"/api/v1/reports/overview?project_id={project_id}", headers=ds_headers).status_code == 200

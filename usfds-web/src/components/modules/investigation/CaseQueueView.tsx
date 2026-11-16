@@ -15,6 +15,7 @@ import {
 	UserCheck,
 } from 'lucide-react';
 import { investigationApi } from '../../../api/investigationApi';
+import { useActorContext } from '@/hooks/useActorContext';
 import type { Case } from '../../../types/investigation';
 import {
 	BUTTON_PRIMARY_CLASS,
@@ -54,6 +55,8 @@ export function CaseQueueView({
 }) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
+	const { features } = useActorContext(projectId);
+	const canClaimCase = features.claimCase.allowed;
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [filters, setFilters] = useState<Record<string, string>>(INITIAL_FILTERS);
 	const [page, setPage] = useState(1);
@@ -409,7 +412,7 @@ export function CaseQueueView({
 									</td>
 									<td className="px-4 py-3 text-right">
 										<div className="inline-flex items-center justify-end gap-2">
-											{item.status === 'OPEN' && (
+											{item.status === 'OPEN' && canClaimCase && (
 												<button
 													type="button"
 													className={BUTTON_SECONDARY_CLASS}

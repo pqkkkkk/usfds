@@ -20,7 +20,7 @@ import {
 import { PageHeader } from '../../layout/PageHeader';
 import { detectionApi } from '@/api';
 import { investigationApi } from '../../../api/investigationApi';
-import { useProject } from '@/hooks';
+import { useProject, useActorContext } from '@/hooks';
 import type { DetectionJobResponse, DetectionJobStatusType } from '@/types';
 
 const STATUS_BADGE_MAP: Record<
@@ -53,6 +53,8 @@ export function DetectionJobsHubView() {
 	const navigate = useNavigate();
 	const { currentProject } = useProject();
 	const projectId = currentProject?.project_id || '';
+	const { features } = useActorContext(currentProject?.project_id);
+	const canCreateDetection = features.createDetection.allowed;
 
 	const [searchQuery, setSearchQuery] = useState('');
 	const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -157,14 +159,16 @@ export function DetectionJobsHubView() {
 							/>
 							Làm mới
 						</button>
-						<button
-							type="button"
-							onClick={() => navigate('/detection/new')}
-							className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs font-semibold text-white flex items-center gap-2 shadow-lg shadow-brand-600/20 transition"
-						>
-							<Play className="w-3.5 h-3.5 fill-current" />
-							Phiên phát hiện mới
-						</button>
+						{canCreateDetection && (
+							<button
+								type="button"
+								onClick={() => navigate('/detection/new')}
+								className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs font-semibold text-white flex items-center gap-2 shadow-lg shadow-brand-600/20 transition"
+							>
+								<Play className="w-3.5 h-3.5 fill-current" />
+								Phiên phát hiện mới
+							</button>
+						)}
 					</div>
 				}
 			/>

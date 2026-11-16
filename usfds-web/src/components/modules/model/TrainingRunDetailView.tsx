@@ -17,6 +17,7 @@ import {
 import { trainingApi } from '../../../api/trainingApi';
 import { useProject } from '../../../hooks/useProjects';
 import { useTheme } from '../../../hooks/useTheme';
+import { useActorContext } from '@/hooks/useActorContext';
 import { PageHeader } from '../../layout/PageHeader';
 import type {
 	ModelResponse,
@@ -32,6 +33,9 @@ export const TrainingRunDetailView: React.FC = () => {
 	const navigate = useNavigate();
 	const { currentProject } = useProject();
 	const { chartTokens } = useTheme();
+	const { features } = useActorContext(currentProject?.project_id);
+	const canCreateTraining = features.createTraining.allowed;
+	const canDeployModel = features.deployModel.allowed;
 
 	const [run, setRun] = useState<TrainingRunResponse | null>(null);
 	const [model, setModel] = useState<ModelResponse | null>(null);
@@ -219,19 +223,21 @@ export const TrainingRunDetailView: React.FC = () => {
 							<ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
 							<span>Trung tâm mô hình</span>
 						</button>
-						<button
-							type="button"
-							onClick={() =>
-								navigate(
-									`/models/train?modelId=${run.model_id || ''}&artifactId=${run.dataset_artifact_id || ''}`
-								)
-							}
-							className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-200 transition flex items-center gap-1.5 cursor-pointer"
-						>
-							<RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-							<span>Re-train / Clone</span>
-						</button>
-						{version && !isFailed && (
+						{canCreateTraining && (
+							<button
+								type="button"
+								onClick={() =>
+									navigate(
+										`/models/train?modelId=${run.model_id || ''}&artifactId=${run.dataset_artifact_id || ''}`
+									)
+								}
+								className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-200 transition flex items-center gap-1.5 cursor-pointer"
+							>
+								<RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+								<span>Re-train / Clone</span>
+							</button>
+						)}
+						{version && !isFailed && canDeployModel && (
 							<button
 								type="button"
 								onClick={() => setIsActivateModalOpen(true)}
@@ -263,20 +269,22 @@ export const TrainingRunDetailView: React.FC = () => {
 						<pre className="p-4 rounded-xl bg-dark-950 border border-dark-800 text-xs font-mono text-rose-300 whitespace-pre-wrap overflow-x-auto">
 							{run.error_message || 'Không có nhật ký lỗi chi tiết.'}
 						</pre>
-						<div className="flex justify-end">
-							<button
-								type="button"
-								onClick={() =>
-									navigate(
-										`/models/train?modelId=${run.model_id || ''}&artifactId=${run.dataset_artifact_id || ''}`
-									)
-								}
-								className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold transition flex items-center gap-2"
-							>
-								<RotateCcw className="w-3.5 h-3.5" />
-								<span>Thử lại trong trình huấn luyện</span>
-							</button>
-						</div>
+						{canCreateTraining && (
+							<div className="flex justify-end">
+								<button
+									type="button"
+									onClick={() =>
+										navigate(
+											`/models/train?modelId=${run.model_id || ''}&artifactId=${run.dataset_artifact_id || ''}`
+										)
+									}
+									className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold transition flex items-center gap-2"
+								>
+									<RotateCcw className="w-3.5 h-3.5" />
+									<span>Thử lại trong trình huấn luyện</span>
+								</button>
+							</div>
+						)}
 					</div>
 				) : (
 					<>

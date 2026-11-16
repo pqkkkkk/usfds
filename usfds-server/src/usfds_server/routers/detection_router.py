@@ -123,10 +123,13 @@ def start_detection_job(
 )
 def get_detection_job(
 	job_id: UUID,
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	service: InferenceService = Depends(get_inference_service),
 ) -> ApiResponse[DetectionJobResponse]:
 	try:
 		job = service.get_detection_job(job_id)
+		authz.require_project_permission(actor, "detection:read", job.project_id)
 		return ApiResponse.ok(
 			data=_to_job_response(job),
 			message="Detection job retrieved successfully",
@@ -152,9 +155,13 @@ def get_detection_job_results(
 	max_score: Optional[float] = Query(None, ge=0.0, le=1.0),
 	limit: int = Query(200, ge=1, le=2000),
 	offset: int = Query(0, ge=0),
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	service: InferenceService = Depends(get_inference_service),
 ) -> ApiResponse[DetectionJobResultsResponse]:
 	try:
+		job = service.get_detection_job(job_id)
+		authz.require_project_permission(actor, "detection:read", job.project_id)
 		res = service.get_detection_job_results(
 			job_id=job_id,
 			action_filter=action_filter,
@@ -210,12 +217,15 @@ def export_detection_job_results(
 	file_format: str = Query("csv", description="Export format: csv | parquet"),
 	only_flagged: bool = Query(False, description="Export only flagged (REJECT + REVIEW) transactions"),
 	presigned: bool = Query(False, description="Return a presigned download URL when backed by S3"),
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	service: InferenceService = Depends(get_inference_service),
 	storage: IFileStorage = Depends(get_storage),
 ):
 	try:
+		job = service.get_detection_job(job_id)
+		authz.require_project_permission(actor, "detection:export", job.project_id)
 		if presigned and file_format.strip().lower() == "parquet" and not only_flagged:
-			job = service.get_detection_job(job_id)
 			if job.output_path and storage.exists(job.output_path):
 				safe_name = (job.job_name or str(job.job_id)).replace(" ", "_")
 				filename = f"{safe_name}_results.parquet"
@@ -261,10 +271,12 @@ def send_to_investigation(
 	service: InferenceService = Depends(get_inference_service),
 	session: Session = Depends(get_db),
 	storage: LocalFileStorage = Depends(get_storage),
-	actor: str = Depends(get_actor),
+	actor_ctx: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 ) -> ApiResponse[dict]:
 	try:
 		job = service.get_detection_job(job_id)
+		authz.require_project_permission(actor_ctx, "case:create", job.project_id, action="create")
 		project = _project(session, job.project_id, True)
 		frame = _source_frame(session, storage, job.project_id, None, job_id)
 		frame["event_id"] = frame["event_id"].astype(str)
@@ -299,7 +311,7 @@ def send_to_investigation(
 				"final_action": row["final_action"], "triggered_rules": rules, "feature_contributions": contributions, "attributes": attributes,
 			}))
 		payload = CaseIntakeRequest(project_id=job.project_id, detection_job_id=job_id, model_version_id=job.model_version_id, transactions=transactions)
-		result = ingest_request(payload, session, storage, actor, request.analyst_notes)
+		result = ingest_request(payload, session, storage, actor_ctx.username, request.analyst_notes)
 		return ApiResponse.ok(
 			data=result,
 			status_code=status.HTTP_201_CREATED,
