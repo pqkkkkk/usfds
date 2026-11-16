@@ -58,7 +58,7 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-025 | Test setup duplicated, depends on global state | tech-debt | devex | **P0** | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-026 | Hot-spot files cause merge conflicts | tech-debt | devex | P1 | Resolved backend (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-027 | System column aliases duplicated in 5 places | tech-debt | inference, insight-report | P2 | Open | — | [11-14](11-14-2026.md) |
-| ISS-028 | Web API client swallows errors | bug | web | P1 | Open (assessed) | — | [11-14](11-14-2026.md) |
+| ISS-028 | Web API client swallows errors | bug | web | P1 | Resolved (26-11-16) | [web_api_client_error_propagation](../../.plan/web_api_client_error_propagation.md) <!-- [26-11-16] --> | [11-14](11-14-2026.md) |
 | ISS-029 | Inconsistent server ports (8000 vs 8200) | bug | web, server | P3 | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-030 | Ad-hoc HTTP error mapping, swallowed exceptions | tech-debt | server | P3 | Open | — | [11-14](11-14-2026.md) |
 | ISS-031 | List endpoints not paginated; N+1 in reports | improvement | server | P3 | Open | — | [11-14](11-14-2026.md) |

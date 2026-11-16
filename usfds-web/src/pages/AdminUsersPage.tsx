@@ -41,25 +41,26 @@ export function AdminUsersPage() {
 	const loadData = async () => {
 		setLoading(true);
 		setError(null);
-		const [uRes, rRes, pRes] = await Promise.all([
-			canViewUsersTab ? userAdminApi.listUsers() : Promise.resolve(null),
-			canViewRolesTab ? userAdminApi.listRoles() : Promise.resolve(null),
-			canViewRolesTab ? userAdminApi.listPermissions() : Promise.resolve(null),
-		]);
-		if (uRes) {
-			if (uRes.success && uRes.data) {
-				setUsers(uRes.data);
-			} else {
-				setError(uRes.error || 'Không thể tải danh sách người dùng');
+		try {
+			const [uSettled, rSettled, pSettled] = await Promise.allSettled([
+				userAdminApi.listUsers(),
+				userAdminApi.listRoles(),
+				userAdminApi.listPermissions(),
+			]);
+			if (uSettled.status === 'fulfilled' && uSettled.value.data) {
+				setUsers(uSettled.value.data);
+			} else if (uSettled.status === 'rejected') {
+				setError((uSettled.reason as Error)?.message || 'Không thể tải danh sách người dùng');
 			}
+			if (rSettled.status === 'fulfilled' && rSettled.value.data) {
+				setRoles(rSettled.value.data);
+			}
+			if (pSettled.status === 'fulfilled' && pSettled.value.data) {
+				setPermissions(pSettled.value.data);
+			}
+		} finally {
+			setLoading(false);
 		}
-		if (rRes && rRes.success && rRes.data) {
-			setRoles(rRes.data);
-		}
-		if (pRes && pRes.success && pRes.data) {
-			setPermissions(pRes.data);
-		}
-		setLoading(false);
 	};
 
 	useEffect(() => {
@@ -99,38 +100,39 @@ export function AdminUsersPage() {
 	const handleCreateUser = async (e: FormEvent) => {
 		e.preventDefault();
 		setError(null);
-		const res = await userAdminApi.createUser({
-			username: newUsername.trim(),
-			password: newPassword,
-			full_name: newFullName.trim() || null,
-			email: newEmail.trim() || null,
-			system_roles: [newRoleKey],
-		});
-		if (res.success) {
+		try {
+			await userAdminApi.createUser({
+				username: newUsername.trim(),
+				password: newPassword,
+				full_name: newFullName.trim() || null,
+				email: newEmail.trim() || null,
+				system_roles: [newRoleKey],
+			});
 			setNewUsername('');
 			setNewPassword('');
 			setNewFullName('');
 			setNewEmail('');
 			await loadData();
-		} else {
-			setError(res.error || 'Không thể tạo người dùng');
+		} catch (err: any) {
+			setError(err?.message || 'Không thể tạo người dùng');
 		}
 	};
 
 	const handleToggleStatus = async (u: AdminUserResponse) => {
 		const next = u.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
-		const res = await userAdminApi.setUserStatus(u.user_id, next);
-		if (res.success) {
+		try {
+			await userAdminApi.setUserStatus(u.user_id, next);
 			await loadData();
-		} else {
-			setError(res.error || 'Không thể đổi trạng thái');
+		} catch (err: any) {
+			setError(err?.message || 'Không thể đổi trạng thái');
 		}
 	};
 
 	const handleResetPassword = async (userId: string) => {
-		const res = await userAdminApi.resetPassword(userId, 'ResetPass123!');
-		if (!res.success) {
-			setError(res.error || 'Không thể đặt lại mật khẩu');
+		try {
+			await userAdminApi.resetPassword(userId, 'ResetPass123!');
+		} catch (err: any) {
+			setError(err?.message || 'Không thể đặt lại mật khẩu');
 		}
 	};
 

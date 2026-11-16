@@ -48,11 +48,11 @@ export const RuleCatalogView: React.FC = () => {
 		setErrorMsg(null);
 		try {
 			const res = await ruleApi.listRules(effectiveProjectId);
-			if (res.success && Array.isArray(res.data)) {
+			if (Array.isArray(res.data)) {
 				setRules(res.data);
-			} else if (!res.success) {
-				setErrorMsg(res.error || 'Không thể tải danh sách quy tắc từ máy chủ.');
 			}
+		} catch (err: any) {
+			setErrorMsg(err?.message || 'Không thể tải danh sách quy tắc từ máy chủ.');
 		} finally {
 			setLoading(false);
 		}
@@ -65,13 +65,15 @@ export const RuleCatalogView: React.FC = () => {
 	const handleToggleStatus = async (ruleId: string, currentStatus: RuleStatus) => {
 		setErrorMsg(null);
 		const nextStatus: RuleStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-		const res = await ruleApi.setRuleStatus(ruleId, nextStatus);
-		if (res.success && res.data) {
-			setRules((prev) => prev.map((r) => (r.rule_id === ruleId ? res.data : r)));
-			refetchProjects();
-		} else {
+		try {
+			const res = await ruleApi.setRuleStatus(ruleId, nextStatus);
+			if (res.data) {
+				setRules((prev) => prev.map((r) => (r.rule_id === ruleId ? res.data : r)));
+				refetchProjects();
+			}
+		} catch (err: any) {
 			setErrorMsg(
-				res.error ||
+				err?.message ||
 					`Không thể chuyển trạng thái quy tắc sang ${nextStatus}. Vui lòng kiểm tra lược đồ thô của dự án.`
 			);
 		}
@@ -82,12 +84,12 @@ export const RuleCatalogView: React.FC = () => {
 			return;
 		}
 		setErrorMsg(null);
-		const res = await ruleApi.deleteRule(ruleId);
-		if (res.success) {
+		try {
+			await ruleApi.deleteRule(ruleId);
 			setRules((prev) => prev.filter((r) => r.rule_id !== ruleId));
 			refetchProjects();
-		} else {
-			setErrorMsg(res.error || 'Không thể xóa quy tắc.');
+		} catch (err: any) {
+			setErrorMsg(err?.message || 'Không thể xóa quy tắc.');
 		}
 	};
 

@@ -61,28 +61,35 @@ export const TrainingWizardView: React.FC = () => {
 	const loadInitialCatalog = useCallback(async () => {
 		setIsLoadingInit(true);
 		try {
-			const [dsRes, modelsRes] = await Promise.all([
+			const [dsSettled, modelsSettled] = await Promise.allSettled([
 				datasetApi.listDatasets(projectId),
 				trainingApi.listModels(projectId),
 			]);
-			const dsList = dsRes.success && dsRes.data ? dsRes.data : [];
-			const modelList = modelsRes.success && modelsRes.data ? modelsRes.data : [];
+			const dsList =
+				dsSettled.status === 'fulfilled' && dsSettled.value.data ? dsSettled.value.data : [];
+			const modelList =
+				modelsSettled.status === 'fulfilled' && modelsSettled.value.data
+					? modelsSettled.value.data
+					: [];
 			setDatasets(dsList);
 			setModels(modelList);
 
 			// Fetch artifacts for each dataset
-			const details = await Promise.all(
+			const details = await Promise.allSettled(
 				dsList.map(async (ds) => {
 					const detailRes = await datasetApi.getDatasetDetail(ds.dataset_id);
 					return [
 						ds.dataset_id,
-						detailRes.success && detailRes.data ? detailRes.data.artifacts : [],
+						detailRes.data ? detailRes.data.artifacts : [],
 					] as const;
 				})
 			);
 			const artMap: Record<string, DatasetArtifactResponse[]> = {};
-			for (const [dId, arts] of details) {
-				artMap[dId] = arts;
+			for (const entry of details) {
+				if (entry.status === 'fulfilled') {
+					const [dId, arts] = entry.value;
+					artMap[dId] = arts;
+				}
 			}
 			setArtifactsByDataset(artMap);
 

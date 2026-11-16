@@ -77,26 +77,33 @@ export const RuleWorkspace: React.FC = () => {
 		setErrorMessage(null);
 		if (!isNew && ruleId) {
 			setLoading(true);
-			ruleApi.getRule(ruleId).then((res) => {
-				if (res.success && res.data) {
-					const rule = res.data;
-					setCurrentRule(rule);
-					setRuleCode(rule.rule_code);
-					setRuleName(rule.name);
-					setStatus(rule.status);
-					setDescription(rule.description || '');
-					if (rule.current_version) {
-						setAction(rule.current_version.action);
-						setConditionGroup(jsonLogicToGroup(rule.current_version.condition));
-						setChangeSummary(
-							`Cập nhật từ v${rule.current_version.version_number}`
-						);
+			ruleApi
+				.getRule(ruleId)
+				.then((res) => {
+					if (res.data) {
+						const rule = res.data;
+						setCurrentRule(rule);
+						setRuleCode(rule.rule_code);
+						setRuleName(rule.name);
+						setStatus(rule.status);
+						setDescription(rule.description || '');
+						if (rule.current_version) {
+							setAction(rule.current_version.action);
+							setConditionGroup(jsonLogicToGroup(rule.current_version.condition));
+							setChangeSummary(
+								`Cập nhật từ v${rule.current_version.version_number}`
+							);
+						}
+					} else {
+						setErrorMessage('Không tìm thấy quy tắc nghiệp vụ.');
 					}
-				} else {
-					setErrorMessage(res.error || 'Không tìm thấy quy tắc nghiệp vụ.');
-				}
-				setLoading(false);
-			});
+				})
+				.catch((err: any) => {
+					setErrorMessage(err?.message || 'Không tìm thấy quy tắc nghiệp vụ.');
+				})
+				.finally(() => {
+					setLoading(false);
+				});
 		} else {
 			// New rule template tailored to currentProject.raw_schema
 			const randomSuffix = Math.floor(100 + Math.random() * 900);

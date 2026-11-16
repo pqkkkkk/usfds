@@ -114,20 +114,24 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 		setIsLoadingArtifacts(true);
 		try {
 			const dsRes = await datasetApi.listDatasets(effectiveProjectId);
-			const dsList = dsRes.success && Array.isArray(dsRes.data) ? dsRes.data : [];
+			const dsList = Array.isArray(dsRes.data) ? dsRes.data : [];
 			const options: ArtifactOption[] = [];
 
-			const details = await Promise.all(
+			const details = await Promise.allSettled(
 				dsList.map(async (ds) => {
 					const detailRes = await datasetApi.getDatasetDetail(ds.dataset_id);
 					return [
 						ds,
-						detailRes.success && detailRes.data ? detailRes.data.artifacts : [],
+						detailRes.data ? detailRes.data.artifacts : [],
 					] as const;
 				})
 			);
 
-			for (const [ds, arts] of details) {
+			for (const entry of details) {
+				if (entry.status !== 'fulfilled') {
+					continue;
+				}
+				const [ds, arts] = entry.value;
 				for (const art of arts) {
 					const rowsLabel = art.row_count ? `${art.row_count.toLocaleString()} dòng` : 'Không có số dòng';
 					options.push({

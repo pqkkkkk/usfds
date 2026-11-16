@@ -2,6 +2,12 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-16 — ISS-028: Web API client error propagation
+Plan: `.plan/web_api_client_error_propagation.md` · Board: `.plan/BOARD.md`
+
+- Web (`usfds-web/src/api/client.ts`): added `ApiClientError` (`statusCode`, `details`), removed error-swallowing `try/catch` in `get`/`post`/`put`/`patch`/`delete`, and threw `ApiClientError` in `normalizeResponse` when `success === false` so `react-query` retries and error states work (`ISS-028`).
+- Web (`hooks`, `components`, `pages`): wrapped imperative callers (`useAuth`, `ProfileModal`, `RuleCatalogView`, `RuleWorkspace`, `RuleVersionHistoryModal`, `AdminUsersPage`) with `try/catch` / `.catch` and migrated partial-failure `Promise.all` loads (`ModelHubView`, `TrainingWizardView`, `RuleDryRunWorkspace`, `DetectionJobWizardView`) to `Promise.allSettled`.
+- Tests: added `src/api/client.test.ts` (3 passed) and partial-failure test in `ModelHubView.test.tsx` (2 passed); `npm run build` and `npm run lint` passed with 0 errors (`vitest run`: 26 passed, 1 pre-existing MSW+undici blob failure in `DatasetHubView.test.tsx`).
 ## 2026-11-16 — ISS-037: RBAC Feature Visibility Gating & Backend Router Hardening
 Plan: `.plan/rbac_feature_visibility.md` · Board: `.plan/BOARD.md`
 
