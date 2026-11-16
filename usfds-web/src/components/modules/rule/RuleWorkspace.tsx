@@ -28,6 +28,7 @@ import {
 } from '../../../utils/jsonLogicParser';
 import { ruleApi } from '../../../api/ruleApi';
 import { useProject } from '../../../hooks/useProjects';
+import { useActorContext } from '@/hooks/useActorContext';
 import type { RuleDraft } from '../../../types/investigation';
 
 const FALLBACK_PROJECT_ID = '11111111-1111-1111-1111-111111111111';
@@ -42,8 +43,11 @@ export const RuleWorkspace: React.FC = () => {
 	const investigationDraft = (location.state as { investigationDraft?: RuleDraft } | null)?.investigationDraft;
 	const { currentProject, currentProjectId, refetchProjects } = useProject();
 	const effectiveProjectId = currentProjectId || FALLBACK_PROJECT_ID;
-
+	const { features } = useActorContext(currentProjectId);
 	const isNew = !ruleId || ruleId === 'new';
+	const canSaveRule = isNew ? features.createRule.allowed : features.updateRule.allowed;
+	const canDryRunRule = features.dryRunRule.allowed;
+	const canDeployRule = features.deployRule.allowed;
 	const isSchemaLocked = Boolean(currentProject?.is_schema_locked);
 	const availableFields = useMemo(
 		() => buildAvailableFieldsFromRawSchema(currentProject?.raw_schema),
@@ -287,34 +291,38 @@ export const RuleWorkspace: React.FC = () => {
 						{/* Step 1 Actions */}
 						{stepId === 'step-builder' && (
 							<>
-								<button
-									type="button"
-									disabled={isSaving}
-									onClick={() => handleSave()}
-									className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-slate-800 text-slate-200 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
-								>
-									{isSaving ? (
-										<Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
-									) : (
-										<Save className="w-3.5 h-3.5 text-brand-400" />
-									)}
-									<span>{isNew ? 'Lưu luật' : 'Lưu thay đổi'}</span>
-								</button>
+								{canSaveRule && (
+									<button
+										type="button"
+										disabled={isSaving}
+										onClick={() => handleSave()}
+										className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-slate-800 text-slate-200 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
+									>
+										{isSaving ? (
+											<Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
+										) : (
+											<Save className="w-3.5 h-3.5 text-brand-400" />
+										)}
+										<span>{isNew ? 'Lưu luật' : 'Lưu thay đổi'}</span>
+									</button>
+								)}
 
-								<button
-									type="button"
-									onClick={handleProceedToDryRun}
-									disabled={isSaving}
-									className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-1.5 cursor-pointer"
-								>
-									<span>Chuyển sang chạy thử</span>
-									<ArrowRight className="w-3.5 h-3.5" />
-								</button>
+								{canDryRunRule && (
+									<button
+										type="button"
+										onClick={handleProceedToDryRun}
+										disabled={isSaving}
+										className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-1.5 cursor-pointer"
+									>
+										<span>Chuyển sang chạy thử</span>
+										<ArrowRight className="w-3.5 h-3.5" />
+									</button>
+								)}
 							</>
 						)}
 
 						{/* Step 2 Actions */}
-						{stepId === 'step-dryrun' && (
+						{stepId === 'step-dryrun' && canDeployRule && (
 							<button
 								type="button"
 								disabled={isSaving || !isSchemaLocked}

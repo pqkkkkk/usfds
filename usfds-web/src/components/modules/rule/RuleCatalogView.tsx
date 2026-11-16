@@ -17,6 +17,7 @@ import { PageHeader } from '../../layout/PageHeader';
 import type { RuleResponse, RuleStatus } from '../../../types/rule';
 import { ruleApi } from '../../../api/ruleApi';
 import { useProject } from '../../../hooks/useProjects';
+import { useActorContext } from '@/hooks/useActorContext';
 import { RuleVersionHistoryModal } from './RuleVersionHistoryModal';
 
 const FALLBACK_PROJECT_ID = '11111111-1111-1111-1111-111111111111';
@@ -25,6 +26,13 @@ export const RuleCatalogView: React.FC = () => {
 	const navigate = useNavigate();
 	const { currentProject, currentProjectId, refetchProjects } = useProject();
 	const effectiveProjectId = currentProjectId || FALLBACK_PROJECT_ID;
+	const { features } = useActorContext(currentProjectId);
+	const canCreateRule = features.createRule.allowed;
+	const canUpdateRule = features.updateRule.allowed;
+	const canDeleteRule = features.deleteRule.allowed;
+	const canDryRunRule = features.dryRunRule.allowed;
+	const canDeployRule = features.deployRule.allowed;
+	const canUndeployRule = features.undeployRule.allowed;
 	const [rules, setRules] = useState<RuleResponse[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -151,14 +159,16 @@ export const RuleCatalogView: React.FC = () => {
 							<RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-400' : ''}`} />
 						</button>
 
-						<button
-							type="button"
-							onClick={() => navigate('/rules/new')}
-							className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2 cursor-pointer"
-						>
-							<Plus className="w-4 h-4" />
-							<span>Luật nghiệp vụ mới</span>
-						</button>
+						{canCreateRule && (
+							<button
+								type="button"
+								onClick={() => navigate('/rules/new')}
+								className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2 cursor-pointer"
+							>
+								<Plus className="w-4 h-4" />
+								<span>Luật nghiệp vụ mới</span>
+							</button>
+						)}
 					</div>
 				}
 			/>
@@ -342,49 +352,69 @@ export const RuleCatalogView: React.FC = () => {
 
 												{/* Status Toggle Switch */}
 												<td className="py-3.5 px-4 text-center">
-													<button
-														type="button"
-														onClick={() => handleToggleStatus(rule.rule_id, rule.status)}
-														title="Nhấn để chuyển đổi trạng thái ACTIVE / INACTIVE"
-														className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border transition-all cursor-pointer ${
-															rule.status === 'ACTIVE'
-																? 'bg-emerald-950/40 text-emerald-400 border-emerald-600/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
-																: rule.status === 'DRAFT'
-																	? 'bg-slate-800/80 text-slate-400 border-slate-700 hover:border-emerald-500/50'
-																	: 'bg-red-950/40 text-red-400 border-red-600/50'
-														}`}
-													>
-														{rule.status}
-													</button>
+													{(rule.status === 'ACTIVE' ? canUndeployRule : canDeployRule) ? (
+														<button
+															type="button"
+															onClick={() => handleToggleStatus(rule.rule_id, rule.status)}
+															title="Nhấn để chuyển đổi trạng thái ACTIVE / INACTIVE"
+															className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border transition-all cursor-pointer ${
+																rule.status === 'ACTIVE'
+																	? 'bg-emerald-950/40 text-emerald-400 border-emerald-600/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+																	: rule.status === 'DRAFT'
+																		? 'bg-slate-800/80 text-slate-400 border-slate-700 hover:border-emerald-500/50'
+																		: 'bg-red-950/40 text-red-400 border-red-600/50'
+															}`}
+														>
+															{rule.status}
+														</button>
+													) : (
+														<span
+															className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border ${
+																rule.status === 'ACTIVE'
+																	? 'bg-emerald-950/40 text-emerald-400 border-emerald-600/60'
+																	: rule.status === 'DRAFT'
+																		? 'bg-slate-800/80 text-slate-400 border-slate-700'
+																		: 'bg-red-950/40 text-red-400 border-red-600/50'
+															}`}
+														>
+															{rule.status}
+														</span>
+													)}
 												</td>
 
 												{/* Operations */}
 												<td className="py-3.5 px-4 text-right">
 													<div className="flex items-center justify-end gap-1.5">
-														<button
-															type="button"
-															onClick={() => navigate(`/rules/${rule.rule_id}/step-dryrun`)}
-															className="p-1.5 rounded hover:bg-emerald-950/40 text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer"
-															title="Chạy thử (dry run) trên dữ liệu lịch sử"
-														>
-															<Play className="w-3.5 h-3.5" />
-														</button>
-														<button
-															type="button"
-															onClick={() => navigate(`/rules/${rule.rule_id}/step-builder`)}
-															className="p-1.5 rounded hover:bg-dark-800 text-slate-400 hover:text-brand-300 transition-colors cursor-pointer"
-															title="Chỉnh sửa trong trình thiết kế luật"
-														>
-															<Edit className="w-3.5 h-3.5" />
-														</button>
-														<button
-															type="button"
-															onClick={() => handleDeleteRule(rule.rule_id)}
-															className="p-1.5 rounded hover:bg-red-950/30 text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
-															title="Xóa luật"
-														>
-															<Trash2 className="w-3.5 h-3.5" />
-														</button>
+														{canDryRunRule && (
+															<button
+																type="button"
+																onClick={() => navigate(`/rules/${rule.rule_id}/step-dryrun`)}
+																className="p-1.5 rounded hover:bg-emerald-950/40 text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer"
+																title="Chạy thử (dry run) trên dữ liệu lịch sử"
+															>
+																<Play className="w-3.5 h-3.5" />
+															</button>
+														)}
+														{canUpdateRule && (
+															<button
+																type="button"
+																onClick={() => navigate(`/rules/${rule.rule_id}/step-builder`)}
+																className="p-1.5 rounded hover:bg-dark-800 text-slate-400 hover:text-brand-300 transition-colors cursor-pointer"
+																title="Chỉnh sửa trong trình thiết kế luật"
+															>
+																<Edit className="w-3.5 h-3.5" />
+															</button>
+														)}
+														{canDeleteRule && (
+															<button
+																type="button"
+																onClick={() => handleDeleteRule(rule.rule_id)}
+																className="p-1.5 rounded hover:bg-red-950/30 text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
+																title="Xóa luật"
+															>
+																<Trash2 className="w-3.5 h-3.5" />
+															</button>
+														)}
 													</div>
 												</td>
 											</tr>

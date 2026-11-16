@@ -177,7 +177,7 @@ class AuthzService:
 		return self.role_repo.set_role_permissions(role.role_id, rp_list)
 
 	def set_system_user_roles(self, actor: ActorContext, target_user_id: UUID, role_keys: List[str]) -> List[str]:
-		self.require_system_permission(actor, "user:manage")
+		self.require_system_permission(actor, "user:update")
 		target_user = self.user_repo.get_by_id(target_user_id)
 		if target_user is None:
 			raise ValueError(f"User {target_user_id} not found")
@@ -197,7 +197,7 @@ class AuthzService:
 		return resolved_keys
 
 	def list_project_members(self, actor: ActorContext, project_id: UUID) -> List[ProjectActorContext]:
-		self.require_project_permission(actor, "project:read", project_id, action="read")
+		self.require_project_permission(actor, "project_member:read", project_id, action="read")
 		return self.member_repo.load_project_actor_context(project_id)
 
 	def add_project_member(

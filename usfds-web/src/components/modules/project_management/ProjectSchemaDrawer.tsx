@@ -13,6 +13,7 @@ import {
 	FileSpreadsheet,
 } from 'lucide-react';
 import type { LogicalDataType, ProjectResponse } from '../../../types/project';
+import { useActorContext } from '@/hooks/useActorContext';
 
 interface ProjectSchemaDrawerProps {
 	project: ProjectResponse | null;
@@ -35,10 +36,12 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 	const [isResetting, setIsResetting] = useState(false);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
 	const [successMsg, setSuccessMsg] = useState<string | null>(null);
+	const { canOpenFeature: can } = useActorContext(project?.project_id);
 
 	if (!project) {
 		return null;
 	}
+	const canResetPermission = can('resetProjectSchema', project.project_id);
 
 	const columnsMap = project.raw_schema?.columns || {};
 	const columnEntries = Object.entries(columnsMap);
@@ -266,56 +269,58 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 					)}
 
 					{/* Schema Governance & Reset Box (BR-PM-03) */}
-					<div className="p-4 rounded-xl bg-dark-950 border border-dark-800 space-y-2.5">
-						<div className="text-xs font-bold text-slate-200 flex items-center gap-2">
-							<RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-							<span>Đặt lại / Mở khóa lược đồ thô (BR-PM-03)</span>
-						</div>
-						<p className="text-[11px] text-slate-400 leading-relaxed">
-							Chỉ có thể đặt lại <code className="font-mono text-slate-300">raw_schema</code> khi
-							dự án không còn tập dữ liệu, luật hoặc tác vụ phát hiện phụ thuộc (ví dụ khi bạn vừa tải
-							nhầm file đầu tiên và đã xóa file đó).
-						</p>
-						{hasDependentResources && project.is_schema_locked && (
-							<div className="text-[11px] text-amber-300/90 font-mono bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-								Đang khóa bởi tài nguyên phụ thuộc: {project.datasets_count} tập dữ liệu •{' '}
-								{project.rules_count} Rules • {project.detection_jobs_count} Jobs
+								{canResetPermission && (
+									<div className="p-4 rounded-xl bg-dark-950 border border-dark-800 space-y-2.5">
+										<div className="text-xs font-bold text-slate-200 flex items-center gap-2">
+											<RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+											<span>Đặt lại / Mở khóa lược đồ thô (BR-PM-03)</span>
+										</div>
+											<p className="text-[11px] text-slate-400 leading-relaxed">
+												Chỉ có thể đặt lại <code className="font-mono text-slate-300">raw_schema</code> khi
+												dự án không còn tập dữ liệu, luật hoặc tác vụ phát hiện phụ thuộc (ví dụ khi bạn vừa tải
+												nhầm file đầu tiên và đã xóa file đó).
+											</p>
+											{hasDependentResources && project.is_schema_locked && (
+												<div className="text-[11px] text-amber-300/90 font-mono bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+													Đang khóa bởi tài nguyên phụ thuộc: {project.datasets_count} tập dữ liệu •{' '}
+													{project.rules_count} Rules • {project.detection_jobs_count} Jobs
+												</div>
+											)}
+											<div className="pt-1">
+												<button
+													type="button"
+													onClick={handleResetSchema}
+													disabled={!canResetSchema || isResetting}
+													className="w-full py-2 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed border border-amber-500/30 text-amber-300 text-xs font-semibold transition flex items-center justify-center gap-2"
+												>
+													{isResetting ? (
+														<>
+															<Loader2 className="w-3.5 h-3.5 animate-spin" />
+															<span>Đang mở khóa lược đồ...</span>
+														</>
+													) : (
+														<>
+															<Unlock className="w-3.5 h-3.5" />
+															<span>Đặt lại / Mở khóa lược đồ thô</span>
+														</>
+													)}
+												</button>
+											</div>
+										</div>
+								)}
 							</div>
-						)}
-						<div className="pt-1">
+
+				{/* Drawer Footer */}
+						<div className="p-4 border-t border-dark-800 bg-dark-950 flex justify-end">
 							<button
 								type="button"
-								onClick={handleResetSchema}
-								disabled={!canResetSchema || isResetting}
-								className="w-full py-2 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed border border-amber-500/30 text-amber-300 text-xs font-semibold transition flex items-center justify-center gap-2"
+								onClick={onClose}
+								className="px-4 py-2 rounded-xl bg-dark-800 hover:bg-dark-700 text-slate-200 text-xs font-medium transition"
 							>
-								{isResetting ? (
-									<>
-										<Loader2 className="w-3.5 h-3.5 animate-spin" />
-										<span>Đang mở khóa lược đồ...</span>
-									</>
-								) : (
-									<>
-										<Unlock className="w-3.5 h-3.5" />
-										<span>Đặt lại / Mở khóa lược đồ thô</span>
-									</>
-								)}
+								Đóng
 							</button>
 						</div>
 					</div>
 				</div>
-
-				{/* Drawer Footer */}
-				<div className="p-4 border-t border-dark-800 bg-dark-950 flex justify-end">
-					<button
-						type="button"
-						onClick={onClose}
-						className="px-4 py-2 rounded-xl bg-dark-800 hover:bg-dark-700 text-slate-200 text-xs font-medium transition"
-					>
-						Đóng
-					</button>
-				</div>
-			</div>
-		</div>
-	);
+				);
 };

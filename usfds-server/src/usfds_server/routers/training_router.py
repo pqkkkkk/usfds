@@ -10,6 +10,7 @@ from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
 from usfds_core.domain.schemas.model_plugin import ModelPluginManifest
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
+from usfds_core.services.auth.access_logic import effective_scope
 from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.training.training_service import (
     ModelLineageGraph,
@@ -306,9 +307,18 @@ async def upload_and_register_plugged_model(
 )
 def list_models(
     project_id: Optional[UUID] = Query(None, description="Optional filter by project ID"),
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[List[ModelResponse]]:
+    if project_id is not None:
+        authz.require_project_permission(actor, "model:read", project_id)
     models = service.list_models(project_id=project_id)
+    if project_id is None and not actor.is_system_admin:
+        models = [
+            m for m in models
+            if m.project_id is None or effective_scope(actor, "model:read", m.project_id) is not None
+        ]
     return ApiResponse.ok(
         data=[_to_model_response(m) for m in models],
         message=f"Retrieved {len(models)} models",
@@ -322,10 +332,14 @@ def list_models(
 )
 def get_model(
     model_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelResponse]:
     try:
         model = service.get_model(model_id)
+        if model.project_id is not None:
+            authz.require_project_permission(actor, "model:read", model.project_id)
         return ApiResponse.ok(data=_to_model_response(model), message="Model retrieved successfully")
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -338,9 +352,14 @@ def get_model(
 )
 def list_model_versions(
     model_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[List[ModelVersionResponse]]:
     try:
+        model = service.get_model(model_id)
+        if model.project_id is not None:
+            authz.require_project_permission(actor, "model:read", model.project_id)
         versions = service.list_model_versions(model_id)
         return ApiResponse.ok(
             data=[_to_model_version_response(v) for v in versions],
@@ -357,10 +376,14 @@ def list_model_versions(
 )
 def get_model_version(
     version_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelVersionResponse]:
     try:
         version = service.get_model_version(version_id)
+        if version.project_id is not None:
+            authz.require_project_permission(actor, "model:read", version.project_id)
         return ApiResponse.ok(
             data=_to_model_version_response(version),
             message="Model version retrieved successfully",
@@ -397,9 +420,14 @@ def _to_model_lineage_response(graph: ModelLineageGraph) -> ModelLineageResponse
 )
 def get_model_version_lineage(
     version_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelLineageResponse]:
     try:
+        version = service.get_model_version(version_id)
+        if version.project_id is not None:
+            authz.require_project_permission(actor, "model:read", version.project_id)
         graph = service.get_model_version_lineage(version_id)
         return ApiResponse.ok(
             data=_to_model_lineage_response(graph),
@@ -417,9 +445,16 @@ def get_model_version_lineage(
 def activate_model_version(
     version_id: UUID,
     request: Optional[ActivateModelVersionRequest] = None,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelVersionResponse]:
     try:
+        existing = service.get_model_version(version_id)
+        if existing.project_id is not None:
+            authz.require_project_permission(actor, "deployment:deploy", existing.project_id, action="mutate")
+        else:
+            authz.require_system_permission(actor, "model_builtin:manage")
         version = service.activate_model_version(
             version_id=version_id,
             decision_threshold=request.decision_threshold if request else None,
@@ -447,8 +482,11 @@ def activate_model_version(
 )
 def start_training_run(
     request: StartTrainingRunRequest,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[TrainingRunResponse]:
+    authz.require_project_permission(actor, "training:create", request.project_id, action="create")
     try:
         config = TrainingRunConfig(
             model_id=request.model_id,
@@ -458,7 +496,7 @@ def start_training_run(
             compute_target=request.compute_target,
             run_name=request.run_name,
         )
-        run = service.prepare_and_dispatch(config=config, user_name=request.created_by)
+        run = service.prepare_and_dispatch(config=config, user_name=actor.username)
         # Re-fetch run so post-execution metrics & version_id are reflected for synchronous dispatch
         updated_run = service.get_training_run(run.run_id)
         artifact_id = service.get_run_dataset_artifact_id(updated_run.run_id)
@@ -481,9 +519,18 @@ def start_training_run(
 def list_training_runs(
     model_id: Optional[UUID] = Query(None, description="Optional filter by Model ID"),
     project_id: Optional[UUID] = Query(None, description="Optional filter by Project ID"),
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[List[TrainingRunResponse]]:
+    if project_id is not None:
+        authz.require_project_permission(actor, "training:read", project_id)
     runs = service.list_training_runs(model_id=model_id, project_id=project_id)
+    if project_id is None and not actor.is_system_admin:
+        runs = [
+            r for r in runs
+            if r.project_id is not None and effective_scope(actor, "training:read", r.project_id) is not None
+        ]
     return ApiResponse.ok(
         data=[
             _to_training_run_response(
@@ -503,10 +550,14 @@ def list_training_runs(
 )
 def get_training_run(
     run_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[TrainingRunResponse]:
     try:
         run = service.get_training_run(run_id)
+        if run.project_id is not None:
+            authz.require_project_permission(actor, "training:read", run.project_id)
         artifact_id = service.get_run_dataset_artifact_id(run.run_id)
         return ApiResponse.ok(
             data=_to_training_run_response(run, dataset_artifact_id=artifact_id),
@@ -523,9 +574,14 @@ def get_training_run(
 )
 def get_training_run_lineage(
     run_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelLineageResponse]:
     try:
+        run = service.get_training_run(run_id)
+        if run.project_id is not None:
+            authz.require_project_permission(actor, "training:read", run.project_id)
         graph = service.get_training_run_lineage(run_id)
         return ApiResponse.ok(
             data=_to_model_lineage_response(graph),

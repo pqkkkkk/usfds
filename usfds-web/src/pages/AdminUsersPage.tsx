@@ -3,12 +3,14 @@ import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Shield, ArrowLeft, Plus, Power, KeyRound } from 'lucide-react';
 import { userAdminApi } from '@/api/userAdminApi';
+import { useActorContext } from '@/hooks/useActorContext';
 import { useAuth } from '@/hooks/useAuth';
 import type { AdminUserResponse, PermissionDto, RoleDto } from '@/types/auth';
 
 export function AdminUsersPage() {
 	const navigate = useNavigate();
-	const { user, hasPermission } = useAuth();
+	const { hasPermission } = useAuth();
+	const { actor, loading: authLoading, features } = useActorContext();
 	const [tab, setTab] = useState<'users' | 'roles'>('users');
 	const [users, setUsers] = useState<AdminUserResponse[]>([]);
 	const [roles, setRoles] = useState<RoleDto[]>([]);
@@ -22,39 +24,64 @@ export function AdminUsersPage() {
 	const [newEmail, setNewEmail] = useState('');
 	const [newRoleKey, setNewRoleKey] = useState('system_member');
 
-	const canManageUsers = Boolean(user?.is_system_admin || hasPermission('user:read'));
+	const canViewUsersTab = Boolean(actor?.is_system_admin || hasPermission('user:read'));
+	const canViewRolesTab = features.viewRoles.allowed;
+	const canAccessPage = canViewUsersTab || canViewRolesTab;
+	const canCreateUser = features.createUser.allowed;
+	const canUpdateUser = features.updateUser.allowed;
+	const canResetPassword = features.resetUserPassword.allowed;
+	const hasUserRowActions = canUpdateUser || canResetPassword;
+	const activeTab: 'users' | 'roles' =
+		tab === 'users' && !canViewUsersTab && canViewRolesTab
+			? 'roles'
+			: tab === 'roles' && !canViewRolesTab && canViewUsersTab
+				? 'users'
+				: tab;
 
 	const loadData = async () => {
 		setLoading(true);
 		setError(null);
 		const [uRes, rRes, pRes] = await Promise.all([
-			userAdminApi.listUsers(),
-			userAdminApi.listRoles(),
-			userAdminApi.listPermissions(),
+			canViewUsersTab ? userAdminApi.listUsers() : Promise.resolve(null),
+			canViewRolesTab ? userAdminApi.listRoles() : Promise.resolve(null),
+			canViewRolesTab ? userAdminApi.listPermissions() : Promise.resolve(null),
 		]);
-		if (uRes.success && uRes.data) {
-			setUsers(uRes.data);
-		} else {
-			setError(uRes.error || 'Không thể tải danh sách người dùng');
+		if (uRes) {
+			if (uRes.success && uRes.data) {
+				setUsers(uRes.data);
+			} else {
+				setError(uRes.error || 'Không thể tải danh sách người dùng');
+			}
 		}
-		if (rRes.success && rRes.data) {
+		if (rRes && rRes.success && rRes.data) {
 			setRoles(rRes.data);
 		}
-		if (pRes.success && pRes.data) {
+		if (pRes && pRes.success && pRes.data) {
 			setPermissions(pRes.data);
 		}
 		setLoading(false);
 	};
 
 	useEffect(() => {
-		if (canManageUsers) {
+		if (authLoading) {
+			return;
+		}
+		if (canAccessPage) {
 			void loadData();
 		} else {
 			setLoading(false);
 		}
-	}, [canManageUsers]);
+	}, [authLoading, canAccessPage, canViewUsersTab, canViewRolesTab]);
 
-	if (!canManageUsers) {
+	if (authLoading) {
+		return (
+			<div className="min-h-screen bg-dark-950 text-slate-300 flex items-center justify-center p-6 text-xs">
+				Đang kiểm tra quyền truy cập...
+			</div>
+		);
+	}
+
+	if (!canAccessPage) {
 		return (
 			<div className="min-h-screen bg-dark-950 text-slate-100 flex flex-col items-center justify-center gap-4 p-6">
 				<p className="text-sm text-red-400">Bạn không có quyền truy cập trang quản trị người dùng.</p>
@@ -125,30 +152,34 @@ export function AdminUsersPage() {
 						</div>
 					</div>
 					<div className="flex gap-2">
-						<button
-							type="button"
-							onClick={() => setTab('users')}
-							className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 ${
-								tab === 'users'
-									? 'bg-brand-600 text-white'
-									: 'bg-dark-900 border border-dark-700 text-slate-300'
-							}`}
-						>
-							<Users className="w-3.5 h-3.5" />
-							Người dùng ({users.length})
-						</button>
-						<button
-							type="button"
-							onClick={() => setTab('roles')}
-							className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 ${
-								tab === 'roles'
-									? 'bg-brand-600 text-white'
-									: 'bg-dark-900 border border-dark-700 text-slate-300'
-							}`}
-						>
-							<Shield className="w-3.5 h-3.5" />
-							Vai trò & Quyền ({roles.length})
-						</button>
+						{canViewUsersTab && (
+							<button
+								type="button"
+								onClick={() => setTab('users')}
+								className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 ${
+									activeTab === 'users'
+										? 'bg-brand-600 text-white'
+										: 'bg-dark-900 border border-dark-700 text-slate-300'
+								}`}
+							>
+								<Users className="w-3.5 h-3.5" />
+								Người dùng ({users.length})
+							</button>
+						)}
+						{canViewRolesTab && (
+							<button
+								type="button"
+								onClick={() => setTab('roles')}
+								className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 ${
+									activeTab === 'roles'
+										? 'bg-brand-600 text-white'
+										: 'bg-dark-900 border border-dark-700 text-slate-300'
+								}`}
+							>
+								<Shield className="w-3.5 h-3.5" />
+								Vai trò & Quyền ({roles.length})
+							</button>
+						)}
 					</div>
 				</div>
 
@@ -160,70 +191,72 @@ export function AdminUsersPage() {
 
 				{loading ? (
 					<div className="text-xs text-slate-400">Đang tải dữ liệu...</div>
-				) : tab === 'users' ? (
+				) : activeTab === 'users' && canViewUsersTab ? (
 					<div className="space-y-5">
-						<form
-							onSubmit={handleCreateUser}
-							className="bg-dark-900 border border-dark-700/80 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3 items-end"
-						>
-							<div>
-								<label className="block text-xs text-slate-400 mb-1">Tên đăng nhập</label>
-								<input
-									type="text"
-									required
-									value={newUsername}
-									onChange={(e) => setNewUsername(e.target.value)}
-									className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-100"
-								/>
-							</div>
-							<div>
-								<label className="block text-xs text-slate-400 mb-1">Mật khẩu</label>
-								<input
-									type="password"
-									required
-									minLength={6}
-									value={newPassword}
-									onChange={(e) => setNewPassword(e.target.value)}
-									className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-100"
-								/>
-							</div>
-							<div>
-								<label className="block text-xs text-slate-400 mb-1">Họ tên</label>
-								<input
-									type="text"
-									value={newFullName}
-									onChange={(e) => setNewFullName(e.target.value)}
-									className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-100"
-								/>
-							</div>
-							<div>
-								<label className="block text-xs text-slate-400 mb-1">Email</label>
-								<input
-									type="email"
-									value={newEmail}
-									onChange={(e) => setNewEmail(e.target.value)}
-									className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-100"
-								/>
-							</div>
-							<div>
-								<label className="block text-xs text-slate-400 mb-1">Vai trò hệ thống</label>
-								<select
-									value={newRoleKey}
-									onChange={(e) => setNewRoleKey(e.target.value)}
-									className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-100"
-								>
-									<option value="system_member">system_member</option>
-									<option value="system_admin">system_admin</option>
-								</select>
-							</div>
-							<button
-								type="submit"
-								className="px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium flex items-center justify-center gap-1.5"
+						{canCreateUser && (
+							<form
+								onSubmit={handleCreateUser}
+								className="bg-dark-900 border border-dark-700/80 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3 items-end"
 							>
-								<Plus className="w-3.5 h-3.5" />
-								Tạo người dùng
-							</button>
-						</form>
+								<div>
+									<label className="block text-xs text-slate-400 mb-1">Tên đăng nhập</label>
+									<input
+										type="text"
+										required
+										value={newUsername}
+										onChange={(e) => setNewUsername(e.target.value)}
+										className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-100"
+									/>
+								</div>
+								<div>
+									<label className="block text-xs text-slate-400 mb-1">Mật khẩu</label>
+									<input
+										type="password"
+										required
+										minLength={6}
+										value={newPassword}
+										onChange={(e) => setNewPassword(e.target.value)}
+										className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-100"
+									/>
+								</div>
+								<div>
+									<label className="block text-xs text-slate-400 mb-1">Họ tên</label>
+									<input
+										type="text"
+										value={newFullName}
+										onChange={(e) => setNewFullName(e.target.value)}
+										className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-100"
+									/>
+								</div>
+								<div>
+									<label className="block text-xs text-slate-400 mb-1">Email</label>
+									<input
+										type="email"
+										value={newEmail}
+										onChange={(e) => setNewEmail(e.target.value)}
+										className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-100"
+									/>
+								</div>
+								<div>
+									<label className="block text-xs text-slate-400 mb-1">Vai trò hệ thống</label>
+									<select
+										value={newRoleKey}
+										onChange={(e) => setNewRoleKey(e.target.value)}
+										className="w-full px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs text-slate-100"
+									>
+										<option value="system_member">system_member</option>
+										<option value="system_admin">system_admin</option>
+									</select>
+								</div>
+								<button
+									type="submit"
+									className="px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium flex items-center justify-center gap-1.5"
+								>
+									<Plus className="w-3.5 h-3.5" />
+									Tạo người dùng
+								</button>
+							</form>
+						)}
 
 						<div className="bg-dark-900 border border-dark-700/80 rounded-xl overflow-hidden">
 							<table className="w-full text-left text-xs">
@@ -233,7 +266,7 @@ export function AdminUsersPage() {
 										<th className="px-4 py-3">Họ tên</th>
 										<th className="px-4 py-3">Email</th>
 										<th className="px-4 py-3">Trạng thái</th>
-										<th className="px-4 py-3 text-right">Thao tác</th>
+										{hasUserRowActions && <th className="px-4 py-3 text-right">Thao tác</th>}
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-dark-800">
@@ -253,31 +286,37 @@ export function AdminUsersPage() {
 													{u.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}
 												</span>
 											</td>
-											<td className="px-4 py-3 text-right space-x-2">
-												<button
-													type="button"
-													onClick={() => handleToggleStatus(u)}
-													className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-dark-800 border border-dark-700 text-slate-300 hover:text-white"
-												>
-													<Power className="w-3 h-3" />
-													{u.status === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}
-												</button>
-												<button
-													type="button"
-													onClick={() => handleResetPassword(u.user_id)}
-													className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-dark-800 border border-dark-700 text-slate-300 hover:text-white"
-												>
-													<KeyRound className="w-3 h-3" />
-													Đặt lại MK
-												</button>
-											</td>
+											{hasUserRowActions && (
+												<td className="px-4 py-3 text-right space-x-2">
+													{canUpdateUser && (
+														<button
+															type="button"
+															onClick={() => handleToggleStatus(u)}
+															className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-dark-800 border border-dark-700 text-slate-300 hover:text-white"
+														>
+															<Power className="w-3 h-3" />
+															{u.status === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}
+														</button>
+													)}
+													{canResetPassword && (
+														<button
+															type="button"
+															onClick={() => handleResetPassword(u.user_id)}
+															className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-dark-800 border border-dark-700 text-slate-300 hover:text-white"
+														>
+															<KeyRound className="w-3 h-3" />
+															Đặt lại MK
+														</button>
+													)}
+												</td>
+											)}
 										</tr>
 									))}
 								</tbody>
 							</table>
 						</div>
 					</div>
-				) : (
+				) : activeTab === 'roles' && canViewRolesTab ? (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						{roles.map((r) => (
 							<div key={r.role_id} className="bg-dark-900 border border-dark-700/80 rounded-xl p-4 space-y-2">
@@ -307,7 +346,7 @@ export function AdminUsersPage() {
 							</div>
 						))}
 					</div>
-				)}
+				) : null}
 			</div>
 		</div>
 	);

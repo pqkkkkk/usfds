@@ -90,11 +90,7 @@ def create_rule(
     authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
 ) -> ApiResponse[RuleResponse]:
-    perm = "rule:propose" if request.status == RuleStatus.DRAFT else "rule:create"
-    try:
-        authz.require_project_permission(actor, perm, request.project_id, action="create")
-    except Exception:
-        authz.require_project_permission(actor, "rule:create", request.project_id, action="create")
+    authz.require_project_permission(actor, "rule:create", request.project_id, action="create")
     try:
         rule, version = manager.create_rule(
             project_id=request.project_id,
@@ -147,12 +143,15 @@ def list_rules(
 )
 def get_rule(
     rule_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
 ) -> ApiResponse[RuleResponse]:
     pair = manager.get_rule_with_current_version(rule_id)
     if not pair:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
     rule, version = pair
+    authz.require_project_permission(actor, "rule:read", rule.project_id)
     return ApiResponse.ok(data=_to_rule_response(rule, version))
 
 
@@ -164,8 +163,14 @@ def get_rule(
 def update_rule(
     rule_id: UUID,
     request: UpdateRuleRequest,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
 ) -> ApiResponse[RuleResponse]:
+    existing = manager.get_rule(rule_id)
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
+    authz.require_project_permission(actor, "rule:update", existing.project_id, action="mutate")
     try:
         rule, version = manager.update_rule(
             rule_id=rule_id,
@@ -174,7 +179,7 @@ def update_rule(
             condition=request.condition,
             action=request.action,
             change_summary=request.change_summary,
-            created_by=request.created_by,
+            created_by=actor.username,
         )
         # Fetch current version if logic was not changed
         if not version and rule.current_version_id:
@@ -200,8 +205,20 @@ def update_rule(
 def set_rule_status(
     rule_id: UUID,
     request: SetRuleStatusRequest,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
 ) -> ApiResponse[RuleResponse]:
+    existing = manager.get_rule(rule_id)
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
+    if request.status == RuleStatus.ACTIVE:
+        perm = "rule:deploy"
+    elif request.status == RuleStatus.INACTIVE:
+        perm = "rule:undeploy"
+    else:
+        perm = "rule:update"
+    authz.require_project_permission(actor, perm, existing.project_id, action="mutate")
     try:
         rule = manager.set_rule_status(rule_id, request.status)
         _, current_ver = manager.get_rule_with_current_version(rule.rule_id)
@@ -222,11 +239,14 @@ def set_rule_status(
 )
 def get_rule_versions(
     rule_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
 ) -> ApiResponse[List[RuleVersionResponse]]:
     rule = manager.get_rule(rule_id)
     if not rule:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
+    authz.require_project_permission(actor, "rule:read", rule.project_id)
 
     versions = manager.get_rule_versions(rule_id)
     data = [_to_rule_version_response(v) for v in versions]
@@ -240,8 +260,14 @@ def get_rule_versions(
 )
 def delete_rule(
     rule_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
 ) -> ApiResponse[bool]:
+    rule = manager.get_rule(rule_id)
+    if not rule:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
+    authz.require_project_permission(actor, "rule:delete", rule.project_id, action="mutate")
     deleted = manager.delete_rule(rule_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
@@ -261,12 +287,15 @@ def evaluate_single_rule(
     rule_id: UUID,
     request: EvaluateRuleRequest,
     version_id: Optional[UUID] = Query(None, description="Optional specific RuleVersion ID to evaluate. Defaults to current active version."),
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
     executor: RuleExecutor = Depends(get_rule_executor),
 ) -> ApiResponse[RuleExecutionResultResponse]:
     rule = manager.get_rule(rule_id)
     if not rule:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
+    authz.require_project_permission(actor, "rule:dry_run", rule.project_id)
 
     target_version = None
     if version_id:
@@ -307,9 +336,12 @@ def evaluate_single_rule(
 )
 def evaluate_project_rules(
     request: EvaluateRulesRequest,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
     executor: RuleExecutor = Depends(get_rule_executor),
 ) -> ApiResponse[List[RuleExecutionResultResponse]]:
+    authz.require_project_permission(actor, "rule:dry_run", request.project_id)
     active_pairs = manager.get_active_rules_with_versions(request.project_id)
     if not active_pairs:
         return ApiResponse.ok(data=[], message="No active rules configured for this project")
@@ -362,12 +394,15 @@ def _load_artifact_dataframe(
 )
 def backtest_rule_on_dataset(
     request: BacktestRuleRequest,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
     executor: RuleExecutor = Depends(get_rule_executor),
     dataset_repo: SqliteDatasetRepository = Depends(get_dataset_repo),
     artifact_repo: SqliteDatasetArtifactRepository = Depends(get_artifact_repo),
     storage: LocalFileStorage = Depends(get_storage),
 ) -> ApiResponse[RuleBacktestResultResponse]:
+    authz.require_project_permission(actor, "rule:dry_run", request.project_id)
     # 1. Verify DatasetArtifact & project ownership (BR-PM-06)
     artifact = artifact_repo.get_by_id(request.dataset_artifact_id)
     if not artifact:

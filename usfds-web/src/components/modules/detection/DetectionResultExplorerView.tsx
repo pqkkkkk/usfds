@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '../../layout/PageHeader';
 import { detectionApi } from '@/api';
-import { useProject } from '@/hooks';
+import { useProject, useActorContext } from '@/hooks';
 import type {
 	DetectionActionFilter,
 	DetectionDecisionAction,
@@ -40,6 +40,9 @@ export function DetectionResultExplorerView() {
 	const queryClient = useQueryClient();
 	const { currentProject } = useProject();
 	const projectId = currentProject?.project_id || '';
+	const { features } = useActorContext(currentProject?.project_id);
+	const canExportDetection = features.exportDetection.allowed;
+	const canSendToInvestigation = features.sendToInvestigation.allowed;
 
 	// Filters
 	const [actionFilter, setActionFilter] = useState<DetectionActionFilter>('ALL');
@@ -198,22 +201,26 @@ export function DetectionResultExplorerView() {
 				]}
 				actions={
 					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={() => handleExport('csv', false)}
-							className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-200 flex items-center gap-1.5 transition"
-						>
-							<Download className="w-3.5 h-3.5 text-emerald-400" />
-							Xuất CSV
-						</button>
-						<button
-							type="button"
-							onClick={() => handleExport('parquet', true)}
-							className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-200 flex items-center gap-1.5 transition"
-						>
-							<Download className="w-3.5 h-3.5 text-sky-400" />
-							Parquet bị gắn cờ
-						</button>
+						{canExportDetection && (
+							<>
+								<button
+									type="button"
+									onClick={() => handleExport('csv', false)}
+									className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-200 flex items-center gap-1.5 transition"
+								>
+									<Download className="w-3.5 h-3.5 text-emerald-400" />
+									Xuất CSV
+								</button>
+								<button
+									type="button"
+									onClick={() => handleExport('parquet', true)}
+									className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs font-medium text-slate-200 flex items-center gap-1.5 transition"
+								>
+									<Download className="w-3.5 h-3.5 text-sky-400" />
+									Parquet bị gắn cờ
+								</button>
+							</>
+						)}
 						<button
 							type="button"
 							onClick={() => navigate('/detection')}
@@ -498,28 +505,30 @@ export function DetectionResultExplorerView() {
 						</div>
 					</div>
 
-					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={selectAllFlaggedInView}
-							className="px-3 py-1.5 rounded-lg bg-dark-950 hover:bg-dark-850 border border-dark-700 text-xs text-slate-300 transition"
-						>
-							Chọn tất cả bị gắn cờ
-						</button>
-						{selectedEventIds.length > 0 && (
+					{canSendToInvestigation && (
+						<div className="flex items-center gap-2">
 							<button
 								type="button"
-								onClick={() => {
-									setDispatchSuccessCount(null);
-									setIsDispatchModalOpen(true);
-								}}
-								className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition"
+								onClick={selectAllFlaggedInView}
+								className="px-3 py-1.5 rounded-lg bg-dark-950 hover:bg-dark-850 border border-dark-700 text-xs text-slate-300 transition"
 							>
-								<Send className="w-3.5 h-3.5" />
-								Gửi tới điều tra ({selectedEventIds.length})
+								Chọn tất cả bị gắn cờ
 							</button>
-						)}
-					</div>
+							{selectedEventIds.length > 0 && (
+								<button
+									type="button"
+									onClick={() => {
+										setDispatchSuccessCount(null);
+										setIsDispatchModalOpen(true);
+									}}
+									className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition"
+								>
+									<Send className="w-3.5 h-3.5" />
+									Gửi tới điều tra ({selectedEventIds.length})
+								</button>
+							)}
+						</div>
+					)}
 				</div>
 
 				{/* Transactions Table */}

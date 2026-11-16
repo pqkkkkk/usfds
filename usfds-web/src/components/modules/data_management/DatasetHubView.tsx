@@ -15,11 +15,15 @@ import { PageHeader } from '../../layout/PageHeader';
 import { ImportDatasetModal } from './ImportDatasetModal';
 import { useDatasetList } from '../../../hooks/useDatasetList';
 import { useProject } from '../../../hooks/useProjects';
+import { useActorContext } from '@/hooks/useActorContext';
 import type { DatasetDetailResponse } from '../../../types/dataset';
 
 export const DatasetHubView = () => {
   const navigate = useNavigate();
   const { currentProjectId } = useProject();
+  const { features } = useActorContext(currentProjectId);
+  const canCreateDataset = features.createDataset.allowed;
+  const canDeleteDataset = features.deleteDataset.allowed;
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const {
@@ -61,13 +65,15 @@ export const DatasetHubView = () => {
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-400' : ''}`} />
             </button>
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Nhập tập dữ liệu</span>
-            </button>
+            {canCreateDataset && (
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Nhập tập dữ liệu</span>
+              </button>
+            )}
           </div>
         }
       />
@@ -319,13 +325,15 @@ export const DatasetHubView = () => {
                             </button>
 
                             {/* Delete Button */}
-                            <button
-                              onClick={(e) => deleteDataset(dataset.dataset_id, e)}
-                              title="Xóa tập dữ liệu"
-                              className="p-1.5 rounded-lg bg-dark-800 hover:bg-rose-500/20 border border-dark-700 text-slate-400 hover:text-rose-400 transition"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {canDeleteDataset && (
+                              <button
+                                onClick={(e) => deleteDataset(dataset.dataset_id, e)}
+                                title="Xóa tập dữ liệu"
+                                className="p-1.5 rounded-lg bg-dark-800 hover:bg-rose-500/20 border border-dark-700 text-slate-400 hover:text-rose-400 transition"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
