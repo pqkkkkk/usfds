@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import { 
-  Search, 
-  Database, 
-  BrainCircuit, 
-  ShieldCheck, 
-  ArrowRight, 
+import {
+  Search,
+  Database,
+  BrainCircuit,
+  ShieldCheck,
+  ArrowRight,
   X,
   Terminal,
   SearchCheck,
   BarChart2
 } from 'lucide-react';
 import type { AppModule } from '../../types/navigation';
+import { useProject } from '@/hooks/useProjects';
+import { useActorContext } from '@/hooks/useActorContext';
+import { MODULE_FEATURE_MAP } from '@/lib/feature-policy';
 
 interface OmnisearchModalProps {
   isOpen: boolean;
@@ -24,6 +27,8 @@ export const OmnisearchModal = ({
   onNavigateModule,
 }: OmnisearchModalProps) => {
   const [query, setQuery] = useState('');
+  const { currentProjectId } = useProject();
+  const { actor, loading, canOpenFeature: can } = useActorContext(currentProjectId);
 
   if (!isOpen) return null;
 
@@ -37,14 +42,18 @@ export const OmnisearchModal = ({
     { label: 'Phân tích & Báo cáo — phân tích gian lận, cảnh báo sai, xu hướng', module: 'insight-report' as AppModule, type: 'Mô-đun', icon: BarChart2 },
   ];
 
-  const filtered = quickActions.filter(item => 
-    item.label.toLowerCase().includes(query.toLowerCase()) || 
+  const allowedActions = loading && !actor
+    ? quickActions
+    : quickActions.filter((item) => can(MODULE_FEATURE_MAP[item.module], currentProjectId));
+
+  const filtered = allowedActions.filter(item =>
+    item.label.toLowerCase().includes(query.toLowerCase()) ||
     item.type.toLowerCase().includes(query.toLowerCase())
   );
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-      <div 
+      <div
         role="dialog"
         aria-label="Tìm kiếm nhanh"
         className="w-full max-w-xl bg-dark-900 border border-dark-700 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col"
@@ -60,7 +69,7 @@ export const OmnisearchModal = ({
             placeholder="Tìm kiếm mô-đun hoặc quy trình..."
             className="flex-1 bg-transparent border-none outline-none text-xs text-slate-100 placeholder:text-slate-500 font-sans"
           />
-          <button 
+          <button
             onClick={onClose}
             className="p-1 text-slate-400 hover:text-slate-200 rounded"
           >

@@ -8,6 +8,13 @@ Plan: `.plan/web_api_client_error_propagation.md` · Board: `.plan/BOARD.md`
 - Web (`usfds-web/src/api/client.ts`): added `ApiClientError` (`statusCode`, `details`), removed error-swallowing `try/catch` in `get`/`post`/`put`/`patch`/`delete`, and threw `ApiClientError` in `normalizeResponse` when `success === false` so `react-query` retries and error states work (`ISS-028`).
 - Web (`hooks`, `components`, `pages`): wrapped imperative callers (`useAuth`, `ProfileModal`, `RuleCatalogView`, `RuleWorkspace`, `RuleVersionHistoryModal`, `AdminUsersPage`) with `try/catch` / `.catch` and migrated partial-failure `Promise.all` loads (`ModelHubView`, `TrainingWizardView`, `RuleDryRunWorkspace`, `DetectionJobWizardView`) to `Promise.allSettled`.
 - Tests: added `src/api/client.test.ts` (3 passed) and partial-failure test in `ModelHubView.test.tsx` (2 passed); `npm run build` and `npm run lint` passed with 0 errors (`vitest run`: 26 passed, 1 pre-existing MSW+undici blob failure in `DatasetHubView.test.tsx`).
+## 2026-11-16 — ISS-037: RBAC Feature Visibility Gating & Backend Router Hardening
+Plan: `.plan/rbac_feature_visibility.md` · Board: `.plan/BOARD.md`
+
+- Infra & Core (`seed_rbac.py`, `authz_service.py`): removed `rule:propose` (plus idempotent cleanup from existing DB rows), enforced Phương án A (`fraud_analyst` holds `rule:read` only; `data_scientist` holds all 7 rule permissions), added `detection:export` and `case:create`, and fixed `set_system_user_roles` (`user:update`) and `list_project_members` (`project_member:read`).
+- Server (`user`, `dataset`, `rule`, `training`, `detection`, `investigation`, `insight_report` routers): enforced `authz` checks across remaining sub-endpoints, split `case:assign` vs `case:claim` on `POST /cases/{case_id}/claim`, and guarded export (`detection:export`) and case intake (`case:create`).
+- Web (`usfds-web`): added centralized `feature-policy.ts` (`ACTOR_FEATURE`, `MODULE_FEATURE_MAP`) and `useActorContext(projectId?)` reusing `/api/v1/auth/me`; added `FeatureRouteGuard.tsx` and direct-route gating in `App.tsx`; hid unauthorized navigation items and actions across Sidebar, Omnisearch, UserAccountMenu, Project Portal/Settings, AdminUsersPage, Data Management, Model & Training, Rule Engine, Detection, Investigation, and Insight & Reports.
+- Tests: `./scripts/test.sh` passed all 6 packages (`core` 149 passed / 15 skipped, `infra` 35 passed / 1 xfailed, `server` 31 passed, `worker` 3 passed, `cli` 5 passed, `web` 17 files / 28 tests passed); `usfds-web` build & lint 0 errors.
 
 ## 2026-11-15 — ISS-035, ISS-014, ISS-017 & ISS-003: Quick Bugfix & CORS Hardening
 Plan: `.plan/quick_bugfix_and_cors_hardening.md` · Board: `.plan/BOARD.md`

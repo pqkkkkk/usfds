@@ -2,16 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, LogOut, Shield, User as UserIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useActorContext } from '@/hooks/useActorContext';
 import { ProfileModal } from '../modules/auth/ProfileModal';
 
 export const UserAccountMenu = () => {
 	const [userMenuOpen, setUserMenuOpen] = useState(false);
 	const [isProfileOpen, setIsProfileOpen] = useState(false);
 	const userMenuRef = useRef<HTMLDivElement>(null);
-	const { user, authMode, logout, hasPermission } = useAuth();
+	const { user, authMode, logout } = useAuth();
+	const { features } = useActorContext();
 	const navigate = useNavigate();
 
-	const canAccessAdmin = Boolean(user?.is_system_admin || hasPermission('user:read'));
+	const canAccessAdmin = features.adminUsers.allowed;
 	const displayName = user?.full_name || user?.username || 'Người dùng';
 	const initials = displayName.slice(0, 2).toUpperCase();
 	const roleSubtitle = user?.is_system_admin

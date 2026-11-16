@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { insightReportApi } from '@/api';
 import { investigationApi } from '@/api/investigationApi';
+import { useActorContext } from '@/hooks/useActorContext';
 import type { ReportScopeFilter } from '@/types';
 
 interface ComplianceReportCenterTabProps {
@@ -29,6 +30,8 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 	scope,
 	initialCaseId,
 }) => {
+	const { features } = useActorContext(projectId);
+	const canExportReport = features.exportReport.allowed;
 	const [template, setTemplate] = useState<'SAR_DOSSIER' | 'EXECUTIVE_AUDIT_REPORT'>(
 		initialCaseId ? 'SAR_DOSSIER' : 'EXECUTIVE_AUDIT_REPORT'
 	);
@@ -129,44 +132,46 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 					</div>
 
 					{/* Export Buttons */}
-					<div className="flex flex-wrap items-center gap-2">
-						<button
-							type="button"
-							onClick={handlePrintPdf}
-							disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
-							className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors cursor-pointer"
-						>
-							<Printer size={14} />
-							<span>In / lưu PDF</span>
-						</button>
-						<button
-							type="button"
-							onClick={() => triggerDownload('md')}
-							disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
-							className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 disabled:opacity-40 text-slate-200 border border-dark-700 text-xs font-medium transition-colors cursor-pointer"
-						>
-							<FileText size={14} className="text-cyan-400" />
-							<span>.MD</span>
-						</button>
-						<button
-							type="button"
-							onClick={() => triggerDownload('json')}
-							disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
-							className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 disabled:opacity-40 text-slate-200 border border-dark-700 text-xs font-medium transition-colors cursor-pointer"
-						>
-							<FileCode2 size={14} className="text-amber-400" />
-							<span>.JSON</span>
-						</button>
-						<button
-							type="button"
-							onClick={() => triggerDownload('csv')}
-							disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
-							className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 disabled:opacity-40 text-slate-200 border border-dark-700 text-xs font-medium transition-colors cursor-pointer"
-						>
-							<FileSpreadsheet size={14} className="text-emerald-400" />
-							<span>.CSV</span>
-						</button>
-					</div>
+					{canExportReport && (
+						<div className="flex flex-wrap items-center gap-2">
+							<button
+								type="button"
+								onClick={handlePrintPdf}
+								disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
+								className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors cursor-pointer"
+							>
+								<Printer size={14} />
+								<span>In / lưu PDF</span>
+							</button>
+							<button
+								type="button"
+								onClick={() => triggerDownload('md')}
+								disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
+								className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 disabled:opacity-40 text-slate-200 border border-dark-700 text-xs font-medium transition-colors cursor-pointer"
+							>
+								<FileText size={14} className="text-cyan-400" />
+								<span>.MD</span>
+							</button>
+							<button
+								type="button"
+								onClick={() => triggerDownload('json')}
+								disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
+								className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 disabled:opacity-40 text-slate-200 border border-dark-700 text-xs font-medium transition-colors cursor-pointer"
+							>
+								<FileCode2 size={14} className="text-amber-400" />
+								<span>.JSON</span>
+							</button>
+							<button
+								type="button"
+								onClick={() => triggerDownload('csv')}
+								disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
+								className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 disabled:opacity-40 text-slate-200 border border-dark-700 text-xs font-medium transition-colors cursor-pointer"
+							>
+								<FileSpreadsheet size={14} className="text-emerald-400" />
+								<span>.CSV</span>
+							</button>
+						</div>
+					)}
 				</div>
 
 				{/* Metadata & Case Parameters */}

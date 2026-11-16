@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '../../layout/PageHeader';
 import { useProject } from '../../../hooks/useProjects';
+import { useActorContext } from '@/hooks/useActorContext';
 import type { LogicalDataType } from '../../../types/project';
 import { ProjectFormModal } from './ProjectFormModal';
 import { ProjectMembersSection } from './ProjectMembersSection';
@@ -48,6 +49,10 @@ export const ProjectSettingsView: React.FC = () => {
 	const [isResetting, setIsResetting] = useState(false);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
 	const [successMsg, setSuccessMsg] = useState<string | null>(null);
+	const { features } = useActorContext(currentProject?.project_id);
+	const canUpdateProject = features.updateProject.allowed;
+	const canResetSchemaPerm = features.resetProjectSchema.allowed;
+	const canViewMembers = features.viewProjectMembers.allowed;
 
 	const columnEntries = useMemo(() => {
 		const cols = currentProject?.raw_schema?.columns || {};
@@ -119,14 +124,16 @@ export const ProjectSettingsView: React.FC = () => {
 						>
 							<RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-400' : ''}`} />
 						</button>
-						<button
-							type="button"
-							onClick={() => setIsEditModalOpen(true)}
-							className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2"
-						>
-							<Edit3 className="w-3.5 h-3.5" />
-							<span>Chỉnh sửa thông tin dự án</span>
-						</button>
+						{canUpdateProject && (
+							<button
+								type="button"
+								onClick={() => setIsEditModalOpen(true)}
+								className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2"
+							>
+								<Edit3 className="w-3.5 h-3.5" />
+								<span>Chỉnh sửa thông tin dự án</span>
+							</button>
+						)}
 					</div>
 				}
 			/>
@@ -319,31 +326,33 @@ export const ProjectSettingsView: React.FC = () => {
 								</div>
 							)}
 
-							<button
-								type="button"
-								onClick={handleResetSchema}
-								disabled={!canResetSchema || isResetting}
-								title={
-									!currentProject.is_schema_locked
-										? 'Lược đồ đang ở trạng thái mở khóa'
-										: hasDependentResources
-											? 'Cần xóa toàn bộ tập dữ liệu, luật, tác vụ trước khi đặt lại lược đồ (BR-PM-03)'
-											: 'Mở khóa và đặt lại lược đồ thô'
-								}
-								className="py-1.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed border border-amber-500/30 text-amber-300 text-xs font-semibold transition flex items-center gap-1.5 shrink-0"
-							>
-								{isResetting ? (
-									<>
-										<Loader2 className="w-3.5 h-3.5 animate-spin" />
-										<span>Đang đặt lại...</span>
-									</>
-								) : (
-									<>
-										<RotateCcw className="w-3.5 h-3.5" />
-										<span>Đặt lại lược đồ thô</span>
-									</>
-								)}
-							</button>
+							{canResetSchemaPerm && (
+								<button
+									type="button"
+									onClick={handleResetSchema}
+									disabled={!canResetSchema || isResetting}
+									title={
+										!currentProject.is_schema_locked
+											? 'Lược đồ đang ở trạng thái mở khóa'
+											: hasDependentResources
+												? 'Cần xóa toàn bộ tập dữ liệu, luật, tác vụ trước khi đặt lại lược đồ (BR-PM-03)'
+												: 'Mở khóa và đặt lại lược đồ thô'
+									}
+									className="py-1.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed border border-amber-500/30 text-amber-300 text-xs font-semibold transition flex items-center gap-1.5 shrink-0"
+								>
+									{isResetting ? (
+										<>
+											<Loader2 className="w-3.5 h-3.5 animate-spin" />
+											<span>Đang đặt lại...</span>
+										</>
+									) : (
+										<>
+											<RotateCcw className="w-3.5 h-3.5" />
+											<span>Đặt lại lược đồ thô</span>
+										</>
+									)}
+								</button>
+							)}
 						</div>
 					</div>
 
@@ -454,7 +463,7 @@ export const ProjectSettingsView: React.FC = () => {
 				</div>
 
 				{/* Section 3: Project Members & Access */}
-				<ProjectMembersSection projectId={currentProject.project_id} />
+				{canViewMembers && <ProjectMembersSection projectId={currentProject.project_id} />}
 			</div>
 
 			{/* Edit Project Modal */}

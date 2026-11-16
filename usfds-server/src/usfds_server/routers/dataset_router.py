@@ -204,11 +204,14 @@ def list_datasets(
 @router.get("/{dataset_id}", response_model=ApiResponse[DatasetDetailResponse])
 def get_dataset(
     dataset_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
 ) -> ApiResponse[DatasetDetailResponse]:
     """Retrieve complete metadata, history of artifacts, and lineage DAG for a dataset."""
     try:
         dataset, artifacts, lineage = service.get_dataset(dataset_id)
+        authz.require_project_permission(actor, "dataset:read", dataset.project_id)
         detail = DatasetDetailResponse(
             dataset=_build_dataset_response(dataset, artifacts),
             artifacts=[_build_artifact_response(a) for a in artifacts],
@@ -222,10 +225,14 @@ def get_dataset(
 @router.delete("/{dataset_id}", response_model=ApiResponse[None], status_code=status.HTTP_200_OK)
 def delete_dataset(
     dataset_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
 ) -> ApiResponse[None]:
     """Delete a dataset and all associated artifacts."""
     try:
+        dataset, _, _ = service.get_dataset(dataset_id)
+        authz.require_project_permission(actor, "dataset:delete", dataset.project_id, action="mutate")
         service.delete_dataset(dataset_id)
         return ApiResponse.ok(data=None, message="Dataset deleted successfully")
     except ValueError as e:
@@ -241,10 +248,14 @@ def delete_dataset(
 def map_schema(
     dataset_id: UUID,
     mapping_config: DataMappingConfig,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
 ) -> ApiResponse[DatasetArtifactResponse]:
     """Map raw columns to standard 5-core FDS fields, convert to mapped.parquet, and validate."""
     try:
+        dataset, _, _ = service.get_dataset(dataset_id)
+        authz.require_project_permission(actor, "dataset:update", dataset.project_id, action="mutate")
         if settings.dispatch_backend == "queue":
             res = get_job_queue().enqueue_and_wait(
                 QUEUE_DATA_PIPELINE,
@@ -273,10 +284,14 @@ def map_schema(
 def get_artifact(
     dataset_id: UUID,
     artifact_id: UUID,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
 ) -> ApiResponse[DatasetArtifactResponse]:
     """Retrieve complete metadata and validation details for a specific artifact."""
     try:
+        dataset, _, _ = service.get_dataset(dataset_id)
+        authz.require_project_permission(actor, "dataset:read", dataset.project_id)
         artifact = service.get_artifact(dataset_id, artifact_id)
         return ApiResponse.ok(
             data=_build_artifact_response(artifact),
@@ -290,10 +305,14 @@ def get_artifact(
 def execute_feature_engineering(
     dataset_id: UUID,
     config: FeatureEngineeringConfig,
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
 ) -> ApiResponse[DatasetArtifactResponse]:
     """Execute feature engineering pipeline stage from MAPPED artifact."""
     try:
+        dataset, _, _ = service.get_dataset(dataset_id)
+        authz.require_project_permission(actor, "dataset:update", dataset.project_id, action="mutate")
         if settings.dispatch_backend == "queue":
             res = get_job_queue().enqueue_and_wait(
                 QUEUE_DATA_PIPELINE,
@@ -325,11 +344,15 @@ def export_normalized_dataset(
     artifact_id: UUID,
     req: ExportDatasetRequest,
     presigned: bool = Query(False, description="Return a presigned download URL when backed by S3"),
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
     storage: IFileStorage = Depends(get_storage),
 ) -> Any:
     """Export normalized dataset files as a compressed ZIP package."""
     try:
+        dataset, _, _ = service.get_dataset(dataset_id)
+        authz.require_project_permission(actor, "dataset:export", dataset.project_id)
         zip_bytes, filename = service.export_dataset(
             dataset_id=dataset_id,
             artifact_id=artifact_id,

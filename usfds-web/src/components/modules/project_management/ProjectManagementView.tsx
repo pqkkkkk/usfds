@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useProject } from '../../../hooks/useProjects';
 import { useTheme } from '../../../hooks/useTheme';
+import { useActorContext } from '@/hooks/useActorContext';
 import type { ProjectResponse, ProjectStatus } from '../../../types/project';
 import { UserAccountMenu } from '../../layout/UserAccountMenu';
 import { ProjectFormModal } from './ProjectFormModal';
@@ -33,6 +34,8 @@ type StatusTab = 'ALL' | ProjectStatus;
 export const ProjectManagementView: React.FC = () => {
 	const navigate = useNavigate();
 	const { isLight, toggleTheme } = useTheme();
+	const { features, canOpenFeature: can } = useActorContext();
+	const canCreateProject = features.createProject.allowed;
 	const {
 		projects,
 		currentProject,
@@ -177,14 +180,16 @@ export const ProjectManagementView: React.FC = () => {
 					>
 						<RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-400' : ''}`} />
 					</button>
-					<button
-						type="button"
-						onClick={openCreateModal}
-						className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2"
-					>
-						<Plus className="w-4 h-4" />
-						<span>Dự án mới</span>
-					</button>
+					{canCreateProject && (
+						<button
+							type="button"
+							onClick={openCreateModal}
+							className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-glow-blue transition flex items-center gap-2"
+						>
+							<Plus className="w-4 h-4" />
+							<span>Dự án mới</span>
+						</button>
+					)}
 					<UserAccountMenu />
 				</div>
 			</header>
@@ -296,33 +301,30 @@ export const ProjectManagementView: React.FC = () => {
 							<button
 								type="button"
 								onClick={() => setStatusTab('ALL')}
-								className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-									statusTab === 'ALL'
+								className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${statusTab === 'ALL'
 										? 'bg-brand-500 text-white font-bold shadow-glow-blue'
 										: 'text-slate-400 hover:text-slate-200'
-								}`}
+									}`}
 							>
 								Tất cả ({metrics.totalCount})
 							</button>
 							<button
 								type="button"
 								onClick={() => setStatusTab('ACTIVE')}
-								className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-									statusTab === 'ACTIVE'
+								className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${statusTab === 'ACTIVE'
 										? 'bg-emerald-600 text-white font-bold'
 										: 'text-slate-400 hover:text-slate-200'
-								}`}
+									}`}
 							>
 								Đang hoạt động ({metrics.activeCount})
 							</button>
 							<button
 								type="button"
 								onClick={() => setStatusTab('ARCHIVED')}
-								className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-									statusTab === 'ARCHIVED'
+								className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${statusTab === 'ARCHIVED'
 										? 'bg-amber-600 text-white font-bold'
 										: 'text-slate-400 hover:text-slate-200'
-								}`}
+									}`}
 							>
 								Đã lưu trữ ({metrics.archivedCount})
 							</button>
@@ -377,30 +379,33 @@ export const ProjectManagementView: React.FC = () => {
 														? 'Chưa có dự án nào trong hệ thống. Hãy khởi tạo dự án đầu tiên để bắt đầu.'
 														: 'Không tìm thấy dự án nào khớp với bộ lọc hiện tại.'}
 												</div>
-												{projects.length === 0 && (
-													<button
-														type="button"
-														onClick={openCreateModal}
-														className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold inline-flex items-center gap-2"
-													>
-														<Plus className="w-4 h-4" />
-														<span>Tạo Dự án Đầu tiên</span>
-													</button>
-												)}
+													{
+														projects.length === 0 && canCreateProject && (
+															<button
+																type="button"
+																onClick={openCreateModal}
+																className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold inline-flex items-center gap-2"
+															>
+																<Plus className="w-4 h-4" />
+																<span>Tạo Dự án Đầu tiên</span>
+															</button>
+														)
+													}
 											</td>
 										</tr>
 									) : (
 										filteredProjects.map((proj) => {
 											const isCurrent = currentProject?.project_id === proj.project_id;
 											const columnCount = Object.keys(proj.raw_schema?.columns || {}).length;
+											const canUpdateProj = can('updateProject', proj.project_id);
+											const canDeleteProj = can('deleteProject', proj.project_id);
 
 											return (
 												<tr
 													key={proj.project_id}
 													onClick={() => handleEnterWorkspace(proj)}
-													className={`hover:bg-dark-850/70 transition cursor-pointer group ${
-														isCurrent ? 'bg-brand-500/5' : ''
-													}`}
+													className={`hover:bg-dark-850/70 transition cursor-pointer group ${isCurrent ? 'bg-brand-500/5' : ''
+														}`}
 												>
 													{/* Project Name & Description */}
 													<td className="py-3.5 px-4">
@@ -447,11 +452,10 @@ export const ProjectManagementView: React.FC = () => {
 														<button
 															type="button"
 															onClick={() => setInspectingProjectId(proj.project_id)}
-															className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${
-																proj.is_schema_locked
+															className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${proj.is_schema_locked
 																	? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
 																	: 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30'
-															}`}
+																}`}
 															title="Xem chi tiết hoặc đặt lại lược đồ thô"
 														>
 															{proj.is_schema_locked ? (
@@ -527,47 +531,53 @@ export const ProjectManagementView: React.FC = () => {
 																<Eye className="w-3.5 h-3.5" />
 															</button>
 
-															<button
-																type="button"
-																onClick={() => setEditingProject(proj)}
-																title="Chỉnh sửa dự án"
-																aria-label={`Chỉnh sửa ${proj.project_name}`}
-																className="p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-300 hover:text-slate-100 transition"
-															>
-																<Edit3 className="w-3.5 h-3.5" />
-															</button>
+															{canUpdateProj && (
+																<button
+																	type="button"
+																	onClick={() => setEditingProject(proj)}
+																	title="Chỉnh sửa dự án"
+																	aria-label={`Chỉnh sửa ${proj.project_name}`}
+																	className="p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-slate-300 hover:text-slate-100 transition"
+																>
+																	<Edit3 className="w-3.5 h-3.5" />
+																</button>
+															)}
 
-															<button
-																type="button"
-																onClick={(e) => handleToggleArchive(proj, e)}
-																title={
-																	proj.status === 'ACTIVE'
-																		? 'Lưu trữ dự án'
-																		: 'Khôi phục dự án'
-																}
-																aria-label={
-																	proj.status === 'ACTIVE'
-																		? `Archive ${proj.project_name}`
-																		: `Restore ${proj.project_name}`
-																}
-																className="p-1.5 rounded-lg bg-dark-800 hover:bg-amber-500/20 border border-dark-700 text-slate-400 hover:text-amber-300 transition"
-															>
-																{proj.status === 'ACTIVE' ? (
-																	<Archive className="w-3.5 h-3.5" />
-																) : (
-																	<ArchiveRestore className="w-3.5 h-3.5" />
-																)}
-															</button>
+															{canUpdateProj && (
+																<button
+																	type="button"
+																	onClick={(e) => handleToggleArchive(proj, e)}
+																	title={
+																		proj.status === 'ACTIVE'
+																			? 'Lưu trữ dự án'
+																			: 'Khôi phục dự án'
+																	}
+																	aria-label={
+																		proj.status === 'ACTIVE'
+																			? `Archive ${proj.project_name}`
+																			: `Restore ${proj.project_name}`
+																	}
+																	className="p-1.5 rounded-lg bg-dark-800 hover:bg-amber-500/20 border border-dark-700 text-slate-400 hover:text-amber-300 transition"
+																>
+																	{proj.status === 'ACTIVE' ? (
+																		<Archive className="w-3.5 h-3.5" />
+																	) : (
+																		<ArchiveRestore className="w-3.5 h-3.5" />
+																	)}
+																</button>
+															)}
 
-															<button
-																type="button"
-																onClick={(e) => handleDeleteProject(proj, e)}
-																title="Xóa dự án"
-																aria-label={`Xóa ${proj.project_name}`}
-																className="p-1.5 rounded-lg bg-dark-800 hover:bg-rose-500/20 border border-dark-700 text-slate-400 hover:text-rose-400 transition"
-															>
-																<Trash2 className="w-3.5 h-3.5" />
-															</button>
+															{canDeleteProj && (
+																<button
+																	type="button"
+																	onClick={(e) => handleDeleteProject(proj, e)}
+																	title="Xóa dự án"
+																	aria-label={`Xóa ${proj.project_name}`}
+																	className="p-1.5 rounded-lg bg-dark-800 hover:bg-rose-500/20 border border-dark-700 text-slate-400 hover:text-rose-400 transition"
+																>
+																	<Trash2 className="w-3.5 h-3.5" />
+																</button>
+															)}
 														</div>
 													</td>
 												</tr>

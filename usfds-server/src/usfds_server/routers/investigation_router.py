@@ -151,19 +151,22 @@ def list_cases(project_id: UUID, status: CaseStatus | None = None, priority: Ris
 
 
 @router.get("/kpis", response_model=ApiResponse[dict])
-def kpis(project_id: UUID, session: Session = Depends(get_db)):
+def kpis(project_id: UUID, session: Session = Depends(get_db), actor: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor, "case:read", project_id)
 	_project(session, project_id)
 	return ApiResponse.ok(SqliteCaseRepository(session).kpis(project_id))
 
 
 @router.get("/rule-feedback", response_model=ApiResponse[list[dict]])
-def feedback(project_id: UUID, session: Session = Depends(get_db)):
+def feedback(project_id: UUID, session: Session = Depends(get_db), actor: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor, "case:read", project_id)
 	_project(session, project_id)
 	return ApiResponse.ok(rule_feedback(SqliteCaseRepository(session).list_by_project(project_id)))
 
 
 @router.get("/{case_id}", response_model=ApiResponse[CaseResponse])
-def get_case(case_id: UUID, project_id: UUID, session: Session = Depends(get_db)):
+def get_case(case_id: UUID, project_id: UUID, session: Session = Depends(get_db), actor: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor, "case:read", project_id)
 	try:
 		return ApiResponse.ok(CaseResponse.model_validate(_service(session).get(project_id, case_id)))
 	except LookupError as error:
@@ -171,7 +174,8 @@ def get_case(case_id: UUID, project_id: UUID, session: Session = Depends(get_db)
 
 
 @router.get("/{case_id}/workbench", response_model=ApiResponse[dict])
-def workbench(case_id: UUID, project_id: UUID, days: Literal["30", "90"] = "30", session: Session = Depends(get_db), storage: LocalFileStorage = Depends(get_storage)):
+def workbench(case_id: UUID, project_id: UUID, days: Literal["30", "90"] = "30", session: Session = Depends(get_db), storage: LocalFileStorage = Depends(get_storage), actor: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor, "case:read", project_id)
 	try:
 		case = _service(session).get(project_id, case_id)
 		try:
@@ -188,7 +192,8 @@ def workbench(case_id: UUID, project_id: UUID, days: Literal["30", "90"] = "30",
 
 
 @router.get("/{case_id}/rule-draft", response_model=ApiResponse[dict])
-def draft(case_id: UUID, project_id: UUID, session: Session = Depends(get_db)):
+def draft(case_id: UUID, project_id: UUID, session: Session = Depends(get_db), actor: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor, "case:read", project_id)
 	try:
 		project = _project(session, project_id)
 		return ApiResponse.ok(build_rule_draft(_service(session).get(project_id, case_id), project.raw_schema))
@@ -219,28 +224,35 @@ def _mutate(case_id: UUID, project_id: UUID, request: CaseActionRequest, action:
 
 
 @router.post("/{case_id}/claim", response_model=ApiResponse[dict])
-def claim(case_id: UUID, project_id: UUID, request: CaseActionRequest, session: Session = Depends(get_db), actor: str = Depends(get_actor)):
-	return _mutate(case_id, project_id, request, "claim", session, actor)
+def claim(case_id: UUID, project_id: UUID, request: CaseActionRequest, session: Session = Depends(get_db), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	assignee = (request.assignee or "").strip()
+	perm = "case:assign" if (assignee and assignee != actor_ctx.username) else "case:claim"
+	authz.require_project_permission(actor_ctx, perm, project_id, action="mutate")
+	return _mutate(case_id, project_id, request, "claim", session, actor_ctx.username)
 
 
 @router.post("/{case_id}/pending-customer", response_model=ApiResponse[dict])
-def pending(case_id: UUID, project_id: UUID, request: CaseActionRequest, session: Session = Depends(get_db), actor: str = Depends(get_actor)):
-	return _mutate(case_id, project_id, request, "pending-customer", session, actor)
+def pending(case_id: UUID, project_id: UUID, request: CaseActionRequest, session: Session = Depends(get_db), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor_ctx, "case:manual_review", project_id, action="mutate")
+	return _mutate(case_id, project_id, request, "pending-customer", session, actor_ctx.username)
 
 
 @router.post("/{case_id}/escalate", response_model=ApiResponse[dict])
-def escalate(case_id: UUID, project_id: UUID, request: CaseActionRequest, session: Session = Depends(get_db), actor: str = Depends(get_actor)):
-	return _mutate(case_id, project_id, request, "escalate", session, actor)
+def escalate(case_id: UUID, project_id: UUID, request: CaseActionRequest, session: Session = Depends(get_db), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor_ctx, "case:escalate", project_id, action="mutate")
+	return _mutate(case_id, project_id, request, "escalate", session, actor_ctx.username)
 
 
 @router.post("/{case_id}/reopen", response_model=ApiResponse[dict])
-def reopen(case_id: UUID, project_id: UUID, request: CaseActionRequest, session: Session = Depends(get_db), actor: str = Depends(get_actor)):
-	return _mutate(case_id, project_id, request, "reopen", session, actor)
+def reopen(case_id: UUID, project_id: UUID, request: CaseActionRequest, session: Session = Depends(get_db), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor_ctx, "case:reopen", project_id, action="mutate")
+	return _mutate(case_id, project_id, request, "reopen", session, actor_ctx.username)
 
 
 @router.post("/{case_id}/resolve", response_model=ApiResponse[dict])
-def resolve(case_id: UUID, project_id: UUID, request: ResolveCaseRequest, session: Session = Depends(get_db), actor: str = Depends(get_actor)):
-	return _mutate(case_id, project_id, request, "resolve-fraud" if request.verdict == "FRAUD" else "resolve-legitimate", session, actor,
+def resolve(case_id: UUID, project_id: UUID, request: ResolveCaseRequest, session: Session = Depends(get_db), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor_ctx, "case:manual_review", project_id, action="mutate")
+	return _mutate(case_id, project_id, request, "resolve-fraud" if request.verdict == "FRAUD" else "resolve-legitimate", session, actor_ctx.username,
 		reason=request.reason, block_entities=[(entity.entity_type, entity.entity_value) for entity in request.block_entities])
 
 

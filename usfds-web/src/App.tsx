@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Topbar, Sidebar, OmnisearchModal } from '@/components';
+import { FeatureRouteGuard } from '@/components/layout/FeatureRouteGuard';
 import {
 	DataManagementPage,
 	ModelTrainingPage,
@@ -14,7 +15,8 @@ import {
 	AdminUsersPage,
 	DocsDashboardPage,
 } from '@/pages';
-import { AuthProvider, ProjectProvider, ThemeProvider, useAuth, useProject } from '@/hooks';
+import { AuthProvider, ProjectProvider, ThemeProvider, useActorContext, useAuth, useProject } from '@/hooks';
+import { getFirstAllowedModule } from '@/lib/feature-policy';
 import { ProjectFormModal } from './components/modules/project_management/ProjectFormModal';
 import type { AppModule } from '@/types';
 
@@ -38,9 +40,17 @@ function WorkspaceShell() {
 		selectProject,
 		openCreateModal,
 	} = useProject();
+	const { isLoading: authLoading } = useAuth();
+	const { actor } = useActorContext(currentProject?.project_id);
 
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [isOmnisearchOpen, setIsOmnisearchOpen] = useState(false);
+
+	const defaultModule = useMemo(
+		() => getFirstAllowedModule(actor, currentProject?.project_id),
+		[actor, currentProject?.project_id]
+	);
+	const defaultRoute = defaultModule ? MODULE_ROUTE_MAP[defaultModule] : '/projects';
 
 	const activeModule: AppModule = useMemo(() => {
 		const path = location.pathname;
@@ -66,13 +76,23 @@ function WorkspaceShell() {
 	}, [location.pathname]);
 
 	const handleSelectModule = (mod: AppModule) => {
-		const targetRoute = MODULE_ROUTE_MAP[mod] || '/datasets';
+		const targetRoute = MODULE_ROUTE_MAP[mod] || defaultRoute;
 		navigate(targetRoute);
 	};
 
-	if (!isLoading && !currentProject) {
+	if (authLoading || isLoading) {
+		return (
+			<div className="h-screen w-screen flex items-center justify-center bg-dark-950 text-xs text-slate-400">
+				Đang tải không gian làm việc...
+			</div>
+		);
+	}
+
+	if (!currentProject) {
 		return <Navigate to="/projects" replace />;
 	}
+
+	const pid = currentProject.project_id;
 
 	return (
 		<div className="h-screen w-screen overflow-hidden flex flex-col bg-dark-950 text-slate-100 font-sans">
@@ -97,14 +117,63 @@ function WorkspaceShell() {
 
 				<main className="flex-1 flex flex-col overflow-hidden bg-dark-950 relative">
 					<Routes>
-						<Route path="/datasets/*" element={<DataManagementPage />} />
-						<Route path="/models/*" element={<ModelTrainingPage />} />
-						<Route path="/rules/*" element={<RuleEnginePage />} />
-						<Route path="/detection/*" element={<DetectionJobPage />} />
-						<Route path="/investigation/*" element={<InvestigationPage />} />
-						<Route path="/reports/*" element={<InsightReportPage />} />
-						<Route path="/settings/*" element={<ProjectSettingsPage />} />
-						<Route path="*" element={<Navigate to="/datasets" replace />} />
+						<Route
+							path="/datasets/*"
+							element={
+								<FeatureRouteGuard feature="dataManagement" projectId={pid} fallbackPath={defaultRoute}>
+									<DataManagementPage />
+								</FeatureRouteGuard>
+							}
+						/>
+						<Route
+							path="/models/*"
+							element={
+								<FeatureRouteGuard feature="modelManagement" projectId={pid} fallbackPath={defaultRoute}>
+									<ModelTrainingPage />
+								</FeatureRouteGuard>
+							}
+						/>
+						<Route
+							path="/rules/*"
+							element={
+								<FeatureRouteGuard feature="ruleManagement" projectId={pid} fallbackPath={defaultRoute}>
+									<RuleEnginePage />
+								</FeatureRouteGuard>
+							}
+						/>
+						<Route
+							path="/detection/*"
+							element={
+								<FeatureRouteGuard feature="detection" projectId={pid} fallbackPath={defaultRoute}>
+									<DetectionJobPage />
+								</FeatureRouteGuard>
+							}
+						/>
+						<Route
+							path="/investigation/*"
+							element={
+								<FeatureRouteGuard feature="investigation" projectId={pid} fallbackPath={defaultRoute}>
+									<InvestigationPage />
+								</FeatureRouteGuard>
+							}
+						/>
+						<Route
+							path="/reports/*"
+							element={
+								<FeatureRouteGuard feature="insightReport" projectId={pid} fallbackPath={defaultRoute}>
+									<InsightReportPage />
+								</FeatureRouteGuard>
+							}
+						/>
+						<Route
+							path="/settings/*"
+							element={
+								<FeatureRouteGuard feature="projectSettings" projectId={pid} fallbackPath={defaultRoute}>
+									<ProjectSettingsPage />
+								</FeatureRouteGuard>
+							}
+						/>
+						<Route path="*" element={<Navigate to={defaultRoute} replace />} />
 					</Routes>
 				</main>
 			</div>
@@ -135,7 +204,14 @@ function AppRoutes() {
 		<>
 			<Routes>
 				<Route path="/login" element={<LoginPage />} />
-				<Route path="/admin/users" element={<AdminUsersPage />} />
+				<Route
+					path="/admin/users"
+					element={
+						<FeatureRouteGuard feature="adminUsers" fallbackPath="/projects">
+							<AdminUsersPage />
+						</FeatureRouteGuard>
+					}
+				/>
 				{/* Interactive Docs & Plan Review Dashboard */}
 				<Route path="/__docs/*" element={<DocsDashboardPage />} />
 				<Route path="/docs/*" element={<DocsDashboardPage />} />

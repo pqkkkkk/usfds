@@ -18,11 +18,16 @@ import {
 import { PageHeader } from '../../layout/PageHeader';
 import { LineageCanvasView } from '../LineageCanvasView';
 import { useDatasetDetail } from '../../../hooks/useDatasetDetail';
+import { useProject } from '@/hooks/useProjects';
+import { useActorContext } from '@/hooks/useActorContext';
 import type { LineageTreeNode } from '../../../types/navigation';
 
 export const DatasetLineageExplorer = () => {
   const { datasetId } = useParams<{ datasetId: string }>();
   const navigate = useNavigate();
+  const { currentProjectId } = useProject();
+  const { features } = useActorContext(currentProjectId);
+  const canUpdateDataset = features.updateDataset.allowed;
 
   const {
     datasetName,
@@ -267,13 +272,15 @@ export const DatasetLineageExplorer = () => {
                       <BarChart3 className="w-4 h-4" />
                       <span>Xem phân tích & chẩn đoán dữ liệu</span>
                     </button>
-                    <button
-                      onClick={() => navigate(`/datasets/${datasetId}/workspace/step-mapping?artifactId=${selectedNode.id}`)}
-                      className="w-full py-2.5 px-3 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs shadow-glow-blue transition flex items-center justify-center gap-2"
-                    >
-                      <FileCheck2 className="w-4 h-4" />
-                      <span>Bắt đầu ánh xạ lược đồ — tạo nhánh artifact mới</span>
-                    </button>
+                    {canUpdateDataset && (
+                      <button
+                        onClick={() => navigate(`/datasets/${datasetId}/workspace/step-mapping?artifactId=${selectedNode.id}`)}
+                        className="w-full py-2.5 px-3 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs shadow-glow-blue transition flex items-center justify-center gap-2"
+                      >
+                        <FileCheck2 className="w-4 h-4" />
+                        <span>Bắt đầu ánh xạ lược đồ — tạo nhánh artifact mới</span>
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -287,13 +294,15 @@ export const DatasetLineageExplorer = () => {
                       <ShieldCheck className="w-4 h-4" />
                       <span>Xem báo cáo kiểm định</span>
                     </button>
-                    <button
-                      onClick={() => navigate(`/datasets/${datasetId}/workspace/step-feature-eng?artifactId=${selectedNode.id}`)}
-                      className="w-full py-2.5 px-3 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs shadow-glow-blue transition flex items-center justify-center gap-2"
-                    >
-                      <Sliders className="w-4 h-4" />
-                      <span>Chạy kỹ nghệ đặc trưng</span>
-                    </button>
+                    {canUpdateDataset && (
+                      <button
+                        onClick={() => navigate(`/datasets/${datasetId}/workspace/step-feature-eng?artifactId=${selectedNode.id}`)}
+                        className="w-full py-2.5 px-3 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs shadow-glow-blue transition flex items-center justify-center gap-2"
+                      >
+                        <Sliders className="w-4 h-4" />
+                        <span>Chạy kỹ nghệ đặc trưng</span>
+                      </button>
+                    )}
                   </div>
                 )}
 

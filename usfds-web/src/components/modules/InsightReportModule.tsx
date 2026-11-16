@@ -8,6 +8,7 @@ import {
 	Radar,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { useActorContext } from '@/hooks/useActorContext';
 import { useProject } from '@/hooks/useProjects';
 import { detectionApi, insightReportApi } from '@/api';
 import type { ReportScopeFilter } from '@/types';
@@ -28,6 +29,12 @@ const REPORT_TABS: { key: ReportTabKey; label: string; icon: React.ReactNode }[]
 
 export const InsightReportModule: React.FC = () => {
 	const { currentProjectId, currentProject, isLoading: isProjectLoading } = useProject();
+	const { features } = useActorContext(currentProjectId);
+	const canCreateReport = features.createReport.allowed;
+	const visibleTabs = useMemo(
+		() => REPORT_TABS.filter((tab) => tab.key !== 'compliance' || canCreateReport),
+		[canCreateReport]
+	);
 	const [searchParams, setSearchParams] = useSearchParams();
 	const initialTabParam = (searchParams.get('tab') as ReportTabKey) || 'overview';
 	const caseIdParam = searchParams.get('caseId') || undefined;
@@ -35,6 +42,8 @@ export const InsightReportModule: React.FC = () => {
 	const [activeTab, setActiveTab] = useState<ReportTabKey>(
 		REPORT_TABS.some((t) => t.key === initialTabParam) ? initialTabParam : 'overview'
 	);
+	const effectiveTab: ReportTabKey =
+		activeTab === 'compliance' && !canCreateReport ? 'overview' : activeTab;
 	const [scope, setScope] = useState<ReportScopeFilter>({
 		useDatasetFallback: true,
 	});
@@ -60,7 +69,7 @@ export const InsightReportModule: React.FC = () => {
 	const { data: detectionJobsRes } = useQuery({
 		queryKey: ['detection-jobs', currentProjectId],
 		queryFn: () => detectionApi.listJobs({ projectId: currentProjectId! }),
-		enabled: Boolean(currentProjectId),
+		enabled: Boolean(currentProjectId && features.detection.allowed),
 	});
 
 	const detectionJobsList = useMemo(() => {
@@ -80,24 +89,24 @@ export const InsightReportModule: React.FC = () => {
 	const { data: overviewData, isLoading: isOverviewLoading } = useQuery({
 		queryKey: ['insight-overview', currentProjectId, scope],
 		queryFn: () => insightReportApi.getOverview(currentProjectId!, scope),
-		enabled: Boolean(currentProjectId && activeTab === 'overview'),
+		enabled: Boolean(currentProjectId && effectiveTab === 'overview'),
 	});
 
 	// Effectiveness query
 	const { data: effectivenessData, isLoading: isEffectivenessLoading } = useQuery({
 		queryKey: ['insight-effectiveness', currentProjectId, scope],
 		queryFn: () => insightReportApi.getEffectiveness(currentProjectId!, scope),
-		enabled: Boolean(currentProjectId && activeTab === 'effectiveness'),
+		enabled: Boolean(currentProjectId && effectiveTab === 'effectiveness'),
 	});
 
 	// Patterns query
 	const { data: patternsData, isLoading: isPatternsLoading } = useQuery({
 		queryKey: ['insight-patterns', currentProjectId, scope],
 		queryFn: () => insightReportApi.getPatterns(currentProjectId!, scope),
-		enabled: Boolean(currentProjectId && activeTab === 'patterns'),
+		enabled: Boolean(currentProjectId && effectiveTab === 'patterns'),
 	});
 
-	const activeTabMeta = REPORT_TABS.find((t) => t.key === activeTab) || REPORT_TABS[0];
+	const activeTabMeta = visibleTabs.find((t) => t.key === effectiveTab) || visibleTabs[0];
 
 	return (
 		<div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-dark-950 text-slate-100">
@@ -117,8 +126,8 @@ export const InsightReportModule: React.FC = () => {
 						className="inline-flex flex-wrap items-center rounded-lg border border-dark-700 bg-dark-900 p-1 text-xs"
 						aria-label="Thẻ phân tích & báo cáo"
 					>
-						{REPORT_TABS.map((tab) => {
-							const isActive = activeTab === tab.key;
+						{visibleTabs.map((tab) => {
+							const isActive = effectiveTab === tab.key;
 							return (
 								<button
 									key={tab.key}
@@ -157,19 +166,19 @@ export const InsightReportModule: React.FC = () => {
 							scannedJobsCount={overviewData?.available_jobs?.length}
 						/>
 
-						{activeTab === 'overview' && (
+						{effectiveTab === 'overview' && (
 							<ExecutiveOverviewTab data={overviewData} isLoading={isOverviewLoading} />
 						)}
 
-						{activeTab === 'effectiveness' && (
+						{effectiveTab === 'effectiveness' && (
 							<EffectivenessTab data={effectivenessData} isLoading={isEffectivenessLoading} />
 						)}
 
-						{activeTab === 'patterns' && (
+						{effectiveTab === 'patterns' && (
 							<TypologiesPatternsTab data={patternsData} isLoading={isPatternsLoading} />
 						)}
 
-						{activeTab === 'compliance' && (
+						{effectiveTab === 'compliance' && canCreateReport && (
 							<ComplianceReportCenterTab
 								projectId={currentProjectId}
 								scope={scope}

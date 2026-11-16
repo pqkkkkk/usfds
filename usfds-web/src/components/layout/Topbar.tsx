@@ -14,6 +14,7 @@ import {
 	Unlock,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
+import { useActorContext } from '@/hooks/useActorContext';
 import { UserAccountMenu } from './UserAccountMenu';
 import type { ProjectResponse } from '../../types/project';
 
@@ -37,6 +38,8 @@ export const Topbar = ({
 	const [dropdownOpen, setDropdownOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	const { isLight, toggleTheme } = useTheme();
+	const { features } = useActorContext();
+	const canCreateProject = features.createProject.allowed;
 
 	useEffect(() => {
 		if (!dropdownOpen) {
@@ -182,17 +185,19 @@ export const Topbar = ({
 
 							{/* Dropdown Footer Actions */}
 							<div className="p-1.5 border-t border-dark-700/80 bg-dark-900/90 flex items-center gap-1.5">
-								<button
-									type="button"
-									onClick={() => {
-										setDropdownOpen(false);
-										onCreateProjectClick();
-									}}
-									className="flex-1 py-1.5 px-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-[11px] font-semibold transition flex items-center justify-center gap-1.5"
-								>
-									<Plus className="w-3.5 h-3.5" />
-									<span>Dự án mới</span>
-								</button>
+								{canCreateProject && (
+									<button
+										type="button"
+										onClick={() => {
+											setDropdownOpen(false);
+											onCreateProjectClick();
+										}}
+										className="flex-1 py-1.5 px-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-[11px] font-semibold transition flex items-center justify-center gap-1.5"
+									>
+										<Plus className="w-3.5 h-3.5" />
+										<span>Dự án mới</span>
+									</button>
+								)}
 								<button
 									type="button"
 									onClick={() => {

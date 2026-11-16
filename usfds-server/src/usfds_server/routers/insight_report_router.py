@@ -54,8 +54,11 @@ def get_executive_overview(
 		"VERIFIED_WITH_DATASET_FALLBACK",
 		description="Ground-truth label source mode (BR-IR-02)",
 	),
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	service: InsightReportService = Depends(get_insight_report_service),
 ) -> ApiResponse[dict[str, Any]]:
+	authz.require_project_permission(actor, "report:read", project_id)
 	try:
 		parsed_jobs = _parse_job_ids(job_ids)
 		data = service.get_executive_overview(
@@ -85,8 +88,11 @@ def get_effectiveness_analysis(
 		"VERIFIED_WITH_DATASET_FALLBACK",
 		description="Ground-truth label source mode (BR-IR-02)",
 	),
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	service: InsightReportService = Depends(get_insight_report_service),
 ) -> ApiResponse[dict[str, Any]]:
+	authz.require_project_permission(actor, "report:read", project_id)
 	try:
 		parsed_jobs = _parse_job_ids(job_ids)
 		data = service.get_effectiveness_analysis(
@@ -116,8 +122,11 @@ def get_typology_and_patterns(
 		"VERIFIED_WITH_DATASET_FALLBACK",
 		description="Ground-truth label source mode (BR-IR-02)",
 	),
+	actor: ActorContext = Depends(get_actor_context),
+	authz: AuthzService = Depends(get_authz_service),
 	service: InsightReportService = Depends(get_insight_report_service),
 ) -> ApiResponse[dict[str, Any]]:
+	authz.require_project_permission(actor, "report:read", project_id)
 	try:
 		parsed_jobs = _parse_job_ids(job_ids)
 		data = service.get_typology_and_patterns(

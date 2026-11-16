@@ -194,6 +194,7 @@ function CaseWorkbench({
 				/>
 				<EvidenceAndTimelineColumn data={workbenchQuery.data} />
 				<DecisionAndAuditColumn
+					projectId={projectId}
 					data={workbenchQuery.data}
 					disabled={disabled}
 					draftPending={draftMutation.isPending}
