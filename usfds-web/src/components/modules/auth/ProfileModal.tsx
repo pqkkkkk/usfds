@@ -28,16 +28,17 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 		setError(null);
 		setMessage(null);
 		setSaving(true);
-		const res = await authApi.updateProfile({
-			full_name: fullName.trim() || null,
-			email: email.trim() || null,
-		});
-		setSaving(false);
-		if (res.success) {
+		try {
+			await authApi.updateProfile({
+				full_name: fullName.trim() || null,
+				email: email.trim() || null,
+			});
 			await refreshMe();
 			setMessage('Đã cập nhật thông tin cá nhân');
-		} else {
-			setError(res.error || 'Không thể cập nhật thông tin');
+		} catch (err: any) {
+			setError(err?.message || 'Không thể cập nhật thông tin');
+		} finally {
+			setSaving(false);
 		}
 	};
 
@@ -46,14 +47,15 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 		setError(null);
 		setMessage(null);
 		setSaving(true);
-		const res = await authApi.changePassword(currentPassword, newPassword);
-		setSaving(false);
-		if (res.success) {
+		try {
+			await authApi.changePassword(currentPassword, newPassword);
 			setCurrentPassword('');
 			setNewPassword('');
 			setMessage('Đã đổi mật khẩu thành công');
-		} else {
-			setError(res.error || 'Không thể đổi mật khẩu');
+		} catch (err: any) {
+			setError(err?.message || 'Không thể đổi mật khẩu');
+		} finally {
+			setSaving(false);
 		}
 	};
 

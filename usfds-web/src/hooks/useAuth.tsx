@@ -23,8 +23,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [isLoading, setIsLoading] = useState(true);
 
 	const refreshMe = useCallback(async () => {
-		const modeRes = await authApi.getMode();
-		const mode: AuthMode = modeRes.success && modeRes.data?.auth_mode ? modeRes.data.auth_mode : 'local_auto';
+		let mode: AuthMode = 'local_auto';
+		try {
+			const modeRes = await authApi.getMode();
+			if (modeRes.data?.auth_mode) {
+				mode = modeRes.data.auth_mode;
+			}
+		} catch {
+			mode = 'local_auto';
+		}
 		setAuthMode(mode);
 
 		const hasToken = typeof window !== 'undefined' && Boolean(localStorage.getItem(ACCESS_TOKEN_KEY));
@@ -34,13 +41,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			return;
 		}
 
-		const meRes = await authApi.getMe();
-		if (meRes.success && meRes.data) {
-			setUser(meRes.data);
-		} else {
+		try {
+			const meRes = await authApi.getMe();
+			setUser(meRes.data ?? null);
+		} catch {
 			setUser(null);
+		} finally {
+			setIsLoading(false);
 		}
-		setIsLoading(false);
 	}, []);
 
 	useEffect(() => {
@@ -53,30 +61,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}, [refreshMe]);
 
 	const login = useCallback(async (username: string, password: string) => {
-		const res = await authApi.login(username, password);
-		if (res.success && res.data) {
-			localStorage.setItem(ACCESS_TOKEN_KEY, res.data.access_token);
-			localStorage.setItem(REFRESH_TOKEN_KEY, res.data.refresh_token);
-			if (res.data.user) {
-				setUser(res.data.user);
-				return { ok: true };
+		try {
+			const res = await authApi.login(username, password);
+			if (res.data) {
+				localStorage.setItem(ACCESS_TOKEN_KEY, res.data.access_token);
+				localStorage.setItem(REFRESH_TOKEN_KEY, res.data.refresh_token);
+				if (res.data.user) {
+					setUser(res.data.user);
+					return { ok: true };
+				}
+				try {
+					const meRes = await authApi.getMe();
+					if (meRes.data) {
+						setUser(meRes.data);
+						return { ok: true };
+					}
+				} catch (meErr: any) {
+					localStorage.removeItem(ACCESS_TOKEN_KEY);
+					localStorage.removeItem(REFRESH_TOKEN_KEY);
+					return { ok: false, error: meErr?.message || 'Không thể tải thông tin tài khoản' };
+				}
+				localStorage.removeItem(ACCESS_TOKEN_KEY);
+				localStorage.removeItem(REFRESH_TOKEN_KEY);
+				return { ok: false, error: 'Không thể tải thông tin tài khoản' };
 			}
-			const meRes = await authApi.getMe();
-			if (meRes.success && meRes.data) {
-				setUser(meRes.data);
-				return { ok: true };
-			}
-			localStorage.removeItem(ACCESS_TOKEN_KEY);
-			localStorage.removeItem(REFRESH_TOKEN_KEY);
-			return { ok: false, error: meRes.error || 'Không thể tải thông tin tài khoản' };
+			return { ok: false, error: 'Đăng nhập thất bại' };
+		} catch (err: any) {
+			return { ok: false, error: err?.message || 'Đăng nhập thất bại' };
 		}
-		return { ok: false, error: res.error || 'Đăng nhập thất bại' };
 	}, []);
 
 	const logout = useCallback(async () => {
 		const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
 		if (refreshToken) {
-			await authApi.logout(refreshToken);
+			try {
+				await authApi.logout(refreshToken);
+			} catch {
+				// Ignore logout API error when clearing local session
+			}
 		}
 		localStorage.removeItem(ACCESS_TOKEN_KEY);
 		localStorage.removeItem(REFRESH_TOKEN_KEY);

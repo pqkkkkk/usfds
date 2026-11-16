@@ -25,6 +25,18 @@ const DEFAULT_BASE_URL = getBaseUrl();
 export const ACCESS_TOKEN_KEY = 'usfds_access_token';
 export const REFRESH_TOKEN_KEY = 'usfds_refresh_token';
 
+export class ApiClientError extends Error {
+	public readonly statusCode?: number;
+	public readonly details?: unknown;
+
+	constructor(message: string, statusCode?: number, details?: unknown) {
+		super(message);
+		this.name = 'ApiClientError';
+		this.statusCode = statusCode;
+		this.details = details;
+	}
+}
+
 class ApiClient {
   private instance: AxiosInstance;
   private refreshPromise: Promise<string | null> | null = null;
@@ -78,7 +90,9 @@ class ApiClient {
           error.message ||
           'Yêu cầu mạng thất bại';
 
-        return Promise.reject(new Error(errorMsg));
+        return Promise.reject(
+          new ApiClientError(errorMsg, error.response?.status, error.response?.data)
+        );
       }
     );
   }
@@ -116,53 +130,41 @@ class ApiClient {
   }
 
   public async get<T = any>(url: string, params?: Record<string, any>, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    try {
-      const response = await this.instance.get<ApiResponse<T> | T>(url, { ...config, params });
-      return this.normalizeResponse<T>(response.data);
-    } catch (err: any) {
-      return { success: false, data: null as unknown as T, error: err.message };
-    }
+    const response = await this.instance.get<ApiResponse<T> | T>(url, { ...config, params });
+    return this.normalizeResponse<T>(response.data, response.status);
   }
 
   public async post<T = any>(url: string, data?: unknown, params?: Record<string, any>, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    try {
-      const response = await this.instance.post<ApiResponse<T> | T>(url, data, { ...config, params });
-      return this.normalizeResponse<T>(response.data);
-    } catch (err: any) {
-      return { success: false, data: null as unknown as T, error: err.message };
-    }
+    const response = await this.instance.post<ApiResponse<T> | T>(url, data, { ...config, params });
+    return this.normalizeResponse<T>(response.data, response.status);
   }
 
   public async put<T = any>(url: string, data?: unknown, params?: Record<string, any>, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    try {
-      const response = await this.instance.put<ApiResponse<T> | T>(url, data, { ...config, params });
-      return this.normalizeResponse<T>(response.data);
-    } catch (err: any) {
-      return { success: false, data: null as unknown as T, error: err.message };
-    }
+    const response = await this.instance.put<ApiResponse<T> | T>(url, data, { ...config, params });
+    return this.normalizeResponse<T>(response.data, response.status);
   }
 
   public async patch<T = any>(url: string, data?: unknown, params?: Record<string, any>, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    try {
-      const response = await this.instance.patch<ApiResponse<T> | T>(url, data, { ...config, params });
-      return this.normalizeResponse<T>(response.data);
-    } catch (err: any) {
-      return { success: false, data: null as unknown as T, error: err.message };
-    }
+    const response = await this.instance.patch<ApiResponse<T> | T>(url, data, { ...config, params });
+    return this.normalizeResponse<T>(response.data, response.status);
   }
 
   public async delete<T = any>(url: string, params?: Record<string, any>, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    try {
-      const response = await this.instance.delete<ApiResponse<T> | T>(url, { ...config, params });
-      return this.normalizeResponse<T>(response.data);
-    } catch (err: any) {
-      return { success: false, data: null as unknown as T, error: err.message };
-    }
+    const response = await this.instance.delete<ApiResponse<T> | T>(url, { ...config, params });
+    return this.normalizeResponse<T>(response.data, response.status);
   }
 
-  private normalizeResponse<T>(data: ApiResponse<T> | T): ApiResponse<T> {
+  private normalizeResponse<T>(data: ApiResponse<T> | T, statusCode?: number): ApiResponse<T> {
     if (data && typeof data === 'object' && 'success' in data) {
-      return data as ApiResponse<T>;
+      const apiResp = data as ApiResponse<T>;
+      if (!apiResp.success) {
+        throw new ApiClientError(
+          apiResp.error || apiResp.message || 'Yêu cầu thất bại',
+          apiResp.code ?? statusCode,
+          apiResp
+        );
+      }
+      return apiResp;
     }
     return {
       success: true,

@@ -81,15 +81,15 @@ export function DetectionJobWizardView() {
 			}
 			const dsRes = await datasetApi.listDatasets(projectId);
 			const datasets = dsRes.data || [];
-			const details = await Promise.all(
+			const details = await Promise.allSettled(
 				datasets.map((d) => datasetApi.getDatasetDetail(d.dataset_id))
 			);
 			const items: RawArtifactOptionItem[] = [];
-			for (const detailRes of details) {
-				if (!detailRes.success || !detailRes.data) {
+			for (const settled of details) {
+				if (settled.status !== 'fulfilled' || !settled.value.data) {
 					continue;
 				}
-				const { dataset, artifacts } = detailRes.data;
+				const { dataset, artifacts } = settled.value.data;
 				const rawArts = (artifacts || []).filter(
 					(a) => a.pipeline_stage === 'RAW'
 				);
@@ -118,7 +118,7 @@ export function DetectionJobWizardView() {
 			}
 			const modelsRes = await trainingApi.listModels(projectId);
 			const models = modelsRes.data || [];
-			const versionLists = await Promise.all(
+			const versionLists = await Promise.allSettled(
 				models.map(async (m) => {
 					const verRes = await trainingApi.listModelVersions(m.model_id);
 					return {
@@ -128,7 +128,11 @@ export function DetectionJobWizardView() {
 				})
 			);
 			const approved: ApprovedModelOptionItem[] = [];
-			for (const entry of versionLists) {
+			for (const settled of versionLists) {
+				if (settled.status !== 'fulfilled') {
+					continue;
+				}
+				const entry = settled.value;
 				for (const v of entry.versions) {
 					if (v.status === 'APPROVED') {
 						if (!v.project_id || v.project_id === projectId) {

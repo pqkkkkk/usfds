@@ -60,27 +60,38 @@ export const ModelHubView: React.FC = () => {
 			setIsLoading(true);
 		}
 		try {
-			const [modelsRes, runsRes] = await Promise.all([
+			const [modelsSettled, runsSettled] = await Promise.allSettled([
 				trainingApi.listModels(projectId),
 				trainingApi.listTrainingRuns({ projectId }),
 			]);
-			const loadedModels = modelsRes.success && modelsRes.data ? modelsRes.data : [];
-			const loadedRuns = runsRes.success && runsRes.data ? runsRes.data : [];
+			const loadedModels =
+				modelsSettled.status === 'fulfilled' && modelsSettled.value.data
+					? modelsSettled.value.data
+					: [];
+			const loadedRuns =
+				runsSettled.status === 'fulfilled' && runsSettled.value.data
+					? runsSettled.value.data
+					: [];
 			setModels(loadedModels);
 			setRuns(loadedRuns);
 
 			// Load versions for all models so we can show active badges and version counts
-			const versionEntries = await Promise.all(
+			const versionEntries = await Promise.allSettled(
 				loadedModels.map(async (m) => {
 					const vRes = await trainingApi.listModelVersions(m.model_id);
-					return [m.model_id, vRes.success && vRes.data ? vRes.data : []] as const;
+					return [m.model_id, vRes.data || []] as const;
 				})
 			);
 			const versionMap: Record<string, ModelVersionResponse[]> = {};
-			for (const [mId, vList] of versionEntries) {
-				versionMap[mId] = vList;
+			for (const entry of versionEntries) {
+				if (entry.status === 'fulfilled') {
+					const [mId, vList] = entry.value;
+					versionMap[mId] = vList;
+				}
 			}
 			setVersionsByModel(versionMap);
+		} catch {
+			// Keep existing state if unexpected error occurs
 		} finally {
 			if (!silent) {
 				setIsLoading(false);

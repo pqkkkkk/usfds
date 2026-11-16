@@ -23,13 +23,21 @@ export const RuleVersionHistoryModal: React.FC<RuleVersionHistoryModalProps> = (
   useEffect(() => {
     if (isOpen && rule) {
       setLoading(true);
-      ruleApi.getRuleVersions(rule.rule_id).then((res) => {
-        if (res.success && res.data) {
-          setVersions(res.data);
-          setSelectedVersion(res.data[res.data.length - 1] || null);
-        }
-        setLoading(false);
-      });
+      ruleApi
+        .getRuleVersions(rule.rule_id)
+        .then((res) => {
+          if (res.data) {
+            setVersions(res.data);
+            setSelectedVersion(res.data[res.data.length - 1] || null);
+          }
+        })
+        .catch(() => {
+          setVersions([]);
+          setSelectedVersion(null);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }
   }, [isOpen, rule]);
 
