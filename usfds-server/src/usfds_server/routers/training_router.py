@@ -5,6 +5,7 @@ import json
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.concurrency import run_in_threadpool
 
 from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
@@ -217,6 +218,100 @@ def register_plugged_model(
         raise HTTPException(status_code=code, detail=err_msg)
 
 
+async def _read_bounded_body(request: Request, max_bytes: int, max_mb: int) -> bytes:
+    """Read request body incrementally without exceeding `max_bytes` in memory (ISS-016)."""
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Uploaded plugin exceeds maximum allowed size of {max_mb} MB.",
+                )
+        except ValueError:
+            pass
+
+    buffer = bytearray()
+    async for chunk in request.stream():
+        if not chunk:
+            continue
+        if len(buffer) + len(chunk) > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Uploaded plugin exceeds maximum allowed size of {max_mb} MB.",
+            )
+        buffer.extend(chunk)
+    return bytes(buffer)
+
+
+def _register_uploaded_plugin_sync(
+    *,
+    raw_body: bytes,
+    content_type: str,
+    query_params: Dict[str, str],
+    actor: ActorContext,
+    authz: AuthzService,
+    service: TrainingOrchestrationService,
+) -> Model:
+    """Synchronous plugin parsing, authz, and registration/queue-wait executed off the event loop (ISS-019)."""
+    zip_bytes: Optional[bytes] = None
+    filename = "plugin.zip"
+    fields: Dict[str, str] = {}
+
+    if "multipart/form-data" in content_type.lower():
+        zip_bytes, parsed_name, fields = _parse_multipart_upload(content_type, raw_body)
+        if parsed_name:
+            filename = parsed_name
+    else:
+        zip_bytes = raw_body
+
+    if not filename.lower().endswith(".zip"):
+        raise ValueError("Uploaded plugin package must be a .zip archive.")
+    if not zip_bytes:
+        raise ValueError("Uploaded .zip file is empty.")
+
+    project_id_str = fields.get("project_id") or query_params.get("project_id")
+    manifest_json_str = fields.get("manifest_override_json")
+
+    parsed_project_id: Optional[UUID] = (
+        UUID(project_id_str.strip()) if project_id_str and project_id_str.strip() else None
+    )
+    if parsed_project_id is not None:
+        authz.require_project_permission(actor, "model:create", parsed_project_id, action="create")
+    else:
+        authz.require_system_permission(actor, "model_builtin:manage")
+
+    parsed_manifest: Optional[ModelPluginManifest] = None
+    if manifest_json_str and manifest_json_str.strip():
+        raw_manifest = json.loads(manifest_json_str)
+        parsed_manifest = ModelPluginManifest(**raw_manifest)
+
+    if settings.dispatch_backend == "queue":
+        res = get_job_queue().enqueue_and_wait(
+            QUEUE_TRAINING,
+            JOB_PLUGIN_DRY_RUN,
+            {
+                "zip_base64": base64.b64encode(zip_bytes).decode("ascii"),
+                "user_id": str(actor.user_id),
+                "project_id": str(parsed_project_id) if parsed_project_id else None,
+                "manifest_override": (
+                    parsed_manifest.model_dump(mode="json")
+                    if parsed_manifest
+                    else None
+                ),
+            },
+            job_id=f"plugin-upload-{uuid4()}",
+        )
+        return service.get_model(UUID(str(res["model_id"])))
+
+    return service.register_plugged_model(
+        zip_bytes=zip_bytes,
+        user_id=str(actor.user_id),
+        project_id=parsed_project_id,
+        manifest_override=parsed_manifest,
+    )
+
+
 @router.post(
     "/models/plugins/upload",
     response_model=ApiResponse[ModelResponse],
@@ -231,66 +326,20 @@ async def upload_and_register_plugged_model(
 ) -> ApiResponse[ModelResponse]:
     try:
         content_type = request.headers.get("content-type", "")
-        raw_body = await request.body()
+        max_mb = max(1, settings.max_plugin_upload_mb)
+        raw_body = await _read_bounded_body(request, max_bytes=max_mb * 1024 * 1024, max_mb=max_mb)
         if not raw_body:
             raise ValueError("Uploaded request body is empty.")
 
-        zip_bytes: Optional[bytes] = None
-        filename = "plugin.zip"
-        fields: Dict[str, str] = {}
-
-        if "multipart/form-data" in content_type.lower():
-            zip_bytes, parsed_name, fields = _parse_multipart_upload(content_type, raw_body)
-            if parsed_name:
-                filename = parsed_name
-        else:
-            zip_bytes = raw_body
-
-        if not filename.lower().endswith(".zip"):
-            raise ValueError("Uploaded plugin package must be a .zip archive.")
-        if not zip_bytes:
-            raise ValueError("Uploaded .zip file is empty.")
-
-        project_id_str = fields.get("project_id") or request.query_params.get("project_id")
-        user_id_str = fields.get("user_id") or request.query_params.get("user_id")
-        manifest_json_str = fields.get("manifest_override_json")
-
-        parsed_project_id: Optional[UUID] = (
-            UUID(project_id_str.strip()) if project_id_str and project_id_str.strip() else None
+        model = await run_in_threadpool(
+            _register_uploaded_plugin_sync,
+            raw_body=raw_body,
+            content_type=content_type,
+            query_params=dict(request.query_params),
+            actor=actor,
+            authz=authz,
+            service=service,
         )
-        if parsed_project_id is not None:
-            authz.require_project_permission(actor, "model:create", parsed_project_id, action="create")
-        else:
-            authz.require_system_permission(actor, "model_builtin:manage")
-        parsed_manifest: Optional[ModelPluginManifest] = None
-        if manifest_json_str and manifest_json_str.strip():
-            raw_manifest = json.loads(manifest_json_str)
-            parsed_manifest = ModelPluginManifest(**raw_manifest)
-
-        if settings.dispatch_backend == "queue":
-            res = get_job_queue().enqueue_and_wait(
-                QUEUE_TRAINING,
-                JOB_PLUGIN_DRY_RUN,
-                {
-                    "zip_base64": base64.b64encode(zip_bytes).decode("ascii"),
-                    "user_id": str(actor.user_id),
-                    "project_id": str(parsed_project_id) if parsed_project_id else None,
-                    "manifest_override": (
-                        parsed_manifest.model_dump(mode="json")
-                        if parsed_manifest
-                        else None
-                    ),
-                },
-                job_id=f"plugin-upload-{uuid4()}",
-            )
-            model = service.get_model(UUID(str(res["model_id"])))
-        else:
-            model = service.register_plugged_model(
-                zip_bytes=zip_bytes,
-                user_id=str(actor.user_id),
-                project_id=parsed_project_id,
-                manifest_override=parsed_manifest,
-            )
         return ApiResponse.ok(
             data=_to_model_response(model),
             status_code=status.HTTP_201_CREATED,

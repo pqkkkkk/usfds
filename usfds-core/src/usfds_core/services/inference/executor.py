@@ -160,6 +160,7 @@ def execute_plugin_bundle_inference(
     bundle_bytes: bytes,
     workspace: InferenceWorkspace,
     threshold: float = 0.5,
+    timeout_seconds: Optional[int] = 300,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Unpack a self-contained `model_bundle.zip` and execute `run_inference` via `_usfds_runner.py`."""
     bundle_dir = workspace.artifacts_dir / "plugin_bundle"
@@ -223,7 +224,10 @@ def execute_plugin_bundle_inference(
         str(output_probs_file.resolve()),
     ]
 
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds, check=False)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"Plugin inference timed out after {timeout_seconds}s.") from exc
     if proc.returncode != 0:
         raise RuntimeError(
             f"Plugin inference failed with exit code {proc.returncode}.\n"

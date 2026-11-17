@@ -667,3 +667,37 @@ class TestInferenceServiceWithRealStorageOutput(unittest.TestCase):
         self.assertTrue(filename.endswith(".csv"))
         self.assertEqual(media_type, "text/csv")
         self.assertGreater(len(csv_bytes), 0)
+
+
+class TestPluginInferenceTimeout(unittest.TestCase):
+    def test_plugin_bundle_inference_timeout_raises_runtime_error(self):
+        """ISS-022: Hanging plugin inference subprocess must time out with RuntimeError."""
+        import tempfile
+        import zipfile
+        from usfds_core.services.inference.executor import execute_plugin_bundle_inference
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr(
+                "src/main.py",
+                (
+                    "import time\n"
+                    "def run_inference(input_file, artifact_dir):\n"
+                    "    time.sleep(5)\n"
+                    "    return [0.5]\n"
+                ),
+            )
+            zf.writestr("src/plugin_manifest.json", '{"entrypoint": "main.py", "data_format": "parquet"}')
+
+        df = pd.DataFrame({"f1": [1.0, 2.0]})
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            ws = InferenceWorkspace(inference_id=uuid4(), deployment_id=uuid4(), base_dir=Path(tmp_dir))
+            ws.initialize()
+            with self.assertRaises(RuntimeError) as ctx:
+                execute_plugin_bundle_inference(
+                    feature_engineered_df=df,
+                    bundle_bytes=buf.getvalue(),
+                    workspace=ws,
+                    timeout_seconds=1,
+                )
+        self.assertIn("timed out", str(ctx.exception).lower())

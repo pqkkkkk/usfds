@@ -338,3 +338,84 @@ def test_get_run_lineage_endpoint_returns_dag_and_404(server_settings):
         res_missing = client.get(f"/api/v1/training/runs/{uuid4()}/lineage")
         assert res_missing.status_code == 404
 
+
+def test_plugin_upload_rejects_oversize_content_length_and_stream(server_settings, monkeypatch):
+    """ISS-016: /models/plugins/upload must reject > max_plugin_upload_mb with HTTP 413 on both Content-Length and chunked stream."""
+    monkeypatch.setattr(server_settings, "max_plugin_upload_mb", 1)
+    oversize_bytes = b"PK\x03\x04" + (b"\x00" * (1024 * 1024 + 64))
+
+    with TestClient(app) as client:
+        # 1. Standard multipart/raw upload with Content-Length > 1 MB
+        res_cl = client.post(
+            "/api/v1/training/models/plugins/upload",
+            files={"file": ("big_plugin.zip", oversize_bytes, "application/zip")},
+        )
+        assert res_cl.status_code == 413, res_cl.text
+
+        # 2. Chunked stream without Content-Length header exceeding 1 MB
+        def _chunk_stream():
+            chunk_size = 256 * 1024
+            for offset in range(0, len(oversize_bytes), chunk_size):
+                yield oversize_bytes[offset : offset + chunk_size]
+
+        res_stream = client.post(
+            "/api/v1/training/models/plugins/upload",
+            content=_chunk_stream(),
+            headers={"Content-Type": "application/zip"},
+        )
+        assert res_stream.status_code == 413, res_stream.text
+
+
+def test_plugin_upload_does_not_block_event_loop(server_settings, monkeypatch):
+    """ISS-019: Blocking registration/enqueue_and_wait inside upload endpoint must not freeze the ASGI event loop."""
+    import asyncio
+    import threading
+    import time
+    import httpx
+    from usfds_core.domain.entities.enums import ExecutionType
+    from usfds_core.domain.entities.model import Model
+    from usfds_core.services.training.training_service import TrainingOrchestrationService
+
+    # Ensure app infrastructure is initialized via lifespan before AsyncClient requests
+    with TestClient(app):
+        pass
+
+    dummy_model = Model(
+        model_id=uuid4(),
+        model_name="slow_plugin_test",
+        user_id=uuid4(),
+        execution_type=ExecutionType.SCRIPT,
+    )
+    entered = threading.Event()
+
+    def _slow_register(self, *args, **kwargs):
+        entered.set()
+        time.sleep(0.4)
+        return dummy_model
+
+    monkeypatch.setattr(TrainingOrchestrationService, "register_plugged_model", _slow_register)
+
+    async def _run_concurrent():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as ac:
+            upload_task = asyncio.create_task(
+                ac.post(
+                    "/api/v1/training/models/plugins/upload",
+                    files={"file": ("slow_plugin.zip", b"PK\x03\x04dummy", "application/zip")},
+                )
+            )
+            while not entered.is_set():
+                await asyncio.sleep(0.005)
+            t0 = time.perf_counter()
+            health_res = await ac.get("/health")
+            health_elapsed = time.perf_counter() - t0
+            upload_finished_first = upload_task.done()
+            upload_res = await upload_task
+            return health_res, health_elapsed, upload_finished_first, upload_res
+
+    health_res, health_elapsed, upload_finished_first, upload_res = asyncio.run(_run_concurrent())
+    assert health_res.status_code == 200
+    assert upload_res.status_code == 201, upload_res.text
+    assert not upload_finished_first, "Event loop was blocked until upload finished!"
+    assert health_elapsed < 0.2, f"/health was blocked by upload endpoint ({health_elapsed:.3f}s)"
+
