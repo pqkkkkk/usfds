@@ -37,6 +37,11 @@ def test_denylist_finds_json_each():
 	assert find_sqlite_only_sql("SELECT 1 FROM json_each(fraud_cases.triggered_rule_codes)")
 
 
-@pytest.mark.xfail(strict=True, raises=PostgresCompatibilityError, reason="ISS-018: case rule_code filter uses SQLite json_each")
 def test_case_search_by_rule_code_is_postgresql_compatible(db_session):
-	SqliteCaseRepository(db_session).search(uuid4(), {"rule_code": "R1"}, "priority", 1, 20)
+	from sqlalchemy.dialects import postgresql
+
+	repo = SqliteCaseRepository(db_session)
+	repo.search(uuid4(), {"rule_code": "R1"}, "priority", 1, 20)
+	pg_sql = str(repo._search_query(uuid4(), {"rule_code": "R1"}, "postgresql").compile(dialect=postgresql.dialect()))
+	assert "json_array_elements_text" in pg_sql
+	assert find_sqlite_only_sql(pg_sql) == []

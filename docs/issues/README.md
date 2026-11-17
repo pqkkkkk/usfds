@@ -46,13 +46,13 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-013 | Third-party API key committed to git | security | agent, devex | **P0** | Resolved (26-11-15) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-014 | CORS `*` with credentials | security | server | P1 | Resolved (26-11-15) | [quick_bugfix_and_cors_hardening](../../.plan/quick_bugfix_and_cors_hardening.md) | [11-14](11-14-2026.md) |
 | ISS-015 | Server reads arbitrary client-supplied file paths | security | server, worker | P1 | Resolved (26-11-15) | [presigned_upload_and_file_io_guard](../../.plan/presigned_upload_and_file_io_guard.md) <!-- [26-11-15] --> | [11-14](11-14-2026.md) |
-| ISS-016 | Plugin upload has no size limit | security | server, training | P2 | Open | — | [11-14](11-14-2026.md) |
+| ISS-016 | Plugin upload has no size limit | security | server, training | P2 | Resolved (26-11-17) | [quick_backend_hardening](../../.plan/quick_backend_hardening.md) | [11-14](11-14-2026.md) |
 | ISS-017 | `delete_dataset` never deletes artifact files | bug | data-management | P1 | Resolved (26-11-15) | [quick_bugfix_and_cors_hardening](../../.plan/quick_bugfix_and_cors_hardening.md) | [11-14](11-14-2026.md) |
-| ISS-018 | Case filter by rule code only works on SQLite | bug | investigation, infra | P1 | Open | — | [11-14](11-14-2026.md) |
-| ISS-019 | Async plugin upload blocks event loop | bug | server | P1 | Open | — | [11-14](11-14-2026.md) |
+| ISS-018 | Case filter by rule code only works on SQLite | bug | investigation, infra | P1 | Resolved (26-11-17) | [quick_backend_hardening](../../.plan/quick_backend_hardening.md) | [11-14](11-14-2026.md) |
+| ISS-019 | Async plugin upload blocks event loop | bug | server | P1 | Resolved (26-11-17) | [quick_backend_hardening](../../.plan/quick_backend_hardening.md) | [11-14](11-14-2026.md) |
 | ISS-020 | No schema migrations (create_all only) | bug | infra | **P0** | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-021 | Queue request/reply jobs leak on timeout, no retry | bug | infra, worker | P2 | Open | — | [11-14](11-14-2026.md) |
-| ISS-022 | Plugin/script subprocesses have no timeout | bug | training, inference | P2 | Open | — | [11-14](11-14-2026.md) |
+| ISS-022 | Plugin/script subprocesses have no timeout | bug | training, inference | P2 | Resolved (26-11-17) | [quick_backend_hardening](../../.plan/quick_backend_hardening.md) | [11-14](11-14-2026.md) |
 | ISS-023 | Missing FKs / uniqueness constraints | bug | infra | P2 | Open | — | [11-14](11-14-2026.md) |
 | ISS-024 | Dev env not pinned; parts of suite broken | tech-debt | devex | **P0** | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-025 | Test setup duplicated, depends on global state | tech-debt | devex | **P0** | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |

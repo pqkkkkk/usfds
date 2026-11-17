@@ -95,6 +95,10 @@ class Settings(BaseModel):
         ),
         description="Comma-separated allowed CORS origins or '*'",
     )
+    max_plugin_upload_mb: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_MAX_PLUGIN_UPLOAD_MB", "10")),
+        description="Maximum allowed plugin archive upload size in MB",
+    )
 
 
 settings = Settings()

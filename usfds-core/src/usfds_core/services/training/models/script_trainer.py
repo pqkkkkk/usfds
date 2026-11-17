@@ -26,8 +26,9 @@ class ScriptPluginTrainer(BaseTrainer):
        in `plugin_manifest.json`.
     """
 
-    def __init__(self, entrypoint_uri: str):
+    def __init__(self, entrypoint_uri: str, timeout_seconds: Optional[int] = 600):
         self.entrypoint_uri = entrypoint_uri
+        self.timeout_seconds = timeout_seconds
 
     @staticmethod
     def _has_run_training_function(script_path: Path) -> bool:
@@ -159,7 +160,18 @@ class ScriptPluginTrainer(BaseTrainer):
             raise RuntimeError(f"Script {script_path} does not define the 'run_training' function")
 
         logger.info(f"Executing script trainer: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout_seconds,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"Script plugin training timed out after {self.timeout_seconds}s."
+            ) from exc
 
         if result.returncode != 0:
             error_msg = (

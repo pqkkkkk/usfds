@@ -11,6 +11,7 @@ from usfds_core.domain.entities.case import AuditLog, BlacklistEntityType, Case,
 from usfds_core.domain.entities.enums import RiskLevel, RuleAction
 from usfds_core.repositories.base_case_repo import CaseConflictError, IAuditRepository, IBlacklistRepository, ICaseRepository
 from usfds_infra.database.case_models import AuditLogModel, CaseModel, EntityBlacklistModel
+from usfds_infra.database.compat import sqlite_only
 
 
 def _values(entity) -> dict:
@@ -65,7 +66,7 @@ class SqliteCaseRepository(ICaseRepository):
 	def list_by_project(self, project_id: UUID) -> list[Case]:
 		return [_case(model) for model in self.session.scalars(select(CaseModel).where(CaseModel.project_id == str(project_id)).order_by(CaseModel.created_at, CaseModel.case_id))]
 
-	def search(self, project_id: UUID, filters: dict, sort: str, page: int, size: int) -> tuple[list[Case], int]:
+	def _search_query(self, project_id: UUID, filters: dict, dialect_name: str):
 		query = select(CaseModel).where(CaseModel.project_id == str(project_id))
 		for key in ("status", "priority", "user_id", "assigned_to"):
 			if filters.get(key):
@@ -73,7 +74,10 @@ class SqliteCaseRepository(ICaseRepository):
 		if filters.get("unassigned"):
 			query = query.where(CaseModel.assigned_to.is_(None))
 		if filters.get("rule_code"):
-			rules = func.json_each(CaseModel.triggered_rule_codes).table_valued("value")
+			if dialect_name == "postgresql":
+				rules = func.json_array_elements_text(CaseModel.triggered_rule_codes).table_valued("value")
+			else:
+				rules = func.json_each(CaseModel.triggered_rule_codes).table_valued("value")
 			query = query.where(select(1).select_from(rules).where(rules.c.value == filters["rule_code"]).exists())
 		if filters.get("q"):
 			pattern = "%" + filters["q"].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
@@ -82,9 +86,21 @@ class SqliteCaseRepository(ICaseRepository):
 			("min_amount", CaseModel.amount, "min"), ("max_amount", CaseModel.amount, "max")):
 			if filters.get(key) is not None:
 				query = query.where(column >= filters[key] if direction == "min" else column <= filters[key])
-		total = self.session.scalar(select(func.count()).select_from(query.subquery()))
+		return query
+
+	def search(self, project_id: UUID, filters: dict, sort: str, page: int, size: int) -> tuple[list[Case], int]:
+		bind = self.session.get_bind()
+		dialect_name = bind.dialect.name if bind is not None else "sqlite"
+		query = self._search_query(project_id, filters, dialect_name)
 		order = {"priority": CaseModel.priority_score.desc(), "amount": CaseModel.amount.desc(), "created": CaseModel.created_at.desc()}[sort]
-		models = self.session.scalars(query.order_by(order, CaseModel.case_id).offset((page - 1) * size).limit(size))
+		paged = query.order_by(order, CaseModel.case_id).offset((page - 1) * size).limit(size)
+		if filters.get("rule_code") and dialect_name != "postgresql":
+			with sqlite_only():
+				total = self.session.scalar(select(func.count()).select_from(query.subquery()))
+				models = list(self.session.scalars(paged))
+		else:
+			total = self.session.scalar(select(func.count()).select_from(query.subquery()))
+			models = list(self.session.scalars(paged))
 		return [_case(model) for model in models], total or 0
 
 	def kpis(self, project_id: UUID) -> dict:

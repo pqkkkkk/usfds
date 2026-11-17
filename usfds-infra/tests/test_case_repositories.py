@@ -82,3 +82,38 @@ def test_case_source_migration_preserves_data_and_blocks_legacy_data_loss(tmp_pa
 	with engine.connect() as connection:
 		assert connection.exec_driver_sql("SELECT COUNT(*) FROM investigation_cases").scalar_one() == 1
 	engine.dispose()
+
+
+def test_case_search_by_rule_code_filters_exact_code(db_session):
+	"""ISS-018: rule_code filter matches exact code ('R1' must not match 'R10') and stays PG-compatible."""
+	project_id = uuid4()
+	repo = SqliteCaseRepository(db_session)
+	c1 = Case(
+		project_id,
+		"TX-R1",
+		"U1",
+		datetime.now(timezone.utc),
+		100,
+		RuleAction.REVIEW,
+		uuid4(),
+		case_code="CASE-R1",
+		triggered_rules=[{"rule_code": "R1"}, {"rule_code": "R2"}],
+	)
+	c2 = Case(
+		project_id,
+		"TX-R10",
+		"U2",
+		datetime.now(timezone.utc),
+		200,
+		RuleAction.REJECT,
+		uuid4(),
+		case_code="CASE-R10",
+		triggered_rules=[{"rule_code": "R10"}],
+	)
+	repo.save(c1)
+	repo.save(c2)
+	db_session.flush()
+
+	cases, total = repo.search(project_id, {"rule_code": "R1"}, "priority", 1, 20)
+	assert total == 1
+	assert [c.event_id for c in cases] == ["TX-R1"]

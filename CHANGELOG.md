@@ -2,6 +2,14 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-17 — ISS-016, ISS-018, ISS-019 & ISS-022: Quick Backend Hardening
+Plan: `.plan/quick_backend_hardening.md` · Board: `.plan/BOARD.md`
+
+- Core (`script_trainer.py`, `inference/executor.py`, `plugins/validator.py`): added explicit subprocess timeouts (`600s` default for `ScriptPluginTrainer`, `300s` for `execute_plugin_bundle_inference`) converting `TimeoutExpired` into `RuntimeError`, and handled `TimeoutExpired` in `ModelPluginValidator` dry-runs to return `PluginValidationResult(is_valid=False)` (`ISS-022`).
+- Infra (`SqliteCaseRepository`): branched `rule_code` search filter by SQL dialect (`json_array_elements_text` on PostgreSQL, `sqlite_only()` + `json_each` on SQLite) and removed `@pytest.mark.xfail` from `test_case_search_by_rule_code_is_postgresql_compatible` (`ISS-018`).
+- Server (`config.py`, `deploy/.env.example`, `training_router.py`): added `USFDS_MAX_PLUGIN_UPLOAD_MB` (default `10`), enforced bounded streaming body read (`413` on oversize in `_read_bounded_body`), and offloaded `_register_uploaded_plugin_sync` via `run_in_threadpool` so `POST /api/v1/training/models/plugins/upload` does not block the asyncio event loop (`ISS-016`, `ISS-019`).
+- Tests: `./scripts/test.sh core infra server` passed (`core` `152 passed, 15 skipped`, `infra` `37 passed`, `server` `33 passed`).
+
 ## 2026-11-16 — ISS-028: Web API client error propagation
 Plan: `.plan/web_api_client_error_propagation.md` · Board: `.plan/BOARD.md`
 

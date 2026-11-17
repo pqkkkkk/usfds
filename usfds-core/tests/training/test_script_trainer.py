@@ -79,6 +79,27 @@ def run_training(train_file, test_file, artifact_dir, target_column, hyperparame
                 hyperparameters={},
             )
 
+    def test_script_training_timeout_raises_runtime_error(self):
+        """ISS-022: Hanging script plugin training subprocess must time out cleanly."""
+        script_path = self.temp_dir / "train_hang.py"
+        script_code = """
+import time
+
+def run_training(train_file, test_file, artifact_dir, target_column, hyperparameters):
+    time.sleep(5)
+    return {"y_true": [0, 1], "y_prob": [0.1, 0.9]}
+"""
+        script_path.write_text(script_code.strip(), encoding="utf-8")
+
+        trainer = ScriptPluginTrainer(entrypoint_uri=str(script_path), timeout_seconds=1)
+        with self.assertRaises(RuntimeError) as ctx:
+            trainer.train(
+                workspace=self.workspace,
+                target_column="is_fraud",
+                hyperparameters={},
+            )
+        self.assertIn("timed out", str(ctx.exception).lower())
+
 
 if __name__ == "__main__":
     unittest.main()

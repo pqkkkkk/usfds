@@ -359,5 +359,30 @@ class TestModelPluginEndToEnd(unittest.TestCase):
         self.assertIn("not found", str(ctx.exception))
 
 
+class TestModelPluginValidatorTimeout(unittest.TestCase):
+    def test_validator_dry_run_timeout_returns_invalid_result(self):
+        """ISS-022: Dry-run timeout must return PluginValidationResult(is_valid=False) instead of raising TimeoutExpired."""
+        slow_dir = Path(tempfile.mkdtemp())
+        try:
+            (slow_dir / "main.py").write_text(
+                (
+                    "import time\n"
+                    "def run_training(train_file, test_file, artifact_dir, target_column, hyperparameters):\n"
+                    "    time.sleep(5)\n"
+                    "    return {'y_true': [0, 1], 'y_prob': [0.1, 0.9]}\n"
+                    "def run_inference(input_file, artifact_dir):\n"
+                    "    return [0.5]\n"
+                ),
+                encoding="utf-8",
+            )
+            validator = ModelPluginValidator(dry_run_timeout_seconds=1)
+            res = validator.validate(slow_dir)
+            self.assertFalse(res.is_valid)
+            self.assertFalse(res.dry_run_train_passed)
+            self.assertTrue(any("timed out" in err.lower() for err in res.errors), res.errors)
+        finally:
+            shutil.rmtree(slow_dir, ignore_errors=True)
+
+
 if __name__ == "__main__":
     unittest.main()
