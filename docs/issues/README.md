@@ -68,5 +68,9 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-035 | Reading a model with `risk_level` raises NameError | bug | training, infra | P2 | Resolved (26-11-15) | [quick_bugfix_and_cors_hardening](../../.plan/quick_bugfix_and_cors_hardening.md) | [11-14](11-14-2026.md) |
 | ISS-036 | Dataset import & exports inconsistent across S3 presigned and Electron local modes | bug | web, storage, server | P1 | Resolved (26-11-15) | [presigned_upload_and_file_io_guard](../../.plan/presigned_upload_and_file_io_guard.md) <!-- [26-11-15] --> | [11-15](11-15-2026.md) |
 | ISS-037 | Feature visibility gating by ActorContext and missing router permission enforcement | feature | auth, server, web | P1 | Resolved (26-11-16) | [rbac_feature_visibility](../../.plan/rbac_feature_visibility.md) <!-- [26-11-16] --> | [11-16](11-16-2026.md) |
+| ISS-038 | Training evaluation metrics misaligned with TASK-105 specification | improvement | training, web | P2 | Planned | [training_evaluation_metrics](../../.plan/training_evaluation_metrics.md) <!-- [26-11-17] --> | [11-17](11-17-2026.md) |
+| ISS-039 | No AutoML (Optuna Bayesian Optimization) in model training flow | feature | training, server, web | P2 | Planned | [automl_training_integration](../../.plan/automl_training_integration.md) <!-- [26-11-17] --> | [11-17](11-17-2026.md) |
+| ISS-040 | Feature management capability not specified or implemented | feature | data-management, web | P2 | Needs spec | [feature_management](../../.plan/feature_management.md) <!-- [26-11-17] --> | [11-17](11-17-2026.md) |
+| ISS-041 | Graph exploration capability not specified or implemented | feature | investigation, web | P2 | Needs spec | [graph_exploration](../../.plan/graph_exploration.md) <!-- [26-11-17] --> | [11-17](11-17-2026.md) |
 
 Older resolved bugs (pre-ISS numbering) are kept in [`docs/bugs.md`](../bugs.md).
