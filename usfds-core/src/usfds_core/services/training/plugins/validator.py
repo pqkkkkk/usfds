@@ -286,13 +286,24 @@ class ModelPluginValidator:
                 str(output_dir),
             ]
 
-            train_proc = subprocess.run(
-                train_cmd,
-                capture_output=True,
-                text=True,
-                timeout=self.dry_run_timeout_seconds,
-                check=False,
-            )
+            try:
+                train_proc = subprocess.run(
+                    train_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.dry_run_timeout_seconds,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired:
+                return PluginValidationResult(
+                    is_valid=False,
+                    static_check_passed=True,
+                    dry_run_train_passed=False,
+                    manifest=resolved_manifest,
+                    errors=[
+                        f"Dry-run training timed out after {self.dry_run_timeout_seconds}s."
+                    ],
+                )
 
             if train_proc.returncode != 0:
                 return PluginValidationResult(
@@ -363,13 +374,27 @@ class ModelPluginValidator:
                 str(inference_out),
             ]
 
-            inf_proc = subprocess.run(
-                inf_cmd,
-                capture_output=True,
-                text=True,
-                timeout=self.dry_run_timeout_seconds,
-                check=False,
-            )
+            try:
+                inf_proc = subprocess.run(
+                    inf_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.dry_run_timeout_seconds,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired:
+                return PluginValidationResult(
+                    is_valid=False,
+                    static_check_passed=True,
+                    dry_run_train_passed=True,
+                    dry_run_inference_passed=False,
+                    manifest=resolved_manifest,
+                    metrics=metrics,
+                    detected_artifacts=artifact_files,
+                    errors=[
+                        f"Dry-run inference timed out after {self.dry_run_timeout_seconds}s."
+                    ],
+                )
 
             if inf_proc.returncode != 0:
                 return PluginValidationResult(
