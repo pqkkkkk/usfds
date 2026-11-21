@@ -294,6 +294,57 @@ class TestTrainingOrchestrationService(unittest.TestCase):
         self.assertEqual(len(mv_nodes), 1)
         self.assertEqual(mv_nodes[0].label, "v1")
 
+    def test_builtin_model_versions_increment_independently_per_project(self):
+        """ISS-010: BUILTIN models (project_id=None) version independently per project and list_model_versions filters by project."""
+        from usfds_core.domain.entities.enums import ExecutionType
+        from usfds_core.domain.entities.model import Model, TrainingRun
+        from usfds_core.domain.schemas.training_payload import TrainingRunResult
+
+        builtin_model = Model(
+            model_id=uuid4(),
+            project_id=None,
+            user_id=uuid4(),
+            model_name="random_forest",
+            execution_type=ExecutionType.BUILTIN,
+        )
+        self.model_repo.save(builtin_model)
+
+        project_a = uuid4()
+        project_b = uuid4()
+
+        service = TrainingOrchestrationService(
+            dispatcher=SynchronousRunDispatcher(executor_func=lambda p: None),
+            training_run_repo=self.run_repo,
+            model_version_repo=self.version_repo,
+            model_repo=self.model_repo,
+            dataset_artifact_repo=self.artifact_repo,
+            file_storage=self.storage,
+        )
+
+        run_a1 = TrainingRun(project_id=project_a, model_id=builtin_model.model_id, run_name="run_a1")
+        run_b1 = TrainingRun(project_id=project_b, model_id=builtin_model.model_id, run_name="run_b1")
+        self.run_repo.save(run_a1)
+        self.run_repo.save(run_b1)
+
+        completed_a1 = service.handle_training_completion(
+            TrainingRunResult(run_id=run_a1.run_id, is_success=True, artifact_uri="models/a1.joblib")
+        )
+        completed_b1 = service.handle_training_completion(
+            TrainingRunResult(run_id=run_b1.run_id, is_success=True, artifact_uri="models/b1.joblib")
+        )
+
+        ver_a1 = self.version_repo.get_by_id(completed_a1.version_id)
+        ver_b1 = self.version_repo.get_by_id(completed_b1.version_id)
+        self.assertEqual(ver_a1.semver, "v1")
+        self.assertEqual(ver_b1.semver, "v1")
+        self.assertEqual(ver_a1.project_id, project_a)
+        self.assertEqual(ver_b1.project_id, project_b)
+
+        versions_a = service.list_model_versions(builtin_model.model_id, project_id=project_a)
+        versions_b = service.list_model_versions(builtin_model.model_id, project_id=project_b)
+        self.assertEqual([v.version_id for v in versions_a], [ver_a1.version_id])
+        self.assertEqual([v.version_id for v in versions_b], [ver_b1.version_id])
+
 
 if __name__ == "__main__":
     unittest.main()

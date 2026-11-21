@@ -121,7 +121,7 @@ export function DetectionJobWizardView() {
 			const models = modelsRes.data || [];
 			const versionLists = await Promise.allSettled(
 				models.map(async (m) => {
-					const verRes = await trainingApi.listModelVersions(m.model_id);
+					const verRes = await trainingApi.listModelVersions(m.model_id, projectId);
 					return {
 						model: m,
 						versions: verRes.data || [],

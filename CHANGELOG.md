@@ -2,6 +2,13 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-21 — ISS-010 (M3): Project-Scoped Model Versioning & Uniqueness
+Plan: `.plan/model_versioning_scheme.md` · Board: `.plan/BOARD.md`
+
+- Core & Infra (`base_model_version_repo.py`, `in_memory_repos.py`, `training_service.py`, `tables/model.py`, `repos/model.py`, Alembic `845d529c5502`): replaced `uq_model_versions_model_semver` with `UniqueConstraint("project_id", "model_id", "semver", name="uq_model_versions_project_model_semver")` plus partial unique index `uq_model_versions_null_project_model_semver` (`WHERE project_id IS NULL`), scoped `_resolve_next_semver` and repository queries by `(project_id, model_id)` (including `scope_to_project=True` for `None`), and fixed `14f998f68015` `down_revision` to `adb5e69392ae`.
+- Server, Web & Docs (`training_router.py`, `trainingApi.ts`, `ModelHubView`, `DetectionJobWizardView`, `docs/features/detection/training/suc-spec.md`): added `project_id` query filtering + RBAC checks to `GET /api/v1/training/models/{model_id}/versions`, passed `projectId` from `ModelHubView` & `DetectionJobWizardView`, and updated `BR-DT-03`.
+- Tests: `./scripts/test.sh core infra server web` passed (`core` `159 passed, 15 skipped`, `infra` `40 passed`, `server` `36 passed`, `web` `19 test files / 34 passed`); `usfds-web` build & lint 0 errors.
+
 ## 2026-11-20 — ISS-010: Model Versioning Scheme (`v1, v2, v3...`) & Uniqueness
 Plan: `.plan/model_versioning_scheme.md` · Board: `.plan/BOARD.md`
 

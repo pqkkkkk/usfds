@@ -419,3 +419,52 @@ def test_plugin_upload_does_not_block_event_loop(server_settings, monkeypatch):
     assert not upload_finished_first, "Event loop was blocked until upload finished!"
     assert health_elapsed < 0.2, f"/health was blocked by upload endpoint ({health_elapsed:.3f}s)"
 
+
+def test_list_model_versions_filters_by_project_id(server_settings):
+    """ISS-010 / BR-PM-06: GET /models/{model_id}/versions?project_id=... isolates versions per project on BUILTIN models."""
+    with TestClient(app) as client:
+        fe_artifact_id = _seed_feature_engineered_artifact(settings.storage_dir)
+        models = client.get("/api/v1/training/models").json()["data"]
+        rf_model = next(m for m in models if m["model_name"] == "random_forest")
+
+        project_a = str(uuid4())
+        project_b = str(uuid4())
+
+        res_a = client.post(
+            "/api/v1/training/runs",
+            json={
+                "model_id": rf_model["model_id"],
+                "dataset_artifact_id": fe_artifact_id,
+                "project_id": project_a,
+                "hyperparameters": {"n_estimators": 5},
+                "run_name": "run-proj-a",
+            },
+        )
+        assert res_a.status_code == 201, res_a.text
+
+        res_b = client.post(
+            "/api/v1/training/runs",
+            json={
+                "model_id": rf_model["model_id"],
+                "dataset_artifact_id": fe_artifact_id,
+                "project_id": project_b,
+                "hyperparameters": {"n_estimators": 5},
+                "run_name": "run-proj-b",
+            },
+        )
+        assert res_b.status_code == 201, res_b.text
+
+        ver_res_a = client.get(f"/api/v1/training/models/{rf_model['model_id']}/versions", params={"project_id": project_a})
+        ver_res_b = client.get(f"/api/v1/training/models/{rf_model['model_id']}/versions", params={"project_id": project_b})
+        assert ver_res_a.status_code == 200
+        assert ver_res_b.status_code == 200
+
+        versions_a = ver_res_a.json()["data"]
+        versions_b = ver_res_b.json()["data"]
+        assert len(versions_a) == 1
+        assert len(versions_b) == 1
+        assert versions_a[0]["project_id"] == project_a
+        assert versions_a[0]["semver"] == "v1"
+        assert versions_b[0]["project_id"] == project_b
+        assert versions_b[0]["semver"] == "v1"
+

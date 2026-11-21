@@ -104,7 +104,7 @@ Dưới đây là danh mục use case hệ thống (SUC) cho các chức năng q
 
 ### Quy tắc nghiệp vụ (Business Rules)
 
-- **BR-DT-03:** Mỗi phiên bản mô hình (`model_versions`) sau khi tạo là bất biến (immutable), bắt buộc gắn với mã kiểm tra toàn vẹn `checksum_sha256` (64 ký tự) và tự động tăng số hiệu `semver` (`1.0.0` $\rightarrow$ `1.0.1`) trong cùng một `model_id`.
+- **BR-DT-03:** <!-- [26-11-21] --> Mỗi phiên bản mô hình (`model_versions`) sau khi tạo là bất biến (immutable), bắt buộc gắn với mã kiểm tra toàn vẹn `checksum_sha256` (64 ký tự) và tự động tăng số hiệu `semver` (`v1` $\rightarrow$ `v2` $\rightarrow$ `v3`...) duy nhất trong phạm vi cùng `(project_id, model_id)`.
 
 ---
 

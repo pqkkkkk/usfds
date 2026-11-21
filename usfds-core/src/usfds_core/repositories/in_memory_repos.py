@@ -104,12 +104,14 @@ class InMemoryModelVersionRepository(IModelVersionRepository):
 
         for existing in self._versions.values():
             if (
-                existing.model_id == version.model_id
+                existing.project_id == version.project_id
+                and existing.model_id == version.model_id
                 and existing.semver == version.semver
                 and existing.version_id != version.version_id
             ):
                 raise DuplicateModelVersionError(
-                    f"ModelVersion '{version.semver}' already exists for model {version.model_id}."
+                    f"ModelVersion '{version.semver}' already exists for model {version.model_id} "
+                    f"in project {version.project_id}."
                 )
         self._versions[version.version_id] = version
         return version
@@ -117,10 +119,32 @@ class InMemoryModelVersionRepository(IModelVersionRepository):
     def get_by_id(self, version_id: UUID) -> Optional[ModelVersion]:
         return self._versions.get(version_id)
 
-    def get_latest_version(self, model_id: UUID) -> Optional[ModelVersion]:
+    @staticmethod
+    def _matches_scope(
+        version: ModelVersion,
+        model_id: UUID,
+        project_id: Optional[UUID],
+        scope_to_project: bool,
+    ) -> bool:
+        if version.model_id != model_id:
+            return False
+        if scope_to_project or project_id is not None:
+            return version.project_id == project_id
+        return True
+
+    def get_latest_version(
+        self,
+        model_id: UUID,
+        project_id: Optional[UUID] = None,
+        *,
+        scope_to_project: bool = False,
+    ) -> Optional[ModelVersion]:
         from usfds_core.repositories.base_model_version_repo import parse_version_sort_key
 
-        model_versions = [v for v in self._versions.values() if v.model_id == model_id]
+        model_versions = [
+            v for v in self._versions.values()
+            if self._matches_scope(v, model_id, project_id, scope_to_project)
+        ]
         if not model_versions:
             return None
         return max(
@@ -128,11 +152,20 @@ class InMemoryModelVersionRepository(IModelVersionRepository):
             key=lambda v: (parse_version_sort_key(v.semver), v.registered_at),
         )
 
-    def list_by_model(self, model_id: UUID) -> List[ModelVersion]:
+    def list_by_model(
+        self,
+        model_id: UUID,
+        project_id: Optional[UUID] = None,
+        *,
+        scope_to_project: bool = False,
+    ) -> List[ModelVersion]:
         from usfds_core.repositories.base_model_version_repo import parse_version_sort_key
 
         return sorted(
-            (v for v in self._versions.values() if v.model_id == model_id),
+            (
+                v for v in self._versions.values()
+                if self._matches_scope(v, model_id, project_id, scope_to_project)
+            ),
             key=lambda v: (parse_version_sort_key(v.semver), v.registered_at),
             reverse=True,
         )

@@ -70,11 +70,11 @@ def test_concurrent_completion_retries_and_allocates_distinct_versions(session_f
 		original_get_latest_2 = ver_repo2.get_latest_version
 		calls = {"count": 0}
 
-		def stale_first_read(mid):
+		def stale_first_read(mid, *args, **kwargs):
 			calls["count"] += 1
 			if calls["count"] == 1:
 				return None
-			return original_get_latest_2(mid)
+			return original_get_latest_2(mid, *args, **kwargs)
 
 		ver_repo2.get_latest_version = stale_first_read
 
@@ -120,3 +120,70 @@ def test_concurrent_completion_retries_and_allocates_distinct_versions(session_f
 			semvers = sorted(v.semver for v in versions)
 			assert semvers == ["v1", "v2"]
 			assert completed1.version_id != completed2.version_id
+
+
+def test_same_model_semver_allowed_across_projects_but_unique_within_project_and_null(session_factory):
+	"""ISS-010: (project_id, model_id, semver) allows v1 per project, rejects duplicates within same project or NULL project."""
+	from usfds_infra.database.models import ModelVersionModel
+
+	model_id = uuid4()
+	user_id = uuid4()
+	project_a = uuid4()
+	project_b = uuid4()
+
+	with session_factory() as session:
+		SqliteModelRepository(session).save(
+			Model(model_id=model_id, project_id=None, user_id=user_id, model_name="rf_project_scope")
+		)
+		repo = SqliteModelVersionRepository(session)
+		repo.save(
+			ModelVersion(
+				model_id=model_id,
+				project_id=project_a,
+				semver="v1",
+				artifact_uri="models/a_v1.joblib",
+			)
+		)
+		repo.save(
+			ModelVersion(
+				model_id=model_id,
+				project_id=project_b,
+				semver="v1",
+				artifact_uri="models/b_v1.joblib",
+			)
+		)
+		repo.save(
+			ModelVersion(
+				model_id=model_id,
+				project_id=None,
+				semver="v1",
+				artifact_uri="models/null_v1.joblib",
+			)
+		)
+		session.commit()
+
+	with session_factory() as session:
+		with pytest.raises(IntegrityError):
+			session.add(
+				ModelVersionModel(
+					version_id=str(uuid4()),
+					model_id=str(model_id),
+					project_id=str(project_a),
+					semver="v1",
+					artifact_uri="models/a_v1_dup.joblib",
+				)
+			)
+			session.flush()
+		session.rollback()
+
+		with pytest.raises(IntegrityError):
+			session.add(
+				ModelVersionModel(
+					version_id=str(uuid4()),
+					model_id=str(model_id),
+					project_id=None,
+					semver="v1",
+					artifact_uri="models/null_v1_dup.joblib",
+				)
+			)
+			session.flush()

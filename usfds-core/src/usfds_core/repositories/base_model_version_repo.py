@@ -10,7 +10,7 @@ _SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
 
 class DuplicateModelVersionError(ValueError):
-    """Raised when saving a ModelVersion whose (model_id, semver) already exists."""
+    """Raised when saving a ModelVersion whose (project_id, model_id, semver) already exists."""
 
 
 def parse_version_sort_key(semver: Optional[str]) -> Tuple[int, ...]:
@@ -49,11 +49,23 @@ class IModelVersionRepository(ABC):
         pass
 
     @abstractmethod
-    def get_latest_version(self, model_id: UUID) -> Optional[ModelVersion]:
-        """Retrieve the latest ModelVersion for a model (sorted by registered_at/semver)."""
+    def get_latest_version(
+        self,
+        model_id: UUID,
+        project_id: Optional[UUID] = None,
+        *,
+        scope_to_project: bool = False,
+    ) -> Optional[ModelVersion]:
+        """Retrieve the latest ModelVersion for a model, optionally scoped to project_id."""
         pass
 
     @abstractmethod
-    def list_by_model(self, model_id: UUID) -> List[ModelVersion]:
-        """List all versions for a given model."""
+    def list_by_model(
+        self,
+        model_id: UUID,
+        project_id: Optional[UUID] = None,
+        *,
+        scope_to_project: bool = False,
+    ) -> List[ModelVersion]:
+        """List all versions for a given model, optionally scoped to project_id."""
         pass

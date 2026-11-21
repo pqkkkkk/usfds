@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { API, server } from '@/test/server';
 import { renderWithProviders } from '@/test/renderWithProviders';
@@ -70,5 +70,51 @@ describe('ModelHubView', () => {
 		expect(screen.getByText('Model Beta')).toBeInTheDocument();
 		fireEvent.click(screen.getByRole('button', { name: /Model Registry \(2\)/ }));
 		expect(await screen.findByText('1 APPROVED')).toBeInTheDocument();
+	});
+
+	it('test_model_hub_passes_project_id_to_list_model_versions', async () => {
+		const seenProjectQueries: Array<string | null> = [];
+		server.use(
+			http.get(`${API}/v1/projects`, () =>
+				HttpResponse.json({
+					success: true,
+					data: [
+						{
+							project_id: 'proj-1',
+							project_name: 'Project One',
+							status: 'ACTIVE',
+							created_at: '2026-11-16T00:00:00Z',
+						},
+					],
+				})
+			),
+			http.get(`${API}/v1/training/models`, () =>
+				HttpResponse.json({
+					success: true,
+					data: [
+						{
+							model_id: 'm1',
+							model_name: 'random_forest',
+							display_name: 'Random Forest',
+							execution_type: 'BUILTIN',
+							created_at: '2026-11-16T00:00:00Z',
+						},
+					],
+				})
+			),
+			http.get(`${API}/v1/training/runs`, () => HttpResponse.json({ success: true, data: [] })),
+			http.get(`${API}/v1/training/models/m1/versions`, ({ request }) => {
+				const url = new URL(request.url);
+				seenProjectQueries.push(url.searchParams.get('project_id'));
+				return HttpResponse.json({ success: true, data: [] });
+			})
+		);
+
+		renderWithProviders(<ModelHubView />);
+
+		expect(await screen.findByText('Random Forest')).toBeInTheDocument();
+		await waitFor(() => {
+			expect(seenProjectQueries).toContain('proj-1');
+		});
 	});
 });

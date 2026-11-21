@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import uuid4
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from usfds_infra.database.base import Base, TimestampMixin
 
@@ -28,9 +28,6 @@ class MLModel(Base, TimestampMixin):
 class ModelVersionModel(Base):
     """SQLAlchemy model for registered releases/versions of a machine learning model."""
     __tablename__ = "model_versions"
-    __table_args__ = (
-        UniqueConstraint("model_id", "semver", name="uq_model_versions_model_semver"),
-    )
 
     version_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     model_id: Mapped[str] = mapped_column(String(36), ForeignKey("models.model_id", ondelete="CASCADE"), nullable=False, index=True)
@@ -49,6 +46,18 @@ class ModelVersionModel(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("project_id", "model_id", "semver", name="uq_model_versions_project_model_semver"),
+        Index(
+            "uq_model_versions_null_project_model_semver",
+            "model_id",
+            "semver",
+            unique=True,
+            sqlite_where=(project_id.is_(None)),
+            postgresql_where=(project_id.is_(None)),
+        ),
     )
 
 

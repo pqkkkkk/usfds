@@ -84,7 +84,7 @@ export const ModelHubView: React.FC = () => {
 			// Load versions for all models so we can show active badges and version counts
 			const versionEntries = await Promise.allSettled(
 				loadedModels.map(async (m) => {
-					const vRes = await trainingApi.listModelVersions(m.model_id);
+					const vRes = await trainingApi.listModelVersions(m.model_id, projectId || undefined);
 					return [m.model_id, vRes.data || []] as const;
 				})
 			);

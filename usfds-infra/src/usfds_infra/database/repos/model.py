@@ -214,11 +214,14 @@ class SqliteModelVersionRepository(IModelVersionRepository):
         except IntegrityError as exc:
             err_msg = str(exc.orig or exc)
             if (
-                "uq_model_versions_model_semver" in err_msg
+                "uq_model_versions_project_model_semver" in err_msg
+                or "uq_model_versions_null_project_model_semver" in err_msg
+                or "model_versions.project_id, model_versions.model_id, model_versions.semver" in err_msg
                 or "model_versions.model_id, model_versions.semver" in err_msg
             ):
                 raise DuplicateModelVersionError(
-                    f"ModelVersion '{version.semver}' already exists for model {version.model_id}."
+                    f"ModelVersion '{version.semver}' already exists for model {version.model_id} "
+                    f"in project {version.project_id}."
                 ) from exc
             raise
 
@@ -228,18 +231,35 @@ class SqliteModelVersionRepository(IModelVersionRepository):
         record = self.session.get(ModelVersionModel, str(version_id))
         return self._to_entity(record) if record else None
 
-    def get_latest_version(self, model_id: UUID) -> Optional[ModelVersion]:
-        versions = self.list_by_model(model_id)
+    def get_latest_version(
+        self,
+        model_id: UUID,
+        project_id: Optional[UUID] = None,
+        *,
+        scope_to_project: bool = False,
+    ) -> Optional[ModelVersion]:
+        versions = self.list_by_model(
+            model_id,
+            project_id=project_id,
+            scope_to_project=scope_to_project,
+        )
         if not versions:
             return None
         return versions[0]
 
-    def list_by_model(self, model_id: UUID) -> List[ModelVersion]:
-        stmt = (
-            select(ModelVersionModel)
-            .where(ModelVersionModel.model_id == str(model_id))
-            .order_by(ModelVersionModel.registered_at.desc())
-        )
+    def list_by_model(
+        self,
+        model_id: UUID,
+        project_id: Optional[UUID] = None,
+        *,
+        scope_to_project: bool = False,
+    ) -> List[ModelVersion]:
+        stmt = select(ModelVersionModel).where(ModelVersionModel.model_id == str(model_id))
+        if project_id is not None:
+            stmt = stmt.where(ModelVersionModel.project_id == str(project_id))
+        elif scope_to_project:
+            stmt = stmt.where(ModelVersionModel.project_id.is_(None))
+        stmt = stmt.order_by(ModelVersionModel.registered_at.desc())
         records = self.session.execute(stmt).scalars().all()
         entities = [self._to_entity(r) for r in records]
         return sorted(

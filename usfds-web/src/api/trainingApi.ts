@@ -64,8 +64,14 @@ export const trainingApi = {
 		);
 	},
 
-	listModelVersions: async (modelId: string): Promise<ApiResponse<ModelVersionResponse[]>> => {
-		return apiClient.get<ModelVersionResponse[]>(`/v1/training/models/${modelId}/versions`);
+	listModelVersions: async (
+		modelId: string,
+		projectId?: string
+	): Promise<ApiResponse<ModelVersionResponse[]>> => {
+		return apiClient.get<ModelVersionResponse[]>(
+			`/v1/training/models/${modelId}/versions`,
+			projectId ? { project_id: projectId } : undefined
+		);
 	},
 
 	getModelVersion: async (versionId: string): Promise<ApiResponse<ModelVersionResponse>> => {

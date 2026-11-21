@@ -401,6 +401,7 @@ def get_model(
 )
 def list_model_versions(
     model_id: UUID,
+    project_id: Optional[UUID] = Query(None, description="Optional filter by project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
@@ -409,7 +410,14 @@ def list_model_versions(
         model = service.get_model(model_id)
         if model.project_id is not None:
             authz.require_project_permission(actor, "model:read", model.project_id)
-        versions = service.list_model_versions(model_id)
+        if project_id is not None:
+            authz.require_project_permission(actor, "model:read", project_id)
+        versions = service.list_model_versions(model_id, project_id=project_id)
+        if project_id is None and not actor.is_system_admin:
+            versions = [
+                v for v in versions
+                if v.project_id is None or effective_scope(actor, "model:read", v.project_id) is not None
+            ]
         return ApiResponse.ok(
             data=[_to_model_version_response(v) for v in versions],
             message=f"Retrieved {len(versions)} model versions",

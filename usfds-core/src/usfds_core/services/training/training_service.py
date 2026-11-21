@@ -236,12 +236,12 @@ class TrainingOrchestrationService:
                 run.recommended_threshold = rec["best_f1"].get("threshold")
 
 
-            # Auto-increment version (v1, v2, v3...) with retry on concurrent duplicate
+            # Auto-increment version (v1, v2, v3...) scoped by (project_id, model_id) with retry on concurrent duplicate
             max_attempts = 5
             model_version: Optional[ModelVersion] = None
             next_semver = "v1"
             for attempt in range(max_attempts):
-                next_semver = self._resolve_next_semver(run.model_id)
+                next_semver = self._resolve_next_semver(run.model_id, project_id=run.project_id)
                 candidate = ModelVersion(
                     model_id=run.model_id,
                     project_id=run.project_id,
@@ -275,12 +275,20 @@ class TrainingOrchestrationService:
         self.training_run_repo.save(run)
         return run
 
-    def _resolve_next_semver(self, model_id: Optional[UUID]) -> str:
-        """Determine next monotonic version (v1, v2, v3...) for a model."""
+    def _resolve_next_semver(
+        self,
+        model_id: Optional[UUID],
+        project_id: Optional[UUID] = None,
+    ) -> str:
+        """Determine next monotonic version (v1, v2, v3...) for a model within a project scope."""
         if not model_id:
             return "v1"
 
-        latest = self.model_version_repo.get_latest_version(model_id)
+        latest = self.model_version_repo.get_latest_version(
+            model_id,
+            project_id=project_id,
+            scope_to_project=True,
+        )
         if not latest or not latest.semver:
             return "v1"
 
@@ -386,10 +394,14 @@ class TrainingOrchestrationService:
             raise ValueError(f"Model with ID {model_id} not found.")
         return model
 
-    def list_model_versions(self, model_id: UUID) -> List[ModelVersion]:
-        """List all versions registered for a given model."""
+    def list_model_versions(
+        self,
+        model_id: UUID,
+        project_id: Optional[UUID] = None,
+    ) -> List[ModelVersion]:
+        """List versions registered for a given model, optionally filtered by project_id."""
         self.get_model(model_id)
-        return self.model_version_repo.list_by_model(model_id)
+        return self.model_version_repo.list_by_model(model_id, project_id=project_id)
 
     def get_model_version(self, version_id: UUID) -> ModelVersion:
         """Retrieve a ModelVersion by ID or raise ValueError if not found."""

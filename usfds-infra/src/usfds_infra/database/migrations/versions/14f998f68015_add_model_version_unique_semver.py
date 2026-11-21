@@ -1,7 +1,7 @@
 """add model_version unique semver
 
 Revision ID: 14f998f68015
-Revises: b1b7b507e88d
+Revises: adb5e69392ae
 Create Date: 2026-11-21 06:46:35.929140
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '14f998f68015'
-down_revision: Union[str, Sequence[str], None] = 'b1b7b507e88d'
+down_revision: Union[str, Sequence[str], None] = 'adb5e69392ae'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
