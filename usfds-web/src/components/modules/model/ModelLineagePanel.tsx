@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ExternalLink, GitBranch, Loader2, RefreshCw } from 'lucide-react';
 import { useModelLineage } from '@/hooks/useModelLineage';
 import { computeCanvasLayout } from '@/utils/lineageLayout';
+import { formatModelVersion } from '@/utils/formatters';
 import { LineageCanvasView } from '../LineageCanvasView';
 import type { ModelLineageNode } from '@/types/model';
 import type { LineageRawNode } from '@/types/navigation';
@@ -178,7 +179,7 @@ export const ModelLineagePanel = ({
 							{typeof meta.semver === 'string' && (
 								<div className="flex justify-between gap-2">
 									<span className="text-slate-400">Phiên bản:</span>
-									<span className="font-mono text-cyan-300">v{meta.semver}</span>
+									<span className="font-mono text-cyan-300">{formatModelVersion(meta.semver)}</span>
 								</div>
 							)}
 							{typeof meta.framework === 'string' && (

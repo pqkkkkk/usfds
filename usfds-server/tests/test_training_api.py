@@ -171,7 +171,7 @@ def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
         assert res_versions.status_code == 200
         versions = res_versions.json()["data"]
         assert len(versions) == 1
-        assert versions[0]["semver"] == "1.0.0"
+        assert versions[0]["semver"] == "v1"
         assert versions[0]["artifact_uri"].endswith("model_bundle.zip")
 
         res_ver_detail = client.get(f"/api/v1/training/versions/{versions[0]['version_id']}")

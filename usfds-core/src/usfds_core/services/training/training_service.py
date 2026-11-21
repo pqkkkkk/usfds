@@ -21,7 +21,12 @@ from usfds_core.domain.schemas.training_config import TrainingRunConfig
 from usfds_core.domain.schemas.training_payload import TrainingRunPayload, TrainingRunResult
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_model_repo import IModelRepository
-from usfds_core.repositories.base_model_version_repo import IModelVersionRepository
+from usfds_core.repositories.base_model_version_repo import (
+    DuplicateModelVersionError,
+    IModelVersionRepository,
+    format_model_version_label,
+    parse_version_sort_key,
+)
 from usfds_core.repositories.base_training_run_repo import ITrainingRunRepository
 from usfds_core.services.training.dispatchers.base_dispatcher import ITrainingRunDispatcher
 from usfds_core.services.training.plugins.register import ModelPluginRegistrationService
@@ -231,21 +236,35 @@ class TrainingOrchestrationService:
                 run.recommended_threshold = rec["best_f1"].get("threshold")
 
 
-            # Auto-increment semver
-            next_semver = self._resolve_next_semver(run.model_id)
+            # Auto-increment version (v1, v2, v3...) with retry on concurrent duplicate
+            max_attempts = 5
+            model_version: Optional[ModelVersion] = None
+            next_semver = "v1"
+            for attempt in range(max_attempts):
+                next_semver = self._resolve_next_semver(run.model_id)
+                candidate = ModelVersion(
+                    model_id=run.model_id,
+                    project_id=run.project_id,
+                    run_id=run.run_id,
+                    semver=next_semver,
+                    artifact_uri=result.artifact_uri or "",
+                    checksum_sha256=result.checksum_sha256,
+                    framework=result.framework,
+                    decision_threshold=run.recommended_threshold if run.recommended_threshold is not None else 0.5,
+                    status=ModelVersionStatus.CANDIDATE,
+                )
+                try:
+                    model_version = self.model_version_repo.save(candidate)
+                    break
+                except DuplicateModelVersionError:
+                    if attempt == max_attempts - 1:
+                        raise
+                    logger.warning(
+                        f"Duplicate model version '{next_semver}' for model {run.model_id} "
+                        f"(attempt {attempt + 1}/{max_attempts}); retrying."
+                    )
 
-            model_version = ModelVersion(
-                model_id=run.model_id,
-                project_id=run.project_id,
-                run_id=run.run_id,
-                semver=next_semver,
-                artifact_uri=result.artifact_uri or "",
-                checksum_sha256=result.checksum_sha256,
-                framework=result.framework,
-                decision_threshold=run.recommended_threshold if run.recommended_threshold is not None else 0.5,
-                status=ModelVersionStatus.CANDIDATE,
-            )
-            self.model_version_repo.save(model_version)
+            assert model_version is not None
             run.version_id = model_version.version_id
             logger.info(f"Training run {run.run_id} succeeded. Registered ModelVersion {next_semver} with threshold {model_version.decision_threshold}.")
         else:
@@ -257,22 +276,18 @@ class TrainingOrchestrationService:
         return run
 
     def _resolve_next_semver(self, model_id: Optional[UUID]) -> str:
-        """Determine next semver for candidate model release (auto-increment patch)."""
+        """Determine next monotonic version (v1, v2, v3...) for a model."""
         if not model_id:
-            return "1.0.0"
+            return "v1"
 
         latest = self.model_version_repo.get_latest_version(model_id)
         if not latest or not latest.semver:
-            return "1.0.0"
+            return "v1"
 
-        try:
-            parts = latest.semver.split(".")
-            if len(parts) == 3:
-                major, minor, patch = map(int, parts)
-                return f"{major}.{minor}.{patch + 1}"
-            return f"{latest.semver}.1"
-        except Exception:
-            return "1.0.0"
+        sort_key = parse_version_sort_key(latest.semver)
+        if sort_key[0] == 1:
+            return f"v{sort_key[1] + 1}"
+        return "v1"
 
     def register_plugged_model(
         self,
@@ -608,7 +623,7 @@ class TrainingOrchestrationService:
                     id=ver_id_str,
                     node_type="MODEL_VERSION",
                     stage="MODEL_VERSION",
-                    label=f"v{version.semver}",
+                    label=format_model_version_label(version.semver),
                     created_at=(
                         version.registered_at.isoformat()
                         if hasattr(version.registered_at, "isoformat")

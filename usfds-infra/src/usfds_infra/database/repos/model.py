@@ -3,11 +3,16 @@ from datetime import datetime, timezone
 from typing import Any, List, Optional, Union
 from uuid import UUID
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from usfds_core.domain.entities.enums import DatasetRole, ExecutionType, ModelVersionStatus, RiskLevel, TrainingRunStatus
 from usfds_core.domain.entities.model import Model, ModelVersion, RunDataset, TrainingRun
 from usfds_core.repositories.base_model_repo import IModelRepository
-from usfds_core.repositories.base_model_version_repo import IModelVersionRepository
+from usfds_core.repositories.base_model_version_repo import (
+    DuplicateModelVersionError,
+    IModelVersionRepository,
+    parse_version_sort_key,
+)
 from usfds_core.repositories.base_training_run_repo import ITrainingRunRepository
 from usfds_infra.database.models import MLModel, ModelVersionModel, RunDatasetModel, TrainingRunModel
 
@@ -176,35 +181,47 @@ class SqliteModelVersionRepository(IModelVersionRepository):
             else str(version.status)
         )
 
-        if record is None:
-            record = ModelVersionModel(
-                version_id=str(version.version_id),
-                model_id=str(version.model_id),
-                project_id=str(version.project_id) if version.project_id else None,
-                run_id=str(version.run_id) if version.run_id else None,
-                semver=version.semver,
-                artifact_uri=version.artifact_uri,
-                description=version.description,
-                artifact_size_mb=version.artifact_size_mb,
-                checksum_sha256=version.checksum_sha256,
-                framework=version.framework,
-                decision_threshold=version.decision_threshold,
-                status=status_str,
-                registered_by=version.registered_by,
-                registered_at=version.registered_at or datetime.now(timezone.utc),
-            )
-            self.session.add(record)
-        else:
-            record.semver = version.semver
-            record.artifact_uri = version.artifact_uri
-            record.description = version.description
-            record.artifact_size_mb = version.artifact_size_mb
-            record.checksum_sha256 = version.checksum_sha256
-            record.framework = version.framework
-            record.decision_threshold = version.decision_threshold
-            record.status = status_str
+        try:
+            with self.session.begin_nested():
+                if record is None:
+                    record = ModelVersionModel(
+                        version_id=str(version.version_id),
+                        model_id=str(version.model_id),
+                        project_id=str(version.project_id) if version.project_id else None,
+                        run_id=str(version.run_id) if version.run_id else None,
+                        semver=version.semver,
+                        artifact_uri=version.artifact_uri,
+                        description=version.description,
+                        artifact_size_mb=version.artifact_size_mb,
+                        checksum_sha256=version.checksum_sha256,
+                        framework=version.framework,
+                        decision_threshold=version.decision_threshold,
+                        status=status_str,
+                        registered_by=version.registered_by,
+                        registered_at=version.registered_at or datetime.now(timezone.utc),
+                    )
+                    self.session.add(record)
+                else:
+                    record.semver = version.semver
+                    record.artifact_uri = version.artifact_uri
+                    record.description = version.description
+                    record.artifact_size_mb = version.artifact_size_mb
+                    record.checksum_sha256 = version.checksum_sha256
+                    record.framework = version.framework
+                    record.decision_threshold = version.decision_threshold
+                    record.status = status_str
+                self.session.flush()
+        except IntegrityError as exc:
+            err_msg = str(exc.orig or exc)
+            if (
+                "uq_model_versions_model_semver" in err_msg
+                or "model_versions.model_id, model_versions.semver" in err_msg
+            ):
+                raise DuplicateModelVersionError(
+                    f"ModelVersion '{version.semver}' already exists for model {version.model_id}."
+                ) from exc
+            raise
 
-        self.session.flush()
         return self._to_entity(record)
 
     def get_by_id(self, version_id: UUID) -> Optional[ModelVersion]:
@@ -212,14 +229,10 @@ class SqliteModelVersionRepository(IModelVersionRepository):
         return self._to_entity(record) if record else None
 
     def get_latest_version(self, model_id: UUID) -> Optional[ModelVersion]:
-        stmt = (
-            select(ModelVersionModel)
-            .where(ModelVersionModel.model_id == str(model_id))
-            .order_by(ModelVersionModel.registered_at.desc())
-            .limit(1)
-        )
-        record = self.session.execute(stmt).scalar_one_or_none()
-        return self._to_entity(record) if record else None
+        versions = self.list_by_model(model_id)
+        if not versions:
+            return None
+        return versions[0]
 
     def list_by_model(self, model_id: UUID) -> List[ModelVersion]:
         stmt = (
@@ -228,7 +241,12 @@ class SqliteModelVersionRepository(IModelVersionRepository):
             .order_by(ModelVersionModel.registered_at.desc())
         )
         records = self.session.execute(stmt).scalars().all()
-        return [self._to_entity(r) for r in records]
+        entities = [self._to_entity(r) for r in records]
+        return sorted(
+            entities,
+            key=lambda v: (parse_version_sort_key(v.semver), v.registered_at),
+            reverse=True,
+        )
 
 
 class SqliteTrainingRunRepository(ITrainingRunRepository):

@@ -53,3 +53,13 @@ export function truncate(text?: string, length: number = 30): string {
   if (text.length <= length) return text;
   return `${text.slice(0, length)}...`;
 }
+
+/**
+ * Format model version without duplicating a leading 'v' (e.g. 'v1' -> 'v1', '1.0.0' -> 'v1.0.0')
+ */
+export function formatModelVersion(semver?: string): string {
+  if (!semver) return 'v1';
+  const trimmed = semver.trim();
+  if (!trimmed) return 'v1';
+  return /^v/i.test(trimmed) ? trimmed : `v${trimmed}`;
+}
