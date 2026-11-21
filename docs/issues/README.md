@@ -37,7 +37,7 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-004 | Double transfer via `uploads/` staging (presigned URL) | improvement | storage | P3 | Open | — | [11-11](11-11-2026.md) |
 | ISS-005 | Mixed Vietnamese/English in usfds-web | improvement | web | P2 | Resolved (26-11-14) | — <!-- [26-11-14] --> | [11-13](11-13-2026.md) |
 | ISS-006 | No user management / authentication / RBAC | feature | auth | **P0** | Resolved (26-11-15) | [user_management_rbac](../../.plan/user_management_rbac.md) | [11-13](11-13-2026.md) |
-| ISS-007 | System metadata (system columns) not manageable | feature | data-management | P2 | Needs spec | — | [11-13](11-13-2026.md) |
+| ISS-007 | System metadata (system columns) not manageable | feature | data-management | P2 | Resolved (26-11-21) | [system_metadata_management](../../.plan/system_metadata_management.md) <!-- [26-11-21] --> | [11-13](11-13-2026.md) |
 | ISS-008 | No lineage visualization for model versions | feature | training, web | P2 | Resolved (26-11-14) | [model_version_lineage](../../.plan/model_version_lineage.md) <!-- [26-11-14] --> | [11-13](11-13-2026.md) |
 | ISS-009 | Training only on local dedicated worker | feature | training, worker | P3 | Needs spec | — | [11-13](11-13-2026.md) |
 | ISS-010 | Model versioning has no semantics; duplicate versions possible | improvement | training | P2 | Needs spec | — | [11-13](11-13-2026.md) |
@@ -57,7 +57,7 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-024 | Dev env not pinned; parts of suite broken | tech-debt | devex | **P0** | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-025 | Test setup duplicated, depends on global state | tech-debt | devex | **P0** | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-026 | Hot-spot files cause merge conflicts | tech-debt | devex | P1 | Resolved backend (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
-| ISS-027 | System column aliases duplicated in 5 places | tech-debt | inference, insight-report | P2 | Open | — | [11-14](11-14-2026.md) |
+| ISS-027 | System column aliases duplicated in 5 places | tech-debt | inference, insight-report | P2 | Resolved (26-11-21) | [system_metadata_management](../../.plan/system_metadata_management.md) <!-- [26-11-21] --> | [11-14](11-14-2026.md) |
 | ISS-028 | Web API client swallows errors | bug | web | P1 | Resolved (26-11-16) | [web_api_client_error_propagation](../../.plan/web_api_client_error_propagation.md) <!-- [26-11-16] --> | [11-14](11-14-2026.md) |
 | ISS-029 | Inconsistent server ports (8000 vs 8200) | bug | web, server | P3 | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-030 | Ad-hoc HTTP error mapping, swallowed exceptions | tech-debt | server | P3 | Open | — | [11-14](11-14-2026.md) |

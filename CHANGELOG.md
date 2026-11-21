@@ -2,6 +2,14 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-21 — ISS-007 & ISS-027: System Metadata Management & Alias Consolidation
+Plan: `.plan/system_metadata_management.md` · Board: `.plan/BOARD.md`
+
+- Core (`system_metadata`, `mapping`, `preprocessing`, `inference`, `insight_report`, `rule_engine`, `training`): consolidated all canonical column alias lists into `DEFAULT_SYSTEM_COLUMN_ALIASES`, `resolve_canonical_column`, and `build_non_ml_columns` (`ISS-027`); added `SystemColumnMetadata`, `ISystemColumnMetadataRepository`, and `SystemMetadataService` (protecting the 5 `CORE` columns from deletion/structural edits while allowing alias/description updates); updated `DataMappingService` to enforce required `DOMAIN` columns, coerce `LogicalDataType`, write immutable `datasets/{dataset_id}/mapped/{artifact_id}/mapped.parquet` paths, and snapshot `non_ml_columns` + `metadata_snapshot` into `validation_report` (propagated through `FeatureEngineeringExecutionService` to `PreprocessingExecutionService` / `PreprocessingPipelineBuilder`) (`ISS-007`).
+- Infra, Server & Worker: added `system_column_metadata` ORM table, `SqlSystemColumnMetadataRepository`, idempotent `seed_system_metadata`, `system_metadata:manage` RBAC permission in `seed_rbac.py`, Alembic migration `adb5e69392ae` (`if_not_exists=True`), `/api/v1/system-metadata/columns` CRUD router, and wired `SqlSystemColumnMetadataRepository` into `usfds-worker/handlers.py`.
+- Web (`usfds-web`): added `systemMetadataApi`, `useSystemMetadata`, `SystemMetadataAdminTab` integrated into the `/admin` portal (`Quản trị hệ thống` with scroll & non-wrapping constraint badges), and dynamic `DOMAIN` fields + alias auto-matching + Schema Drift warnings in `SchemaMappingWorkspace`.
+- Tests: `./scripts/test.sh` passed all 6 packages (`core` `156 passed, 15 skipped`, `infra` `37 passed`, `server` `35 passed`, `worker` `3 passed`, `cli` `5 passed`, `web` `19 files / 35 passed`); `usfds-web` build & lint 0 errors.
+
 ## 2026-11-17 — ISS-016, ISS-018, ISS-019 & ISS-022: Quick Backend Hardening
 Plan: `.plan/quick_backend_hardening.md` · Board: `.plan/BOARD.md`
 

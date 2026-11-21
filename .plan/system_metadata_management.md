@@ -1,7 +1,7 @@
 # Plan: Quản lý Siêu dữ liệu Hệ thống & Hợp nhất Alias Cột Chuẩn (System Metadata Management)
 
 > **Task ID:** `system_metadata_management` (= this file name) · **Issues:** ISS-007, ISS-027 (chosen by the user) · **Spec:** `docs/features/data_management/user-flow-and-ui-design.md`, `docs/features/project_management/design.md`
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Review
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Done (26-11-21)
 
 ## 1. Context (facts)
 - **5 cột hệ thống cốt lõi (`SystemColumn`: `event_id`, `timestamp`, `amount`, `user_id`, `label`)** đang được khai báo tĩnh tại `usfds-core/src/usfds_core/domain/schemas/preprocessing_config.py:63-70` và tập cột phi-ML `NON_ML_COLUMNS` tại `preprocessing_config.py:85-100`.
@@ -127,6 +127,7 @@ Checkpoint log (the agent appends one line per finished milestone):
 - 26-11-21 · M1: `core`: `156 passed, 15 skipped in 6.58s` · deviations: also updated `feature_engineering_service.py` to propagate `non_ml_columns` & `metadata_snapshot` per plan §2/§5.
 - 26-11-21 · M2: `core`: 156 passed · `infra`: 37 passed · `server`: 35 passed · `worker`: 3 passed · Alembic rev `adb5e69392ae` (`down_revision=b1b7b507e88d`) with `if_not_exists=True` for legacy DB compatibility.
 - 26-11-21 · M3: `web`: `19 test files, 35 passed` · `npm run build` OK · `npm run lint` 0 errors · full `./scripts/test.sh` all 6 packages green.
+- 26-11-21 · UI polish: renamed admin portal to `Quản trị hệ thống` at `/admin`, fixed page scrolling in `AdminUsersPage.tsx`, and added `whitespace-nowrap` to constraint/category badges (`web`: `19 files, 35 passed`, build & lint 0 errors).
 
 ## 7. Review hotspots (filled in after implementation)
 1. `usfds-core/src/usfds_core/services/data_management/system_metadata_service.py:100-181` (M1): Khóa bất biến 5 cột `CORE` (cấm xóa, cấm đổi `column_key`/`logical_type`/`is_required`/`is_active`/`ml_role`), vẫn cho phép cập nhật `aliases`/`description`/`display_name` và luôn giữ `column_key` trong `aliases`; covered by `test_core_system_columns_are_immutable_while_aliases_are_editable`.
