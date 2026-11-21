@@ -32,15 +32,15 @@ export interface FeaturePolicyEntry {
  */
 export const ACTOR_FEATURE = {
 	// System / portal features
-	adminUsers: { permission: ['user:read', 'role:read', 'system_metadata:manage'], path: '/admin/users', scope: 'system' },
+	adminUsers: { permission: ['user:read', 'role:read', 'system_metadata:manage'], path: '/admin', scope: 'system' },
 	createProject: { permission: 'project:create', path: '/projects', scope: 'system' },
 	manageBuiltinModels: { permission: 'model_builtin:manage', path: '/models', scope: 'system' },
-	manageSystemMetadata: { permission: 'system_metadata:manage', path: '/admin/users', scope: 'system' },
-	createUser: { permission: 'user:create', path: '/admin/users', scope: 'system' },
-	updateUser: { permission: 'user:update', path: '/admin/users', scope: 'system' },
-	resetUserPassword: { permission: 'user:reset_password', path: '/admin/users', scope: 'system' },
-	viewRoles: { permission: 'role:read', path: '/admin/users', scope: 'system' },
-	manageRoles: { permission: 'role:manage', path: '/admin/users', scope: 'system' },
+	manageSystemMetadata: { permission: 'system_metadata:manage', path: '/admin', scope: 'system' },
+	createUser: { permission: 'user:create', path: '/admin', scope: 'system' },
+	updateUser: { permission: 'user:update', path: '/admin', scope: 'system' },
+	resetUserPassword: { permission: 'user:reset_password', path: '/admin', scope: 'system' },
+	viewRoles: { permission: 'role:read', path: '/admin', scope: 'system' },
+	manageRoles: { permission: 'role:manage', path: '/admin', scope: 'system' },
 
 	// Workspace sidebar modules
 	dataManagement: { permission: 'dataset', path: '/datasets', scope: 'project', moduleId: 'data-management' },

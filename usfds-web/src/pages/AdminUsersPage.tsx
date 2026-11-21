@@ -90,7 +90,7 @@ export function AdminUsersPage() {
 
 	if (authLoading) {
 		return (
-			<div className="min-h-screen bg-dark-950 text-slate-300 flex items-center justify-center p-6 text-xs">
+			<div className="flex-1 min-h-0 overflow-y-auto bg-dark-950 text-slate-300 flex items-center justify-center p-6 text-xs">
 				Đang kiểm tra quyền truy cập...
 			</div>
 		);
@@ -98,8 +98,8 @@ export function AdminUsersPage() {
 
 	if (!canAccessPage) {
 		return (
-			<div className="min-h-screen bg-dark-950 text-slate-100 flex flex-col items-center justify-center gap-4 p-6">
-				<p className="text-sm text-red-400">Bạn không có quyền truy cập trang quản trị người dùng.</p>
+			<div className="flex-1 min-h-0 overflow-y-auto bg-dark-950 text-slate-100 flex flex-col items-center justify-center gap-4 p-6">
+				<p className="text-sm text-red-400">Bạn không có quyền truy cập trang quản trị hệ thống.</p>
 				<button
 					type="button"
 					onClick={() => navigate('/projects')}
@@ -151,7 +151,7 @@ export function AdminUsersPage() {
 	};
 
 	return (
-		<div className="min-h-screen bg-dark-950 text-slate-100 p-6">
+		<div className="flex-1 min-h-0 overflow-y-auto bg-dark-950 text-slate-100 p-6">
 			<div className="max-w-6xl mx-auto space-y-6">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-3">
@@ -163,8 +163,8 @@ export function AdminUsersPage() {
 							<ArrowLeft className="w-4 h-4" />
 						</button>
 						<div>
-							<h1 className="text-lg font-bold text-slate-100">Quản trị người dùng & Phân quyền</h1>
-							<p className="text-xs text-slate-400">Quản lý tài khoản hệ thống, vai trò và quyền hạn RBAC</p>
+							<h1 className="text-lg font-bold text-slate-100">Quản trị hệ thống</h1>
+							<p className="text-xs text-slate-400">Quản lý tài khoản, phân quyền RBAC và siêu dữ liệu hệ thống</p>
 						</div>
 					</div>
 					<div className="flex gap-2">

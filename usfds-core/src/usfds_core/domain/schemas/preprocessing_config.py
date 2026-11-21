@@ -3,9 +3,7 @@ from typing import Any, Dict, List, Optional, Set, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 from usfds_core.domain.schemas.system_metadata import (
-    DEFAULT_SYSTEM_COLUMN_ALIASES,
     build_non_ml_columns,
-    resolve_canonical_column,
 )
 
 

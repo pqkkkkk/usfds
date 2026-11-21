@@ -360,9 +360,9 @@ export function SystemMetadataAdminTab() {
 												)}
 											</td>
 
-											<td className="px-4 py-3">
+											<td className="px-4 py-3 whitespace-nowrap">
 												<span
-													className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+													className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
 														isCore
 															? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
 															: 'bg-brand-500/15 text-brand-300 border border-brand-500/30'
@@ -420,7 +420,7 @@ export function SystemMetadataAdminTab() {
 												)}
 											</td>
 
-											<td className="px-4 py-3">
+											<td className="px-4 py-3 whitespace-nowrap">
 												{isEditing && !isCore ? (
 													<div className="space-y-1.5 text-[11px]">
 														<label className="flex items-center gap-1.5 text-slate-300">
@@ -441,29 +441,25 @@ export function SystemMetadataAdminTab() {
 														</label>
 													</div>
 												) : (
-													<div className="space-y-1">
-														<div>
-															<span
-																className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
-																	col.is_required
-																		? 'bg-rose-500/15 text-rose-300'
-																		: 'bg-dark-800 text-slate-400'
-																}`}
-															>
-																{col.is_required ? 'Bắt buộc' : 'Tùy chọn'}
-															</span>
-														</div>
-														<div>
-															<span
-																className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
-																	col.is_active
-																		? 'bg-emerald-500/15 text-emerald-400'
-																		: 'bg-slate-700/50 text-slate-400'
-																}`}
-															>
-																{col.is_active ? 'Đang bật' : 'Đã tắt'}
-															</span>
-														</div>
+													<div className="flex flex-col items-start gap-1">
+														<span
+															className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+																col.is_required
+																	? 'bg-rose-500/15 text-rose-300'
+																	: 'bg-dark-800 text-slate-400'
+															}`}
+														>
+															{col.is_required ? 'Bắt buộc' : 'Tùy chọn'}
+														</span>
+														<span
+															className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+																col.is_active
+																	? 'bg-emerald-500/15 text-emerald-400'
+																	: 'bg-slate-700/50 text-slate-400'
+															}`}
+														>
+															{col.is_active ? 'Đang bật' : 'Đã tắt'}
+														</span>
 													</div>
 												)}
 											</td>
