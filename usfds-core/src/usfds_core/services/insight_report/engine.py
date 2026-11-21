@@ -15,6 +15,8 @@ import pandas as pd
 from usfds_core.domain.entities.case import Case, CaseStatus, EntityBlacklist
 from usfds_core.domain.entities.detection import DetectionJob
 from usfds_core.domain.entities.rule import Rule, RuleVersion
+from usfds_core.domain.schemas.preprocessing_config import SystemColumn
+from usfds_core.domain.schemas.system_metadata import resolve_canonical_column
 from usfds_core.storage.base_storage import IFileStorage
 
 FRAUD_TYPOLOGY_LABELS: dict[str, str] = {
@@ -157,11 +159,11 @@ class DuckDBInsightEngine:
 			if df.empty:
 				continue
 
-			id_col = next((c for c in ("event_id", "transaction_id", "tx_id", "id") if c in df.columns), None)
-			user_col = next((c for c in ("user_id", "account_id", "card_id", "customer_id", "entity_id") if c in df.columns), None)
-			ts_col = next((c for c in ("timestamp", "transaction_time", "tx_time", "event_timestamp", "time") if c in df.columns), None)
-			amt_col = next((c for c in ("amount", "tx_amount", "transaction_amount", "amt", "Amount") if c in df.columns), None)
-			lbl_col = next((c for c in ("label", "is_fraud", "isFraud", "Class", "class", "target") if c in df.columns), None)
+			id_col = resolve_canonical_column(df, SystemColumn.EVENT_ID)
+			user_col = resolve_canonical_column(df, SystemColumn.USER_ID)
+			ts_col = resolve_canonical_column(df, SystemColumn.TIMESTAMP)
+			amt_col = resolve_canonical_column(df, SystemColumn.AMOUNT)
+			lbl_col = resolve_canonical_column(df, SystemColumn.LABEL)
 
 			if lbl_col is not None:
 				self.has_dataset_labels = True

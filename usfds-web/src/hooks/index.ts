@@ -9,3 +9,4 @@ export * from './useAuth';
 export * from './useProjectMembers';
 export * from './useModelLineage';
 export * from './useActorContext';
+export * from './useSystemMetadata';

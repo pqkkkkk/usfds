@@ -2,6 +2,8 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
+from usfds_core.domain.schemas.preprocessing_config import SystemColumn
+from usfds_core.domain.schemas.system_metadata import resolve_canonical_column
 from usfds_core.services.preprocessing.feature_engineering.base_engineer import BaseFeatureEngineer
 
 
@@ -28,36 +30,19 @@ class VelocityFeatureEngineer(BaseFeatureEngineer):
         self,
         df: pd.DataFrame,
         col_name: Optional[str],
-        aliases: Optional[List[str]] = None,
+        canonical_key: SystemColumn,
     ) -> Optional[str]:
         if not col_name or not isinstance(df, pd.DataFrame):
             return None
-        if col_name in df.columns:
-            return col_name
-
-        def normalize_str(s: str) -> str:
-            return str(s).lower().replace("_", "").replace(" ", "").replace("-", "")
-
-        target = normalize_str(col_name)
-        for c in df.columns:
-            if normalize_str(c) == target:
-                return str(c)
-
-        if aliases:
-            for alias in aliases:
-                alias_norm = normalize_str(alias)
-                for c in df.columns:
-                    if normalize_str(c) == alias_norm:
-                        return str(c)
-        return None
+        return resolve_canonical_column(df, canonical_key, requested_col=col_name)
 
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y: Optional[Any] = None) -> "VelocityFeatureEngineer":
         if not isinstance(X, pd.DataFrame):
             return self
 
-        user_col = self._resolve_column(X, self.user_id_col, ["customer_id", "client_id", "account_id", "card1", "clientnum"])
-        time_col = self._resolve_column(X, self.time_col, ["Time", "datetime", "date_time", "tx_time", "transaction_time", "TransactionDT", "trans_date_trans_time"])
-        amount_col = self._resolve_column(X, self.amount_col, ["Amount", "amt", "tx_amount", "transaction_amount", "TransactionAmt"])
+        user_col = self._resolve_column(X, self.user_id_col, SystemColumn.USER_ID)
+        time_col = self._resolve_column(X, self.time_col, SystemColumn.TIMESTAMP)
+        amount_col = self._resolve_column(X, self.amount_col, SystemColumn.AMOUNT)
 
         if user_col and time_col:
             keep_cols = [user_col, time_col]
@@ -71,9 +56,9 @@ class VelocityFeatureEngineer(BaseFeatureEngineer):
         if not isinstance(X, pd.DataFrame):
             return X
 
-        user_col = self._resolve_column(X, self.user_id_col, ["customer_id", "client_id", "account_id", "card1", "clientnum"])
-        time_col = self._resolve_column(X, self.time_col, ["Time", "datetime", "date_time", "tx_time", "transaction_time", "TransactionDT", "trans_date_trans_time"])
-        amount_col = self._resolve_column(X, self.amount_col, ["Amount", "amt", "tx_amount", "transaction_amount", "TransactionAmt"])
+        user_col = self._resolve_column(X, self.user_id_col, SystemColumn.USER_ID)
+        time_col = self._resolve_column(X, self.time_col, SystemColumn.TIMESTAMP)
+        amount_col = self._resolve_column(X, self.amount_col, SystemColumn.AMOUNT)
 
         if not user_col or not time_col:
             return X
@@ -90,9 +75,9 @@ class VelocityFeatureEngineer(BaseFeatureEngineer):
             assert self.train_history_ is not None
             train_hist = self.train_history_.copy()
             # Align column names in train_hist if necessary
-            hist_user = self._resolve_column(train_hist, self.user_id_col, ["customer_id", "client_id", "account_id", "card1", "clientnum"])
-            hist_time = self._resolve_column(train_hist, self.time_col, ["Time", "datetime", "date_time", "tx_time", "transaction_time", "TransactionDT", "trans_date_trans_time"])
-            hist_amt = self._resolve_column(train_hist, self.amount_col, ["Amount", "amt", "tx_amount", "transaction_amount", "TransactionAmt"])
+            hist_user = self._resolve_column(train_hist, self.user_id_col, SystemColumn.USER_ID)
+            hist_time = self._resolve_column(train_hist, self.time_col, SystemColumn.TIMESTAMP)
+            hist_amt = self._resolve_column(train_hist, self.amount_col, SystemColumn.AMOUNT)
             
             rename_map: Dict[str, str] = {}
             if hist_user and hist_user != user_col:

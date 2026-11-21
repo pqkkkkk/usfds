@@ -20,7 +20,11 @@ from usfds_core.domain.schemas.inference_payload import (
 	BatchInferencePayload,
 	BatchInferenceResult,
 )
-from usfds_core.domain.schemas.preprocessing_config import NON_ML_COLUMNS
+from usfds_core.domain.schemas.preprocessing_config import NON_ML_COLUMNS, SystemColumn
+from usfds_core.domain.schemas.system_metadata import (
+	DEFAULT_SYSTEM_COLUMN_ALIASES,
+	resolve_canonical_column,
+)
 from usfds_core.services.inference.scoring_service import ModelScorer
 from usfds_core.services.inference.workspace import InferenceWorkspace
 from usfds_core.services.rule_engine.executor import JsonLogicEvaluator, RuleExecutor
@@ -47,26 +51,20 @@ def prepare_and_validate_input(
         if raw_rename_dict:
             df = df.rename(columns=raw_rename_dict)
     else:
-        # Fallback canonical column alias resolution when legacy MAPPED artifacts omitted column_mapping
-        canonical_aliases: Dict[str, list[str]] = {
-            "event_id": ["transaction_id", "TransactionID", "tx_id", "id", "trans_num"],
-            "timestamp": ["transaction_time", "TransactionDT", "tx_time", "time", "Time", "datetime", "date_time", "trans_date_trans_time"],
-            "amount": ["transaction_amount", "TransactionAmt", "tx_amount", "amt", "Amount"],
-            "user_id": ["customer_id", "client_id", "account_id", "card1", "CLIENTNUM"],
-            "label": ["is_fraud", "isFraud", "target", "fraud", "Class", "class"],
-        }
+        # Fallback canonical column alias resolution from unified DEFAULT_SYSTEM_COLUMN_ALIASES
         fallback_rename: Dict[str, str] = {}
-        for canonical_col, aliases in canonical_aliases.items():
+        for canonical_col in DEFAULT_SYSTEM_COLUMN_ALIASES.keys():
             if canonical_col not in df.columns:
-                for alias in aliases:
-                    if alias in df.columns and alias not in fallback_rename:
-                        fallback_rename[alias] = canonical_col
-                        break
+                matched = resolve_canonical_column(df, canonical_col)
+                if matched and matched != canonical_col and matched not in fallback_rename:
+                    fallback_rename[matched] = canonical_col
         if fallback_rename:
             df = df.rename(columns=fallback_rename)
 
     # 2. Validate presence of required canonical columns
-    ignored_labels = {"label", "class", "target", "is_fraud", "isfraud"}
+    ignored_labels = {
+        alias.lower() for alias in DEFAULT_SYSTEM_COLUMN_ALIASES.get(SystemColumn.LABEL.value, [])
+    } | {SystemColumn.LABEL.value}
     required_canonical = [
         canonical
         for _, canonical in column_mapping.items()

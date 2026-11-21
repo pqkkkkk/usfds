@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from usfds_core.domain.entities.enums import RuleAction
 from usfds_core.domain.entities.rule import Rule, RuleVersion
+from usfds_core.domain.schemas.preprocessing_config import SystemColumn
+from usfds_core.domain.schemas.system_metadata import resolve_canonical_column
 from usfds_core.domain.schemas.rule_schemas import (
     RuleBacktestResult,
     RuleBacktestSampleHit,
@@ -328,41 +330,12 @@ class RuleExecutor:
         cols = [str(c) for c in df.columns]
         col_set = set(cols)
 
-        # Auto-resolve canonical column names if not explicitly provided
-        resolved_target = target_column if (target_column and target_column in col_set) else None
-        if not resolved_target:
-            for cand in ("is_fraud", "label", "fraud_label", "target", "class", "Class", "Fraud"):
-                if cand in col_set:
-                    resolved_target = cand
-                    break
-
-        resolved_amount = amount_column if (amount_column and amount_column in col_set) else None
-        if not resolved_amount:
-            for cand in ("amount", "tx_amount", "transaction_amount", "amt", "Amount"):
-                if cand in col_set:
-                    resolved_amount = cand
-                    break
-
-        resolved_id = id_column if (id_column and id_column in col_set) else None
-        if not resolved_id:
-            for cand in ("event_id", "transaction_id", "tx_id", "id"):
-                if cand in col_set:
-                    resolved_id = cand
-                    break
-
-        resolved_ts = timestamp_column if (timestamp_column and timestamp_column in col_set) else None
-        if not resolved_ts:
-            for cand in ("timestamp", "tx_time", "event_timestamp", "time", "created_at"):
-                if cand in col_set:
-                    resolved_ts = cand
-                    break
-
-        resolved_user = user_column if (user_column and user_column in col_set) else None
-        if not resolved_user:
-            for cand in ("user_id", "account_id", "card_id", "customer_id", "entity_id"):
-                if cand in col_set:
-                    resolved_user = cand
-                    break
+        # Auto-resolve canonical column names from unified alias registry
+        resolved_target = resolve_canonical_column(df, SystemColumn.LABEL, requested_col=target_column)
+        resolved_amount = resolve_canonical_column(df, SystemColumn.AMOUNT, requested_col=amount_column)
+        resolved_id = resolve_canonical_column(df, SystemColumn.EVENT_ID, requested_col=id_column)
+        resolved_ts = resolve_canonical_column(df, SystemColumn.TIMESTAMP, requested_col=timestamp_column)
+        resolved_user = resolve_canonical_column(df, SystemColumn.USER_ID, requested_col=user_column)
 
         has_ground_truth = resolved_target is not None
         total_transactions = len(df)
