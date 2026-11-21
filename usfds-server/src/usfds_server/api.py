@@ -33,6 +33,7 @@ from usfds_server.routers import (
 	rbac_router,
 	rule_router,
 	storage_router,
+	system_metadata_router,
 	training_router,
 	user_router,
 )
@@ -137,6 +138,7 @@ app.include_router(blacklist_router)
 app.include_router(detection_router)
 app.include_router(insight_report_router)
 app.include_router(storage_router)
+app.include_router(system_metadata_router.router)
 
 
 @app.get("/health", tags=["System"])

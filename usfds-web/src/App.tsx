@@ -205,13 +205,14 @@ function AppRoutes() {
 			<Routes>
 				<Route path="/login" element={<LoginPage />} />
 				<Route
-					path="/admin/users"
+					path="/admin"
 					element={
 						<FeatureRouteGuard feature="adminUsers" fallbackPath="/projects">
 							<AdminUsersPage />
 						</FeatureRouteGuard>
 					}
 				/>
+				<Route path="/admin/users" element={<Navigate to="/admin" replace />} />
 				{/* Interactive Docs & Plan Review Dashboard */}
 				<Route path="/__docs/*" element={<DocsDashboardPage />} />
 				<Route path="/docs/*" element={<DocsDashboardPage />} />

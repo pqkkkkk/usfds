@@ -80,12 +80,12 @@ export const UserAccountMenu = () => {
 								type="button"
 								onClick={() => {
 									setUserMenuOpen(false);
-									navigate('/admin/users');
+									navigate('/admin');
 								}}
 								className="w-full px-3 py-2 text-left text-xs text-slate-200 hover:bg-dark-800 flex items-center gap-2"
 							>
 								<Shield className="w-3.5 h-3.5 text-brand-400" />
-								Quản trị người dùng
+								Quản trị hệ thống
 							</button>
 						)}
 						{authMode === 'required' && (

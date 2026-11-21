@@ -37,6 +37,7 @@ from usfds_core.services.training.plugins.register import ModelPluginRegistratio
 from usfds_core.services.training.training_service import TrainingOrchestrationService
 from usfds_core.storage.base_storage import IFileStorage
 from usfds_infra.database import (
+	SqlSystemColumnMetadataRepository,
 	SqliteDatasetArtifactRepository,
 	SqliteDatasetRepository,
 	SqliteDetectionJobRepository,
@@ -76,6 +77,7 @@ def _build_data_management_service(session: Session, storage: IFileStorage) -> D
 		file_storage=storage,
 		project_repo=project_repo,
 		project_service=project_service,
+		metadata_repo=SqlSystemColumnMetadataRepository(session),
 	)
 
 

@@ -116,6 +116,7 @@ def setup_infrastructure() -> tuple[Engine, IFileStorage]:
     init_db(_engine)
     seed_builtin_models(_session_factory)
     from usfds_infra.database.seed_rbac import seed_rbac
+    from usfds_infra.database.seed_system_metadata import seed_system_metadata
     from usfds_infra.security import PasswordHasher
     with _session_factory() as session:
         seed_rbac(
@@ -123,6 +124,7 @@ def setup_infrastructure() -> tuple[Engine, IFileStorage]:
             bootstrap_username=settings.bootstrap_admin_username,
             bootstrap_password_hash=PasswordHasher().hash(settings.bootstrap_admin_password),
         )
+        seed_system_metadata(session)
         session.commit()
 
     # 2. Setup file storage (local filesystem or S3-compatible)
@@ -185,10 +187,11 @@ from usfds_server.providers.repos import (  # noqa: E402
 	get_project_repo,
 	get_rule_repo,
 	get_rule_version_repo,
+	get_system_metadata_repo,
 	get_training_run_repo,
 )
 from usfds_server.providers.project import get_project_management_service  # noqa: E402
-from usfds_server.providers.data import get_data_management_service  # noqa: E402
+from usfds_server.providers.data import get_data_management_service, get_system_metadata_service  # noqa: E402
 from usfds_server.providers.rule import get_rule_executor, get_rule_manager  # noqa: E402
 from usfds_server.providers.training import get_training_service  # noqa: E402
 from usfds_server.providers.detection import get_inference_service  # noqa: E402
@@ -224,4 +227,6 @@ __all__ = [
 	"get_training_service",
 	"get_inference_service",
 	"get_insight_report_service",
+	"get_system_metadata_repo",
+	"get_system_metadata_service",
 ]

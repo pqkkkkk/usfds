@@ -19,6 +19,10 @@ from usfds_core.domain.schemas.preprocessing_config import (
     PreprocessingConfig,
     SystemColumn,
 )
+from usfds_core.domain.schemas.system_metadata import (
+    build_non_ml_columns,
+    resolve_canonical_column,
+)
 from usfds_core.services.preprocessing.pipeline_builder import PreprocessingPipelineBuilder
 from usfds_core.services.preprocessing.workspace import PreprocessingWorkspace
 from usfds_core.storage.base_storage import IFileStorage
@@ -68,19 +72,15 @@ class PreprocessingExecutionService:
         return self._load_dataframe_from_bytes(path_str, self.file_storage.read_bytes(path_str))
 
     def _resolve_target_col(self, df: pd.DataFrame, target_col_name: str) -> str:
-        """Resolves target column with alias matching (label, Class, target, is_fraud)."""
-        if target_col_name in df.columns:
-            return target_col_name
-        for c in df.columns:
-            if str(c).lower() == str(target_col_name).lower():
-                return str(c)
-        aliases = [SystemColumn.LABEL.value, "class", "target", "is_fraud"]
-        for a in aliases:
-            if a in df.columns:
-                return a
-            for c in df.columns:
-                if str(c).lower() == a.lower():
-                    return str(c)
+        """Resolves target column with unified canonical alias matching."""
+        resolved = resolve_canonical_column(
+            df,
+            SystemColumn.LABEL,
+            requested_col=target_col_name,
+            strict_requested=False,
+        )
+        if resolved:
+            return resolved
         raise ValueError(f"Target column '{target_col_name}' not found in DataFrame columns: {list(df.columns)}")
 
     def _transform_features(self, pipeline: Any, X: pd.DataFrame) -> Union[pd.DataFrame, np.ndarray]:
@@ -185,13 +185,28 @@ class PreprocessingExecutionService:
             y_test = test_df[test_target_col]
             X_test = test_df.drop(columns=[test_target_col])
 
-            # 4. Drop non-ML metadata/identifier columns from features
-            cols_to_drop = [c for c in X_train.columns if str(c).lower() in NON_ML_COLUMNS]
+            # 4. Drop non-ML metadata/identifier columns from features (including dynamic metadata snapshot)
+            parent_vr = parent_artifact.validation_report or {}
+            parent_non_ml = (
+                parent_vr.get("non_ml_columns")
+                if isinstance(parent_vr, dict) and isinstance(parent_vr.get("non_ml_columns"), list)
+                else None
+            )
+            effective_non_ml = (
+                build_non_ml_columns(extra_non_ml_columns=parent_non_ml)
+                if parent_non_ml is not None
+                else NON_ML_COLUMNS
+            )
+            cols_to_drop = [c for c in X_train.columns if str(c).lower() in effective_non_ml]
             X_train = X_train.drop(columns=cols_to_drop)
             X_test = X_test.drop(columns=[c for c in cols_to_drop if c in X_test.columns])
 
             # 5. Build & Fit ML Pipeline on Train Set (Strict Data Leakage Prevention)
-            pipeline = PreprocessingPipelineBuilder.build(config, sample_df=X_train)
+            pipeline = PreprocessingPipelineBuilder.build(
+                config,
+                sample_df=X_train,
+                extra_non_ml_columns=parent_non_ml,
+            )
 
             if hasattr(pipeline, "fit_resample"):
                 X_train_resampled, y_train_resampled = pipeline.fit_resample(X_train, y_train)

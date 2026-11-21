@@ -166,3 +166,17 @@ class AuthMode(StrEnum):
     """Authentication enforcement mode."""
     LOCAL_AUTO = "local_auto"
     REQUIRED = "required"
+
+
+class ColumnCategory(StrEnum):
+    """Category of a canonical system column."""
+    CORE = "CORE"
+    DOMAIN = "DOMAIN"
+
+
+class ColumnMlRole(StrEnum):
+    """Machine learning role of a canonical column."""
+    FEATURE = "FEATURE"
+    IDENTIFIER = "IDENTIFIER"
+    TIMESTAMP = "TIMESTAMP"
+    LABEL = "LABEL"

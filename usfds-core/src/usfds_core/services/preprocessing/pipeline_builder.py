@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, Iterable, List, Optional, Set, Tuple
 import category_encoders as ce
 from imblearn.pipeline import Pipeline
 import numpy as np
@@ -22,6 +22,7 @@ from usfds_core.domain.schemas.preprocessing_config import (
     ScalerType,
     SystemColumn,
 )
+from usfds_core.domain.schemas.system_metadata import build_non_ml_columns
 from usfds_core.services.preprocessing.dim_reduction.selection_filters import (
     SelectKBestFScoreTransformer,
     SelectKBestMITransformer,
@@ -40,9 +41,18 @@ class PreprocessingPipelineBuilder:
     """
 
     @staticmethod
-    def build(config: PreprocessingConfig, sample_df: Optional[pd.DataFrame] = None) -> Pipeline:
+    def build(
+        config: PreprocessingConfig,
+        sample_df: Optional[pd.DataFrame] = None,
+        extra_non_ml_columns: Optional[Iterable[str]] = None,
+    ) -> Pipeline:
         steps: List[Tuple[str, Any]] = []
         t_cfg = config.transformation
+        effective_non_ml: Set[str] = (
+            build_non_ml_columns(extra_non_ml_columns=extra_non_ml_columns)
+            if extra_non_ml_columns is not None
+            else NON_ML_COLUMNS
+        )
 
         # 1. Determine Numerical and Categorical Columns
         num_cols = list(t_cfg.numeric_columns)
@@ -52,7 +62,7 @@ class PreprocessingPipelineBuilder:
             # Auto-detect if not explicitly configured
             if not num_cols and not cat_cols:
                 for col in sample_df.columns:
-                    if str(col).lower() in NON_ML_COLUMNS:
+                    if str(col).lower() in effective_non_ml:
                         continue
                     if pd.api.types.is_numeric_dtype(sample_df[col]):
                         num_cols.append(str(col))
@@ -60,8 +70,8 @@ class PreprocessingPipelineBuilder:
                         cat_cols.append(str(col))
             else:
                 # Filter out any accidentally included non-ML identifier columns
-                num_cols = [c for c in num_cols if str(c).lower() not in NON_ML_COLUMNS and c in sample_df.columns]
-                cat_cols = [c for c in cat_cols if str(c).lower() not in NON_ML_COLUMNS and c in sample_df.columns]
+                num_cols = [c for c in num_cols if str(c).lower() not in effective_non_ml and c in sample_df.columns]
+                cat_cols = [c for c in cat_cols if str(c).lower() not in effective_non_ml and c in sample_df.columns]
 
         # 2. Data Transformation (Scalers & Encoders)
         transformers: List[Tuple[str, Any, List[str]]] = []

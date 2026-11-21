@@ -119,8 +119,8 @@ describe('M5 Auth & RBAC UI', () => {
 			expect(screen.getAllByText('Dự án Gian lận A').length).toBeGreaterThan(0);
 		});
 
-		// Admin Users menu item should be hidden for fraud_analyst
-		expect(screen.queryByText(/Quản trị người dùng/i)).not.toBeInTheDocument();
+		// Admin menu item should be hidden for fraud_analyst
+		expect(screen.queryByRole('button', { name: /Quản trị hệ thống/i })).not.toBeInTheDocument();
 
 		// Concurrent 401 calls should trigger single-flight refresh (only 1 /auth/refresh call)
 		const [r1, r2] = await Promise.all([

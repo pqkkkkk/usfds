@@ -29,6 +29,8 @@ from usfds_core.domain.schemas.inference_payload import (
     BatchInferencePayload,
     BatchInferenceResult,
 )
+from usfds_core.domain.schemas.preprocessing_config import SystemColumn
+from usfds_core.domain.schemas.system_metadata import resolve_canonical_column
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
 from usfds_core.repositories.base_detection_job_repo import IDetectionJobRepository
@@ -821,11 +823,11 @@ class InferenceService:
 
         df = self._load_job_predictions_df(job)
 
-        # Resolve canonical display columns
-        id_col = next((c for c in ("event_id", "transaction_id", "tx_id", "id") if c in df.columns), None)
-        user_col = next((c for c in ("user_id", "account_id", "card_id", "customer_id", "entity_id") if c in df.columns), None)
-        ts_col = next((c for c in ("timestamp", "transaction_time", "tx_time", "event_timestamp", "time") if c in df.columns), None)
-        amt_col = next((c for c in ("amount", "tx_amount", "transaction_amount", "amt", "Amount") if c in df.columns), None)
+        # Resolve canonical display columns from unified alias registry
+        id_col = resolve_canonical_column(df, SystemColumn.EVENT_ID)
+        user_col = resolve_canonical_column(df, SystemColumn.USER_ID)
+        ts_col = resolve_canonical_column(df, SystemColumn.TIMESTAMP)
+        amt_col = resolve_canonical_column(df, SystemColumn.AMOUNT)
 
         # Map existing investigation cases by event_id for this project
         existing_cases_by_event: Dict[str, str] = {}

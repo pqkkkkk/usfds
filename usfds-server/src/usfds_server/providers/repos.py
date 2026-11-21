@@ -2,6 +2,7 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from usfds_infra.database import (
+	SqlSystemColumnMetadataRepository,
 	SqliteDatasetArtifactRepository,
 	SqliteDatasetRepository,
 	SqliteDetectionJobRepository,
@@ -66,3 +67,7 @@ def get_model_version_repo(session: Session = Depends(get_db)) -> SqliteModelVer
 
 def get_training_run_repo(session: Session = Depends(get_db)) -> SqliteTrainingRunRepository:
 	return SqliteTrainingRunRepository(session)
+
+
+def get_system_metadata_repo(session: Session = Depends(get_db)) -> SqlSystemColumnMetadataRepository:
+	return SqlSystemColumnMetadataRepository(session)

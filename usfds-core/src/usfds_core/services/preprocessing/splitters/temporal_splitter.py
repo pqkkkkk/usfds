@@ -1,35 +1,13 @@
-from typing import Any, List, Optional, Tuple
+from typing import Optional, Tuple
 import pandas as pd
 
+from usfds_core.domain.schemas.preprocessing_config import SystemColumn
+from usfds_core.domain.schemas.system_metadata import resolve_canonical_column
 from usfds_core.services.preprocessing.splitters.base_splitter import BaseDataSplitter
 
 
 class TemporalDataSplitter(BaseDataSplitter):
     """Splits dataset chronologically based on a time column to prevent future data leakage (lookahead bias)."""
-
-    def _resolve_col(
-        self,
-        df: pd.DataFrame,
-        col_name: Optional[str],
-        alias_groups: Optional[List[str]] = None,
-    ) -> Optional[str]:
-        """Resolves column name with case-insensitivity and alias group matching."""
-        if not col_name or not isinstance(df, pd.DataFrame):
-            return None
-        if col_name in df.columns:
-            return col_name
-        for c in df.columns:
-            if str(c).lower() == str(col_name).lower():
-                return str(c)
-        # Only check alias group if col_name belongs to that alias group
-        if alias_groups and any(str(col_name).lower() == a.lower() for a in alias_groups):
-            for a in alias_groups:
-                if a in df.columns:
-                    return str(a)
-                for c in df.columns:
-                    if str(c).lower() == a.lower():
-                        return str(c)
-        return None
 
     def split_train_test(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Chronologically splits the full DataFrame into train and test sets, retaining all columns.
@@ -48,10 +26,10 @@ class TemporalDataSplitter(BaseDataSplitter):
         Returns:
             Tuple of (train_df, test_df) with reset index.
         """
-        time_col = self._resolve_col(
-            df,
-            self.config.time_column,
-            ["timestamp", "time", "datetime", "date_time", "tx_time"],
+        time_col = (
+            resolve_canonical_column(df, SystemColumn.TIMESTAMP, requested_col=self.config.time_column)
+            if self.config.time_column
+            else None
         )
 
         if time_col and time_col in df.columns:
@@ -87,10 +65,10 @@ class TemporalDataSplitter(BaseDataSplitter):
         Raises:
             ValueError: If target_column is not found in DataFrame columns.
         """
-        target_col = self._resolve_col(
+        target_col = resolve_canonical_column(
             df,
-            self.config.target_column,
-            ["label", "class", "target", "is_fraud"],
+            SystemColumn.LABEL,
+            requested_col=self.config.target_column,
         )
         if not target_col or target_col not in df.columns:
             raise ValueError(

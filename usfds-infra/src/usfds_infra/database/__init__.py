@@ -16,6 +16,7 @@ from usfds_infra.database.models import (
 	RuleModel,
 	RuleVersionModel,
 	RunDatasetModel,
+	SystemColumnMetadataModel,
 	SystemUserRoleModel,
 	TrainingRunModel,
 	UserModel,
@@ -25,6 +26,7 @@ from usfds_infra.database.repositories import (
 	SqlPermissionRepository,
 	SqlProjectMemberRepository,
 	SqlRoleRepository,
+	SqlSystemColumnMetadataRepository,
 	SqlUserRepository,
 	SqlUserSessionRepository,
 	SqliteDatasetArtifactRepository,
@@ -87,4 +89,6 @@ __all__ = [
 	"SqlRoleRepository",
 	"SqlPermissionRepository",
 	"SqlProjectMemberRepository",
+	"SystemColumnMetadataModel",
+	"SqlSystemColumnMetadataRepository",
 ]
