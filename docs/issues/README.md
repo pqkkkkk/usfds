@@ -72,5 +72,6 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-039 | No AutoML (Optuna Bayesian Optimization) in model training flow | feature | training, server, web | P2 | Planned | [automl_training_integration](../../.plan/automl_training_integration.md) <!-- [26-11-17] --> | [11-17](11-17-2026.md) |
 | ISS-040 | Feature management capability not specified or implemented | feature | data-management, web | P2 | Needs spec | [feature_management](../../.plan/feature_management.md) <!-- [26-11-17] --> | [11-17](11-17-2026.md) |
 | ISS-041 | Graph exploration capability not specified or implemented | feature | investigation, web | P2 | Needs spec | [graph_exploration](../../.plan/graph_exploration.md) <!-- [26-11-17] --> | [11-17](11-17-2026.md) |
+| ISS-042 | Data Management & Feature Engineering load full datasets with pandas | improvement | data-management, training | P2 | Open <!-- [26-11-21] --> | — | [11-21](11-21-2026.md) |
 
 Older resolved bugs (pre-ISS numbering) are kept in [`docs/bugs.md`](../bugs.md).
