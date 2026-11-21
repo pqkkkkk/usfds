@@ -237,6 +237,10 @@ class FeatureEngineeringExecutionService:
                     val_report["column_mapping"] = dict(parent_vr["column_mapping"])
                 if "retained_columns" in parent_vr and isinstance(parent_vr["retained_columns"], list):
                     val_report["retained_columns"] = list(parent_vr["retained_columns"])
+                if "non_ml_columns" in parent_vr and isinstance(parent_vr["non_ml_columns"], list):
+                    val_report["non_ml_columns"] = list(parent_vr["non_ml_columns"])
+                if "metadata_snapshot" in parent_vr and isinstance(parent_vr["metadata_snapshot"], list):
+                    val_report["metadata_snapshot"] = list(parent_vr["metadata_snapshot"])
                 if "time_format" in parent_vr:
                     val_report["time_format"] = parent_vr["time_format"]
 

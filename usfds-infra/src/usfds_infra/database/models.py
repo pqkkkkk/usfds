@@ -17,6 +17,7 @@ from usfds_infra.database.tables.auth import (
 	UserModel,
 	UserSessionModel,
 )
+from usfds_infra.database.tables.system_metadata import SystemColumnMetadataModel
 
 __all__ = [
 	"ProjectModel",
@@ -36,4 +37,5 @@ __all__ = [
 	"RolePermissionModel",
 	"SystemUserRoleModel",
 	"ProjectMemberModel",
+	"SystemColumnMetadataModel",
 ]

@@ -14,6 +14,7 @@ from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactR
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
 from usfds_core.repositories.base_detection_job_repo import IDetectionJobRepository
 from usfds_core.repositories.base_project_repo import IProjectRepository
+from usfds_core.repositories.base_system_metadata_repo import ISystemColumnMetadataRepository
 from usfds_core.repositories.base_training_run_repo import ITrainingRunRepository
 from usfds_core.services.data_management.export import DatasetExportService
 from usfds_core.services.data_management.ingestion import DatasetIngestionService
@@ -48,6 +49,7 @@ class DataManagementService:
         project_service: Optional[ProjectManagementService] = None,
         training_run_repo: Optional[ITrainingRunRepository] = None,
         detection_job_repo: Optional[IDetectionJobRepository] = None,
+        metadata_repo: Optional[ISystemColumnMetadataRepository] = None,
         ingestion_service: Optional[DatasetIngestionService] = None,
         profiling_service: Optional[DataProfilingService] = None,
         mapping_service: Optional[DataMappingService] = None,
@@ -63,6 +65,7 @@ class DataManagementService:
         self.project_service = project_service
         self.training_run_repo = training_run_repo
         self.detection_job_repo = detection_job_repo
+        self.metadata_repo = metadata_repo
 
         self.profiling_service = profiling_service or DataProfilingService()
         self.validation_service = validation_service or DataQualityValidationService()
@@ -77,6 +80,7 @@ class DataManagementService:
             file_storage=file_storage,
             artifact_repo=artifact_repo,
             validation_service=self.validation_service,
+            metadata_repo=metadata_repo,
         )
         self.lineage_service = lineage_service or DataLineageService(
             artifact_repo=artifact_repo

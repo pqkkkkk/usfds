@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Shield, ArrowLeft, Plus, Power, KeyRound } from 'lucide-react';
+import { Users, Shield, Database, ArrowLeft, Plus, Power, KeyRound } from 'lucide-react';
 import { userAdminApi } from '@/api/userAdminApi';
+import { SystemMetadataAdminTab } from '@/components/modules/data_management/SystemMetadataAdminTab';
 import { useActorContext } from '@/hooks/useActorContext';
 import { useAuth } from '@/hooks/useAuth';
 import type { AdminUserResponse, PermissionDto, RoleDto } from '@/types/auth';
+
+type AdminTab = 'users' | 'roles' | 'metadata';
 
 export function AdminUsersPage() {
 	const navigate = useNavigate();
 	const { hasPermission } = useAuth();
 	const { actor, loading: authLoading, features } = useActorContext();
-	const [tab, setTab] = useState<'users' | 'roles'>('users');
+	const [tab, setTab] = useState<AdminTab>('users');
 	const [users, setUsers] = useState<AdminUserResponse[]>([]);
 	const [roles, setRoles] = useState<RoleDto[]>([]);
 	const [permissions, setPermissions] = useState<PermissionDto[]>([]);
@@ -26,26 +29,37 @@ export function AdminUsersPage() {
 
 	const canViewUsersTab = Boolean(actor?.is_system_admin || hasPermission('user:read'));
 	const canViewRolesTab = features.viewRoles.allowed;
-	const canAccessPage = canViewUsersTab || canViewRolesTab;
+	const canManageMetadataTab = features.manageSystemMetadata.allowed;
+	const canAccessPage = canViewUsersTab || canViewRolesTab || canManageMetadataTab;
 	const canCreateUser = features.createUser.allowed;
 	const canUpdateUser = features.updateUser.allowed;
 	const canResetPassword = features.resetUserPassword.allowed;
 	const hasUserRowActions = canUpdateUser || canResetPassword;
-	const activeTab: 'users' | 'roles' =
-		tab === 'users' && !canViewUsersTab && canViewRolesTab
+
+	const firstAllowedTab: AdminTab = canViewUsersTab
+		? 'users'
+		: canViewRolesTab
 			? 'roles'
-			: tab === 'roles' && !canViewRolesTab && canViewUsersTab
-				? 'users'
-				: tab;
+			: 'metadata';
+	const activeTab: AdminTab =
+		(tab === 'users' && canViewUsersTab) ||
+		(tab === 'roles' && canViewRolesTab) ||
+		(tab === 'metadata' && canManageMetadataTab)
+			? tab
+			: firstAllowedTab;
 
 	const loadData = async () => {
+		if (!canViewUsersTab && !canViewRolesTab) {
+			setLoading(false);
+			return;
+		}
 		setLoading(true);
 		setError(null);
 		try {
 			const [uSettled, rSettled, pSettled] = await Promise.allSettled([
-				userAdminApi.listUsers(),
-				userAdminApi.listRoles(),
-				userAdminApi.listPermissions(),
+				canViewUsersTab ? userAdminApi.listUsers() : Promise.resolve({ success: true, data: [] as AdminUserResponse[] }),
+				canViewRolesTab ? userAdminApi.listRoles() : Promise.resolve({ success: true, data: [] as RoleDto[] }),
+				canViewRolesTab ? userAdminApi.listPermissions() : Promise.resolve({ success: true, data: [] as PermissionDto[] }),
 			]);
 			if (uSettled.status === 'fulfilled' && uSettled.value.data) {
 				setUsers(uSettled.value.data);
@@ -182,6 +196,20 @@ export function AdminUsersPage() {
 								Vai trò & Quyền ({roles.length})
 							</button>
 						)}
+						{canManageMetadataTab && (
+							<button
+								type="button"
+								onClick={() => setTab('metadata')}
+								className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 ${
+									activeTab === 'metadata'
+										? 'bg-brand-600 text-white'
+										: 'bg-dark-900 border border-dark-700 text-slate-300'
+								}`}
+							>
+								<Database className="w-3.5 h-3.5" />
+								Siêu dữ liệu hệ thống
+							</button>
+						)}
 					</div>
 				</div>
 
@@ -191,7 +219,9 @@ export function AdminUsersPage() {
 					</div>
 				)}
 
-				{loading ? (
+				{activeTab === 'metadata' && canManageMetadataTab ? (
+					<SystemMetadataAdminTab />
+				) : loading ? (
 					<div className="text-xs text-slate-400">Đang tải dữ liệu...</div>
 				) : activeTab === 'users' && canViewUsersTab ? (
 					<div className="space-y-5">

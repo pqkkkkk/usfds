@@ -24,6 +24,7 @@ PERMISSION_CATALOG: List[Tuple[str, str, str, GrantScope, str]] = [
 	("role:read", "role", "read", GrantScope.SYSTEM, "View roles and permissions"),
 	("role:manage", "role", "manage", GrantScope.SYSTEM, "Create/update roles and role permissions"),
 	("model_builtin:manage", "model_builtin", "manage", GrantScope.SYSTEM, "Manage built-in models"),
+	("system_metadata:manage", "system_metadata", "manage", GrantScope.SYSTEM, "Manage system column metadata"),
 	("audit:system_read", "audit", "system_read", GrantScope.SYSTEM, "Read system-wide audit logs"),
 	("own:profile_read", "own", "profile_read", GrantScope.OWN, "Read own profile"),
 	("own:profile_update", "own", "profile_update", GrantScope.OWN, "Update own profile"),

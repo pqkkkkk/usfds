@@ -32,9 +32,10 @@ export interface FeaturePolicyEntry {
  */
 export const ACTOR_FEATURE = {
 	// System / portal features
-	adminUsers: { permission: ['user:read', 'role:read'], path: '/admin/users', scope: 'system' },
+	adminUsers: { permission: ['user:read', 'role:read', 'system_metadata:manage'], path: '/admin/users', scope: 'system' },
 	createProject: { permission: 'project:create', path: '/projects', scope: 'system' },
 	manageBuiltinModels: { permission: 'model_builtin:manage', path: '/models', scope: 'system' },
+	manageSystemMetadata: { permission: 'system_metadata:manage', path: '/admin/users', scope: 'system' },
 	createUser: { permission: 'user:create', path: '/admin/users', scope: 'system' },
 	updateUser: { permission: 'user:update', path: '/admin/users', scope: 'system' },
 	resetUserPassword: { permission: 'user:reset_password', path: '/admin/users', scope: 'system' },

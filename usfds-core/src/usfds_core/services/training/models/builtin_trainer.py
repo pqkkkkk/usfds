@@ -10,7 +10,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline as SklearnPipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from usfds_core.domain.schemas.preprocessing_config import NON_ML_COLUMNS
+from usfds_core.domain.schemas.preprocessing_config import NON_ML_COLUMNS, SystemColumn
+from usfds_core.domain.schemas.system_metadata import resolve_canonical_column
 from usfds_core.services.training.evaluators.metric_evaluator import MetricEvaluator
 from usfds_core.services.training.models.base_trainer import BaseTrainer
 from usfds_core.services.training.workspace import TrainingRunWorkspace
@@ -44,14 +45,10 @@ class BuiltinModelTrainer(BaseTrainer, ABC):
 
     @staticmethod
     def _resolve_target_column(df: pd.DataFrame, requested_col: str) -> str:
-        """Resolve target column from dataframe columns with fallback aliases for canonical target names."""
-        if requested_col in df.columns:
-            return requested_col
-        canonical_targets = ["label", "is_fraud", "target", "fraud", "Class", "class"]
-        if str(requested_col).lower() in {c.lower() for c in canonical_targets} | {"auto"}:
-            for alias in canonical_targets:
-                if alias in df.columns:
-                    return alias
+        """Resolve target column from dataframe columns with unified canonical alias fallback."""
+        resolved = resolve_canonical_column(df, SystemColumn.LABEL, requested_col=requested_col)
+        if resolved:
+            return resolved
         raise ValueError(f"Target column '{requested_col}' not found in training dataset.")
 
     def _load_data(

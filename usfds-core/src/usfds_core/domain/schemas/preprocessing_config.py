@@ -2,6 +2,12 @@ from enum import StrEnum
 from typing import Any, Dict, List, Optional, Set, Union
 from pydantic import BaseModel, ConfigDict, Field
 
+from usfds_core.domain.schemas.system_metadata import (
+    DEFAULT_SYSTEM_COLUMN_ALIASES,
+    build_non_ml_columns,
+    resolve_canonical_column,
+)
+
 
 class MissingValueStrategy(StrEnum):
     DROP = "drop"
@@ -82,22 +88,7 @@ class SupportedTimeFormat(StrEnum):
 
 
 # Columns that represent metadata/identifiers/labels and must be excluded from ML mathematical features
-NON_ML_COLUMNS: Set[str] = {
-    SystemColumn.EVENT_ID.value,
-    SystemColumn.TIMESTAMP.value,
-    SystemColumn.USER_ID.value,
-    SystemColumn.LABEL.value,
-    "time",
-    "datetime",
-    "date_time",
-    "tx_time",
-    "customer_id",
-    "client_id",
-    "account_id",
-    "class",
-    "target",
-    "is_fraud",
-}
+NON_ML_COLUMNS: Set[str] = build_non_ml_columns()
 
 
 class CleansingConfig(BaseModel):

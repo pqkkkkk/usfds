@@ -1,7 +1,7 @@
 # Plan: Quản lý Siêu dữ liệu Hệ thống & Hợp nhất Alias Cột Chuẩn (System Metadata Management)
 
 > **Task ID:** `system_metadata_management` (= this file name) · **Issues:** ISS-007, ISS-027 (chosen by the user) · **Spec:** `docs/features/data_management/user-flow-and-ui-design.md`, `docs/features/project_management/design.md`
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Draft
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Review
 
 ## 1. Context (facts)
 - **5 cột hệ thống cốt lõi (`SystemColumn`: `event_id`, `timestamp`, `amount`, `user_id`, `label`)** đang được khai báo tĩnh tại `usfds-core/src/usfds_core/domain/schemas/preprocessing_config.py:63-70` và tập cột phi-ML `NON_ML_COLUMNS` tại `preprocessing_config.py:85-100`.
@@ -106,27 +106,35 @@
 ## 6. Milestones & to-do (checkpoints, not stop points: all tests green at each)
 The agent ticks items as it works. This is the task's only to-do list (`TODO.md` is no longer used for new work).
 
-- [ ] **M1 — Core Metadata Registry, Alias Consolidation & Dynamic Pipeline Adaptation** (`usfds-core`): hợp nhất `DEFAULT_SYSTEM_COLUMN_ALIASES` ở 10 module (`ISS-027`), bổ sung thực thể `SystemColumnMetadata`, `SystemMetadataService`, và nâng cấp `DataMappingService` + `PreprocessingExecutionService` thích ứng động với `DOMAIN` columns (`ISS-007`).
-  - [ ] [tests] Viết các unit test M1 trong `usfds-core/tests/test_system_metadata.py`; chạy thử để xác nhận fail đúng lý do
-  - [ ] [core] Thêm `ColumnCategory`, `ColumnMlRole` vào `enums.py` và tạo `domain/entities/system_metadata.py`, `domain/schemas/system_metadata.py`, `repositories/base_system_metadata_repo.py`
-  - [ ] [core] Tạo `SystemMetadataService` và tích hợp kiểm tra/ép kiểu cột `DOMAIN` + `non_ml_columns` vào `DataMappingService`, `PreprocessingPipelineBuilder`, `PreprocessingExecutionService`
-  - [ ] [core] Thay thế danh sách alias trùng lặp ở `inference/executor.py`, `inference_service.py`, `insight_report/engine.py`, `rule_engine/executor.py`, `builtin_trainer.py`, `temporal_splitter.py`, `credit_card_engineer.py`, `velocity_engineer.py`
-  - [ ] [verify] `./scripts/test.sh core`
-- [ ] **M2 — Database Persistence, Migration, Seed & REST API** (`usfds-infra`, `usfds-server`, `usfds-worker`): lưu trữ `system_column_metadata`, tạo migration Alembic, seed mặc định và cung cấp API `/api/v1/system-metadata/columns`.
-  - [ ] [tests] Viết các API/integration test M2 trong `usfds-server/tests/test_system_metadata_api.py`
-  - [ ] [infra] Tạo `SystemColumnMetadataModel`, `SqlSystemColumnMetadataRepository`, `seed_system_metadata.py`, cập nhật `seed_rbac.py` (`system_metadata:manage`) và sinh Alembic migration
-  - [ ] [server] Tạo `system_metadata_api_schemas.py`, `system_metadata_router.py`, đăng ký providers (`repos.py`, `data.py`, `dependencies.py`), `api.py` và cập nhật `usfds-worker/src/usfds_worker/handlers.py`
-  - [ ] [verify] `./scripts/test.sh core infra server worker`
-- [ ] **M3 — Admin UI Tab & Dynamic Schema Mapping Workspace** (`usfds-web`): xây dựng tab quản trị `Siêu dữ liệu hệ thống` và kết nối động vào `SchemaMappingWorkspace`.
-  - [ ] [tests] Viết component tests M3 với MSW trong `usfds-web/src/components/modules/data_management/SystemMetadata.test.tsx`
-  - [ ] [web] Tạo `types/systemMetadata.ts`, `api/systemMetadataApi.ts`, `hooks/useSystemMetadata.ts` và cập nhật `lib/feature-policy.ts`
-  - [ ] [web] Tạo `SystemMetadataAdminTab.tsx`, gắn vào `AdminUsersPage.tsx`, và nâng cấp `SchemaMappingWorkspace.tsx` dùng metadata + alias động từ API
-  - [ ] [verify] `./scripts/test.sh` (toàn bộ 6 package + `npm run build` & `npm run lint` trong `usfds-web`)
+- [x] **M1 — Core Metadata Registry, Alias Consolidation & Dynamic Pipeline Adaptation** (`usfds-core`): hợp nhất `DEFAULT_SYSTEM_COLUMN_ALIASES` ở 10 module (`ISS-027`), bổ sung thực thể `SystemColumnMetadata`, `SystemMetadataService`, và nâng cấp `DataMappingService` + `PreprocessingExecutionService` thích ứng động với `DOMAIN` columns (`ISS-007`).
+  - [x] [tests] Viết các unit test M1 trong `usfds-core/tests/test_system_metadata.py`; chạy thử để xác nhận fail đúng lý do
+  - [x] [core] Thêm `ColumnCategory`, `ColumnMlRole` vào `enums.py` và tạo `domain/entities/system_metadata.py`, `domain/schemas/system_metadata.py`, `repositories/base_system_metadata_repo.py`
+  - [x] [core] Tạo `SystemMetadataService` và tích hợp kiểm tra/ép kiểu cột `DOMAIN` + `non_ml_columns` vào `DataMappingService`, `PreprocessingPipelineBuilder`, `PreprocessingExecutionService`
+  - [x] [core] Thay thế danh sách alias trùng lặp ở `inference/executor.py`, `inference_service.py`, `insight_report/engine.py`, `rule_engine/executor.py`, `builtin_trainer.py`, `temporal_splitter.py`, `credit_card_engineer.py`, `velocity_engineer.py`
+  - [x] [verify] `./scripts/test.sh core`
+- [x] **M2 — Database Persistence, Migration, Seed & REST API** (`usfds-infra`, `usfds-server`, `usfds-worker`): lưu trữ `system_column_metadata`, tạo migration Alembic, seed mặc định và cung cấp API `/api/v1/system-metadata/columns`.
+  - [x] [tests] Viết các API/integration test M2 trong `usfds-server/tests/test_system_metadata_api.py`
+  - [x] [infra] Tạo `SystemColumnMetadataModel`, `SqlSystemColumnMetadataRepository`, `seed_system_metadata.py`, cập nhật `seed_rbac.py` (`system_metadata:manage`) và sinh Alembic migration
+  - [x] [server] Tạo `system_metadata_api_schemas.py`, `system_metadata_router.py`, đăng ký providers (`repos.py`, `data.py`, `dependencies.py`), `api.py` và cập nhật `usfds-worker/src/usfds_worker/handlers.py`
+  - [x] [verify] `./scripts/test.sh core infra server worker`
+- [x] **M3 — Admin UI Tab & Dynamic Schema Mapping Workspace** (`usfds-web`): xây dựng tab quản trị `Siêu dữ liệu hệ thống` và kết nối động vào `SchemaMappingWorkspace`.
+  - [x] [tests] Viết component tests M3 với MSW trong `usfds-web/src/components/modules/data_management/SystemMetadata.test.tsx`
+  - [x] [web] Tạo `types/systemMetadata.ts`, `api/systemMetadataApi.ts`, `hooks/useSystemMetadata.ts` và cập nhật `lib/feature-policy.ts`
+  - [x] [web] Tạo `SystemMetadataAdminTab.tsx`, gắn vào `AdminUsersPage.tsx`, và nâng cấp `SchemaMappingWorkspace.tsx` dùng metadata + alias động từ API
+  - [x] [verify] `./scripts/test.sh` (toàn bộ 6 package + `npm run build` & `npm run lint` trong `usfds-web`)
 
 Checkpoint log (the agent appends one line per finished milestone):
+- 26-11-21 · M1: `core`: `156 passed, 15 skipped in 6.58s` · deviations: also updated `feature_engineering_service.py` to propagate `non_ml_columns` & `metadata_snapshot` per plan §2/§5.
+- 26-11-21 · M2: `core`: 156 passed · `infra`: 37 passed · `server`: 35 passed · `worker`: 3 passed · Alembic rev `adb5e69392ae` (`down_revision=b1b7b507e88d`) with `if_not_exists=True` for legacy DB compatibility.
+- 26-11-21 · M3: `web`: `19 test files, 35 passed` · `npm run build` OK · `npm run lint` 0 errors · full `./scripts/test.sh` all 6 packages green.
 
 ## 7. Review hotspots (filled in after implementation)
-- —
+1. `usfds-core/src/usfds_core/services/data_management/system_metadata_service.py:100-181` (M1): Khóa bất biến 5 cột `CORE` (cấm xóa, cấm đổi `column_key`/`logical_type`/`is_required`/`is_active`/`ml_role`), vẫn cho phép cập nhật `aliases`/`description`/`display_name` và luôn giữ `column_key` trong `aliases`; covered by `test_core_system_columns_are_immutable_while_aliases_are_editable`.
+2. `usfds-core/src/usfds_core/services/data_management/mapping.py:243-348` (M1): Kiểm tra bắt buộc cột `DOMAIN` có `is_required=True`, ép kiểu theo `LogicalDataType`, tách đường dẫn bất biến `datasets/{dataset_id}/mapped/{artifact_id}/mapped.parquet` (không ghi đè artifact cũ), ghi `non_ml_columns` + `metadata_snapshot` vào `validation_report`; covered by `test_mapping_adapts_to_dynamic_domain_columns_and_identifier_role` & `test_existing_mapped_artifact_remains_valid_after_metadata_change`.
+3. `usfds-core/src/usfds_core/domain/schemas/system_metadata.py:165-248` (M1): Hợp nhất cơ chế phân giải alias `resolve_canonical_column` (ưu tiên exact → case-insensitive → normalized kèm guard `strict_requested`) và `build_non_ml_columns` cho toàn bộ 10 module; covered by `test_resolve_canonical_column_unifies_aliases_across_modules`.
+4. `usfds-infra/src/usfds_infra/database/migrations/versions/adb5e69392ae_add_system_column_metadata.py:21-57` (M2): Migration tạo bảng `system_column_metadata` + 3 index với `if_not_exists=True` bảo toàn dữ liệu legacy SQLite và tương thích PostgreSQL; covered by `test_migrations.py`.
+5. `usfds-server/src/usfds_server/routers/system_metadata_router.py:39-145` (M2): Phân quyền RBAC (`GET` cho user đã xác thực qua `get_actor_context`, `POST`/`PATCH`/`DELETE` yêu cầu `system_metadata:manage`) và map `LookupError` → 404 / `ValueError` → 400; covered by `test_system_metadata_crud_api_and_rbac_enforcement` & `test_schema_mapping_endpoint_enforces_required_domain_column`.
+6. `usfds-web/src/components/modules/data_management/SchemaMappingWorkspace.tsx:161-319` (M3): Auto-match cột `CORE` và `DOMAIN` (bắt buộc + tùy chọn) theo `aliases` động từ API, tính tổng slot bắt buộc (`5 + requiredDomainColumns.length`) và phát hiện Schema Drift so với `metadata_snapshot` của `mappedArtifact`; covered by `test_schema_mapping_workspace_uses_dynamic_metadata_and_aliases`.
 
 ## 8. Open questions
 - —

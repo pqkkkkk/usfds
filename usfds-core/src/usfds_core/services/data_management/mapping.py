@@ -1,18 +1,25 @@
 import hashlib
 import io
-from typing import Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID, uuid4
 import pandas as pd
 
 from usfds_core.domain.entities.dataset import DatasetArtifact
-from usfds_core.domain.entities.enums import PipelineStage
+from usfds_core.domain.entities.enums import (
+    ColumnCategory,
+    LogicalDataType,
+    PipelineStage,
+)
+from usfds_core.domain.entities.system_metadata import SystemColumnMetadata
 from usfds_core.domain.schemas.artifact_output import validate_stage_outputs
 from usfds_core.domain.schemas.preprocessing_config import (
     DataMappingConfig,
     SupportedTimeFormat,
     SystemColumn,
 )
+from usfds_core.domain.schemas.system_metadata import build_non_ml_columns
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
+from usfds_core.repositories.base_system_metadata_repo import ISystemColumnMetadataRepository
 from usfds_core.services.data_management.validation import (
     DataQualityReport,
     DataQualityValidationService,
@@ -31,10 +38,12 @@ class DataMappingService:
         file_storage: IFileStorage,
         artifact_repo: Optional[IDatasetArtifactRepository] = None,
         validation_service: Optional[DataQualityValidationService] = None,
+        metadata_repo: Optional[ISystemColumnMetadataRepository] = None,
     ) -> None:
         self.file_storage = file_storage
         self.artifact_repo = artifact_repo
         self.validation_service = validation_service or DataQualityValidationService()
+        self.metadata_repo = metadata_repo
 
     def _load_dataframe_from_storage(self, storage_path: str) -> pd.DataFrame:
         """Loads DataFrame from file storage based on file extension."""
@@ -111,6 +120,85 @@ class DataMappingService:
                 )
         return parsed.astype("float64")
 
+    def _coerce_domain_column(
+        self,
+        series: pd.Series,
+        column_key: str,
+        logical_type: Union[LogicalDataType, str],
+        time_format: Union[SupportedTimeFormat, str],
+        max_invalid_ratio: float,
+    ) -> pd.Series:
+        """Coerces a mapped DOMAIN column according to its configured LogicalDataType."""
+        ltype_val = logical_type.value if hasattr(logical_type, "value") else str(logical_type).upper()
+
+        if ltype_val == LogicalDataType.NUMERIC.value:
+            parsed = pd.to_numeric(series, errors="coerce")
+            original_not_null = series.notna() & (series.astype(str).str.strip() != "")
+            if original_not_null.sum() > 0:
+                invalid_ratio = (original_not_null & parsed.isna()).sum() / original_not_null.sum()
+                if invalid_ratio > max_invalid_ratio:
+                    raise ValueError(
+                        f"Cột nghiệp vụ '{column_key}' không tương thích kiểu NUMERIC: "
+                        f"{invalid_ratio * 100:.1f}% giá trị không hợp lệ (vượt ngưỡng {max_invalid_ratio * 100:.1f}%)."
+                    )
+            return parsed.astype("float64")
+
+        if ltype_val == LogicalDataType.DATETIME.value:
+            return self._parse_timestamps(series, time_format, max_invalid_ratio)
+
+        if ltype_val == LogicalDataType.BOOLEAN.value:
+            true_vals = {"true", "1", "1.0", "yes", "y", "t"}
+            false_vals = {"false", "0", "0.0", "no", "n", "f"}
+
+            def _parse_bool(val: Any) -> Optional[bool]:
+                if pd.isna(val):
+                    return None
+                if isinstance(val, bool):
+                    return val
+                s = str(val).strip().lower()
+                if not s:
+                    return None
+                if s in true_vals:
+                    return True
+                if s in false_vals:
+                    return False
+                return None
+
+            original_not_null = series.notna() & (series.astype(str).str.strip() != "")
+            parsed_bool = series.map(_parse_bool)
+            if original_not_null.sum() > 0:
+                invalid_ratio = (original_not_null & parsed_bool.isna()).sum() / original_not_null.sum()
+                if invalid_ratio > max_invalid_ratio:
+                    raise ValueError(
+                        f"Cột nghiệp vụ '{column_key}' không tương thích kiểu BOOLEAN: "
+                        f"{invalid_ratio * 100:.1f}% giá trị không hợp lệ (vượt ngưỡng {max_invalid_ratio * 100:.1f}%)."
+                    )
+            return parsed_bool.astype("boolean")
+
+        # Default: STRING (preserve missing values instead of stringifying NaN to 'nan')
+        return series.where(series.isna(), series.astype(str))
+
+    @staticmethod
+    def _serialize_metadata_snapshot(active_metadata: List[SystemColumnMetadata]) -> List[Dict[str, Any]]:
+        snapshot: List[Dict[str, Any]] = []
+        for meta in active_metadata:
+            cat_val = meta.category.value if hasattr(meta.category, "value") else str(meta.category)
+            type_val = meta.logical_type.value if hasattr(meta.logical_type, "value") else str(meta.logical_type)
+            role_val = meta.ml_role.value if hasattr(meta.ml_role, "value") else str(meta.ml_role)
+            snapshot.append(
+                {
+                    "column_key": meta.column_key,
+                    "display_name": meta.display_name,
+                    "category": cat_val,
+                    "logical_type": type_val,
+                    "is_required": bool(meta.is_required),
+                    "ml_role": role_val,
+                    "is_active": bool(meta.is_active),
+                    "aliases": list(meta.aliases or []),
+                }
+            )
+        return snapshot
+
     def map_dataset(
         self,
         dataset_id: UUID,
@@ -151,6 +239,33 @@ class DataMappingService:
         ]
         if len(set(core_cols)) < len(core_cols):
             raise ValueError("Mỗi trường chuẩn chỉ được ánh xạ tối đa với 1 cột nguồn duy nhất.")
+
+        # 3.1 Load active system metadata (if repository is configured) and enforce required DOMAIN columns
+        active_metadata: List[SystemColumnMetadata] = (
+            self.metadata_repo.list_all(include_inactive=False)
+            if self.metadata_repo is not None
+            else []
+        )
+        domain_meta_by_key: Dict[str, SystemColumnMetadata] = {
+            m.column_key: m
+            for m in active_metadata
+            if (m.category.value if hasattr(m.category, "value") else str(m.category)) == ColumnCategory.DOMAIN.value
+        }
+        mapped_optional_targets = {
+            str(target_col).strip()
+            for target_col in mapping_config.optional_columns.values()
+            if target_col and str(target_col).strip()
+        }
+        missing_required_domain = [
+            key
+            for key, meta in domain_meta_by_key.items()
+            if meta.is_required and key not in mapped_optional_targets
+        ]
+        if missing_required_domain:
+            raise ValueError(
+                f"Chưa ánh xạ đầy đủ trường nghiệp vụ bắt buộc ({', '.join(missing_required_domain)}). "
+                "Vui lòng hoàn tất trước khi lưu."
+            )
 
         # 4. Load source raw DataFrame
         source_path = (
@@ -199,12 +314,24 @@ class DataMappingService:
             raw_df[mapping_config.target_column], errors="coerce"
         ).fillna(0).astype(int)
 
-        # 6.6 Optional columns (all unmapped columns dropped)
+        # 6.6 Optional / Domain columns (apply logical_type coercion when defined in metadata)
         for raw_col, target_col in mapping_config.optional_columns.items():
-            mapped_df[str(target_col)] = raw_df[raw_col]
+            target_key = str(target_col).strip()
+            domain_meta = domain_meta_by_key.get(target_key)
+            if domain_meta is not None:
+                mapped_df[target_key] = self._coerce_domain_column(
+                    raw_df[raw_col],
+                    column_key=target_key,
+                    logical_type=domain_meta.logical_type,
+                    time_format=mapping_config.time_format,
+                    max_invalid_ratio=mapping_config.max_invalid_ratio_allowed,
+                )
+            else:
+                mapped_df[target_key] = raw_df[raw_col]
 
-        # 7. Serialize mapped DataFrame to Parquet
-        storage_path = f"datasets/{dataset_id}/mapped/mapped.parquet"
+        # 7. Serialize mapped DataFrame to immutable per-artifact Parquet path
+        artifact_id = uuid4()
+        storage_path = f"datasets/{dataset_id}/mapped/{artifact_id}/mapped.parquet"
         parquet_buffer = io.BytesIO()
         mapped_df.to_parquet(parquet_buffer, index=False)
         parquet_bytes = parquet_buffer.getvalue()
@@ -222,16 +349,19 @@ class DataMappingService:
         # 10. Construct schema snapshot
         schema_snapshot = {str(col): str(mapped_df[col].dtype) for col in mapped_df.columns}
 
-        # 10.1 Enrich validation report with column_mapping and retained_columns for downstream inference lineage
+        # 10.1 Enrich validation report with column_mapping, retained_columns, and metadata snapshot
         report_dict = quality_report.to_dict()
         report_dict["column_mapping"] = mapping_config.get_full_column_mapping()
         report_dict["retained_columns"] = list(mapped_df.columns)
+        report_dict["non_ml_columns"] = sorted(build_non_ml_columns(active_metadata))
+        if active_metadata:
+            report_dict["metadata_snapshot"] = self._serialize_metadata_snapshot(active_metadata)
         if mapping_config.time_format:
             report_dict["time_format"] = str(mapping_config.time_format)
 
         # 11. Create immutable DatasetArtifact
         artifact = DatasetArtifact(
-            artifact_id=uuid4(),
+            artifact_id=artifact_id,
             dataset_id=dataset_id,
             parent_artifact_id=parent_artifact.artifact_id,
             pipeline_stage=PipelineStage.MAPPED,

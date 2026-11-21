@@ -2,6 +2,8 @@ from typing import Any, Optional, Union
 import numpy as np
 import pandas as pd
 
+from usfds_core.domain.schemas.preprocessing_config import SystemColumn
+from usfds_core.domain.schemas.system_metadata import resolve_canonical_column
 from usfds_core.services.preprocessing.feature_engineering.base_engineer import BaseFeatureEngineer
 
 
@@ -21,38 +23,19 @@ class CreditCardFeatureEngineer(BaseFeatureEngineer):
         self.enable_hour_of_day = enable_hour_of_day
         self.mean_amount_: Optional[float] = None
 
-    def _resolve_column(self, df: pd.DataFrame, col_name: Optional[str]) -> Optional[str]:
+    def _resolve_column(
+        self,
+        df: pd.DataFrame,
+        col_name: Optional[str],
+        canonical_key: SystemColumn,
+    ) -> Optional[str]:
         if not col_name or not isinstance(df, pd.DataFrame):
             return None
-        if col_name in df.columns:
-            return col_name
-
-        def normalize_str(s: str) -> str:
-            return str(s).lower().replace("_", "").replace(" ", "").replace("-", "")
-
-        target = normalize_str(col_name)
-        for c in df.columns:
-            if normalize_str(c) == target:
-                return str(c)
-
-        # Common aliases fallback
-        aliases = {
-            "timestamp": ["time", "datetime", "date_time", "tx_time", "transaction_time", "transactiondt", "trans_date_trans_time"],
-            "time": ["timestamp", "datetime", "date_time", "tx_time", "transaction_time", "transactiondt", "trans_date_trans_time"],
-            "amount": ["amt", "tx_amount", "transaction_amount", "transactionamt"],
-            "user_id": ["customer_id", "client_id", "account_id", "card1", "clientnum"],
-            "customer_id": ["user_id", "client_id", "account_id", "card1", "clientnum"],
-        }
-        for alias in aliases.get(col_name.lower(), []):
-            alias_norm = normalize_str(alias)
-            for c in df.columns:
-                if normalize_str(c) == alias_norm:
-                    return str(c)
-        return None
+        return resolve_canonical_column(df, canonical_key, requested_col=col_name)
 
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y: Optional[Any] = None) -> "CreditCardFeatureEngineer":
         if isinstance(X, pd.DataFrame) and self.add_ratio and self.amount_col:
-            col = self._resolve_column(X, self.amount_col)
+            col = self._resolve_column(X, self.amount_col, SystemColumn.AMOUNT)
             if col:
                 numeric_amt = pd.to_numeric(X[col], errors="coerce")
                 self.mean_amount_ = float(numeric_amt.mean())
@@ -66,7 +49,7 @@ class CreditCardFeatureEngineer(BaseFeatureEngineer):
 
         # 1. Hour of day calculation
         if self.enable_hour_of_day and self.time_col:
-            t_col = self._resolve_column(X_out, self.time_col)
+            t_col = self._resolve_column(X_out, self.time_col, SystemColumn.TIMESTAMP)
             if t_col:
                 time_series = X_out[t_col]
                 if pd.api.types.is_numeric_dtype(time_series):
@@ -79,7 +62,7 @@ class CreditCardFeatureEngineer(BaseFeatureEngineer):
 
         # 2. Amount to mean ratio
         if self.add_ratio and self.mean_amount_ is not None and self.amount_col:
-            a_col = self._resolve_column(X_out, self.amount_col)
+            a_col = self._resolve_column(X_out, self.amount_col, SystemColumn.AMOUNT)
             if a_col:
                 numeric_amt = pd.to_numeric(X_out[a_col], errors="coerce")
                 X_out["amount_to_mean_ratio"] = numeric_amt / (self.mean_amount_ + 1e-6)
