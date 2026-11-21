@@ -9,6 +9,7 @@ import {
 	Sliders,
 } from 'lucide-react';
 import { trainingApi } from '../../../api/trainingApi';
+import { formatModelVersion } from '@/utils/formatters';
 import type { ModelResponse, ModelVersionResponse } from '../../../types/model';
 
 interface ActivateModelModalProps {
@@ -126,7 +127,7 @@ const ActivateModelDialogContent: React.FC<Omit<ActivateModelModalProps, 'isOpen
 						</div>
 						<div className="flex items-center justify-between text-xs">
 							<span className="text-slate-400">Phiên bản:</span>
-							<span className="font-mono font-bold text-brand-400">v{version.semver}</span>
+							<span className="font-mono font-bold text-brand-400">{formatModelVersion(version.semver)}</span>
 						</div>
 						<div className="flex items-center justify-between text-xs">
 							<span className="text-slate-400">Framework:</span>

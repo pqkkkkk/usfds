@@ -180,14 +180,14 @@ class TestTrainingOrchestrationService(unittest.TestCase):
         self.assertIsNotNone(updated_run1.accuracy)
         self.assertIsNotNone(updated_run1.version_id)
 
-        # Verify ModelVersion registered with semver 1.0.0
+        # Verify ModelVersion registered with v1
         version1 = self.version_repo.get_by_id(updated_run1.version_id)
-        self.assertEqual(version1.semver, "1.0.0")
+        self.assertEqual(version1.semver, "v1")
         self.assertEqual(version1.project_id, project_id)
         self.assertEqual(version1.status, ModelVersionStatus.CANDIDATE)
         self.assertTrue(self.storage.exists(version1.artifact_uri))
 
-        # Activate ModelVersion 1.0.0 (SUC-10)
+        # Activate ModelVersion v1 (SUC-10)
         activated_v1 = service.activate_model_version(
             version1.version_id,
             decision_threshold=0.65,
@@ -197,7 +197,7 @@ class TestTrainingOrchestrationService(unittest.TestCase):
         self.assertEqual(activated_v1.decision_threshold, 0.65)
         self.assertEqual(activated_v1.description, "Production release")
 
-        # Run 2: Should auto-increment semver to 1.0.1
+        # Run 2: Should auto-increment version to v2
         config2 = TrainingRunConfig(
             model_id=self.model.model_id,
             dataset_artifact_id=self.artifact.artifact_id,
@@ -209,7 +209,7 @@ class TestTrainingOrchestrationService(unittest.TestCase):
         self.assertEqual(updated_run2.status, TrainingRunStatus.COMPLETED)
 
         version2 = self.version_repo.get_by_id(updated_run2.version_id)
-        self.assertEqual(version2.semver, "1.0.1")
+        self.assertEqual(version2.semver, "v2")
         self.assertNotEqual(version1.version_id, version2.version_id)
 
         # Activating version2 keeps version1 APPROVED (independent activation)
@@ -222,6 +222,77 @@ class TestTrainingOrchestrationService(unittest.TestCase):
             self.version_repo.get_by_id(version2.version_id).status,
             ModelVersionStatus.APPROVED,
         )
+
+    def test_resolve_next_version_orders_numerically_not_lexically_or_by_timestamp(self):
+        """ISS-010: latest version is chosen by numeric vN order, not registered_at or lexical order."""
+        from datetime import datetime, timedelta, timezone
+        from usfds_core.domain.entities.model import ModelVersion, TrainingRun
+        from usfds_core.domain.schemas.training_payload import TrainingRunResult
+
+        t_old = datetime(2026, 11, 1, tzinfo=timezone.utc)
+        t_new = t_old + timedelta(hours=1)
+        self.version_repo.save(
+            ModelVersion(
+                model_id=self.model.model_id,
+                semver="v10",
+                artifact_uri="models/v10.joblib",
+                registered_at=t_old,
+            )
+        )
+        self.version_repo.save(
+            ModelVersion(
+                model_id=self.model.model_id,
+                semver="v2",
+                artifact_uri="models/v2.joblib",
+                registered_at=t_new,
+            )
+        )
+
+        service = TrainingOrchestrationService(
+            dispatcher=SynchronousRunDispatcher(executor_func=lambda p: None),
+            training_run_repo=self.run_repo,
+            model_version_repo=self.version_repo,
+            model_repo=self.model_repo,
+            dataset_artifact_repo=self.artifact_repo,
+            file_storage=self.storage,
+        )
+        run = TrainingRun(model_id=self.model.model_id, run_name="run_after_v10")
+        self.run_repo.save(run)
+
+        completed = service.handle_training_completion(
+            TrainingRunResult(
+                run_id=run.run_id,
+                is_success=True,
+                artifact_uri="models/v11.joblib",
+                metrics={"accuracy": 0.9},
+            )
+        )
+        created = self.version_repo.get_by_id(completed.version_id)
+        self.assertEqual(created.semver, "v11")
+
+    def test_lineage_label_no_double_v_prefix(self):
+        """ISS-010: lineage node label for semver='v1' is 'v1', not 'vv1'."""
+        from usfds_core.domain.entities.model import ModelVersion
+
+        version = ModelVersion(
+            model_id=self.model.model_id,
+            semver="v1",
+            artifact_uri="models/v1.joblib",
+        )
+        self.version_repo.save(version)
+
+        service = TrainingOrchestrationService(
+            dispatcher=SynchronousRunDispatcher(executor_func=lambda p: None),
+            training_run_repo=self.run_repo,
+            model_version_repo=self.version_repo,
+            model_repo=self.model_repo,
+            dataset_artifact_repo=self.artifact_repo,
+            file_storage=self.storage,
+        )
+        lineage = service.get_model_version_lineage(version.version_id)
+        mv_nodes = [n for n in lineage.nodes if n.node_type == "MODEL_VERSION"]
+        self.assertEqual(len(mv_nodes), 1)
+        self.assertEqual(mv_nodes[0].label, "v1")
 
 
 if __name__ == "__main__":

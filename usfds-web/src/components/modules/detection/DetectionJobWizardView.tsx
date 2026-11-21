@@ -23,6 +23,7 @@ import { WorkspaceStepper } from '../../layout/WorkspaceStepper';
 import type { PipelineStep } from '../../layout/WorkspaceStepper';
 import { datasetApi, trainingApi, ruleApi, detectionApi, storageApi } from '@/api';
 import { useProject } from '@/hooks';
+import { formatModelVersion } from '@/utils/formatters';
 import type {
 	DatasetArtifactResponse,
 	DatasetResponse,
@@ -714,7 +715,7 @@ export function DetectionJobWizardView() {
 																	{model.display_name || model.model_name}
 																</span>
 																<span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-																	v{version.semver} • APPROVED
+																	{formatModelVersion(version.semver)} • APPROVED
 																</span>
 																<span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-dark-850 text-slate-400 border border-dark-700">
 																	{model.execution_type}
@@ -1010,7 +1011,7 @@ export function DetectionJobWizardView() {
 										</span>
 										<span className="font-semibold text-slate-200 mt-0.5 block">
 											{selectedApprovedModel
-												? `${selectedApprovedModel.model.display_name || selectedApprovedModel.model.model_name} (v${selectedApprovedModel.version.semver})`
+												? `${selectedApprovedModel.model.display_name || selectedApprovedModel.model.model_name} (${formatModelVersion(selectedApprovedModel.version.semver)})`
 												: 'Chỉ dùng luật'}
 										</span>
 									</div>

@@ -21,6 +21,7 @@ import {
 import { trainingApi } from '../../../api/trainingApi';
 import { useProject } from '../../../hooks/useProjects';
 import { useActorContext } from '@/hooks/useActorContext';
+import { formatModelVersion } from '@/utils/formatters';
 import type {
 	ModelResponse,
 	ModelVersionResponse,
@@ -525,7 +526,7 @@ export const ModelHubView: React.FC = () => {
 													<td className="py-3 px-4 font-mono">
 														{versionObj ? (
 															<div className="flex items-center gap-1.5">
-																<span className="text-slate-200">v{versionObj.semver}</span>
+																<span className="text-slate-200">{formatModelVersion(versionObj.semver)}</span>
 																{renderVersionStatusBadge(versionObj.status)}
 															</div>
 														) : (
@@ -680,7 +681,7 @@ export const ModelHubView: React.FC = () => {
 															{versions.map((ver) => (
 																<tr key={ver.version_id} className="hover:bg-dark-800/40">
 																	<td className="py-2.5 px-3 font-mono font-bold text-slate-100">
-																		v{ver.semver}
+																		{formatModelVersion(ver.semver)}
 																	</td>
 																	<td className="py-2.5 px-3">
 																		{renderVersionStatusBadge(ver.status)}

@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { ModelLineagePanel } from './ModelLineagePanel';
+import { formatModelVersion } from '@/utils/formatters';
 import type { ModelVersionResponse } from '@/types/model';
 
 interface ModelLineageModalProps {
@@ -24,7 +25,7 @@ export const ModelLineageModal = ({
 			<div className="w-full max-w-5xl bg-dark-900 border border-dark-700 rounded-2xl shadow-2xl overflow-hidden">
 				<div className="px-5 py-3.5 border-b border-dark-800 flex items-center justify-between">
 					<h3 className="text-sm font-bold text-slate-100">
-						Phả hệ dữ liệu phiên bản v{version.semver}
+						Phả hệ dữ liệu phiên bản {formatModelVersion(version.semver)}
 					</h3>
 					<button
 						type="button"

@@ -21,6 +21,7 @@ import { PageHeader } from '../../layout/PageHeader';
 import { detectionApi } from '@/api';
 import { investigationApi } from '../../../api/investigationApi';
 import { useProject, useActorContext } from '@/hooks';
+import { formatModelVersion } from '@/utils/formatters';
 import type { DetectionJobResponse, DetectionJobStatusType } from '@/types';
 
 const STATUS_BADGE_MAP: Record<
@@ -346,7 +347,7 @@ export function DetectionJobsHubView() {
 
 										const hasModel = Boolean(job.model_version_id);
 										const modelTitle = hasModel
-											? `${meta.model_display_name || meta.model_name || 'Mô hình AI'} (v${meta.semver || '1.0.0'})`
+											? `${meta.model_display_name || meta.model_name || 'Mô hình AI'} (${formatModelVersion(meta.semver)})`
 											: 'Chỉ dùng luật';
 
 										const rejectCount = meta.reject_count ?? 0;

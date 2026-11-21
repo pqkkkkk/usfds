@@ -22,6 +22,7 @@ import {
 import { PageHeader } from '../../layout/PageHeader';
 import { detectionApi } from '@/api';
 import { useProject, useActorContext } from '@/hooks';
+import { formatModelVersion } from '@/utils/formatters';
 import type {
 	DetectionActionFilter,
 	DetectionDecisionAction,
@@ -190,7 +191,7 @@ export function DetectionResultExplorerView() {
 				title={job?.job_name || `Phiên phát hiện ${job?.job_id?.slice(0, 8) ?? ''}`}
 				subtitle={`Đầu vào: ${metrics?.input_label || job?.input_path?.split(/[/\\]/).pop()} • Động cơ: ${
 					hasModel
-						? `${metrics?.model_display_name || metrics?.model_name || 'Mô hình AI'} (v${metrics?.semver || '1.0.0'}, θ=${job?.score_threshold?.toFixed(2) ?? '0.50'})`
+						? `${metrics?.model_display_name || metrics?.model_name || 'Mô hình AI'} (${formatModelVersion(metrics?.semver)}, θ=${job?.score_threshold?.toFixed(2) ?? '0.50'})`
 						: 'Chỉ dùng luật'
 				} • Active Rules: ${job?.use_rules ? (metrics?.active_rules_count ?? 'ON') : 'OFF'}`}
 				badge={job?.status}

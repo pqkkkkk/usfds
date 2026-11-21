@@ -2,6 +2,13 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-20 — ISS-010: Model Versioning Scheme (`v1, v2, v3...`) & Uniqueness
+Plan: `.plan/model_versioning_scheme.md` · Board: `.plan/BOARD.md`
+
+- Core (`base_model_version_repo.py`, `in_memory_repos.py`, `training_service.py`): simplified `ModelVersion` allocation to monotonic `v1, v2, v3...` (`_resolve_next_semver`), added numeric version sorting (`parse_version_sort_key` so `v10 > v2 > 1.0.0`), avoided `vv1` in `ModelLineageNode.label`, and added a 5-attempt retry loop in `handle_training_completion` on `DuplicateModelVersionError` (`ISS-010`).
+- Infra (`tables/model.py`, `repos/model.py`, Alembic `14f998f68015`): added `UniqueConstraint("model_id", "semver", name="uq_model_versions_model_semver")` on `model_versions`, wrapped `SqliteModelVersionRepository.save()` in `begin_nested()` savepoints to map duplicate `IntegrityError` to `DuplicateModelVersionError`, and sorted `get_latest_version` / `list_by_model` by `parse_version_sort_key`.
+- Web (`usfds-web/src/utils/formatters.ts`, `ModelHubView`, `ModelLineageModal`, `ModelLineagePanel`, `ActivateModelModal`, `TrainingRunDetailView`, `DetectionJobWizardView`, `DetectionJobsHubView`, `DetectionResultExplorerView`): added `formatModelVersion` so `v1` displays as `v1` (not `vv1`) while legacy `1.0.0` remains `v1.0.0`.
+- Tests: `./scripts/test.sh core infra server` passed (`core` `154 passed, 15 skipped`, `infra` `39 passed`, `server` `33 passed`); `usfds-web` `18 test files / 30 passed`, `npm run build` & `npm run lint` 0 errors.
 ## 2026-11-21 — ISS-007 & ISS-027: System Metadata Management & Alias Consolidation
 Plan: `.plan/system_metadata_management.md` · Board: `.plan/BOARD.md`
 

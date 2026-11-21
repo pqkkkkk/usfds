@@ -100,6 +100,17 @@ class InMemoryModelVersionRepository(IModelVersionRepository):
         self._versions: Dict[UUID, ModelVersion] = {}
 
     def save(self, version: ModelVersion) -> ModelVersion:
+        from usfds_core.repositories.base_model_version_repo import DuplicateModelVersionError
+
+        for existing in self._versions.values():
+            if (
+                existing.model_id == version.model_id
+                and existing.semver == version.semver
+                and existing.version_id != version.version_id
+            ):
+                raise DuplicateModelVersionError(
+                    f"ModelVersion '{version.semver}' already exists for model {version.model_id}."
+                )
         self._versions[version.version_id] = version
         return version
 
@@ -107,13 +118,24 @@ class InMemoryModelVersionRepository(IModelVersionRepository):
         return self._versions.get(version_id)
 
     def get_latest_version(self, model_id: UUID) -> Optional[ModelVersion]:
+        from usfds_core.repositories.base_model_version_repo import parse_version_sort_key
+
         model_versions = [v for v in self._versions.values() if v.model_id == model_id]
         if not model_versions:
             return None
-        return max(model_versions, key=lambda v: v.registered_at)
+        return max(
+            model_versions,
+            key=lambda v: (parse_version_sort_key(v.semver), v.registered_at),
+        )
 
     def list_by_model(self, model_id: UUID) -> List[ModelVersion]:
-        return [v for v in self._versions.values() if v.model_id == model_id]
+        from usfds_core.repositories.base_model_version_repo import parse_version_sort_key
+
+        return sorted(
+            (v for v in self._versions.values() if v.model_id == model_id),
+            key=lambda v: (parse_version_sort_key(v.semver), v.registered_at),
+            reverse=True,
+        )
 
 
 class InMemoryDatasetRepository(IDatasetRepository):

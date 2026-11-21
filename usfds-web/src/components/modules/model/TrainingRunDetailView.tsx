@@ -18,6 +18,7 @@ import { trainingApi } from '../../../api/trainingApi';
 import { useProject } from '../../../hooks/useProjects';
 import { useTheme } from '../../../hooks/useTheme';
 import { useActorContext } from '@/hooks/useActorContext';
+import { formatModelVersion } from '@/utils/formatters';
 import { PageHeader } from '../../layout/PageHeader';
 import type {
 	ModelResponse,
@@ -206,7 +207,7 @@ export const TrainingRunDetailView: React.FC = () => {
 			<PageHeader
 				title={run.run_name}
 				subtitle={`Model: ${model?.display_name || model?.model_name || run.model_id}${typeof run.duration_seconds === 'number' ? ` • Duration: ${run.duration_seconds}s` : ''}${run.dataset_artifact_id ? ` • Artifact: ${run.dataset_artifact_id.slice(0, 8)}...` : ''}`}
-				badge={version ? `v${version.semver} • ${version.status}` : run.status}
+				badge={version ? `${formatModelVersion(version.semver)} • ${version.status}` : run.status}
 				badgeColor={run.status === 'COMPLETED' ? 'green' : 'amber'}
 				breadcrumbs={[
 					{ label: currentProject?.project_name || 'Project' },
