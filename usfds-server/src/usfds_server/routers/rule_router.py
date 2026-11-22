@@ -14,7 +14,7 @@ from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.rule_engine.executor import RuleExecutor
 from usfds_core.services.rule_engine.manager import RuleManager
 from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetRepository
-from usfds_infra.job_queue import JOB_RULE_BACKTEST, QUEUE_BATCH_INFERENCE
+from usfds_infra.job_queue import JOB_RULE_BACKTEST, QUEUE_BATCH_INFERENCE, QueueWaitTimeoutError
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_server.config import settings
 from usfds_server.dependencies import (
@@ -564,6 +564,8 @@ def backtest_rule_on_dataset(
                 data=RuleBacktestResultResponse(**res),
                 message="Rule backtest simulation completed",
             )
+        except QueueWaitTimeoutError:
+            raise
         except FileNotFoundError as e:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
         except Exception as e:

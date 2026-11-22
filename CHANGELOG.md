@@ -2,6 +2,14 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-22 — ISS-012 & ISS-021: Project Fact Warehouse (DuckDB), Worker Analytics Queue & Queue Timeout/Retry
+Plan: `.plan/large_data_analytics_duckdb.md` · Board: `.plan/BOARD.md`
+
+- Core & Infra (`storage/{base,local,s3}_storage.py`, `services/warehouse/*`, `services/insight_report/{engine,service}.py`, `services/inference/{inference_service,prediction_results}.py`, `repositories/base_case_repo.py`, `database/case_repositories.py`): added `open_local_path` (zero-copy local, temp download S3) and `upload_file` on `IFileStorage`; added `ProjectWarehouse` (`create_bounded_duckdb_connection(threads=2, memory_limit="512MB")`, per-job `warehouse/{project_id}/fact_transactions/job_{job_id}.parquet`, `sync_missing_jobs` for legacy jobs, `QUALIFY row_number()` deduplication by latest scan, `tx_timestamp` filtering); rewrote `DuckDBInsightEngine` joins & `rule_leaderboard` in SQL and moved `get_detection_job_results`, `export_prediction_results`, and `fetch_prediction_events` to DuckDB with `ICaseRepository.get_case_ids_by_events` (`pg_compat` tested).
+- Infra, Worker & Server (`job_queue/*`, `usfds-worker/*`, `api.py`, `config.py`, `routers/{insight_report,detection,investigation,dataset,training,rule}_router.py`, `deploy/.env.example`): added `QueueWaitTimeoutError` (cancels not-started jobs on timeout, keeps `active` jobs running, mapped to `504` `ApiResponse` envelope), `UnrecoverableError` classification in `_make_processor`, terminal-state idempotency in `handle_training_run`/`handle_batch_inference`, `QUEUE_ANALYTICS` (`JOB_INSIGHT_REPORT`, `attempts=3`, exponential backoff, `USFDS_ANALYTICS_WAIT_TIMEOUT_SECONDS=120`) + `USFDS_WORKER_QUEUES`, `FileResponse` streaming export, and single-read `send_to_investigation`.
+- Web (`ReportScopeToolbar.tsx`, `InsightReportModule.tsx`): dropped the `DetectionJob` session picker in favor of transaction date range (`tx_timestamp`) and removed the redundant `detection-jobs` query (`ISS-012`).
+- Tests: `./scripts/test.sh core infra worker server cli web` passed (`core` `167 passed, 15 skipped`, `infra` `49 passed`, `worker` `10 passed`, `server` `47 passed`, `cli` `5 passed`, `web` `21 files / 39 passed`).
+
 ## 2026-11-22 — ISS-043, ISS-023 & ISS-031: `GrantScope.OWN` Enforcement, Unified `user_id` + FKs, Batch-Joined `owner`, and Cursor Pagination
 Plans: `.plan/own_scope_access_control.md`, `.plan/resource_owner_and_cursor_pagination.md` · Board: `.plan/BOARD.md`
 

@@ -1,7 +1,7 @@
 # Plan: Project Fact Warehouse (DuckDB), Worker Analytics Queue & Queue Timeout/Retry
 
 > **Task ID:** `large_data_analytics_duckdb` · **Issues:** ISS-012, ISS-021 (chosen by the user) · **Spec:** `docs/features/insight_report/suc-spec.md`, `docs/features/detection/inference/suc-spec.md`
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Draft <!-- [26-11-22] warehouse mỗi job 1 file + gộp định kỳ; phần Investigation tách sang ISS-045 --> <!-- [26-11-22] gộp ISS-021; own_scope_access_control đã merge vào origin/main -->
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Done (26-11-22) <!-- [26-11-22] warehouse mỗi job 1 file + gộp định kỳ; phần Investigation tách sang ISS-045 --> <!-- [26-11-22] gộp ISS-021; own_scope_access_control đã merge vào origin/main -->
 
 ## 1. Context (facts)
 - **Insight & Report đọc rời rạc `N` file Parquet bằng pandas trong API process:**

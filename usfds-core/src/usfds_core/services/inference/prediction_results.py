@@ -170,12 +170,16 @@ def export_prediction_results(
 	conn = create_bounded_duckdb_connection()
 	try:
 		with _open(storage, output_path) as path:
-			columns = [r[0] for r in conn.execute(f"DESCRIBE SELECT * FROM read_parquet({_literal(path.as_posix())})").fetchall()]
-			where = ' WHERE "is_flagged" = 1' if only_flagged and "is_flagged" in columns else ""
 			fmt = "PARQUET" if file_format.strip().lower() == "parquet" else "CSV, HEADER"
-			conn.execute(
-				f"COPY (SELECT * FROM read_parquet({_literal(path.as_posix())}){where}) "
-				f"TO {_literal(dest_path.as_posix())} (FORMAT {fmt})"
-			)
+			if only_flagged:
+				source = _PredictionSource(conn, path)
+				query = (
+					f"WITH {source.calc_sql} "
+					"SELECT s.* EXCLUDE (__idx) FROM src s JOIN calc c USING (__idx) "
+					"WHERE c.action IN ('REJECT', 'REVIEW') ORDER BY s.__idx"
+				)
+			else:
+				query = f"SELECT * FROM read_parquet({_literal(path.as_posix())})"
+			conn.execute(f"COPY ({query}) TO {_literal(dest_path.as_posix())} (FORMAT {fmt})")
 	finally:
 		conn.close()

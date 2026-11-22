@@ -24,3 +24,4 @@
 | [`project_scoped_access_control`](project_scoped_access_control.md) | ISS-042 | Done (26-11-22) | M1–M3 | `user_management_rbac`, `rbac_feature_visibility`, `model_versioning_scheme` | per plan §3 |
 | [`own_scope_access_control`](own_scope_access_control.md) | ISS-043, ISS-023 | Done (26-11-22) | M1–M3 | `user_management_rbac`, `rbac_feature_visibility`, `project_scoped_access_control`, `model_versioning_scheme` | per plan §3 |
 | [`resource_owner_and_cursor_pagination`](resource_owner_and_cursor_pagination.md) | ISS-031 | Done (26-11-22) | M1–M3 | `own_scope_access_control` | per plan §3 |
+| [`large_data_analytics_duckdb`](large_data_analytics_duckdb.md) | ISS-012, ISS-021 | Done (26-11-22) | M0–M3 | `own_scope_access_control` | per plan §3 |
