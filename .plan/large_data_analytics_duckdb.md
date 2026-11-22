@@ -143,18 +143,24 @@
   - [x] [core] `get_detection_job_results`, `export_detection_job_results*`, `fetch_job_events` bằng DuckDB
   - [x] [server] `insight_report_router.py` dispatch qua `QUEUE_ANALYTICS` (`attempts=3`, `analytics_wait_timeout_seconds`); `detection_router.py` stream export + `send_to_investigation` đọc chọn lọc 1 lần; `ingest_request` nhận `source_rows`
   - [x] [verify] `./scripts/test.sh core infra worker server`
-- [ ] **M3 — UI Insight & Report theo khung thời gian giao dịch** (`usfds-web`)
-  - [ ] [tests] Viết test M3 trong §5; xác nhận fail
-  - [ ] [web] `ReportScopeToolbar.tsx`, `InsightReportModule.tsx`, `ExecutiveOverviewTab.tsx`
-  - [ ] [verify] `./scripts/test.sh core infra worker server web`
+- [x] **M3 — UI Insight & Report theo khung thời gian giao dịch** (`usfds-web`)
+  - [x] [tests] Viết test M3 trong §5; xác nhận fail
+  - [x] [web] `ReportScopeToolbar.tsx`, `InsightReportModule.tsx`, `ExecutiveOverviewTab.tsx`
+  - [x] [verify] `./scripts/test.sh core infra worker server web`
 
 Checkpoint log (the agent appends one line per finished milestone):
 - 26-11-22 M0 done: infra 47 passed · worker 8 passed · server 44 passed; notes: bỏ `attempts=3` cho training/batch (executor đã ghi `FAILED`, user xác nhận), retry chỉ áp dụng cho `JOB_INSIGHT_REPORT` (M2); handler bỏ qua bản ghi ở trạng thái cuối gồm cả `CANCELLED`; thêm 2 test `attempts/backoff` ở `test_job_queue.py`
 - 26-11-22 M1 done: core 166 passed (15 skipped, có sẵn) · infra 48 passed · worker 8 · server 44 · cli 5; notes: không thêm `list_keys`, không compaction; `get_case_ids_by_events` chuyển sang M2; thêm test `test_warehouse_load_filters_by_tx_timestamp_not_job_date`; chưa gộp 34 query `score_calibration`/`threshold_curve` thành single-pass (chỉ đổi nguồn dữ liệu sang warehouse + rule leaderboard bằng SQL)
 - 26-11-22 M2 done: core 167 passed (15 skipped, có sẵn) · infra 49 · worker 10 · server 47 · cli 5; notes: thêm `prediction_results.py` (DuckDB cho Results/Export/Fetch events); `export_detection_job_results_to_file` + `FileResponse` stream; `_source_frame(event_ids)` và `ingest_request(source_rows)`; thêm `usfds-worker/tests/test_worker_config.py` và 1 test queue-mode `LookupError → 404`; `InlineJobQueue` ghi `attempts`/`timeout_seconds` để kiểm tra; Behavior profile (`investigation_router.py` dòng gọi `_source_frame` không có `event_ids`) vẫn đọc full file — thuộc ISS-045
+- 26-11-22 M3 done: web 39 passed (21 files), build OK, lint chỉ còn cảnh báo có sẵn; notes: KHÔNG đổi trục thời gian `ExecutiveOverviewTab` sang `tx_timestamp` vì `financial_trends` hiện nhóm theo job (`engine.py` trend query) và đổi sang theo ngày cần đổi shape response backend (ngoài plan) → đề xuất follow-up
 
 ## 7. Review hotspots (filled in after implementation)
-- —
+- `usfds-core/src/usfds_core/services/insight_report/engine.py` `_build_unified_transactions_table` (M1): SQL thay cho vòng lặp Python; join Case (case thắng: user, amount, final_action, hợp rule codes, nhãn xác minh) và nhánh `UNION ALL` cho Case không có trong facts. Sai lệch ở đây làm lệch mọi KPI nhưng vẫn qua test nhỏ; được test bởi `test_insight_report_end_to_end_metrics_and_sar_export` và `test_insight_report_api_endpoints_and_exports`.
+- `usfds-core/src/usfds_core/services/warehouse/project_warehouse.py` `write_job_facts`/`load_fact_table` (M1): fact ghi 1 lần khi job hoàn tất, job cũ bootstrapped khi đọc (`sync_missing_jobs`); khử trùng `event_id` bằng `QUALIFY` theo `scanned_at DESC, job_id DESC`; lỗi ghi fact chỉ log, không làm hỏng job (`inference_service.handle_job_completion`). Fact cũ không tự cập nhật nếu logic chuẩn hóa đổi.
+- `usfds-infra/.../bullmq_queue.py` `enqueue_and_wait` (M0): hủy job `waiting/delayed` khi timeout (`job.remove()`), job `active` để chạy tiếp; lỗi `remove()` coi như không hủy được.
+- `usfds-worker/src/usfds_worker/main.py` `_make_processor` + `handlers.py` (M0): `UnrecoverableError` cho lỗi nghiệp vụ; `handle_training_run`/`handle_batch_inference` bỏ qua bản ghi đã ở trạng thái cuối. Retry `attempts=3` chỉ cho analytics vì executor training/batch tự ghi `FAILED` và không ném lỗi.
+- `usfds-core/src/usfds_core/services/inference/prediction_results.py` (M2): biểu thức SQL dựng động theo cột có trong file (final_action, triggered_rules dạng JSON/list, score, amount); thứ tự REJECT > REVIEW > ALLOW, `round(score,4)`, `round(amount,2)`; `file_row_number` làm `row_index`. Test: `test_detection_results_pagination_uses_duckdb_without_pandas_full_load`.
+- `usfds-server/.../investigation_router.py` `_source_frame(event_ids)` + `ingest_request(source_rows)` và `detection_router.py` export (M2): chỉ đọc đúng các event được chọn; export ghi file tạm rồi stream/upload và dọn thư mục tạm.
 
 ## 8. Open questions
 - (ISS-021) Mặc định `attempts=3`, backoff 5s; timeout 300s (chung) / 120s (analytics) có phù hợp không?

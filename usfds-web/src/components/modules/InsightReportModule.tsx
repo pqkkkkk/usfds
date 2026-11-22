@@ -10,7 +10,7 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useActorContext } from '@/hooks/useActorContext';
 import { useProject } from '@/hooks/useProjects';
-import { detectionApi, insightReportApi } from '@/api';
+import { insightReportApi } from '@/api';
 import type { ReportScopeFilter } from '@/types';
 import { ReportScopeToolbar } from './reports/ReportScopeToolbar';
 import { ExecutiveOverviewTab } from './reports/ExecutiveOverviewTab';
@@ -64,29 +64,6 @@ export const InsightReportModule: React.FC = () => {
 		}
 		setSearchParams(nextParams, { replace: true });
 	};
-
-	// Load project Detection Jobs for scope toolbar
-	const { data: detectionJobsRes } = useQuery({
-		queryKey: ['detection-jobs', currentProjectId],
-		queryFn: () => detectionApi.listJobs({ projectId: currentProjectId! }),
-		enabled: Boolean(currentProjectId && features.detection.allowed),
-	});
-
-	const detectionJobsList = useMemo(() => {
-		if (!detectionJobsRes) {
-			return [];
-		}
-		if (Array.isArray(detectionJobsRes)) {
-			return detectionJobsRes;
-		}
-		if (Array.isArray((detectionJobsRes as any)?.data?.items)) {
-			return (detectionJobsRes as any).data.items;
-		}
-		if (Array.isArray((detectionJobsRes as any)?.data)) {
-			return (detectionJobsRes as any).data;
-		}
-		return [];
-	}, [detectionJobsRes]);
 
 	// Overview query
 	const { data: overviewData, isLoading: isOverviewLoading } = useQuery({
@@ -165,7 +142,6 @@ export const InsightReportModule: React.FC = () => {
 						<ReportScopeToolbar
 							scope={scope}
 							onChange={setScope}
-							detectionJobs={detectionJobsList}
 							scannedJobsCount={overviewData?.available_jobs?.length}
 						/>
 

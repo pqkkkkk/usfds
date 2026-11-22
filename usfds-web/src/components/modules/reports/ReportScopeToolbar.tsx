@@ -1,28 +1,20 @@
 import React from 'react';
-import { Calendar, Database, Filter, RotateCcw, ShieldCheck } from 'lucide-react';
-import type { DetectionJobResponse, ReportScopeFilter } from '@/types';
+import { Calendar, Filter, RotateCcw, ShieldCheck } from 'lucide-react';
+import type { ReportScopeFilter } from '@/types';
 
 interface ReportScopeToolbarProps {
 	scope: ReportScopeFilter;
 	onChange: (next: ReportScopeFilter) => void;
-	detectionJobs?: DetectionJobResponse[] | null;
 	scannedJobsCount?: number;
 }
 
 export const ReportScopeToolbar: React.FC<ReportScopeToolbarProps> = ({
 	scope,
 	onChange,
-	detectionJobs,
 	scannedJobsCount,
 }) => {
-	const safeJobs: DetectionJobResponse[] = Array.isArray(detectionJobs)
-		? detectionJobs
-		: Array.isArray((detectionJobs as any)?.data)
-			? ((detectionJobs as any).data as DetectionJobResponse[])
-			: [];
-	const completedJobs = safeJobs.filter((j: DetectionJobResponse) => j && j.status === 'COMPLETED');
 	const hasActiveFilters = Boolean(
-		scope.detectionJobId || scope.dateFrom || scope.dateTo || scope.useDatasetFallback === false
+		scope.dateFrom || scope.dateTo || scope.useDatasetFallback === false
 	);
 
 	return (
@@ -33,28 +25,11 @@ export const ReportScopeToolbar: React.FC<ReportScopeToolbarProps> = ({
 					<span>Phạm vi phân tích</span>
 				</div>
 
-				{/* Detection Job Selector */}
-				<div className="flex items-center gap-2 bg-dark-950 border border-dark-700/80 rounded-lg px-2.5 py-1.5">
-					<Database size={13} className="text-slate-400 shrink-0" />
-					<select
-						aria-label="Phạm vi phiên phát hiện"
-						value={scope.detectionJobId || ''}
-						onChange={(e) => onChange({ ...scope, detectionJobId: e.target.value || undefined })}
-						className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer font-medium"
-					>
-						<option value="" className="bg-dark-900 text-slate-200">
-							Tất cả phiên phát hiện đã hoàn thành ({completedJobs.length})
-						</option>
-						{completedJobs.map((job) => (
-							<option key={job.job_id} value={job.job_id} className="bg-dark-900 text-slate-200">
-								{job.job_name || `Phiên ${job.job_id.slice(0, 8)}`} — {(job.total_records ?? 0).toLocaleString()} giao dịch
-							</option>
-						))}
-					</select>
-				</div>
-
-				{/* Date Range Filter */}
-				<div className="flex items-center gap-2 bg-dark-950 border border-dark-700/80 rounded-lg px-2.5 py-1.5">
+				{/* Transaction date range (tx_timestamp, not the detection session date) */}
+				<div
+					className="flex items-center gap-2 bg-dark-950 border border-dark-700/80 rounded-lg px-2.5 py-1.5"
+					title="Lọc theo thời điểm giao dịch"
+				>
 					<Calendar size={13} className="text-slate-400 shrink-0" />
 					<input
 						type="date"
@@ -97,7 +72,6 @@ export const ReportScopeToolbar: React.FC<ReportScopeToolbarProps> = ({
 						type="button"
 						onClick={() =>
 							onChange({
-								detectionJobId: undefined,
 								dateFrom: undefined,
 								dateTo: undefined,
 								useDatasetFallback: true,
@@ -113,7 +87,7 @@ export const ReportScopeToolbar: React.FC<ReportScopeToolbarProps> = ({
 
 			<div className="flex items-center gap-2 text-xs text-slate-400 font-mono tabular-nums">
 				<span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
-				<span>DuckDB OLAP • {scannedJobsCount ?? completedJobs.length} Parquet source(s)</span>
+				<span>Kho dữ liệu dự án • {scannedJobsCount ?? 0} phiên quét</span>
 			</div>
 		</div>
 	);
