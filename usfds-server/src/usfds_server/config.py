@@ -53,6 +53,15 @@ class Settings(BaseModel):
         description="'sync' (in-process execution) or 'queue' (BullMQ on PostgreSQL, executed by usfds-worker)",
     )
 
+    queue_wait_timeout_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("USFDS_QUEUE_WAIT_TIMEOUT_SECONDS", "300")),
+        description="Max seconds a request waits for a queued request/reply job before answering 504",
+    )
+    analytics_wait_timeout_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("USFDS_ANALYTICS_WAIT_TIMEOUT_SECONDS", "120")),
+        description="Same as queue_wait_timeout_seconds, for analytics (insight report) jobs",
+    )
+
     # Server host & port
     host: str = Field(
         default_factory=lambda: os.getenv("USFDS_HOST", "127.0.0.1"),

@@ -558,6 +558,7 @@ def backtest_rule_on_dataset(
                     "max_samples": request.max_samples,
                 },
                 job_id=f"backtest-{uuid4()}",
+                timeout_seconds=settings.queue_wait_timeout_seconds,
             )
             return ApiResponse.ok(
                 data=RuleBacktestResultResponse(**res),

@@ -92,6 +92,10 @@ def _load_artifact_dataframe(artifact_path: str, storage: IFileStorage) -> pd.Da
 	return pd.read_parquet(io.BytesIO(raw_bytes))
 
 
+_TERMINAL_RUN_STATUSES = (TrainingRunStatus.COMPLETED, TrainingRunStatus.FAILED, TrainingRunStatus.CANCELLED)
+_TERMINAL_JOB_STATUSES = (DetectionJobStatus.COMPLETED, DetectionJobStatus.FAILED, DetectionJobStatus.CANCELLED)
+
+
 def handle_training_run(ctx: WorkerContext, data: Dict[str, Any]) -> None:
 	"""Execute a training run and persist the result (TrainingRun status + candidate ModelVersion)."""
 	payload = TrainingRunPayload.model_validate(data)
@@ -99,6 +103,9 @@ def handle_training_run(ctx: WorkerContext, data: Dict[str, Any]) -> None:
 	with ctx.session_factory() as session:
 		run_repo = SqliteTrainingRunRepository(session)
 		existing_run = run_repo.get_by_id(payload.run_id)
+		if existing_run and existing_run.status in _TERMINAL_RUN_STATUSES:
+			logger.info(f"Training run {payload.run_id} already {existing_run.status}; skipping redelivered job")
+			return
 		if existing_run and existing_run.status == TrainingRunStatus.PENDING:
 			existing_run.status = TrainingRunStatus.RUNNING
 			existing_run.started_at = datetime.now(timezone.utc)
@@ -139,6 +146,9 @@ def handle_batch_inference(ctx: WorkerContext, data: Dict[str, Any]) -> None:
 	with ctx.session_factory() as session:
 		job_repo = SqliteDetectionJobRepository(session)
 		existing_job = job_repo.get_by_id(payload.job_id)
+		if existing_job and existing_job.status in _TERMINAL_JOB_STATUSES:
+			logger.info(f"Batch inference job {payload.job_id} already {existing_job.status}; skipping redelivered job")
+			return
 		if existing_job and existing_job.status == DetectionJobStatus.PENDING:
 			existing_job.status = DetectionJobStatus.RUNNING
 			existing_job.started_at = datetime.now(timezone.utc)

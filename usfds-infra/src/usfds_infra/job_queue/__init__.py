@@ -10,6 +10,7 @@ from usfds_infra.job_queue.bullmq_queue import (
 	QUEUE_DATA_PIPELINE,
 	QUEUE_TRAINING,
 	BullMQJobQueue,
+	QueueWaitTimeoutError,
 	build_bullmq_opts,
 	run_sync,
 )
@@ -31,4 +32,5 @@ __all__ = [
 	"run_sync",
 	"QueueTrainingDispatcher",
 	"QueueBatchInferenceDispatcher",
+	"QueueWaitTimeoutError",
 ]

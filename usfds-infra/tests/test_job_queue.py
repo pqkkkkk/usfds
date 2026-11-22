@@ -16,6 +16,7 @@ from usfds_infra.job_queue import (
 	BullMQJobQueue,
 	QueueBatchInferenceDispatcher,
 	QueueTrainingDispatcher,
+	QueueWaitTimeoutError,
 )
 
 
@@ -25,9 +26,13 @@ class _StubJob:
 		self._state = state
 		self.returnvalue = returnvalue
 		self.failedReason = failed_reason
+		self.removed = 0
 
 	async def getState(self):
 		return self._state
+
+	async def remove(self, opts=None):
+		self.removed += 1
 
 
 class _StubQueue:
@@ -108,6 +113,53 @@ class TestQueueDispatchers(unittest.TestCase):
 				{"file_path": "missing.csv", "dataset_name": "test"},
 				job_id="ingest-missing",
 			)
+
+	def test_enqueue_and_wait_timeout_removes_job_not_yet_started(self):
+		job = _StubJob("slow-1", state="waiting")
+		_StubQueue.jobs["slow-1"] = job
+		with self.assertRaises(QueueWaitTimeoutError) as ctx:
+			self.job_queue.enqueue_and_wait(
+				QUEUE_DATA_PIPELINE,
+				JOB_DATASET_INGESTION,
+				{"file_path": "uploads/raw.csv"},
+				job_id="slow-1",
+				timeout_seconds=0.05,
+				poll_interval_seconds=0.01,
+			)
+		self.assertTrue(ctx.exception.cancelled)
+		self.assertEqual(ctx.exception.job_id, "slow-1")
+		self.assertEqual(job.removed, 1)
+		self.assertIsInstance(ctx.exception, TimeoutError)
+
+	def test_enqueue_and_wait_timeout_keeps_active_job_running(self):
+		job = _StubJob("busy-1", state="active")
+		_StubQueue.jobs["busy-1"] = job
+		with self.assertRaises(QueueWaitTimeoutError) as ctx:
+			self.job_queue.enqueue_and_wait(
+				QUEUE_DATA_PIPELINE,
+				JOB_DATASET_INGESTION,
+				{"file_path": "uploads/raw.csv"},
+				job_id="busy-1",
+				timeout_seconds=0.05,
+				poll_interval_seconds=0.01,
+			)
+		self.assertFalse(ctx.exception.cancelled)
+		self.assertEqual(ctx.exception.job_id, "busy-1")
+		self.assertEqual(job.removed, 0)
+
+	def test_enqueue_and_wait_passes_attempts_and_exponential_backoff(self):
+		self.job_queue.enqueue_and_wait(
+			QUEUE_DATA_PIPELINE, JOB_DATASET_INGESTION, {}, job_id="retry-1", attempts=3
+		)
+		job_opts = _StubQueue.calls[0][3]
+		self.assertEqual(job_opts["attempts"], 3)
+		self.assertEqual(job_opts["backoff"], {"type": "exponential", "delay": 5000})
+
+	def test_enqueue_and_wait_defaults_to_single_attempt_without_backoff(self):
+		self.job_queue.enqueue_and_wait(QUEUE_DATA_PIPELINE, JOB_DATASET_INGESTION, {}, job_id="once-1")
+		job_opts = _StubQueue.calls[0][3]
+		self.assertEqual(job_opts["attempts"], 1)
+		self.assertNotIn("backoff", job_opts)
 
 
 if __name__ == "__main__":

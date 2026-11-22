@@ -19,6 +19,22 @@ JOB_FEATURE_ENGINEERING = "feature_engineering"
 
 DEFAULT_SCHEMA = "bullmq"
 
+_NOT_STARTED_STATES = ("waiting", "delayed", "prioritized", "waiting-children")
+
+
+class QueueWaitTimeoutError(TimeoutError):
+	"""`enqueue_and_wait` gave up. `cancelled` = the job had not started and was removed from the queue;
+	otherwise it is still running on the worker. `job_id` is the BullMQ job id (not a business id)."""
+
+	def __init__(self, job_id: Optional[str], cancelled: bool):
+		self.job_id = job_id
+		self.cancelled = cancelled
+		super().__init__(
+			f"Queue job '{job_id}' timed out and was cancelled"
+			if cancelled
+			else f"Queue job '{job_id}' timed out but is still running"
+		)
+
 
 def raise_from_failed_reason(failed_reason: Optional[str]) -> None:
 	"""Re-raise a worker failure ("<ExceptionType>: <message>", see usfds-worker main.py) as the original exception type."""
@@ -109,12 +125,16 @@ class BullMQJobQueue:
 		job_id: Optional[str] = None,
 		timeout_seconds: float = 300.0,
 		poll_interval_seconds: float = 0.25,
+		attempts: int = 1,
+		backoff_ms: int = 5000,
 	) -> Any:
 		job_opts: Dict[str, Any] = {
-			"attempts": 1,
+			"attempts": attempts,
 			"removeOnComplete": False,
 			"removeOnFail": False,
 		}
+		if attempts > 1:
+			job_opts["backoff"] = {"type": "exponential", "delay": backoff_ms}
 		if job_id:
 			job_opts["jobId"] = job_id
 
@@ -124,6 +144,7 @@ class BullMQJobQueue:
 				added_job = await queue.add(job_name, data, job_opts)
 				resolved_id = getattr(added_job, "id", None) or job_id
 				deadline = time.monotonic() + timeout_seconds
+				current_job = added_job
 				while time.monotonic() < deadline:
 					current_job = added_job
 					if hasattr(queue, "getJob") and resolved_id is not None:
@@ -140,9 +161,16 @@ class BullMQJobQueue:
 					if state == "failed":
 						raise_from_failed_reason(getattr(current_job, "failedReason", None))
 					await asyncio.sleep(poll_interval_seconds)
-				raise TimeoutError(
-					f"Timed out waiting for worker job '{job_name}' on queue '{queue_name}'"
-				)
+				# Do not leave an orphan behind: a job that has not started can still be cancelled.
+				cancelled = False
+				if hasattr(current_job, "getState") and hasattr(current_job, "remove"):
+					try:
+						if await current_job.getState() in _NOT_STARTED_STATES:
+							await current_job.remove()
+							cancelled = True
+					except Exception:
+						cancelled = False
+				raise QueueWaitTimeoutError(resolved_id, cancelled=cancelled)
 			finally:
 				await queue.close()
 

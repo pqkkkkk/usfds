@@ -14,6 +14,7 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from usfds_core.domain.entities.auth import AuthenticationError, PermissionDeniedError
 from usfds_core.storage.base_storage import IFileStorage
+from usfds_infra.job_queue import QueueWaitTimeoutError
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_server.config import settings
 from usfds_server.dependencies import (
@@ -121,6 +122,25 @@ async def permission_exception_handler(request: Request, exc: PermissionDeniedEr
             error=str(exc),
             status_code=status.HTTP_403_FORBIDDEN,
             message="Forbidden",
+        ).model_dump(by_alias=True),
+    )
+
+
+@app.exception_handler(QueueWaitTimeoutError)
+async def queue_timeout_exception_handler(request: Request, exc: QueueWaitTimeoutError):
+    message = (
+        "Tác vụ quá thời gian chờ và đã bị hủy, vui lòng thử lại"
+        if exc.cancelled
+        else "Tác vụ vẫn đang chạy nền, vui lòng tải lại danh sách sau ít phút"
+    )
+    return JSONResponse(
+        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+        content=ApiResponse(
+            success=False,
+            statusCode=status.HTTP_504_GATEWAY_TIMEOUT,
+            data={"job_id": exc.job_id},
+            message=message,
+            error=message,
         ).model_dump(by_alias=True),
     )
 

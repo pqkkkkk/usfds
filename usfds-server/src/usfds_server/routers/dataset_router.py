@@ -149,6 +149,7 @@ def import_dataset(
                     "data_classification": classification.value if classification else None,
                 },
                 job_id=f"ingest-{uuid4()}",
+                timeout_seconds=settings.queue_wait_timeout_seconds,
             )
             dataset, artifacts, lineage = service.get_dataset(UUID(str(res["dataset_id"])))
             owner = resolve_owners(user_repo, [dataset.user_id]).get(dataset.user_id)
@@ -303,6 +304,7 @@ def map_schema(
                     "mapping_config": mapping_config.model_dump(mode="json"),
                 },
                 job_id=f"map-{dataset_id}-{uuid4()}",
+                timeout_seconds=settings.queue_wait_timeout_seconds,
             )
             artifact = service.get_artifact(dataset_id, UUID(str(res["artifact_id"])))
         else:
@@ -369,6 +371,7 @@ def execute_feature_engineering(
                     "config": config.model_dump(mode="json"),
                 },
                 job_id=f"fe-{dataset_id}-{uuid4()}",
+                timeout_seconds=settings.queue_wait_timeout_seconds,
             )
             artifact = service.get_artifact(dataset_id, UUID(str(res["artifact_id"])))
         else:

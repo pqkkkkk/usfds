@@ -218,6 +218,7 @@ def register_plugged_model(
                     "zip_base64": request.zip_base64,
                 },
                 job_id=f"plugin-{uuid4()}",
+                timeout_seconds=settings.queue_wait_timeout_seconds,
             )
             model = service.get_model(UUID(str(res["model_id"])))
         else:
@@ -323,6 +324,7 @@ def _register_uploaded_plugin_sync(
                 ),
             },
             job_id=f"plugin-upload-{uuid4()}",
+            timeout_seconds=settings.queue_wait_timeout_seconds,
         )
         return service.get_model(UUID(str(res["model_id"])))
 

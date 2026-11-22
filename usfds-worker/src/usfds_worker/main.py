@@ -57,6 +57,9 @@ DATA_PIPELINE_QUEUE_HANDLERS: Dict[str, HandlerFn] = {
 }
 
 
+NON_RETRYABLE_ERRORS = (ValueError, LookupError, FileNotFoundError, TypeError, MemoryError)
+
+
 def _make_processor(
 	ctx: WorkerContext,
 	handler_or_map: HandlerFn | Dict[str, HandlerFn],
@@ -75,7 +78,13 @@ def _make_processor(
 			return await asyncio.to_thread(target_handler, ctx, job.data)
 		except Exception as e:
 			# Preserve exception type prefix in failedReason for BullMQJobQueue.enqueue_and_wait()
-			raise RuntimeError(f"{type(e).__name__}: {e}") from e
+			message = f"{type(e).__name__}: {e}"
+			if isinstance(e, NON_RETRYABLE_ERRORS):
+				# Deterministic business/input errors: retrying cannot help (ISS-021).
+				from bullmq import UnrecoverableError
+
+				raise UnrecoverableError(message) from e
+			raise RuntimeError(message) from e
 
 	return processor
 
