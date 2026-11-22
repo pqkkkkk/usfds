@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
 	Play,
 	Search,
@@ -18,6 +18,7 @@ import {
 	Briefcase,
 } from 'lucide-react';
 import { PageHeader } from '../../layout/PageHeader';
+import { OwnerBadge } from '../../common/OwnerBadge';
 import { detectionApi } from '@/api';
 import { investigationApi } from '../../../api/investigationApi';
 import { useProject, useActorContext } from '@/hooks';
@@ -61,16 +62,24 @@ export function DetectionJobsHubView() {
 	const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
 	const {
-		data: jobsRes,
+		data: jobsPages,
 		isLoading,
 		refetch,
 		isFetching,
-	} = useQuery({
+		hasNextPage = false,
+		isFetchingNextPage,
+		fetchNextPage,
+	} = useInfiniteQuery({
 		queryKey: ['detection-jobs', projectId],
-		queryFn: () => detectionApi.listJobs({ projectId }),
+		initialPageParam: undefined as string | undefined,
+		queryFn: async ({ pageParam }) => {
+			const res = await detectionApi.listJobs({ projectId, cursor: pageParam });
+			return res.data ?? { items: [], nextCursor: null };
+		},
+		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
 		enabled: Boolean(projectId),
 		refetchInterval: (query) => {
-			const list = query.state.data?.data || [];
+			const list = query.state.data?.pages.flatMap((p) => p.items) || [];
 			return list.some((j) => j.status === 'PENDING' || j.status === 'RUNNING')
 				? 2500
 				: false;
@@ -84,8 +93,8 @@ export function DetectionJobsHubView() {
 	});
 
 	const jobs: DetectionJobResponse[] = useMemo(() => {
-		return jobsRes?.data || [];
-	}, [jobsRes]);
+		return jobsPages?.pages.flatMap((p) => p.items) || [];
+	}, [jobsPages]);
 
 	const totalCases = casesRes?.total || 0;
 
@@ -322,6 +331,7 @@ export function DetectionJobsHubView() {
 										<th className="py-3 px-4">Nguồn đầu vào</th>
 										<th className="py-3 px-4">Hybrid Engine Config</th>
 										<th className="py-3 px-4">Trạng thái</th>
+										<th className="py-3 px-4">Chủ sở hữu</th>
 										<th className="py-3 px-4 text-right">Records</th>
 										<th className="py-3 px-4 text-right">Decision Breakdown</th>
 										<th className="py-3 px-4 text-right">Runtime</th>
@@ -431,6 +441,10 @@ export function DetectionJobsHubView() {
 													</span>
 												</td>
 
+												<td className="py-3.5 px-4">
+													<OwnerBadge owner={job.owner} userId={job.user_id} />
+												</td>
+
 												<td className="py-3.5 px-4 text-right font-mono text-slate-200">
 													{job.total_records != null ? job.total_records.toLocaleString() : '—'}
 												</td>
@@ -496,6 +510,18 @@ export function DetectionJobsHubView() {
 									})}
 								</tbody>
 							</table>
+						</div>
+					)}
+					{hasNextPage && (
+						<div className="p-3 border-t border-dark-800 flex justify-center bg-dark-950/40">
+							<button
+								type="button"
+								disabled={isFetchingNextPage}
+								onClick={() => void fetchNextPage()}
+								className="px-4 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs text-slate-200 font-medium disabled:opacity-50"
+							>
+								{isFetchingNextPage ? 'Đang tải...' : 'Tải thêm'}
+							</button>
 						</div>
 					)}
 				</div>

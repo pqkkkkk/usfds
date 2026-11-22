@@ -14,6 +14,7 @@ import {
 	X,
 } from 'lucide-react';
 import { PageHeader } from '../../layout/PageHeader';
+import { OwnerBadge } from '../../common/OwnerBadge';
 import type { RuleResponse, RuleStatus } from '../../../types/rule';
 import { ruleApi } from '../../../api/ruleApi';
 import { useProject } from '../../../hooks/useProjects';
@@ -26,14 +27,11 @@ export const RuleCatalogView: React.FC = () => {
 	const navigate = useNavigate();
 	const { currentProject, currentProjectId, refetchProjects } = useProject();
 	const effectiveProjectId = currentProjectId || FALLBACK_PROJECT_ID;
-	const { features } = useActorContext(currentProjectId);
+	const { features, canAccessRecord } = useActorContext(currentProjectId);
 	const canCreateRule = features.createRule.allowed;
-	const canUpdateRule = features.updateRule.allowed;
-	const canDeleteRule = features.deleteRule.allowed;
-	const canDryRunRule = features.dryRunRule.allowed;
-	const canDeployRule = features.deployRule.allowed;
-	const canUndeployRule = features.undeployRule.allowed;
 	const [rules, setRules] = useState<RuleResponse[]>([]);
+	const [nextCursor, setNextCursor] = useState<string | null>(null);
+	const [loadingMore, setLoadingMore] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
 	const [searchTerm, setSearchTerm] = useState('');
@@ -48,15 +46,28 @@ export const RuleCatalogView: React.FC = () => {
 		setErrorMsg(null);
 		try {
 			const res = await ruleApi.listRules(effectiveProjectId);
-			if (Array.isArray(res.data)) {
-				setRules(res.data);
-			}
+			setRules(res.data?.items || []);
+			setNextCursor(res.data?.nextCursor ?? null);
 		} catch (err: any) {
 			setErrorMsg(err?.message || 'Không thể tải danh sách quy tắc từ máy chủ.');
 		} finally {
 			setLoading(false);
 		}
 	}, [effectiveProjectId]);
+
+	const handleLoadMore = async () => {
+		if (!nextCursor || loadingMore) return;
+		setLoadingMore(true);
+		try {
+			const res = await ruleApi.listRules(effectiveProjectId, undefined, { cursor: nextCursor });
+			setRules((prev) => [...prev, ...(res.data?.items || [])]);
+			setNextCursor(res.data?.nextCursor ?? null);
+		} catch (err: any) {
+			setErrorMsg(err?.message || 'Không thể tải thêm quy tắc.');
+		} finally {
+			setLoadingMore(false);
+		}
+	};
 
 	useEffect(() => {
 		fetchRules();
@@ -265,6 +276,7 @@ export const RuleCatalogView: React.FC = () => {
 								<tr>
 									<th className="py-3 px-4">Rule Code &amp; Title</th>
 									<th className="py-3 px-4">Action</th>
+									<th className="py-3 px-4">Chủ sở hữu</th>
 									<th className="py-3 px-4">Updated At</th>
 									<th className="py-3 px-4">Version</th>
 									<th className="py-3 px-4 text-center">Status</th>
@@ -274,13 +286,13 @@ export const RuleCatalogView: React.FC = () => {
 							<tbody className="divide-y divide-slate-800/60 text-slate-300">
 								{loading ? (
 									<tr>
-										<td colSpan={6} className="py-12 text-center text-slate-500 font-mono">
+										<td colSpan={7} className="py-12 text-center text-slate-500 font-mono">
 											Đang nạp danh sách rules từ project...
 										</td>
 									</tr>
 								) : filteredRules.length === 0 ? (
 									<tr>
-										<td colSpan={6} className="py-12 text-center text-slate-500 font-mono">
+										<td colSpan={7} className="py-12 text-center text-slate-500 font-mono">
 											{rules.length === 0
 												? 'Chưa có quy tắc nghiệp vụ nào trong dự án này. Nhấn "+ Luật nghiệp vụ mới" để khởi tạo.'
 												: 'Không tìm thấy rule nào phù hợp với bộ lọc.'}
@@ -290,6 +302,11 @@ export const RuleCatalogView: React.FC = () => {
 									filteredRules.map((rule) => {
 										const action = rule.current_version?.action || 'REVIEW';
 										const versionNum = rule.current_version?.version_number || 1;
+										const canDryRunRule = canAccessRecord('dryRunRule', rule.user_id);
+										const canUpdateRule = canAccessRecord('updateRule', rule.user_id);
+										const canDeleteRule = canAccessRecord('deleteRule', rule.user_id);
+										const canDeployRule = canAccessRecord('deployRule', rule.user_id);
+										const canUndeployRule = canAccessRecord('undeployRule', rule.user_id);
 
 										return (
 											<tr
@@ -330,6 +347,11 @@ export const RuleCatalogView: React.FC = () => {
 													>
 														{action}
 													</span>
+												</td>
+
+												{/* Chủ sở hữu */}
+												<td className="py-3.5 px-4">
+													<OwnerBadge owner={rule.owner} userId={rule.user_id} />
 												</td>
 
 												{/* Updated At */}
@@ -426,6 +448,18 @@ export const RuleCatalogView: React.FC = () => {
 							</tbody>
 						</table>
 					</div>
+					{nextCursor && (
+						<div className="p-3 border-t border-slate-800 flex justify-center bg-dark-950/40">
+							<button
+								type="button"
+								disabled={loadingMore}
+								onClick={() => void handleLoadMore()}
+								className="px-4 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-slate-700 text-xs text-slate-200 font-medium disabled:opacity-50"
+							>
+								{loadingMore ? 'Đang tải...' : 'Tải thêm'}
+							</button>
+						</div>
+					)}
 				</div>
 			</div>
 

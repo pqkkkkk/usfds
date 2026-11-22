@@ -1,6 +1,6 @@
 """Repository interface for User persistence."""
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Dict, List, Optional, Sequence
 from uuid import UUID
 
 from usfds_core.domain.entities.auth import ActorContext
@@ -16,6 +16,11 @@ class IUserRepository(ABC):
 
 	@abstractmethod
 	def get_by_id(self, user_id: UUID) -> Optional[User]:
+		pass
+
+	@abstractmethod
+	def get_by_ids(self, user_ids: Sequence[UUID]) -> Dict[UUID, User]:
+		"""Batch-load users keyed by user_id, ignoring missing IDs."""
 		pass
 
 	@abstractmethod

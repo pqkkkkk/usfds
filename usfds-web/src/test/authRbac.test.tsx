@@ -82,22 +82,25 @@ describe('M5 Auth & RBAC UI', () => {
 				}
 				return HttpResponse.json({
 					success: true,
-					data: [
-						{
-							project_id: PROJECT_1_ID,
-							project_name: 'Dự án Gian lận A',
-							description: 'Test',
-							user_id: ANALYST_USER.user_id,
-							status: 'ACTIVE',
-							is_schema_locked: false,
-							raw_schema: null,
-							datasets_count: 0,
-							rules_count: 0,
-							detection_jobs_count: 0,
-							created_at: new Date().toISOString(),
-							updated_at: new Date().toISOString(),
-						},
-					],
+					data: {
+						items: [
+							{
+								project_id: PROJECT_1_ID,
+								project_name: 'Dự án Gian lận A',
+								description: 'Test',
+								user_id: ANALYST_USER.user_id,
+								status: 'ACTIVE',
+								is_schema_locked: false,
+								raw_schema: null,
+								datasets_count: 0,
+								rules_count: 0,
+								detection_jobs_count: 0,
+								created_at: new Date().toISOString(),
+								updated_at: new Date().toISOString(),
+							},
+						],
+						nextCursor: null,
+					},
 				});
 			})
 		);

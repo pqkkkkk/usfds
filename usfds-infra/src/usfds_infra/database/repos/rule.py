@@ -43,6 +43,7 @@ class SqliteRuleRepository(IRuleRepository):
         return Rule(
             rule_id=UUID(model.rule_id),
             project_id=UUID(model.project_id),
+            user_id=UUID(model.user_id),
             rule_code=model.rule_code,
             name=model.name,
             description=model.description or "",
@@ -61,6 +62,7 @@ class SqliteRuleRepository(IRuleRepository):
             model = RuleModel(
                 rule_id=str(rule.rule_id),
                 project_id=str(rule.project_id),
+                user_id=str(rule.user_id),
                 rule_code=rule.rule_code,
                 name=rule.name,
                 description=rule.description,

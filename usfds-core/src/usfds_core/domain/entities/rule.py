@@ -26,6 +26,7 @@ class Rule:
     name: str
     description: str
     rule_id: UUID = field(default_factory=uuid4)
+    user_id: UUID = field(default_factory=uuid4)
     status: RuleStatus = RuleStatus.ACTIVE
     current_version_id: Optional[UUID] = None
     created_by: Optional[str] = None

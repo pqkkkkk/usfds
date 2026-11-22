@@ -46,6 +46,7 @@ class DetectionJob:
 	deployment_id: Optional[UUID] = None
 	input_path: str = ""
 	job_id: UUID = field(default_factory=uuid4)
+	user_id: UUID = field(default_factory=uuid4)
 	job_name: Optional[str] = None
 	target_artifact_id: Optional[UUID] = None
 	model_version_id: Optional[UUID] = None

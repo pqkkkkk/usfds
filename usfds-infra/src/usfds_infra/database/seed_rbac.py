@@ -101,6 +101,7 @@ ROLE_GRANTS: Dict[str, List[Tuple[str, GrantScope]]] = {
 		("project_member:read", GrantScope.PROJECT),
 		("project_member:manage", GrantScope.PROJECT),
 		("dataset:read", GrantScope.PROJECT),
+		("dataset:delete", GrantScope.PROJECT),
 		("dataset:export", GrantScope.PROJECT),
 		("model:read", GrantScope.PROJECT),
 		("model:update", GrantScope.PROJECT),
@@ -108,6 +109,9 @@ ROLE_GRANTS: Dict[str, List[Tuple[str, GrantScope]]] = {
 		("deployment:deploy", GrantScope.PROJECT),
 		("deployment:undeploy", GrantScope.PROJECT),
 		("rule:read", GrantScope.PROJECT),
+		("rule:deploy", GrantScope.PROJECT),
+		("rule:undeploy", GrantScope.PROJECT),
+		("rule:delete", GrantScope.PROJECT),
 		("detection:create", GrantScope.PROJECT),
 		("detection:read", GrantScope.PROJECT),
 		("detection:export", GrantScope.PROJECT),
@@ -121,26 +125,26 @@ ROLE_GRANTS: Dict[str, List[Tuple[str, GrantScope]]] = {
 	],
 	"data_scientist": [
 		("project:read", GrantScope.PROJECT),
-		("dataset:create", GrantScope.PROJECT),
+		("dataset:create", GrantScope.OWN),
 		("dataset:read", GrantScope.PROJECT),
-		("dataset:update", GrantScope.PROJECT),
-		("dataset:delete", GrantScope.PROJECT),
+		("dataset:update", GrantScope.OWN),
+		("dataset:delete", GrantScope.OWN),
 		("dataset:export", GrantScope.PROJECT),
-		("model:create", GrantScope.PROJECT),
+		("model:create", GrantScope.OWN),
 		("model:read", GrantScope.PROJECT),
-		("model:update", GrantScope.PROJECT),
-		("training:create", GrantScope.PROJECT),
+		("model:update", GrantScope.OWN),
+		("training:create", GrantScope.OWN),
 		("training:read", GrantScope.PROJECT),
-		("deployment:deploy", GrantScope.PROJECT),
-		("deployment:undeploy", GrantScope.PROJECT),
-		("rule:create", GrantScope.PROJECT),
+		("deployment:deploy", GrantScope.OWN),
+		("deployment:undeploy", GrantScope.OWN),
+		("rule:create", GrantScope.OWN),
 		("rule:read", GrantScope.PROJECT),
-		("rule:update", GrantScope.PROJECT),
-		("rule:delete", GrantScope.PROJECT),
+		("rule:update", GrantScope.OWN),
+		("rule:delete", GrantScope.OWN),
 		("rule:dry_run", GrantScope.PROJECT),
-		("rule:deploy", GrantScope.PROJECT),
-		("rule:undeploy", GrantScope.PROJECT),
-		("detection:create", GrantScope.PROJECT),
+		("rule:deploy", GrantScope.OWN),
+		("rule:undeploy", GrantScope.OWN),
+		("detection:create", GrantScope.OWN),
 		("detection:read", GrantScope.PROJECT),
 		("detection:export", GrantScope.PROJECT),
 		("report:read", GrantScope.PROJECT),
@@ -149,7 +153,7 @@ ROLE_GRANTS: Dict[str, List[Tuple[str, GrantScope]]] = {
 		("project:read", GrantScope.PROJECT),
 		("dataset:read", GrantScope.PROJECT),
 		("rule:read", GrantScope.PROJECT),
-		("detection:create", GrantScope.PROJECT),
+		("detection:create", GrantScope.OWN),
 		("detection:read", GrantScope.PROJECT),
 		("detection:export", GrantScope.PROJECT),
 		("case:create", GrantScope.PROJECT),
@@ -212,12 +216,12 @@ def seed_rbac(
 	for role_name, grants in ROLE_GRANTS.items():
 		role = role_by_name[role_name]
 		existing_rp = {
-			(rp.permission_id, str(rp.grant_scope.value if hasattr(rp.grant_scope, "value") else rp.grant_scope))
+			rp.permission_id: str(rp.grant_scope.value if hasattr(rp.grant_scope, "value") else rp.grant_scope)
 			for rp in role_repo.get_role_permissions(role.role_id)
 		}
 		for code, grant_scope in grants:
 			perm = perm_by_code[code]
-			if (perm.permission_id, grant_scope.value) not in existing_rp:
+			if existing_rp.get(perm.permission_id) != grant_scope.value:
 				session.merge(
 					RolePermissionModel(
 						role_id=str(role.role_id),

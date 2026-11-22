@@ -9,16 +9,22 @@ import type {
   FeatureEngineeringConfig,
   ExportDatasetRequest
 } from '../types/dataset';
-import type { ApiResponse } from '@/types';
+import type { ApiResponse, CursorPage } from '@/types';
 
 export const datasetApi = {
   /**
-   * Lấy danh sách dataset (tùy chọn lọc theo projectId hoặc từ khóa tìm kiếm)
+   * Lấy danh sách dataset (tùy chọn lọc theo projectId, search, limit, cursor)
    */
-  listDatasets: async (projectId: string, search?: string): Promise<ApiResponse<DatasetResponse[]>> => {
-    return apiClient.get<DatasetResponse[]>('/v1/datasets', {
+  listDatasets: async (
+    projectId: string,
+    search?: string,
+    pagination?: { limit?: number; cursor?: string }
+  ): Promise<ApiResponse<CursorPage<DatasetResponse>>> => {
+    return apiClient.get<CursorPage<DatasetResponse>>('/v1/datasets', {
       project_id: projectId,
       search: search,
+      limit: pagination?.limit,
+      cursor: pagination?.cursor,
     });
   },
 

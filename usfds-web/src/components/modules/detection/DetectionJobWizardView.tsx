@@ -81,7 +81,7 @@ export function DetectionJobWizardView() {
 				return [];
 			}
 			const dsRes = await datasetApi.listDatasets(projectId);
-			const datasets = dsRes.data || [];
+			const datasets = dsRes.data?.items || [];
 			const details = await Promise.allSettled(
 				datasets.map((d) => datasetApi.getDatasetDetail(d.dataset_id, projectId))
 			);
@@ -118,13 +118,13 @@ export function DetectionJobWizardView() {
 				return [];
 			}
 			const modelsRes = await trainingApi.listModels(projectId);
-			const models = modelsRes.data || [];
+			const models = modelsRes.data?.items || [];
 			const versionLists = await Promise.allSettled(
 				models.map(async (m) => {
 					const verRes = await trainingApi.listModelVersions(m.model_id, projectId);
 					return {
 						model: m,
-						versions: verRes.data || [],
+						versions: verRes.data?.items || [],
 					};
 				})
 			);
@@ -164,7 +164,7 @@ export function DetectionJobWizardView() {
 	});
 
 	const activeRules: RuleResponse[] = useMemo(() => {
-		return activeRulesRes?.data || [];
+		return activeRulesRes?.data?.items || [];
 	}, [activeRulesRes]);
 
 	const selectedApprovedModel = useMemo(() => {

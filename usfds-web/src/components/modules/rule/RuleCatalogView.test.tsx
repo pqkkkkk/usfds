@@ -8,7 +8,7 @@ import { RuleCatalogView } from './RuleCatalogView';
 // Covers ISS-005 (R2): headings use Vietnamese copy only.
 describe('RuleCatalogView', () => {
 	it('test_rule_catalog_headings_are_vietnamese', async () => {
-		server.use(http.get(`${API}/v1/rules`, () => HttpResponse.json({ success: true, data: [] })));
+		server.use(http.get(`${API}/v1/rules`, () => HttpResponse.json({ success: true, data: { items: [], nextCursor: null } })));
 
 		renderWithProviders(<RuleCatalogView />);
 

@@ -1,8 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { datasetApi } from '../api/datasetApi';
 import { PROJECTS_QUERY_KEY } from './useProjects';
-import type { DatasetResponse } from '../types/dataset';
 
 export type StageFilterTab = 'all' | 'raw' | 'mapped' | 'ready';
 export const DATASETS_QUERY_KEY = ['datasets'] as const;
@@ -14,23 +13,33 @@ export function useDatasetList(projectId?: string) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const {
-    data: datasets = [],
+    data: datasetPages,
     isLoading,
     isFetching,
     error,
     refetch,
-  } = useQuery<DatasetResponse[]>({
+    hasNextPage = false,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
     queryKey: [...DATASETS_QUERY_KEY, projectId],
     enabled: Boolean(projectId),
-    queryFn: async () => {
-      if (!projectId) return [];
-      const res = await datasetApi.listDatasets(projectId);
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) => {
+      if (!projectId) return { items: [], nextCursor: null };
+      const res = await datasetApi.listDatasets(projectId, undefined, { cursor: pageParam });
       if (!res.success) {
         throw new Error(res.error || 'Không tải được danh sách tập dữ liệu');
       }
-      return res.data || [];
+      return res.data ?? { items: [], nextCursor: null };
     },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
+
+  const datasets = useMemo(
+    () => datasetPages?.pages.flatMap((page) => page.items) ?? [],
+    [datasetPages]
+  );
 
   // 2. TanStack Mutation for deleting dataset
   const deleteMutation = useMutation({
@@ -143,6 +152,9 @@ export function useDatasetList(projectId?: string) {
     clearSelection,
     deleteDataset,
     refetch,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
   };
 }
 

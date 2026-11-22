@@ -140,9 +140,10 @@ def test_router_rbac_isolation_and_storage_guard(server_settings, monkeypatch):
 			sys_member = role_repo.get_by_scope_and_name(RoleScope.SYSTEM, "system_member")
 			role_repo.set_system_user_roles(u1_id, [sys_member.role_id])
 
+			admin_user = user_repo.get_by_username("admin")
 			proj_repo.save(Project(project_id=p1_id, project_name="Project 1", user_id=u1_id))
-			proj_repo.save(Project(project_id=p2_id, project_name="Project 2", user_id=uuid4()))
-			proj_repo.save(Project(project_id=p3_id, project_name="Project 3", user_id=uuid4()))
+			proj_repo.save(Project(project_id=p2_id, project_name="Project 2", user_id=admin_user.user_id))
+			proj_repo.save(Project(project_id=p3_id, project_name="Project 3", user_id=admin_user.user_id))
 
 			ds_role = role_repo.get_by_scope_and_name(RoleScope.PROJECT, "data_scientist")
 			member_repo.add_member(p1_id, u1_id, ds_role.role_id)
@@ -167,7 +168,7 @@ def test_router_rbac_isolation_and_storage_guard(server_settings, monkeypatch):
 		# Alice sees only Project 1 in list_projects (p2 not member, p3 lacks project:read)
 		list_res = test_client.get("/api/v1/projects", headers=headers)
 		assert list_res.status_code == 200
-		pids = [p["project_id"] for p in list_res.json()["data"]]
+		pids = [p["project_id"] for p in list_res.json()["data"]["items"]]
 		assert str(p1_id) in pids
 		assert str(p2_id) not in pids
 		assert str(p3_id) not in pids
@@ -370,13 +371,15 @@ def test_all_project_routers_enforce_permissions_without_rule_propose(server_set
 		rule_id = uuid4()
 		job_id = uuid4()
 		with dependencies._session_factory() as session:
+			admin_id = SqlUserRepository(session).get_by_username("admin").user_id
 			SqliteDatasetRepository(session).save(
-				Dataset(dataset_id=ds_id, project_id=project_uuid, user_id=uuid4(), dataset_name="ds_test")
+				Dataset(dataset_id=ds_id, project_id=project_uuid, user_id=admin_id, dataset_name="ds_test")
 			)
 			SqliteRuleRepository(session).save(
 				Rule(
 					rule_id=rule_id,
 					project_id=project_uuid,
+					user_id=admin_id,
 					rule_code="R-900",
 					name="Test Rule",
 					description="Test Rule",
@@ -388,6 +391,7 @@ def test_all_project_routers_enforce_permissions_without_rule_propose(server_set
 				DetectionJob(
 					job_id=job_id,
 					project_id=project_uuid,
+					user_id=admin_id,
 					job_name="job_test",
 					input_path="datasets/raw.csv",
 				)
@@ -645,33 +649,34 @@ def test_get_by_id_endpoints_require_project_id_block_null_and_prevent_oracle(se
 		rf_id = dependencies.BUILTIN_RANDOM_FOREST_ID
 
 		with dependencies._session_factory() as session:
+			admin_id = SqlUserRepository(session).get_by_username("admin").user_id
 			SqliteDatasetRepository(session).save(
-				Dataset(dataset_id=ds_b, project_id=proj_b_uuid, user_id=uuid4(), dataset_name="ds_b")
+				Dataset(dataset_id=ds_b, project_id=proj_b_uuid, user_id=admin_id, dataset_name="ds_b")
 			)
 			SqliteDatasetArtifactRepository(session).save(
 				DatasetArtifact(artifact_id=art_b, dataset_id=ds_b, pipeline_stage=PipelineStage.RAW, storage_path="datasets/b/raw.csv")
 			)
 			SqliteModelRepository(session).save(
-				Model(model_id=model_b, project_id=proj_b_uuid, user_id=uuid4(), model_name="custom_b", execution_type=ExecutionType.SCRIPT)
+				Model(model_id=model_b, project_id=proj_b_uuid, user_id=admin_id, model_name="custom_b", execution_type=ExecutionType.SCRIPT)
 			)
 			SqliteTrainingRunRepository(session).save(
-				TrainingRun(run_id=run_b, project_id=proj_b_uuid, model_id=model_b, version_id=ver_b, run_name="run_b", status=TrainingRunStatus.COMPLETED)
+				TrainingRun(run_id=run_b, project_id=proj_b_uuid, user_id=admin_id, model_id=model_b, version_id=ver_b, run_name="run_b", status=TrainingRunStatus.COMPLETED)
 			)
 			SqliteModelVersionRepository(session).save(
-				ModelVersion(version_id=ver_b, model_id=model_b, project_id=proj_b_uuid, run_id=run_b, semver="v1", artifact_uri="models/b/v1.zip", status=ModelVersionStatus.CANDIDATE)
+				ModelVersion(version_id=ver_b, model_id=model_b, project_id=proj_b_uuid, user_id=admin_id, run_id=run_b, semver="v1", artifact_uri="models/b/v1.zip", status=ModelVersionStatus.CANDIDATE)
 			)
 			SqliteTrainingRunRepository(session).save(
-				TrainingRun(run_id=run_null, project_id=None, model_id=rf_id, version_id=ver_null, run_name="run_null", status=TrainingRunStatus.COMPLETED)
+				TrainingRun(run_id=run_null, project_id=None, user_id=admin_id, model_id=rf_id, version_id=ver_null, run_name="run_null", status=TrainingRunStatus.COMPLETED)
 			)
 			SqliteModelVersionRepository(session).save(
-				ModelVersion(version_id=ver_null, model_id=rf_id, project_id=None, run_id=run_null, semver="v1", artifact_uri="models/null/v1.joblib", status=ModelVersionStatus.CANDIDATE)
+				ModelVersion(version_id=ver_null, model_id=rf_id, project_id=None, user_id=admin_id, run_id=run_null, semver="v1", artifact_uri="models/null/v1.joblib", status=ModelVersionStatus.CANDIDATE)
 			)
 			SqliteDetectionJobRepository(session).save(
-				DetectionJob(job_id=job_b, project_id=proj_b_uuid, job_name="job_b", input_path="datasets/b/raw.csv")
+				DetectionJob(job_id=job_b, project_id=proj_b_uuid, user_id=admin_id, job_name="job_b", input_path="datasets/b/raw.csv")
 			)
 			r_ver_id = uuid4()
 			SqliteRuleRepository(session).save(
-				Rule(rule_id=rule_b, project_id=proj_b_uuid, rule_code="R-B1", name="Rule B", description="", status=RuleStatus.DRAFT, current_version_id=r_ver_id)
+				Rule(rule_id=rule_b, project_id=proj_b_uuid, user_id=admin_id, rule_code="R-B1", name="Rule B", description="", status=RuleStatus.DRAFT, current_version_id=r_ver_id)
 			)
 			SqliteRuleVersionRepository(session).save(
 				RuleVersion(rule_version_id=r_ver_id, rule_id=rule_b, version_number=1, condition={"==": [1, 1]}, action=RuleAction.REVIEW)
@@ -798,15 +803,17 @@ def test_cross_project_training_rule_version_and_storage_download_blocked(server
 			s3_storage.save_bytes(train_key, buf.getvalue())
 
 			with dependencies._session_factory() as session:
+				admin_id = SqlUserRepository(session).get_by_username("admin").user_id
+				ds_user_id = SqlUserRepository(session).get_by_username("ds_cross").user_id
 				ds_repo = SqliteDatasetRepository(session)
 				art_repo = SqliteDatasetArtifactRepository(session)
 				rule_repo = SqliteRuleRepository(session)
 				rv_repo = SqliteRuleVersionRepository(session)
 				job_repo = SqliteDetectionJobRepository(session)
 
-				ds_repo.save(Dataset(dataset_id=ds_a, project_id=UUID(proj_a), user_id=uuid4(), dataset_name="ds_a"))
+				ds_repo.save(Dataset(dataset_id=ds_a, project_id=UUID(proj_a), user_id=ds_user_id, dataset_name="ds_a"))
 				art_repo.save(DatasetArtifact(artifact_id=art_a, dataset_id=ds_a, pipeline_stage=PipelineStage.RAW, storage_path=f"datasets/{ds_a}/raw.csv", validation_status=ValidationStatus.PASSED))
-				ds_repo.save(Dataset(dataset_id=ds_b, project_id=UUID(proj_b), user_id=uuid4(), dataset_name="ds_b"))
+				ds_repo.save(Dataset(dataset_id=ds_b, project_id=UUID(proj_b), user_id=admin_id, dataset_name="ds_b"))
 				art_repo.save(
 					DatasetArtifact(
 						artifact_id=art_b,
@@ -818,11 +825,11 @@ def test_cross_project_training_rule_version_and_storage_download_blocked(server
 						validation_report={"target_column": "label"},
 					)
 				)
-				job_repo.save(DetectionJob(job_id=job_b, project_id=UUID(proj_b), job_name="job_b", input_path="datasets/b/raw.csv"))
+				job_repo.save(DetectionJob(job_id=job_b, project_id=UUID(proj_b), user_id=admin_id, job_name="job_b", input_path="datasets/b/raw.csv"))
 
-				rule_repo.save(Rule(rule_id=rule_a, project_id=UUID(proj_a), rule_code="RA", name="Rule A", description="", status=RuleStatus.DRAFT, current_version_id=rv_a))
+				rule_repo.save(Rule(rule_id=rule_a, project_id=UUID(proj_a), user_id=ds_user_id, rule_code="RA", name="Rule A", description="", status=RuleStatus.DRAFT, current_version_id=rv_a))
 				rv_repo.save(RuleVersion(rule_version_id=rv_a, rule_id=rule_a, version_number=1, condition={"==": [1, 1]}, action=RuleAction.REVIEW))
-				rule_repo.save(Rule(rule_id=rule_b, project_id=UUID(proj_b), rule_code="RB", name="Rule B", description="", status=RuleStatus.DRAFT, current_version_id=rv_b))
+				rule_repo.save(Rule(rule_id=rule_b, project_id=UUID(proj_b), user_id=admin_id, rule_code="RB", name="Rule B", description="", status=RuleStatus.DRAFT, current_version_id=rv_b))
 				rv_repo.save(RuleVersion(rule_version_id=rv_b, rule_id=rule_b, version_number=1, condition={">": [{"var": "amount"}, 1]}, action=RuleAction.REJECT))
 				session.commit()
 
@@ -888,3 +895,729 @@ def test_cross_project_training_rule_version_and_storage_download_blocked(server
 				params={"project_id": proj_a, "object_key": f"exports/reports/{proj_a}/audit.md"},
 				headers=ds_headers,
 			).status_code == 403
+
+
+def test_own_scope_list_and_get_by_id_across_core_routers(server_settings, monkeypatch):
+	"""ISS-043: Custom role with GrantScope.OWN on read/export filters list endpoints by user_id and enforces 403 vs 404 on get-by-id."""
+	import io
+	import pandas as pd
+	from uuid import UUID
+	from fastapi.testclient import TestClient
+	from moto import mock_aws
+	from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
+	from usfds_core.domain.entities.detection import DetectionJob
+	from usfds_core.domain.entities.enums import (
+		DetectionJobStatus,
+		ExecutionType,
+		ModelVersionStatus,
+		PipelineStage,
+		RuleAction,
+		RuleStatus,
+		TrainingRunStatus,
+		ValidationStatus,
+	)
+	from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
+	from usfds_core.domain.entities.rule import Rule, RuleVersion
+	from usfds_infra.database.repos.dataset import SqliteDatasetArtifactRepository, SqliteDatasetRepository
+	from usfds_infra.database.repos.detection import SqliteDetectionJobRepository
+	from usfds_infra.database.repos.model import SqliteModelRepository, SqliteModelVersionRepository, SqliteTrainingRunRepository
+	from usfds_infra.database.repos.rule import SqliteRuleRepository, SqliteRuleVersionRepository
+	from usfds_infra.storage.s3_storage import S3FileStorage
+	from usfds_server import dependencies
+	from usfds_server.api import app
+
+	monkeypatch.setattr(server_settings, "auth_mode", "required")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_username", "admin")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_password", "AdminPass123!")
+
+	with mock_aws():
+		s3_storage = S3FileStorage(bucket="usfds", access_key="test", secret_key="test", region="us-east-1")
+		with TestClient(app) as test_client:
+			monkeypatch.setattr(dependencies, "_storage", s3_storage)
+
+			admin_token = test_client.post("/api/v1/auth/login", json={"username": "admin", "password": "AdminPass123!"}).json()["data"]["access_token"]
+			admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+			# Create custom PROJECT role with GrantScope.OWN on read & export permissions
+			own_role_res = test_client.post(
+				"/api/v1/rbac/roles",
+				json={"name": "own_reader", "display_name": "Own Reader", "scope": "PROJECT"},
+				headers=admin_headers,
+			)
+			assert own_role_res.status_code == 201, own_role_res.text
+			own_role_id = own_role_res.json()["data"]["role_id"]
+
+			own_perms = [
+				"project:read",
+				"dataset:read",
+				"dataset:export",
+				"model:read",
+				"training:read",
+				"rule:read",
+				"rule:dry_run",
+				"detection:read",
+				"detection:export",
+			]
+			set_perm_res = test_client.put(
+				f"/api/v1/rbac/roles/{own_role_id}/permissions",
+				json={"grants": [{"permission_code": code, "grant_scope": "OWN"} for code in own_perms]},
+				headers=admin_headers,
+			)
+			assert set_perm_res.status_code == 200, set_perm_res.text
+
+			# Create users u1 and u2
+			u1_res = test_client.post(
+				"/api/v1/users",
+				json={"username": "u1_own", "password": "UserOne123!", "email": "u1@usfds.local", "full_name": "U1", "system_roles": ["system_member"]},
+				headers=admin_headers,
+			)
+			u2_res = test_client.post(
+				"/api/v1/users",
+				json={"username": "u2_own", "password": "UserTwo123!", "email": "u2@usfds.local", "full_name": "U2", "system_roles": ["system_member"]},
+				headers=admin_headers,
+			)
+			u1_id = UUID(u1_res.json()["data"]["user_id"])
+			u2_id = UUID(u2_res.json()["data"]["user_id"])
+
+			u1_token = test_client.post("/api/v1/auth/login", json={"username": "u1_own", "password": "UserOne123!"}).json()["data"]["access_token"]
+			u1_headers = {"Authorization": f"Bearer {u1_token}"}
+
+			# u1 creates Project A, admin creates Project B; attach admin as project_admin on A so u1's role can be replaced with own_role_id
+			roles = test_client.get("/api/v1/rbac/roles", headers=admin_headers).json()["data"]
+			pa_role = next(r for r in roles if r["name"] == "project_admin")
+			admin_me = test_client.get("/api/v1/auth/me", headers=admin_headers).json()["data"]
+			proj_a = test_client.post("/api/v1/projects", json={"project_name": "Own Proj A"}, headers=u1_headers).json()["data"]["project_id"]
+			proj_b = test_client.post("/api/v1/projects", json={"project_name": "Own Proj B"}, headers=admin_headers).json()["data"]["project_id"]
+			proj_a_uuid = UUID(proj_a)
+
+			test_client.post(
+				f"/api/v1/projects/{proj_a}/members",
+				json={"user_id": admin_me["user_id"], "role_id": pa_role["role_id"]},
+				headers=admin_headers,
+			)
+			# Replace u1's role in Project A with own_role_id, and add u2 to Project A with own_role_id
+			rep_res = test_client.put(
+				f"/api/v1/projects/{proj_a}/members/{u1_id}/roles",
+				json={"role_ids": [own_role_id]},
+				headers=admin_headers,
+			)
+			assert rep_res.status_code == 200, rep_res.text
+			test_client.post(
+				f"/api/v1/projects/{proj_a}/members",
+				json={"user_id": str(u2_id), "role_id": own_role_id},
+				headers=admin_headers,
+			)
+
+			# Also create Project C owned by u2 where u1 is added with own_role_id (project:read:OWN)
+			u2_token = test_client.post("/api/v1/auth/login", json={"username": "u2_own", "password": "UserTwo123!"}).json()["data"]["access_token"]
+			u2_headers = {"Authorization": f"Bearer {u2_token}"}
+			proj_c = test_client.post("/api/v1/projects", json={"project_name": "Own Proj C"}, headers=u2_headers).json()["data"]["project_id"]
+			test_client.post(
+				f"/api/v1/projects/{proj_c}/members",
+				json={"user_id": str(u1_id), "role_id": own_role_id},
+				headers=admin_headers,
+			)
+
+			# Seed u1 and u2 resources inside Project A
+			ds1, ds2 = uuid4(), uuid4()
+			art1, art2 = uuid4(), uuid4()
+			m1, m2 = uuid4(), uuid4()
+			run1, run2 = uuid4(), uuid4()
+			ver1, ver2 = uuid4(), uuid4()
+			rule1, rule2 = uuid4(), uuid4()
+			rv1, rv2 = uuid4(), uuid4()
+			job1, job2 = uuid4(), uuid4()
+			rf_id = dependencies.BUILTIN_RANDOM_FOREST_ID
+
+			pred_buf = io.BytesIO()
+			pd.DataFrame([
+				{
+					"event_id": "e1",
+					"user_id": "cust1",
+					"timestamp": "2026-01-01T00:00:00Z",
+					"amount": 100.0,
+					"model_score": 0.9,
+					"triggered_rules": "[]",
+					"triggered_rule_details": "[]",
+					"rule_action": "ALLOW",
+					"final_action": "REJECT",
+					"is_flagged": True,
+				}
+			]).to_parquet(pred_buf, index=False)
+			out1 = f"datasets/{proj_a}/inferences/{job1}/predictions.parquet"
+			out2 = f"datasets/{proj_a}/inferences/{job2}/predictions.parquet"
+			s3_storage.save_bytes(out1, pred_buf.getvalue())
+			s3_storage.save_bytes(out2, pred_buf.getvalue())
+			s3_storage.save_bytes(f"exports/datasets/{ds1}/b.zip", b"zip1")
+			s3_storage.save_bytes(f"exports/datasets/{ds2}/b.zip", b"zip2")
+			s3_storage.save_bytes(f"exports/detection/{job1}/r.csv", b"csv1")
+			s3_storage.save_bytes(f"exports/detection/{job2}/r.csv", b"csv2")
+
+			with dependencies._session_factory() as session:
+				ds_repo = SqliteDatasetRepository(session)
+				art_repo = SqliteDatasetArtifactRepository(session)
+				m_repo = SqliteModelRepository(session)
+				run_repo = SqliteTrainingRunRepository(session)
+				ver_repo = SqliteModelVersionRepository(session)
+				r_repo = SqliteRuleRepository(session)
+				rv_repo = SqliteRuleVersionRepository(session)
+				j_repo = SqliteDetectionJobRepository(session)
+
+				for uid, d_id, a_id, m_id, rn_id, v_id, rl_id, rlv_id, jb_id, out_key, suffix in (
+					(u1_id, ds1, art1, m1, run1, ver1, rule1, rv1, job1, out1, "1"),
+					(u2_id, ds2, art2, m2, run2, ver2, rule2, rv2, job2, out2, "2"),
+				):
+					ds_repo.save(Dataset(dataset_id=d_id, project_id=proj_a_uuid, user_id=uid, dataset_name=f"ds_{suffix}"))
+					art_repo.save(
+						DatasetArtifact(
+							artifact_id=a_id,
+							dataset_id=d_id,
+							pipeline_stage=PipelineStage.RAW,
+							storage_path=f"datasets/{d_id}/raw.csv",
+							validation_status=ValidationStatus.PASSED,
+						)
+					)
+					m_repo.save(Model(model_id=m_id, project_id=proj_a_uuid, user_id=uid, model_name=f"custom_m_{suffix}", execution_type=ExecutionType.SCRIPT))
+					run_repo.save(
+						TrainingRun(
+							run_id=rn_id,
+							project_id=proj_a_uuid,
+							user_id=uid,
+							model_id=rf_id,
+							version_id=v_id,
+							run_name=f"run_{suffix}",
+							status=TrainingRunStatus.COMPLETED,
+						)
+					)
+					ver_repo.save(
+						ModelVersion(
+							version_id=v_id,
+							model_id=rf_id,
+							project_id=proj_a_uuid,
+							user_id=uid,
+							run_id=rn_id,
+							semver=f"v{suffix}",
+							artifact_uri=f"models/v{suffix}.joblib",
+							status=ModelVersionStatus.CANDIDATE,
+						)
+					)
+					r_repo.save(
+						Rule(
+							rule_id=rl_id,
+							project_id=proj_a_uuid,
+							user_id=uid,
+							rule_code=f"R-{suffix}",
+							name=f"Rule {suffix}",
+							description="",
+							status=RuleStatus.ACTIVE,
+							current_version_id=rlv_id,
+						)
+					)
+					rv_repo.save(
+						RuleVersion(
+							rule_version_id=rlv_id,
+							rule_id=rl_id,
+							version_number=1,
+							condition={">": [{"var": "amount"}, 10]},
+							action=RuleAction.REJECT,
+						)
+					)
+					j_repo.save(
+						DetectionJob(
+							job_id=jb_id,
+							project_id=proj_a_uuid,
+							user_id=uid,
+							job_name=f"job_{suffix}",
+							input_path="raw.csv",
+							output_path=out_key,
+							status=DetectionJobStatus.COMPLETED,
+						)
+					)
+				session.commit()
+
+			# 1. Project read under OWN: u1 can get Project A (200), cannot get Project C owned by u2 (403)
+			assert test_client.get(f"/api/v1/projects/{proj_a}", headers=u1_headers).status_code == 200
+			assert test_client.get(f"/api/v1/projects/{proj_c}", headers=u1_headers).status_code == 403
+
+			# 2. List endpoints in Project A only return u1's records (+ built-in models for GET /models)
+			ds_list = test_client.get("/api/v1/datasets", params={"project_id": proj_a}, headers=u1_headers).json()["data"]["items"]
+			assert [d["dataset_id"] for d in ds_list] == [str(ds1)]
+
+			m_list = test_client.get("/api/v1/training/models", params={"project_id": proj_a}, headers=u1_headers).json()["data"]["items"]
+			m_ids = {m["model_id"] for m in m_list}
+			assert str(m1) in m_ids
+			assert str(rf_id) in m_ids
+			assert str(m2) not in m_ids
+			rf_dto = next(m for m in m_list if m["model_id"] == str(rf_id))
+			assert rf_dto["user_id"] is None
+
+			v_list = test_client.get(f"/api/v1/training/models/{rf_id}/versions", params={"project_id": proj_a}, headers=u1_headers).json()["data"]["items"]
+			assert [v["version_id"] for v in v_list] == [str(ver1)]
+			assert v_list[0]["user_id"] == str(u1_id)
+
+			run_list = test_client.get("/api/v1/training/runs", params={"project_id": proj_a}, headers=u1_headers).json()["data"]["items"]
+			assert [r["run_id"] for r in run_list] == [str(run1)]
+			assert run_list[0]["user_id"] == str(u1_id)
+
+			rule_list = test_client.get("/api/v1/rules", params={"project_id": proj_a}, headers=u1_headers).json()["data"]["items"]
+			assert [r["rule_id"] for r in rule_list] == [str(rule1)]
+			assert rule_list[0]["user_id"] == str(u1_id)
+
+			eval_batch = test_client.post(
+				"/api/v1/rules/evaluate-batch",
+				json={"project_id": proj_a, "transaction_id": "tx_1", "raw_features": {"amount": 50}},
+				headers=u1_headers,
+			).json()["data"]
+			assert [r["rule_id"] for r in eval_batch] == [str(rule1)]
+
+			job_list = test_client.get("/api/v1/detection/jobs", params={"project_id": proj_a}, headers=u1_headers).json()["data"]["items"]
+			assert [j["job_id"] for j in job_list] == [str(job1)]
+			assert job_list[0]["user_id"] == str(u1_id)
+
+			# 3. Get-by-id: u1's records & built-in model -> 200; u2's records -> 403; nonexistent ID in A -> 404; Project B -> 403
+			u1_get_paths = [
+				f"/api/v1/datasets/{ds1}",
+				f"/api/v1/datasets/{ds1}/artifacts/{art1}",
+				f"/api/v1/training/models/{rf_id}",
+				f"/api/v1/training/models/{m1}",
+				f"/api/v1/training/models/{m1}/versions",
+				f"/api/v1/training/versions/{ver1}",
+				f"/api/v1/training/versions/{ver1}/lineage",
+				f"/api/v1/training/runs/{run1}",
+				f"/api/v1/training/runs/{run1}/lineage",
+				f"/api/v1/rules/{rule1}",
+				f"/api/v1/rules/{rule1}/versions",
+				f"/api/v1/detection/jobs/{job1}",
+				f"/api/v1/detection/jobs/{job1}/results",
+				f"/api/v1/detection/jobs/{job1}/export",
+			]
+			for path in u1_get_paths:
+				res = test_client.get(path, params={"project_id": proj_a}, headers=u1_headers)
+				assert res.status_code == 200, f"{path}: {res.status_code} {res.text}"
+
+			u2_get_paths = [
+				f"/api/v1/datasets/{ds2}",
+				f"/api/v1/datasets/{ds2}/artifacts/{art2}",
+				f"/api/v1/training/models/{m2}",
+				f"/api/v1/training/models/{m2}/versions",
+				f"/api/v1/training/versions/{ver2}",
+				f"/api/v1/training/versions/{ver2}/lineage",
+				f"/api/v1/training/runs/{run2}",
+				f"/api/v1/training/runs/{run2}/lineage",
+				f"/api/v1/rules/{rule2}",
+				f"/api/v1/rules/{rule2}/versions",
+				f"/api/v1/detection/jobs/{job2}",
+				f"/api/v1/detection/jobs/{job2}/results",
+				f"/api/v1/detection/jobs/{job2}/export",
+			]
+			for path in u2_get_paths:
+				res = test_client.get(path, params={"project_id": proj_a}, headers=u1_headers)
+				assert res.status_code == 403, f"Expected 403 on u2 resource {path}, got {res.status_code}"
+
+			missing = uuid4()
+			missing_paths = [
+				f"/api/v1/datasets/{missing}",
+				f"/api/v1/datasets/{missing}/artifacts/{uuid4()}",
+				f"/api/v1/training/models/{missing}",
+				f"/api/v1/training/models/{missing}/versions",
+				f"/api/v1/training/versions/{missing}",
+				f"/api/v1/training/versions/{missing}/lineage",
+				f"/api/v1/training/runs/{missing}",
+				f"/api/v1/training/runs/{missing}/lineage",
+				f"/api/v1/rules/{missing}",
+				f"/api/v1/rules/{missing}/versions",
+				f"/api/v1/detection/jobs/{missing}",
+				f"/api/v1/detection/jobs/{missing}/results",
+				f"/api/v1/detection/jobs/{missing}/export",
+			]
+			for path in missing_paths:
+				assert test_client.get(path, params={"project_id": proj_a}, headers=u1_headers).status_code == 404, path
+				assert test_client.get(path, params={"project_id": proj_b}, headers=u1_headers).status_code == 403, path
+
+			# 4. Storage presigned-download respects owner_id for dataset & detection exports
+			assert test_client.get(
+				"/api/v1/storage/presigned-download",
+				params={"project_id": proj_a, "object_key": f"exports/datasets/{ds1}/b.zip"},
+				headers=u1_headers,
+			).status_code == 200
+			assert test_client.get(
+				"/api/v1/storage/presigned-download",
+				params={"project_id": proj_a, "object_key": f"exports/datasets/{ds2}/b.zip"},
+				headers=u1_headers,
+			).status_code == 403
+			assert test_client.get(
+				"/api/v1/storage/presigned-download",
+				params={"project_id": proj_a, "object_key": f"exports/detection/{job1}/r.csv"},
+				headers=u1_headers,
+			).status_code == 200
+			assert test_client.get(
+				"/api/v1/storage/presigned-download",
+				params={"project_id": proj_a, "object_key": f"exports/detection/{job2}/r.csv"},
+				headers=u1_headers,
+			).status_code == 403
+
+
+def test_builtin_ds_own_mutate_isolation_and_project_admin_override(server_settings, monkeypatch):
+	"""ISS-043: Default data_scientist role allows reading peer resources in project but blocks mutating/deleting/deploying them; project_admin overrides."""
+	import io
+	from pathlib import Path
+	import pandas as pd
+	from fastapi.testclient import TestClient
+	from usfds_server.api import app
+
+	monkeypatch.setattr(server_settings, "auth_mode", "required")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_username", "admin")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_password", "AdminPass123!")
+
+	with TestClient(app) as test_client:
+		admin_token = test_client.post("/api/v1/auth/login", json={"username": "admin", "password": "AdminPass123!"}).json()["data"]["access_token"]
+		admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+		proj_a = test_client.post("/api/v1/projects", json={"project_name": "DS Isolation Proj"}, headers=admin_headers).json()["data"]["project_id"]
+
+		roles = test_client.get("/api/v1/rbac/roles", headers=admin_headers).json()["data"]
+		ds_role = next(r for r in roles if r["name"] == "data_scientist")
+		pa_role = next(r for r in roles if r["name"] == "project_admin")
+
+		ds1_member = test_client.post(
+			f"/api/v1/projects/{proj_a}/members",
+			json={"username": "ds_one", "password": "DsOnePass123!", "role_id": ds_role["role_id"]},
+			headers=admin_headers,
+		).json()["data"]
+		ds2_member = test_client.post(
+			f"/api/v1/projects/{proj_a}/members",
+			json={"username": "ds_two", "password": "DsTwoPass123!", "role_id": ds_role["role_id"]},
+			headers=admin_headers,
+		).json()["data"]
+		pa_member = test_client.post(
+			f"/api/v1/projects/{proj_a}/members",
+			json={"username": "proj_adm", "password": "ProjAdmPass123!", "role_id": pa_role["role_id"]},
+			headers=admin_headers,
+		).json()["data"]
+
+		ds1_token = test_client.post("/api/v1/auth/login", json={"username": "ds_one", "password": "DsOnePass123!"}).json()["data"]["access_token"]
+		ds2_token = test_client.post("/api/v1/auth/login", json={"username": "ds_two", "password": "DsTwoPass123!"}).json()["data"]["access_token"]
+		pa_token = test_client.post("/api/v1/auth/login", json={"username": "proj_adm", "password": "ProjAdmPass123!"}).json()["data"]["access_token"]
+
+		ds1_headers = {"Authorization": f"Bearer {ds1_token}"}
+		ds2_headers = {"Authorization": f"Bearer {ds2_token}"}
+		pa_headers = {"Authorization": f"Bearer {pa_token}"}
+
+		# ds1 imports a dataset, maps schema, runs feature engineering, creates a rule, and trains a model version
+		csv_path = Path(server_settings.storage_dir) / "ds1_input.csv"
+		csv_path.parent.mkdir(parents=True, exist_ok=True)
+		pd.DataFrame({
+			"event_id": [f"ev_{i}" for i in range(40)],
+			"user_id": [f"u_{i % 4}" for i in range(40)],
+			"timestamp": [f"2026-01-01T00:{i:02d}:00Z" for i in range(40)],
+			"amount": [100.0 + i * 10 for i in range(40)],
+			"label": [1 if i % 4 == 0 else 0 for i in range(40)],
+		}).to_csv(csv_path, index=False)
+
+		imp_res = test_client.post(
+			"/api/v1/datasets/import",
+			json={"file_path": str(csv_path), "dataset_name": "ds1_dataset", "project_id": proj_a},
+			headers=ds1_headers,
+		)
+		assert imp_res.status_code == 201, imp_res.text
+		ds1_dataset_id = imp_res.json()["data"]["dataset"]["dataset_id"]
+		assert imp_res.json()["data"]["dataset"]["user_id"] == ds1_member["user_id"]
+
+		mapping_payload = {
+			"event_id_column": "event_id",
+			"user_id_column": "user_id",
+			"time_column": "timestamp",
+			"amount_column": "amount",
+			"target_column": "label",
+		}
+		# ds2 can read ds1's dataset (200), but CANNOT map schema (403) or delete it (403)
+		assert test_client.get(f"/api/v1/datasets/{ds1_dataset_id}", params={"project_id": proj_a}, headers=ds2_headers).status_code == 200
+		assert test_client.post(f"/api/v1/datasets/{ds1_dataset_id}/schema-mapping", json=mapping_payload, headers=ds2_headers).status_code == 403
+		assert test_client.delete(f"/api/v1/datasets/{ds1_dataset_id}", headers=ds2_headers).status_code == 403
+
+		# ds1 maps schema and runs feature engineering on own dataset (201)
+		assert test_client.post(f"/api/v1/datasets/{ds1_dataset_id}/schema-mapping", json=mapping_payload, headers=ds1_headers).status_code == 201
+		fe_payload = {"enable_hour_of_day": True, "enable_amount_ratios": True, "enable_velocity_features": False}
+		assert test_client.post(f"/api/v1/datasets/{ds1_dataset_id}/feature-engineering", json=fe_payload, headers=ds2_headers).status_code == 403
+		fe_res = test_client.post(f"/api/v1/datasets/{ds1_dataset_id}/feature-engineering", json=fe_payload, headers=ds1_headers)
+		assert fe_res.status_code == 201, fe_res.text
+		fe_artifact_id = fe_res.json()["data"]["artifact_id"]
+
+		# ds1 creates a rule (201)
+		rule_res = test_client.post(
+			"/api/v1/rules",
+			json={
+				"project_id": proj_a,
+				"rule_code": "R_DS1",
+				"name": "DS1 Rule",
+				"condition": {">": [{"var": "amount"}, 200]},
+				"action": "REVIEW",
+				"status": "DRAFT",
+			},
+			headers=ds1_headers,
+		)
+		assert rule_res.status_code == 201, rule_res.text
+		rule_id = rule_res.json()["data"]["rule_id"]
+		assert rule_res.json()["data"]["user_id"] == ds1_member["user_id"]
+
+		# ds2 can read and dry-run ds1's rule (200), but CANNOT update, deploy, or delete it (403)
+		assert test_client.get(f"/api/v1/rules/{rule_id}", params={"project_id": proj_a}, headers=ds2_headers).status_code == 200
+		assert test_client.post(
+			f"/api/v1/rules/{rule_id}/evaluate",
+			json={"transaction_id": "tx_1", "raw_features": {"amount": 300}},
+			headers=ds2_headers,
+		).status_code == 200
+		assert test_client.put(f"/api/v1/rules/{rule_id}", json={"name": "Hijack"}, headers=ds2_headers).status_code == 403
+		assert test_client.patch(f"/api/v1/rules/{rule_id}/status", json={"status": "ACTIVE"}, headers=ds2_headers).status_code == 403
+		assert test_client.delete(f"/api/v1/rules/{rule_id}", headers=ds2_headers).status_code == 403
+
+		# ds1 updates own rule (200)
+		assert test_client.put(f"/api/v1/rules/{rule_id}", json={"name": "DS1 Updated Rule"}, headers=ds1_headers).status_code == 200
+
+		# ds1 trains a model version (201)
+		models = test_client.get("/api/v1/training/models", params={"project_id": proj_a}, headers=ds1_headers).json()["data"]["items"]
+		rf_id = next(m["model_id"] for m in models if m["model_name"] == "random_forest")
+		run_res = test_client.post(
+			"/api/v1/training/runs",
+			json={"project_id": proj_a, "model_id": rf_id, "dataset_artifact_id": fe_artifact_id, "hyperparameters": {"n_estimators": 5}},
+			headers=ds1_headers,
+		)
+		assert run_res.status_code == 201, run_res.text
+		run_data = run_res.json()["data"]
+		assert run_data["user_id"] == ds1_member["user_id"]
+		ver_id = run_data["version_id"]
+
+		# ds2 can read ds1's run and version (200), but CANNOT activate/deploy ds1's model version (403)
+		assert test_client.get(f"/api/v1/training/runs/{run_data['run_id']}", params={"project_id": proj_a}, headers=ds2_headers).status_code == 200
+		assert test_client.get(f"/api/v1/training/versions/{ver_id}", params={"project_id": proj_a}, headers=ds2_headers).status_code == 200
+		assert test_client.post(f"/api/v1/training/versions/{ver_id}/activate", json={"decision_threshold": 0.55}, headers=ds2_headers).status_code == 403
+
+		# ds1 activates own model version (200)
+		assert test_client.post(f"/api/v1/training/versions/{ver_id}/activate", json={"decision_threshold": 0.55}, headers=ds1_headers).status_code == 200
+
+		# project_admin overrides: can deploy, undeploy, and delete ds1's rule, and delete ds1's dataset (200)
+		assert test_client.patch(f"/api/v1/rules/{rule_id}/status", json={"status": "ACTIVE"}, headers=pa_headers).status_code == 200
+		assert test_client.patch(f"/api/v1/rules/{rule_id}/status", json={"status": "INACTIVE"}, headers=pa_headers).status_code == 200
+		assert test_client.delete(f"/api/v1/rules/{rule_id}", headers=pa_headers).status_code == 200
+		assert test_client.delete(f"/api/v1/datasets/{ds1_dataset_id}", headers=pa_headers).status_code == 200
+
+
+def test_list_endpoints_support_cursor_pagination_and_return_owner(server_settings, monkeypatch):
+	"""M2 (ISS-031 + owner): 8 GET list endpoints return CursorPage {items, nextCursor} and 7 resource DTOs include owner."""
+	import io
+	from uuid import UUID
+	from fastapi.testclient import TestClient
+	from usfds_core.domain.entities.detection import DetectionJob
+	from usfds_core.domain.entities.enums import ModelVersionStatus, TrainingRunStatus
+	from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
+	from usfds_infra.database.repos.detection import SqliteDetectionJobRepository
+	from usfds_infra.database.repos.model import (
+		SqliteModelRepository,
+		SqliteModelVersionRepository,
+		SqliteTrainingRunRepository,
+	)
+	from usfds_server import dependencies
+	from usfds_server.api import app
+
+	monkeypatch.setattr(server_settings, "auth_mode", "required")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_username", "admin")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_password", "AdminPass123!")
+
+	with TestClient(app) as test_client:
+		admin_token = test_client.post("/api/v1/auth/login", json={"username": "admin", "password": "AdminPass123!"}).json()["data"]["access_token"]
+		admin_headers = {"Authorization": f"Bearer {admin_token}"}
+		roles = test_client.get("/api/v1/rbac/roles", headers=admin_headers).json()["data"]
+		ds_role = next(r for r in roles if r["name"] == "data_scientist")
+
+		proj_res = test_client.post(
+			"/api/v1/projects",
+			json={"project_name": "Pagination Owner Project"},
+			headers=admin_headers,
+		)
+		assert proj_res.status_code == 201, proj_res.text
+		proj_data = proj_res.json()["data"]
+		proj_id = proj_data["project_id"]
+		assert proj_data["owner"]["username"] == "admin"
+
+		u1_res = test_client.post(
+			f"/api/v1/projects/{proj_id}/members",
+			json={
+				"username": "owner_u1",
+				"password": "OwnerPass123!",
+				"full_name": "Owner One",
+				"role_id": ds_role["role_id"],
+			},
+			headers=admin_headers,
+		)
+		assert u1_res.status_code == 201, u1_res.text
+		u1_id = u1_res.json()["data"]["user_id"]
+		u1_token = test_client.post("/api/v1/auth/login", json={"username": "owner_u1", "password": "OwnerPass123!"}).json()["data"]["access_token"]
+		u1_headers = {"Authorization": f"Bearer {u1_token}"}
+
+		# Create 3 datasets owned by u1 for pagination testing
+		from pathlib import Path
+		ds_ids = []
+		for idx in range(3):
+			csv_path = Path(server_settings.storage_dir) / f"page_ds_{idx}.csv"
+			csv_path.parent.mkdir(parents=True, exist_ok=True)
+			csv_path.write_text(f"event_id,timestamp,amount,user_id,label\ne{idx},2026-01-01T00:00:0{idx}Z,10,c1,0\n")
+			res = test_client.post(
+				"/api/v1/datasets/import",
+				json={"project_id": proj_id, "dataset_name": f"ds_page_{idx}", "file_path": str(csv_path)},
+				headers=u1_headers,
+			)
+			assert res.status_code == 201, res.text
+			ds_ids.append(res.json()["data"]["dataset"]["dataset_id"])
+			assert res.json()["data"]["dataset"]["owner"] == {
+				"user_id": u1_id,
+				"username": "owner_u1",
+				"full_name": "Owner One",
+			}
+
+		# Create a rule owned by u1 (with 1 version)
+		rule_res = test_client.post(
+			"/api/v1/rules",
+			json={
+				"project_id": proj_id,
+				"rule_code": "R_PAGE_1",
+				"name": "Page Rule",
+				"condition": {">": [{"var": "amount"}, 100]},
+				"action": "REVIEW",
+				"status": "DRAFT",
+			},
+			headers=u1_headers,
+		)
+		assert rule_res.status_code == 201, rule_res.text
+		rule_id = rule_res.json()["data"]["rule_id"]
+		assert rule_res.json()["data"]["owner"]["username"] == "owner_u1"
+
+		# Seed custom model, training run, model version, detection job owned by u1
+		u1_uuid = UUID(u1_id)
+		proj_uuid = UUID(proj_id)
+		custom_model_id = uuid4()
+		run_id = uuid4()
+		ver_id = uuid4()
+		job_id = uuid4()
+		with dependencies._session_factory() as session:
+			SqliteModelRepository(session).save(
+				Model(
+					model_id=custom_model_id,
+					project_id=proj_uuid,
+					user_id=u1_uuid,
+					model_name="custom_page_model",
+					execution_type="CUSTOM",
+				)
+			)
+			SqliteTrainingRunRepository(session).save(
+				TrainingRun(
+					run_id=run_id,
+					project_id=proj_uuid,
+					user_id=u1_uuid,
+					model_id=custom_model_id,
+					run_name="page_run",
+					status=TrainingRunStatus.COMPLETED,
+				)
+			)
+			SqliteModelVersionRepository(session).save(
+				ModelVersion(
+					version_id=ver_id,
+					model_id=custom_model_id,
+					project_id=proj_uuid,
+					user_id=u1_uuid,
+					run_id=run_id,
+					semver="1.0.0",
+					artifact_uri="models/1.0.0.pkl",
+					status=ModelVersionStatus.APPROVED,
+				)
+			)
+			SqliteDetectionJobRepository(session).save(
+				DetectionJob(
+					job_id=job_id,
+					project_id=proj_uuid,
+					user_id=u1_uuid,
+					job_name="page_job",
+					input_path="datasets/raw.csv",
+				)
+			)
+			session.commit()
+
+		# Cursor pagination on /datasets?limit=2 -> page 1 (2 items, nextCursor != None), page 2 (1 item, nextCursor == None)
+		page1 = test_client.get(
+			"/api/v1/datasets",
+			params={"project_id": proj_id, "limit": 2},
+			headers=u1_headers,
+		)
+		assert page1.status_code == 200, page1.text
+		p1_data = page1.json()["data"]
+		assert len(p1_data["items"]) == 2
+		assert p1_data["nextCursor"] is not None
+		assert all(item["owner"]["username"] == "owner_u1" for item in p1_data["items"])
+
+		page2 = test_client.get(
+			"/api/v1/datasets",
+			params={"project_id": proj_id, "limit": 2, "cursor": p1_data["nextCursor"]},
+			headers=u1_headers,
+		)
+		assert page2.status_code == 200, page2.text
+		p2_data = page2.json()["data"]
+		assert len(p2_data["items"]) == 1
+		assert p2_data["nextCursor"] is None
+		seen_ids = {i["dataset_id"] for i in p1_data["items"]} | {i["dataset_id"] for i in p2_data["items"]}
+		assert seen_ids == set(ds_ids)
+
+		# Malformed cursor returns 400
+		bad_cursor = test_client.get(
+			"/api/v1/datasets",
+			params={"project_id": proj_id, "cursor": "not-a-valid-cursor!"},
+			headers=u1_headers,
+		)
+		assert bad_cursor.status_code == 400
+
+		# Verify CursorPage shape + owner on remaining list endpoints & detail endpoints
+		projects_list = test_client.get("/api/v1/projects", headers=u1_headers).json()["data"]
+		assert "items" in projects_list and "nextCursor" in projects_list
+		proj_item = next(p for p in projects_list["items"] if p["project_id"] == proj_id)
+		assert proj_item["owner"]["username"] == "admin"
+
+		models_list = test_client.get("/api/v1/training/models", params={"project_id": proj_id}, headers=u1_headers).json()["data"]
+		assert "items" in models_list and "nextCursor" in models_list
+		builtin_m = next(m for m in models_list["items"] if m["execution_type"] == "BUILTIN")
+		custom_m = next(m for m in models_list["items"] if m["model_id"] == str(custom_model_id))
+		assert builtin_m["user_id"] is None and builtin_m["owner"] is None
+		assert custom_m["owner"] == {"user_id": u1_id, "username": "owner_u1", "full_name": "Owner One"}
+
+		versions_list = test_client.get(
+			f"/api/v1/training/models/{custom_model_id}/versions",
+			params={"project_id": proj_id},
+			headers=u1_headers,
+		).json()["data"]
+		assert len(versions_list["items"]) == 1
+		assert versions_list["items"][0]["owner"]["username"] == "owner_u1"
+
+		runs_list = test_client.get("/api/v1/training/runs", params={"project_id": proj_id}, headers=u1_headers).json()["data"]
+		assert len(runs_list["items"]) == 1
+		assert runs_list["items"][0]["owner"]["username"] == "owner_u1"
+
+		rules_list = test_client.get("/api/v1/rules", params={"project_id": proj_id}, headers=u1_headers).json()["data"]
+		assert len(rules_list["items"]) == 1
+		assert rules_list["items"][0]["owner"]["username"] == "owner_u1"
+
+		rule_vers_list = test_client.get(
+			f"/api/v1/rules/{rule_id}/versions",
+			params={"project_id": proj_id},
+			headers=u1_headers,
+		).json()["data"]
+		assert "items" in rule_vers_list and "nextCursor" in rule_vers_list and len(rule_vers_list["items"]) == 1
+
+		jobs_list = test_client.get("/api/v1/detection/jobs", params={"project_id": proj_id}, headers=u1_headers).json()["data"]
+		assert len(jobs_list["items"]) == 1
+		assert jobs_list["items"][0]["owner"]["username"] == "owner_u1"
+
+		# Detail endpoints also include owner
+		assert test_client.get(f"/api/v1/projects/{proj_id}", headers=u1_headers).json()["data"]["owner"]["username"] == "admin"
+		assert test_client.get(f"/api/v1/datasets/{ds_ids[0]}", params={"project_id": proj_id}, headers=u1_headers).json()["data"]["dataset"]["owner"]["username"] == "owner_u1"
+		assert test_client.get(f"/api/v1/training/models/{custom_model_id}", params={"project_id": proj_id}, headers=u1_headers).json()["data"]["owner"]["username"] == "owner_u1"
+		assert test_client.get(f"/api/v1/training/versions/{ver_id}", params={"project_id": proj_id}, headers=u1_headers).json()["data"]["owner"]["username"] == "owner_u1"
+		assert test_client.get(f"/api/v1/training/runs/{run_id}", params={"project_id": proj_id}, headers=u1_headers).json()["data"]["owner"]["username"] == "owner_u1"
+		assert test_client.get(f"/api/v1/rules/{rule_id}", params={"project_id": proj_id}, headers=u1_headers).json()["data"]["owner"]["username"] == "owner_u1"
+		assert test_client.get(f"/api/v1/detection/jobs/{job_id}", params={"project_id": proj_id}, headers=u1_headers).json()["data"]["owner"]["username"] == "owner_u1"

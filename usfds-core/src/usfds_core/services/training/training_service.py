@@ -4,7 +4,7 @@ import hashlib
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from usfds_core.domain.entities.dataset import DatasetArtifact
 from usfds_core.domain.entities.enums import (
@@ -92,7 +92,10 @@ class TrainingOrchestrationService:
         )
 
     def prepare_and_dispatch(
-        self, config: TrainingRunConfig, user_name: str = "system"
+        self,
+        config: TrainingRunConfig,
+        user_name: str = "system",
+        user_id: Optional[UUID] = None,
     ) -> TrainingRun:
         """Pre-dispatch of training run. Validate, persist TrainingRun (PENDING/RUNNING), and dispatch payload."""
         # 1. Retrieve model
@@ -186,6 +189,7 @@ class TrainingOrchestrationService:
         resolved_project_id = config.project_id or model.project_id
         run = TrainingRun(
             project_id=resolved_project_id,
+            user_id=user_id or uuid4(),
             model_id=model.model_id,
             run_name=run_name,
             hyperparameters=merged_params,
@@ -263,6 +267,7 @@ class TrainingOrchestrationService:
                 candidate = ModelVersion(
                     model_id=run.model_id,
                     project_id=run.project_id,
+                    user_id=run.user_id,
                     run_id=run.run_id,
                     semver=next_semver,
                     artifact_uri=result.artifact_uri or "",
@@ -270,6 +275,7 @@ class TrainingOrchestrationService:
                     framework=result.framework,
                     decision_threshold=run.recommended_threshold if run.recommended_threshold is not None else 0.5,
                     status=ModelVersionStatus.CANDIDATE,
+                    registered_by=run.created_by,
                 )
                 try:
                     model_version = self.model_version_repo.save(candidate)

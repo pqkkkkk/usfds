@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
+from usfds_server.schemas.base_response import ResourceOwnerDto
 
 from usfds_core.domain.schemas.model_plugin import ModelPluginManifest
 
@@ -65,7 +66,8 @@ class ModelResponse(BaseModel):
 
     model_id: UUID
     project_id: Optional[UUID] = None
-    user_id: UUID
+    user_id: Optional[UUID] = None
+    owner: Optional[ResourceOwnerDto] = None
     model_name: str
     display_name: Optional[str] = None
     description: Optional[str] = None
@@ -86,6 +88,8 @@ class ModelVersionResponse(BaseModel):
     version_id: UUID
     model_id: UUID
     project_id: Optional[UUID] = None
+    user_id: UUID
+    owner: Optional[ResourceOwnerDto] = None
     run_id: Optional[UUID] = None
     semver: str
     artifact_uri: str
@@ -105,6 +109,8 @@ class TrainingRunResponse(BaseModel):
 
     run_id: UUID
     project_id: Optional[UUID] = None
+    user_id: UUID
+    owner: Optional[ResourceOwnerDto] = None
     model_id: Optional[UUID] = None
     version_id: Optional[UUID] = None
     dataset_artifact_id: Optional[UUID] = None

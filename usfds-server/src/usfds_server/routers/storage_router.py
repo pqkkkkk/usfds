@@ -151,7 +151,7 @@ def _authorize_download_key(
 				raise PermissionDeniedError("Object key does not belong to the specified project")
 			return clean_key
 		if kind == "datasets":
-			authz.require_project_permission(actor, "dataset:export", project_id)
+			authz.require_project_scope(actor, "dataset:export", project_id)
 			try:
 				ds_id = UUID(parts[2])
 			except ValueError as err:
@@ -159,9 +159,10 @@ def _authorize_download_key(
 			ds = dataset_repo.get_by_id(ds_id)
 			if ds is None or ds.project_id != project_id:
 				raise PermissionDeniedError("Object key does not belong to the specified project")
+			authz.require_project_permission(actor, "dataset:export", project_id, owner_id=ds.user_id)
 			return clean_key
 		if kind == "detection":
-			authz.require_project_permission(actor, "detection:export", project_id)
+			authz.require_project_scope(actor, "detection:export", project_id)
 			try:
 				job_id = UUID(parts[2])
 			except ValueError as err:
@@ -169,15 +170,26 @@ def _authorize_download_key(
 			job = detection_job_repo.get_by_id(job_id)
 			if job is None or job.project_id != project_id:
 				raise PermissionDeniedError("Object key does not belong to the specified project")
+			authz.require_project_permission(actor, "detection:export", project_id, owner_id=job.user_id)
 			return clean_key
 
 	if prefix == "datasets" and len(parts) >= 2:
 		if len(parts) >= 3 and parts[2] == "inferences":
-			authz.require_project_permission(actor, "detection:export", project_id)
+			authz.require_project_scope(actor, "detection:export", project_id)
 			if parts[1] != str(project_id):
 				raise PermissionDeniedError("Object key does not belong to the specified project")
+			if len(parts) >= 4:
+				try:
+					job_id = UUID(parts[3])
+					job = detection_job_repo.get_by_id(job_id)
+				except ValueError:
+					job = None
+				if job is not None and job.project_id == project_id:
+					authz.require_project_permission(actor, "detection:export", project_id, owner_id=job.user_id)
+					return clean_key
+			authz.require_project_permission(actor, "detection:export", project_id)
 			return clean_key
-		authz.require_project_permission(actor, "dataset:export", project_id)
+		authz.require_project_scope(actor, "dataset:export", project_id)
 		try:
 			ds_id = UUID(parts[1])
 		except ValueError as err:
@@ -185,6 +197,7 @@ def _authorize_download_key(
 		ds = dataset_repo.get_by_id(ds_id)
 		if ds is None or ds.project_id != project_id:
 			raise PermissionDeniedError("Object key does not belong to the specified project")
+		authz.require_project_permission(actor, "dataset:export", project_id, owner_id=ds.user_id)
 		return clean_key
 
 	authz.require_project_permission(actor, "project:read", project_id)

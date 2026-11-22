@@ -1,6 +1,6 @@
 import { apiClient } from './client';
 import { storageApi, type PresignedDownloadUrlResponse } from './storageApi';
-import type { ApiResponse } from '@/types';
+import type { ApiResponse, CursorPage } from '@/types';
 import type {
 	DetectionJobResponse,
 	DetectionJobResultsResponse,
@@ -13,10 +13,14 @@ export const detectionApi = {
 	listJobs: async (params: {
 		projectId: string;
 		status?: string;
-	}): Promise<ApiResponse<DetectionJobResponse[]>> => {
-		return apiClient.get<DetectionJobResponse[]>('/v1/detection/jobs', {
+		limit?: number;
+		cursor?: string;
+	}): Promise<ApiResponse<CursorPage<DetectionJobResponse>>> => {
+		return apiClient.get<CursorPage<DetectionJobResponse>>('/v1/detection/jobs', {
 			project_id: params.projectId,
 			status: params.status,
+			limit: params.limit,
+			cursor: params.cursor,
 		});
 	},
 

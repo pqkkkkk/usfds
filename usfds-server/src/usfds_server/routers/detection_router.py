@@ -8,14 +8,22 @@ from sqlalchemy.orm import Session
 
 from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.domain.entities.detection import DetectionJob
+from usfds_core.repositories.base_user_repo import IUserRepository
 from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.inference.inference_service import InferenceService
 from usfds_core.storage.base_storage import IFileStorage
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_server.dependencies import get_actor_context, get_authz_service, get_db, get_storage, get_inference_service
+from usfds_server.providers.auth import get_user_repo
 from usfds_server.routers.investigation_router import _project, _source_frame, get_actor, ingest_request
 from usfds_server.schemas.investigation_api_schemas import CaseIntakeRequest, TransactionSnapshot
-from usfds_server.schemas.base_response import ApiResponse
+from usfds_server.schemas.base_response import ApiResponse, CursorPage, ResourceOwnerDto
+from usfds_server.schemas.pagination import (
+	DEFAULT_PAGE_LIMIT,
+	MAX_PAGE_LIMIT,
+	paginate_cursor,
+	resolve_owners,
+)
 from usfds_server.schemas.detection_api_schemas import (
 	DetectionJobResponse,
 	DetectionJobResultsResponse,
@@ -28,7 +36,10 @@ from usfds_server.schemas.detection_api_schemas import (
 router = APIRouter(prefix="/api/v1/detection", tags=["Detection & Inference"])
 
 
-def _to_job_response(job: DetectionJob) -> DetectionJobResponse:
+def _to_job_response(
+	job: DetectionJob,
+	owner: Optional[ResourceOwnerDto] = None,
+) -> DetectionJobResponse:
 	status_str = (
 		job.status.value
 		if hasattr(job.status, "value")
@@ -37,6 +48,8 @@ def _to_job_response(job: DetectionJob) -> DetectionJobResponse:
 	return DetectionJobResponse(
 		job_id=job.job_id,
 		project_id=job.project_id,
+		user_id=job.user_id,
+		owner=owner,
 		deployment_id=job.deployment_id,
 		target_artifact_id=job.target_artifact_id,
 		model_version_id=job.model_version_id,
@@ -61,21 +74,38 @@ def _to_job_response(job: DetectionJob) -> DetectionJobResponse:
 
 @router.get(
 	"/jobs",
-	response_model=ApiResponse[List[DetectionJobResponse]],
-	summary="List batch detection jobs for a project (SUC-19)",
+	response_model=ApiResponse[CursorPage[DetectionJobResponse]],
+	summary="List batch detection jobs for a project with cursor pagination (SUC-19)",
 )
 def list_detection_jobs(
 	project_id: UUID = Query(..., description="Project ID to query detection jobs for"),
 	job_status: Optional[str] = Query(None, alias="status", description="Optional status filter"),
+	limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+	cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
 	actor: ActorContext = Depends(get_actor_context),
 	authz: AuthzService = Depends(get_authz_service),
 	service: InferenceService = Depends(get_inference_service),
-) -> ApiResponse[List[DetectionJobResponse]]:
-	authz.require_project_permission(actor, "detection:read", project_id)
-	jobs = service.list_detection_jobs(project_id=project_id, status=job_status)
+	user_repo: IUserRepository = Depends(get_user_repo),
+) -> ApiResponse[CursorPage[DetectionJobResponse]]:
+	owner_filter = authz.resolve_project_list_owner(actor, "detection:read", project_id)
+	jobs = [
+		j
+		for j in service.list_detection_jobs(project_id=project_id, status=job_status)
+		if owner_filter is None or j.user_id == owner_filter
+	]
+	page_items, next_cursor = paginate_cursor(
+		jobs,
+		limit=limit,
+		cursor=cursor,
+		key_fn=lambda j: j.job_id,
+	)
+	owners = resolve_owners(user_repo, (j.user_id for j in page_items))
 	return ApiResponse.ok(
-		data=[_to_job_response(j) for j in jobs],
-		message=f"Retrieved {len(jobs)} detection jobs",
+		data=CursorPage(
+			items=[_to_job_response(j, owner=owners.get(j.user_id)) for j in page_items],
+			nextCursor=next_cursor,
+		),
+		message=f"Retrieved {len(page_items)} detection jobs",
 	)
 
 
@@ -90,6 +120,7 @@ def start_detection_job(
 	actor: ActorContext = Depends(get_actor_context),
 	authz: AuthzService = Depends(get_authz_service),
 	service: InferenceService = Depends(get_inference_service),
+	user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[DetectionJobResponse]:
 	authz.require_project_permission(actor, "detection:create", request.project_id, action="create")
 	try:
@@ -102,9 +133,11 @@ def start_detection_job(
 			score_threshold=request.score_threshold,
 			job_name=request.job_name,
 			user_name=actor.username,
+			user_id=actor.user_id,
 		)
+		owner = resolve_owners(user_repo, [job.user_id]).get(job.user_id)
 		return ApiResponse.ok(
-			data=_to_job_response(job),
+			data=_to_job_response(job, owner=owner),
 			status_code=status.HTTP_201_CREATED,
 			message=f"Detection job '{job.job_name}' completed with status {job.status}",
 		)
@@ -127,8 +160,9 @@ def get_detection_job(
 	actor: ActorContext = Depends(get_actor_context),
 	authz: AuthzService = Depends(get_authz_service),
 	service: InferenceService = Depends(get_inference_service),
+	user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[DetectionJobResponse]:
-	authz.require_project_permission(actor, "detection:read", project_id)
+	authz.require_project_scope(actor, "detection:read", project_id)
 	try:
 		job = service.get_detection_job(job_id)
 		if job.project_id != project_id:
@@ -136,8 +170,10 @@ def get_detection_job(
 				status_code=status.HTTP_404_NOT_FOUND,
 				detail=f"DetectionJob '{job_id}' not found in project '{project_id}'.",
 			)
+		authz.require_project_permission(actor, "detection:read", project_id, owner_id=job.user_id)
+		owner = resolve_owners(user_repo, [job.user_id]).get(job.user_id)
 		return ApiResponse.ok(
-			data=_to_job_response(job),
+			data=_to_job_response(job, owner=owner),
 			message="Detection job retrieved successfully",
 		)
 	except ValueError as e:
@@ -165,8 +201,9 @@ def get_detection_job_results(
 	actor: ActorContext = Depends(get_actor_context),
 	authz: AuthzService = Depends(get_authz_service),
 	service: InferenceService = Depends(get_inference_service),
+	user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[DetectionJobResultsResponse]:
-	authz.require_project_permission(actor, "detection:read", project_id)
+	authz.require_project_scope(actor, "detection:read", project_id)
 	try:
 		job = service.get_detection_job(job_id)
 		if job.project_id != project_id:
@@ -174,6 +211,7 @@ def get_detection_job_results(
 				status_code=status.HTTP_404_NOT_FOUND,
 				detail=f"DetectionJob '{job_id}' not found in project '{project_id}'.",
 			)
+		authz.require_project_permission(actor, "detection:read", project_id, owner_id=job.user_id)
 		res = service.get_detection_job_results(
 			job_id=job_id,
 			action_filter=action_filter,
@@ -204,8 +242,10 @@ def get_detection_job_results(
 			)
 			for tx in res["transactions"]
 		]
+		job_entity = res["job"]
+		owner = resolve_owners(user_repo, [job_entity.user_id]).get(job_entity.user_id)
 		payload = DetectionJobResultsResponse(
-			job=_to_job_response(res["job"]),
+			job=_to_job_response(job_entity, owner=owner),
 			total_filtered=res["total_filtered"],
 			transactions=tx_items,
 			summary_metrics=res.get("summary_metrics") or {},
@@ -235,7 +275,7 @@ def export_detection_job_results(
 	service: InferenceService = Depends(get_inference_service),
 	storage: IFileStorage = Depends(get_storage),
 ):
-	authz.require_project_permission(actor, "detection:export", project_id)
+	authz.require_project_scope(actor, "detection:export", project_id)
 	try:
 		job = service.get_detection_job(job_id)
 		if job.project_id != project_id:
@@ -243,6 +283,7 @@ def export_detection_job_results(
 				status_code=status.HTTP_404_NOT_FOUND,
 				detail=f"DetectionJob '{job_id}' not found in project '{project_id}'.",
 			)
+		authz.require_project_permission(actor, "detection:export", project_id, owner_id=job.user_id)
 		if presigned and file_format.strip().lower() == "parquet" and not only_flagged:
 			if job.output_path and storage.exists(job.output_path):
 				safe_name = (job.job_name or str(job.job_id)).replace(" ", "_")

@@ -22,20 +22,25 @@ def _write_raw_csv(storage_dir: str) -> Path:
 	return csv_path
 
 
-def _import_payload(csv_path: Path) -> dict:
+def _import_payload(csv_path: Path, client_queue_mode) -> dict:
+	proj_res = client_queue_mode.post(
+		"/api/v1/projects",
+		json={"project_name": f"Queue Proj {uuid4().hex[:6]}"},
+	)
+	assert proj_res.status_code == 201
 	return {
 		"file_path": str(csv_path),
 		"dataset_name": "queue_dataset",
 		"display_name": "Queue Dataset",
-		"project_id": str(uuid4()),
-		"user_id": str(uuid4()),
+		"project_id": proj_res.json()["data"]["project_id"],
+		"user_id": proj_res.json()["data"]["user_id"],
 		"data_classification": "CONFIDENTIAL",
 	}
 
 
 def test_import_dataset_in_queue_mode_runs_worker_ingestion_handler(client_queue_mode, server_settings):
 	csv_path = _write_raw_csv(server_settings.storage_dir)
-	payload = _import_payload(csv_path)
+	payload = _import_payload(csv_path, client_queue_mode)
 
 	res = client_queue_mode.post("/api/v1/datasets/import", json=payload)
 
@@ -58,7 +63,7 @@ def test_import_dataset_in_queue_mode_runs_worker_ingestion_handler(client_queue
 
 def test_import_dataset_in_queue_mode_maps_worker_value_error_to_400(client_queue_mode, server_settings):
 	csv_path = _write_raw_csv(server_settings.storage_dir)
-	payload = _import_payload(csv_path)
+	payload = _import_payload(csv_path, client_queue_mode)
 	assert client_queue_mode.post("/api/v1/datasets/import", json=payload).status_code == 201
 
 	res_dup = client_queue_mode.post("/api/v1/datasets/import", json=payload)

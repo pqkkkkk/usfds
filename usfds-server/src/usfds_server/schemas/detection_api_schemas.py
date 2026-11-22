@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 from pydantic import BaseModel, Field
+from usfds_server.schemas.base_response import ResourceOwnerDto
 
 
 class StartDetectionJobRequest(BaseModel):
@@ -37,6 +38,8 @@ class DetectionJobResponse(BaseModel):
 	"""Response schema for a DetectionJob record (SUC-15, SUC-16, SUC-19)."""
 	job_id: UUID
 	project_id: UUID
+	user_id: UUID
+	owner: Optional[ResourceOwnerDto] = None
 	deployment_id: Optional[UUID] = None
 	target_artifact_id: Optional[UUID] = None
 	model_version_id: Optional[UUID] = None

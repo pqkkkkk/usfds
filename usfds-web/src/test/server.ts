@@ -27,7 +27,7 @@ export const defaultHandlers = [
 			},
 		})
 	),
-	http.get(`${API}/v1/projects`, () => HttpResponse.json({ success: true, data: [] })),
+	http.get(`${API}/v1/projects`, () => HttpResponse.json({ success: true, data: { items: [], nextCursor: null } })),
 ];
 
 export const server = setupServer(...defaultHandlers);

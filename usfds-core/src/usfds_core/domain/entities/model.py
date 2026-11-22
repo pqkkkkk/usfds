@@ -16,7 +16,7 @@ from usfds_core.domain.entities.enums import (
 class Model:
     """Represents a machine learning model registered in the Model Registry."""
     model_name: str
-    user_id: UUID
+    user_id: Optional[UUID] = None
     model_id: UUID = field(default_factory=uuid4)
     project_id: Optional[UUID] = None
     display_name: Optional[str] = None
@@ -39,6 +39,7 @@ class ModelVersion:
     artifact_uri: str
     version_id: UUID = field(default_factory=uuid4)
     project_id: Optional[UUID] = None
+    user_id: UUID = field(default_factory=uuid4)
     run_id: Optional[UUID] = None
     description: Optional[str] = None
     artifact_size_mb: Optional[float] = None
@@ -56,6 +57,7 @@ class TrainingRun:
     run_name: str
     run_id: UUID = field(default_factory=uuid4)
     project_id: Optional[UUID] = None
+    user_id: UUID = field(default_factory=uuid4)
     model_id: Optional[UUID] = None
     version_id: Optional[UUID] = None
     status: Union[TrainingRunStatus, str] = TrainingRunStatus.PENDING

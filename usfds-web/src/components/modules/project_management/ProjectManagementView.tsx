@@ -26,6 +26,7 @@ import { useTheme } from '../../../hooks/useTheme';
 import { useActorContext } from '@/hooks/useActorContext';
 import type { ProjectResponse, ProjectStatus } from '../../../types/project';
 import { UserAccountMenu } from '../../layout/UserAccountMenu';
+import { OwnerBadge } from '../../common/OwnerBadge';
 import { ProjectFormModal } from './ProjectFormModal';
 import { ProjectSchemaDrawer } from './ProjectSchemaDrawer';
 
@@ -34,13 +35,16 @@ type StatusTab = 'ALL' | ProjectStatus;
 export const ProjectManagementView: React.FC = () => {
 	const navigate = useNavigate();
 	const { isLight, toggleTheme } = useTheme();
-	const { features, canOpenFeature: can } = useActorContext();
+	const { features, canAccessRecord } = useActorContext();
 	const canCreateProject = features.createProject.allowed;
 	const {
 		projects,
 		currentProject,
 		isLoading,
 		error,
+		hasNextPage,
+		isFetchingNextPage,
+		fetchNextPage,
 		openCreateModal,
 		selectProject,
 		refetchProjects,
@@ -363,6 +367,9 @@ export const ProjectManagementView: React.FC = () => {
 											Tài nguyên
 										</th>
 										<th scope="col" className="py-3.5 px-4 font-semibold">
+											Chủ sở hữu
+										</th>
+										<th scope="col" className="py-3.5 px-4 font-semibold">
 											Cập nhật
 										</th>
 										<th scope="col" className="py-3.5 px-4 font-semibold text-right">
@@ -373,7 +380,7 @@ export const ProjectManagementView: React.FC = () => {
 								<tbody className="divide-y divide-dark-850">
 									{filteredProjects.length === 0 ? (
 										<tr>
-											<td colSpan={6} className="py-12 text-center text-slate-400 space-y-3">
+											<td colSpan={7} className="py-12 text-center text-slate-400 space-y-3">
 												<div className="text-xs">
 													{projects.length === 0
 														? 'Chưa có dự án nào trong hệ thống. Hãy khởi tạo dự án đầu tiên để bắt đầu.'
@@ -397,8 +404,8 @@ export const ProjectManagementView: React.FC = () => {
 										filteredProjects.map((proj) => {
 											const isCurrent = currentProject?.project_id === proj.project_id;
 											const columnCount = Object.keys(proj.raw_schema?.columns || {}).length;
-											const canUpdateProj = can('updateProject', proj.project_id);
-											const canDeleteProj = can('deleteProject', proj.project_id);
+											const canUpdateProj = canAccessRecord('updateProject', proj.user_id, proj.project_id);
+											const canDeleteProj = canAccessRecord('deleteProject', proj.user_id, proj.project_id);
 
 											return (
 												<tr
@@ -499,6 +506,11 @@ export const ProjectManagementView: React.FC = () => {
 														</div>
 													</td>
 
+													{/* Owner */}
+													<td className="py-3.5 px-4">
+														<OwnerBadge owner={proj.owner} userId={proj.user_id} />
+													</td>
+
 													{/* Updated At */}
 													<td className="py-3.5 px-4 text-slate-400 text-[11px] font-mono">
 														{proj.updated_at
@@ -587,6 +599,18 @@ export const ProjectManagementView: React.FC = () => {
 								</tbody>
 							</table>
 						</div>
+						{hasNextPage && (
+							<div className="p-3 border-t border-dark-800 flex justify-center bg-dark-950/40">
+								<button
+									type="button"
+									disabled={isFetchingNextPage}
+									onClick={() => void fetchNextPage()}
+									className="px-4 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs text-slate-200 font-medium disabled:opacity-50"
+								>
+									{isFetchingNextPage ? 'Đang tải...' : 'Tải thêm'}
+								</button>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>

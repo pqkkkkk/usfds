@@ -29,10 +29,9 @@ export const RuleVersionHistoryModal: React.FC<RuleVersionHistoryModalProps> = (
       ruleApi
         .getRuleVersions(rule.rule_id, projectId)
         .then((res) => {
-          if (res.data) {
-            setVersions(res.data);
-            setSelectedVersion(res.data[res.data.length - 1] || null);
-          }
+          const items = res.data?.items || [];
+          setVersions(items);
+          setSelectedVersion(items[items.length - 1] || null);
         })
         .catch(() => {
           setVersions([]);

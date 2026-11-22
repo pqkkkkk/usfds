@@ -85,7 +85,7 @@ describe('M4 Project Portal & Settings Feature Visibility', () => {
 				})
 			),
 			http.get(`${API}/v1/projects`, () =>
-				HttpResponse.json({ success: true, data: PROJECTS })
+				HttpResponse.json({ success: true, data: { items: PROJECTS, nextCursor: null } })
 			),
 			http.get(`${API}/v1/projects/${PROJECT_2_ID}/members`, () =>
 				HttpResponse.json({ success: true, data: [] })

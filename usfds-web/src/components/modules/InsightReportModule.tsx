@@ -79,6 +79,9 @@ export const InsightReportModule: React.FC = () => {
 		if (Array.isArray(detectionJobsRes)) {
 			return detectionJobsRes;
 		}
+		if (Array.isArray((detectionJobsRes as any)?.data?.items)) {
+			return (detectionJobsRes as any).data.items;
+		}
 		if (Array.isArray((detectionJobsRes as any)?.data)) {
 			return (detectionJobsRes as any).data;
 		}

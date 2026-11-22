@@ -3,6 +3,8 @@
  * Matched with USFDS FastAPI Backend schemas and Domain models
  */
 
+import type { ResourceOwner } from './api';
+
 export type PipelineStage =
   | 'RAW'
   | 'MAPPED'
@@ -26,6 +28,7 @@ export interface DatasetResponse {
   dataset_id: string;
   project_id: string;
   user_id: string;
+  owner?: ResourceOwner | null;
   dataset_name: string;
   display_name?: string;
   description?: string;

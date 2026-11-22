@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { ApiResponse } from '@/types';
+import type { ApiResponse, CursorPage } from '@/types';
 import type {
 	ActivateModelVersionRequest,
 	ModelLineageGraph,
@@ -12,9 +12,14 @@ import type {
 } from '../types/model';
 
 export const trainingApi = {
-	listModels: async (projectId: string): Promise<ApiResponse<ModelResponse[]>> => {
-		return apiClient.get<ModelResponse[]>('/v1/training/models', {
+	listModels: async (
+		projectId: string,
+		pagination?: { limit?: number; cursor?: string }
+	): Promise<ApiResponse<CursorPage<ModelResponse>>> => {
+		return apiClient.get<CursorPage<ModelResponse>>('/v1/training/models', {
 			project_id: projectId,
+			limit: pagination?.limit,
+			cursor: pagination?.cursor,
 		});
 	},
 
@@ -68,11 +73,16 @@ export const trainingApi = {
 
 	listModelVersions: async (
 		modelId: string,
-		projectId: string
-	): Promise<ApiResponse<ModelVersionResponse[]>> => {
-		return apiClient.get<ModelVersionResponse[]>(
+		projectId: string,
+		pagination?: { limit?: number; cursor?: string }
+	): Promise<ApiResponse<CursorPage<ModelVersionResponse>>> => {
+		return apiClient.get<CursorPage<ModelVersionResponse>>(
 			`/v1/training/models/${modelId}/versions`,
-			{ project_id: projectId }
+			{
+				project_id: projectId,
+				limit: pagination?.limit,
+				cursor: pagination?.cursor,
+			}
 		);
 	},
 
@@ -109,10 +119,14 @@ export const trainingApi = {
 	listTrainingRuns: async (params: {
 		projectId: string;
 		modelId?: string;
-	}): Promise<ApiResponse<TrainingRunResponse[]>> => {
-		return apiClient.get<TrainingRunResponse[]>('/v1/training/runs', {
+		limit?: number;
+		cursor?: string;
+	}): Promise<ApiResponse<CursorPage<TrainingRunResponse>>> => {
+		return apiClient.get<CursorPage<TrainingRunResponse>>('/v1/training/runs', {
 			model_id: params.modelId,
 			project_id: params.projectId,
+			limit: params.limit,
+			cursor: params.cursor,
 		});
 	},
 

@@ -1,7 +1,7 @@
 """ORM tables for the `project` domain (moved from database/models.py, 26-11-14)."""
 from typing import Any, Dict, Optional
 from uuid import uuid4
-from sqlalchemy import JSON, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from usfds_infra.database.base import Base, TimestampMixin
 
@@ -12,7 +12,12 @@ class ProjectModel(Base, TimestampMixin):
 
     project_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     project_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.user_id", ondelete="RESTRICT", name="fk_projects_user_id_users"),
+        nullable=False,
+        index=True,
+    )
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="ACTIVE", nullable=False, index=True)
     base_dataset_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)

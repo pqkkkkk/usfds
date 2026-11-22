@@ -21,9 +21,12 @@ def test_insight_report_api_endpoints_and_exports(tmp_path):
 	settings.db_path, settings.storage_dir = str(tmp_path / "reports.db"), str(tmp_path / "storage")
 	try:
 		with TestClient(app) as client:
-			project_id, actor_id, job_id = uuid4(), uuid4(), uuid4()
+			from usfds_infra.database import SqlUserRepository
+
+			project_id, job_id = uuid4(), uuid4()
 			session_gen = get_db()
 			session = next(session_gen)
+			actor_id = SqlUserRepository(session).get_by_username("admin").user_id
 			SqliteProjectRepository(session).save(
 				Project(project_id=project_id, user_id=actor_id, project_name="Insight Audit Project")
 			)
@@ -52,6 +55,7 @@ def test_insight_report_api_endpoints_and_exports(tmp_path):
 				DetectionJob(
 					job_id=job_id,
 					project_id=project_id,
+					user_id=actor_id,
 					job_name="Audit Scan #1",
 					output_path=output_rel,
 					score_threshold=0.5,

@@ -114,7 +114,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 		setIsLoadingArtifacts(true);
 		try {
 			const dsRes = await datasetApi.listDatasets(effectiveProjectId);
-			const dsList = Array.isArray(dsRes.data) ? dsRes.data : [];
+			const dsList = Array.isArray(dsRes.data?.items) ? dsRes.data.items : [];
 			const options: ArtifactOption[] = [];
 
 			const details = await Promise.allSettled(

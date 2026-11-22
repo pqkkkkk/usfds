@@ -73,10 +73,24 @@ def _seed_feature_engineered_artifact(storage_dir: str, project_id: str | None =
         storage.save_bytes(train_rel, pq_bytes)
         storage.save_bytes(test_rel, pq_bytes)
 
+        from usfds_core.domain.entities.system import Project
+        from usfds_infra.database import SqliteProjectRepository, SqlUserRepository
+
+        admin_id = SqlUserRepository(session).get_by_username("admin").user_id
+        proj_repo = SqliteProjectRepository(session)
+        if proj_repo.get_by_id(resolved_project_id) is None:
+            proj_repo.save(
+                Project(
+                    project_id=resolved_project_id,
+                    user_id=admin_id,
+                    project_name=f"proj_{resolved_project_id.hex[:8]}",
+                )
+            )
+
         dataset = Dataset(
             dataset_id=dataset_id,
             project_id=resolved_project_id,
-            user_id=uuid4(),
+            user_id=admin_id,
             dataset_name="fe_test_ds",
         )
         ds_repo.save(dataset)
@@ -109,7 +123,7 @@ def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
         # 1. Verify Built-in models (random_forest, xgboost) are pre-seeded and available out-of-the-box
         res_list = client.get("/api/v1/training/models", params={"project_id": project_id})
         assert res_list.status_code == 200
-        initial_models = res_list.json()["data"]
+        initial_models = res_list.json()["data"]["items"]
         model_names = [m["model_name"] for m in initial_models]
         assert "random_forest" in model_names
         assert "xgboost" in model_names
@@ -136,7 +150,7 @@ def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
         # 3. Model catalog now has 3 models (2 built-in + 1 plugin)
         res_list_after = client.get("/api/v1/training/models", params={"project_id": project_id})
         assert res_list_after.status_code == 200
-        assert len(res_list_after.json()["data"]) == 3
+        assert len(res_list_after.json()["data"]["items"]) == 3
 
         # 4. Run training for built-in Random Forest model
         res_rf_run = client.post(
@@ -174,7 +188,7 @@ def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
         # 6. Query model versions and run details
         res_versions = client.get(f"/api/v1/training/models/{plugin_model_id}/versions", params={"project_id": project_id})
         assert res_versions.status_code == 200
-        versions = res_versions.json()["data"]
+        versions = res_versions.json()["data"]["items"]
         assert len(versions) == 1
         assert versions[0]["semver"] == "v1"
         assert versions[0]["artifact_uri"].endswith("model_bundle.zip")
@@ -233,7 +247,13 @@ def _seed_lineage_chain():
         t0 = datetime(2026, 11, 14, 2, 0, 0, tzinfo=timezone.utc)
         dataset_id = uuid4()
         project_id = uuid4()
-        user_id = uuid4()
+        from usfds_core.domain.entities.system import Project
+        from usfds_infra.database import SqliteProjectRepository, SqlUserRepository
+
+        user_id = SqlUserRepository(session).get_by_username("admin").user_id
+        SqliteProjectRepository(session).save(
+            Project(project_id=project_id, user_id=user_id, project_name=f"lineage_proj_{project_id.hex[:6]}")
+        )
 
         ds_repo.save(
             Dataset(
@@ -283,6 +303,7 @@ def _seed_lineage_chain():
         run = TrainingRun(
             run_name="lineage-run-1",
             project_id=project_id,
+            user_id=user_id,
             model_id=model.model_id,
             status=TrainingRunStatus.COMPLETED,
             created_at=t0 + timedelta(minutes=3),
@@ -290,6 +311,7 @@ def _seed_lineage_chain():
         version = ModelVersion(
             model_id=model.model_id,
             project_id=project_id,
+            user_id=user_id,
             run_id=run.run_id,
             semver="1.0.0",
             artifact_uri="models/rf/1.0.0/model.joblib",
@@ -432,7 +454,7 @@ def test_list_model_versions_filters_by_project_id(server_settings):
         project_b = str(uuid4())
         fe_artifact_a, _ = _seed_feature_engineered_artifact(settings.storage_dir, project_id=project_a)
         fe_artifact_b, _ = _seed_feature_engineered_artifact(settings.storage_dir, project_id=project_b)
-        models = client.get("/api/v1/training/models", params={"project_id": project_a}).json()["data"]
+        models = client.get("/api/v1/training/models", params={"project_id": project_a}).json()["data"]["items"]
         rf_model = next(m for m in models if m["model_name"] == "random_forest")
 
         res_a = client.post(
@@ -464,8 +486,8 @@ def test_list_model_versions_filters_by_project_id(server_settings):
         assert ver_res_a.status_code == 200
         assert ver_res_b.status_code == 200
 
-        versions_a = ver_res_a.json()["data"]
-        versions_b = ver_res_b.json()["data"]
+        versions_a = ver_res_a.json()["data"]["items"]
+        versions_b = ver_res_b.json()["data"]["items"]
         assert len(versions_a) == 1
         assert len(versions_b) == 1
         assert versions_a[0]["project_id"] == project_a

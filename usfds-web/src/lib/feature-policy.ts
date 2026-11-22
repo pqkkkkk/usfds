@@ -184,6 +184,33 @@ export function canOpenActorFeature(
 	return scopesFor(actor, entry.permission, projectId).length > 0;
 }
 
+/** Return true if the actor is allowed to perform the given feature on a specific record owned by ownerId. */
+export function canAccessRecordFeature(
+	actor: ActorContextLike | null | undefined,
+	feature: ActorFeatureKey,
+	ownerId?: string | null,
+	projectId?: string | null
+): boolean {
+	if (!actor) {
+		return false;
+	}
+	if (actor.is_system_admin) {
+		return true;
+	}
+	const entry = ACTOR_FEATURE[feature];
+	const scopes =
+		entry.scope === 'system'
+			? scopesOn(actor.system_permissions, entry.permission)
+			: scopesFor(actor, entry.permission, projectId);
+	if (scopes.includes('SYSTEM') || scopes.includes('PROJECT')) {
+		return true;
+	}
+	if (scopes.includes('OWN')) {
+		return Boolean(ownerId) && actor.user_id === ownerId;
+	}
+	return false;
+}
+
 /**
  * Project IDs where the actor holds the given feature.
  * Returns null if unrestricted (is_system_admin or granted in system_permissions).

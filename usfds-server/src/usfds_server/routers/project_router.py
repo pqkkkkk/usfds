@@ -5,11 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from usfds_core.domain.entities.auth import ActorContext, BaseQueryFilter, ProjectActorContext
 from usfds_core.domain.entities.enums import ProjectStatus
 from usfds_core.domain.entities.system import Project
+from usfds_core.repositories.base_user_repo import IUserRepository
 from usfds_core.services.auth.access_logic import effective_scope
 from usfds_core.services.auth.auth_service import AuthService
 from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.project_management.project_service import ProjectManagementService
 from usfds_server.dependencies import get_actor_context, get_auth_service, get_authz_service, get_project_management_service
+from usfds_server.providers.auth import get_user_repo
 from usfds_server.schemas.auth_schemas import (
     AddProjectMemberRequest,
     AssignProjectMemberRoleRequest,
@@ -17,7 +19,13 @@ from usfds_server.schemas.auth_schemas import (
     ProjectRoleSummaryDto,
     SetProjectMemberRolesRequest,
 )
-from usfds_server.schemas.base_response import ApiResponse
+from usfds_server.schemas.base_response import ApiResponse, CursorPage, ResourceOwnerDto
+from usfds_server.schemas.pagination import (
+    DEFAULT_PAGE_LIMIT,
+    MAX_PAGE_LIMIT,
+    paginate_cursor,
+    resolve_owners,
+)
 from usfds_server.schemas.project_api_schemas import (
     CreateProjectRequest,
     ProjectResponse,
@@ -30,6 +38,7 @@ router = APIRouter(prefix="/api/v1/projects", tags=["Project Management"])
 def _to_project_response(
     project: Project,
     stats: Optional[Dict[str, int]] = None,
+    owner: Optional[ResourceOwnerDto] = None,
 ) -> ProjectResponse:
     stats = stats or {}
     status_str = (
@@ -41,6 +50,7 @@ def _to_project_response(
         project_id=project.project_id,
         project_name=project.project_name,
         user_id=project.user_id,
+        owner=owner,
         description=project.description,
         status=status_str,
         is_schema_locked=project.is_schema_locked,
@@ -65,6 +75,7 @@ def create_project(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: ProjectManagementService = Depends(get_project_management_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[ProjectResponse]:
     authz.require_system_permission(actor, "project:create")
     try:
@@ -73,8 +84,9 @@ def create_project(
             user_id=actor.user_id,
             description=request.description,
         )
+        owner = resolve_owners(user_repo, [project.user_id]).get(project.user_id)
         return ApiResponse.ok(
-            data=_to_project_response(project),
+            data=_to_project_response(project, owner=owner),
             status_code=status.HTTP_201_CREATED,
             message=f"Project '{project.project_name}' created successfully",
         )
@@ -92,8 +104,8 @@ def _matches_project_filters(project: Project, filters: List[BaseQueryFilter]) -
 
 @router.get(
     "",
-    response_model=ApiResponse[List[ProjectResponse]],
-    summary="List projects with optional user, status, and search filters",
+    response_model=ApiResponse[CursorPage[ProjectResponse]],
+    summary="List projects with optional user, status, search, and cursor pagination",
 )
 def list_projects(
     user_id: Optional[UUID] = Query(None, description="Filter by owner user ID"),
@@ -101,17 +113,30 @@ def list_projects(
         None, alias="status", description="Filter by ACTIVE / ARCHIVED"
     ),
     search: Optional[str] = Query(None, description="Search by project name or description"),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+    cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: ProjectManagementService = Depends(get_project_management_service),
-) -> ApiResponse[List[ProjectResponse]]:
+    user_repo: IUserRepository = Depends(get_user_repo),
+) -> ApiResponse[CursorPage[ProjectResponse]]:
     items = service.list_projects(user_id=user_id, status=project_status, search=search)
     if effective_scope(actor, "project:list_all", None) is None:
         filters = authz.can_list(actor, "project:read", [p.project_id for p, _ in items])
         items = [(p, stats) for p, stats in items if _matches_project_filters(p, filters)]
+    page_items, next_cursor = paginate_cursor(
+        items,
+        limit=limit,
+        cursor=cursor,
+        key_fn=lambda row: row[0].project_id,
+    )
+    owners = resolve_owners(user_repo, (p.user_id for p, _ in page_items))
     return ApiResponse.ok(
-        data=[_to_project_response(p, stats) for p, stats in items],
-        message=f"Retrieved {len(items)} projects",
+        data=CursorPage(
+            items=[_to_project_response(p, stats, owner=owners.get(p.user_id)) for p, stats in page_items],
+            nextCursor=next_cursor,
+        ),
+        message=f"Retrieved {len(page_items)} projects",
     )
 
 
@@ -125,12 +150,15 @@ def get_project(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: ProjectManagementService = Depends(get_project_management_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[ProjectResponse]:
-    authz.require_project_permission(actor, "project:read", project_id)
+    authz.require_project_scope(actor, "project:read", project_id)
     try:
         project, stats = service.get_project_with_stats(project_id)
+        authz.require_project_permission(actor, "project:read", project_id, owner_id=project.user_id)
+        owner = resolve_owners(user_repo, [project.user_id]).get(project.user_id)
         return ApiResponse.ok(
-            data=_to_project_response(project, stats),
+            data=_to_project_response(project, stats, owner=owner),
             message="Project retrieved successfully",
         )
     except LookupError as e:
@@ -148,9 +176,14 @@ def update_project(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: ProjectManagementService = Depends(get_project_management_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[ProjectResponse]:
-    authz.require_project_permission(actor, "project:update", project_id, action="mutate")
+    authz.require_project_scope(actor, "project:update", project_id)
     try:
+        existing, _ = service.get_project_with_stats(project_id)
+        authz.require_project_permission(
+            actor, "project:update", project_id, owner_id=existing.user_id, action="mutate"
+        )
         project = service.update_project(
             project_id=project_id,
             project_name=request.project_name,
@@ -158,8 +191,9 @@ def update_project(
             status=request.status,
         )
         _, stats = service.get_project_with_stats(project.project_id)
+        owner = resolve_owners(user_repo, [project.user_id]).get(project.user_id)
         return ApiResponse.ok(
-            data=_to_project_response(project, stats),
+            data=_to_project_response(project, stats, owner=owner),
             message=f"Project '{project.project_name}' updated successfully",
         )
     except LookupError as e:
@@ -178,13 +212,19 @@ def reset_project_schema(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: ProjectManagementService = Depends(get_project_management_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[ProjectResponse]:
-    authz.require_project_permission(actor, "project:reset_schema", project_id, action="mutate")
+    authz.require_project_scope(actor, "project:reset_schema", project_id)
     try:
+        existing, _ = service.get_project_with_stats(project_id)
+        authz.require_project_permission(
+            actor, "project:reset_schema", project_id, owner_id=existing.user_id, action="mutate"
+        )
         project = service.reset_project_schema(project_id)
         _, stats = service.get_project_with_stats(project.project_id)
+        owner = resolve_owners(user_repo, [project.user_id]).get(project.user_id)
         return ApiResponse.ok(
-            data=_to_project_response(project, stats),
+            data=_to_project_response(project, stats, owner=owner),
             message="Project RAW schema reset and unlocked successfully",
         )
     except LookupError as e:
@@ -204,8 +244,12 @@ def delete_project(
     authz: AuthzService = Depends(get_authz_service),
     service: ProjectManagementService = Depends(get_project_management_service),
 ) -> ApiResponse[bool]:
-    authz.require_project_permission(actor, "project:delete", project_id, action="mutate")
+    authz.require_project_scope(actor, "project:delete", project_id)
     try:
+        existing, _ = service.get_project_with_stats(project_id)
+        authz.require_project_permission(
+            actor, "project:delete", project_id, owner_id=existing.user_id, action="mutate"
+        )
         deleted = service.delete_project(project_id)
         return ApiResponse.ok(
             data=deleted,

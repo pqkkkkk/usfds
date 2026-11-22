@@ -56,7 +56,7 @@ class SqliteModelRepository(IModelRepository):
         return Model(
             model_id=UUID(record.model_id),
             project_id=UUID(record.project_id) if record.project_id else None,
-            user_id=UUID(record.user_id),
+            user_id=UUID(record.user_id) if record.user_id else None,
             model_name=record.model_name,
             display_name=record.display_name,
             description=record.description,
@@ -87,7 +87,7 @@ class SqliteModelRepository(IModelRepository):
             record = MLModel(
                 model_id=str(model.model_id),
                 project_id=str(model.project_id) if model.project_id else None,
-                user_id=str(model.user_id),
+                user_id=str(model.user_id) if model.user_id else None,
                 model_name=model.model_name,
                 display_name=model.display_name,
                 description=model.description,
@@ -103,6 +103,7 @@ class SqliteModelRepository(IModelRepository):
             self.session.add(record)
         else:
             record.project_id = str(model.project_id) if model.project_id else None
+            record.user_id = str(model.user_id) if model.user_id else None
             record.model_name = model.model_name
             record.display_name = model.display_name
             record.description = model.description
@@ -160,6 +161,7 @@ class SqliteModelVersionRepository(IModelVersionRepository):
             version_id=UUID(record.version_id),
             model_id=UUID(record.model_id),
             project_id=UUID(record.project_id) if record.project_id else None,
+            user_id=UUID(record.user_id),
             run_id=UUID(record.run_id) if record.run_id else None,
             semver=record.semver,
             artifact_uri=record.artifact_uri,
@@ -188,6 +190,7 @@ class SqliteModelVersionRepository(IModelVersionRepository):
                         version_id=str(version.version_id),
                         model_id=str(version.model_id),
                         project_id=str(version.project_id) if version.project_id else None,
+                        user_id=str(version.user_id),
                         run_id=str(version.run_id) if version.run_id else None,
                         semver=version.semver,
                         artifact_uri=version.artifact_uri,
@@ -301,6 +304,7 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
         return TrainingRun(
             run_id=UUID(record.run_id),
             project_id=UUID(record.project_id) if record.project_id else None,
+            user_id=UUID(record.user_id),
             model_id=UUID(record.model_id) if record.model_id else None,
             version_id=UUID(record.version_id) if record.version_id else None,
             run_name=record.run_name,
@@ -341,6 +345,7 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
             record = TrainingRunModel(
                 run_id=str(run.run_id),
                 project_id=str(run.project_id) if run.project_id else None,
+                user_id=str(run.user_id),
                 model_id=str(run.model_id) if run.model_id else None,
                 version_id=str(run.version_id) if run.version_id else None,
                 run_name=run.run_name,

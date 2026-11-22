@@ -12,8 +12,18 @@ class MLModel(Base, TimestampMixin):
     __tablename__ = "models"
 
     model_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    project_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
-    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    project_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("projects.project_id", ondelete="CASCADE", name="fk_models_project_id_projects"),
+        nullable=True,
+        index=True,
+    )
+    user_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("users.user_id", ondelete="RESTRICT", name="fk_models_user_id_users"),
+        nullable=True,
+        index=True,
+    )
     model_name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -31,7 +41,18 @@ class ModelVersionModel(Base):
 
     version_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     model_id: Mapped[str] = mapped_column(String(36), ForeignKey("models.model_id", ondelete="CASCADE"), nullable=False, index=True)
-    project_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    project_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("projects.project_id", ondelete="CASCADE", name="fk_model_versions_project_id_projects"),
+        nullable=True,
+        index=True,
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.user_id", ondelete="RESTRICT", name="fk_model_versions_user_id_users"),
+        nullable=False,
+        index=True,
+    )
     run_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     semver: Mapped[str] = mapped_column(String(50), nullable=False)
     artifact_uri: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -66,7 +87,18 @@ class TrainingRunModel(Base):
     __tablename__ = "training_runs"
 
     run_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    project_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    project_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("projects.project_id", ondelete="CASCADE", name="fk_training_runs_project_id_projects"),
+        nullable=True,
+        index=True,
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.user_id", ondelete="RESTRICT", name="fk_training_runs_user_id_users"),
+        nullable=False,
+        index=True,
+    )
     model_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("models.model_id", ondelete="SET NULL"), nullable=True, index=True)
     version_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     run_name: Mapped[str] = mapped_column(String(255), nullable=False)

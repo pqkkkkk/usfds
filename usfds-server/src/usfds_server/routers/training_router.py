@@ -11,6 +11,7 @@ from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
 from usfds_core.domain.schemas.model_plugin import ModelPluginManifest
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
+from usfds_core.repositories.base_user_repo import IUserRepository
 from usfds_core.services.auth.access_logic import effective_scope
 from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.training.training_service import (
@@ -20,7 +21,14 @@ from usfds_core.services.training.training_service import (
 from usfds_infra.job_queue import JOB_PLUGIN_DRY_RUN, QUEUE_TRAINING
 from usfds_server.config import settings
 from usfds_server.dependencies import get_actor_context, get_authz_service, get_job_queue, get_training_service
-from usfds_server.schemas.base_response import ApiResponse
+from usfds_server.providers.auth import get_user_repo
+from usfds_server.schemas.base_response import ApiResponse, CursorPage, ResourceOwnerDto
+from usfds_server.schemas.pagination import (
+    DEFAULT_PAGE_LIMIT,
+    MAX_PAGE_LIMIT,
+    paginate_cursor,
+    resolve_owners,
+)
 from usfds_server.schemas.training_api_schemas import (
     ActivateModelVersionRequest,
     ModelLineageEdgeResponse,
@@ -36,7 +44,10 @@ from usfds_server.schemas.training_api_schemas import (
 router = APIRouter(prefix="/api/v1/training", tags=["Model Training & Registry"])
 
 
-def _to_model_response(model: Model) -> ModelResponse:
+def _to_model_response(
+    model: Model,
+    owner: Optional[ResourceOwnerDto] = None,
+) -> ModelResponse:
     exec_type_str = (
         model.execution_type.value
         if hasattr(model.execution_type, "value")
@@ -51,6 +62,7 @@ def _to_model_response(model: Model) -> ModelResponse:
         model_id=model.model_id,
         project_id=model.project_id,
         user_id=model.user_id,
+        owner=owner,
         model_name=model.model_name,
         display_name=model.display_name,
         description=model.description,
@@ -65,7 +77,10 @@ def _to_model_response(model: Model) -> ModelResponse:
     )
 
 
-def _to_model_version_response(version: ModelVersion) -> ModelVersionResponse:
+def _to_model_version_response(
+    version: ModelVersion,
+    owner: Optional[ResourceOwnerDto] = None,
+) -> ModelVersionResponse:
     status_str = (
         version.status.value
         if hasattr(version.status, "value")
@@ -75,6 +90,8 @@ def _to_model_version_response(version: ModelVersion) -> ModelVersionResponse:
         version_id=version.version_id,
         model_id=version.model_id,
         project_id=version.project_id,
+        user_id=version.user_id,
+        owner=owner,
         run_id=version.run_id,
         semver=version.semver,
         artifact_uri=version.artifact_uri,
@@ -92,6 +109,7 @@ def _to_model_version_response(version: ModelVersion) -> ModelVersionResponse:
 def _to_training_run_response(
     run: TrainingRun,
     dataset_artifact_id: Optional[UUID] = None,
+    owner: Optional[ResourceOwnerDto] = None,
 ) -> TrainingRunResponse:
     status_str = (
         run.status.value
@@ -101,6 +119,8 @@ def _to_training_run_response(
     return TrainingRunResponse(
         run_id=run.run_id,
         project_id=run.project_id,
+        user_id=run.user_id,
+        owner=owner,
         model_id=run.model_id,
         version_id=run.version_id,
         dataset_artifact_id=dataset_artifact_id,
@@ -168,6 +188,7 @@ def register_plugged_model(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[ModelResponse]:
     if request.project_id is not None:
         authz.require_project_permission(actor, "model:create", request.project_id, action="create")
@@ -207,8 +228,9 @@ def register_plugged_model(
                 manifest_override=request.manifest_override,
                 zip_bytes=zip_bytes,
             )
+        owner = resolve_owners(user_repo, [model.user_id]).get(model.user_id)
         return ApiResponse.ok(
-            data=_to_model_response(model),
+            data=_to_model_response(model, owner=owner),
             status_code=status.HTTP_201_CREATED,
             message=f"Model plugin '{model.model_name}' validated and registered successfully",
         )
@@ -323,6 +345,7 @@ async def upload_and_register_plugged_model(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[ModelResponse]:
     try:
         content_type = request.headers.get("content-type", "")
@@ -340,8 +363,9 @@ async def upload_and_register_plugged_model(
             authz=authz,
             service=service,
         )
+        owner = resolve_owners(user_repo, [model.user_id]).get(model.user_id)
         return ApiResponse.ok(
-            data=_to_model_response(model),
+            data=_to_model_response(model, owner=owner),
             status_code=status.HTTP_201_CREATED,
             message=f"Model plugin '{model.model_name}' validated and registered successfully",
         )
@@ -351,20 +375,37 @@ async def upload_and_register_plugged_model(
 
 @router.get(
     "/models",
-    response_model=ApiResponse[List[ModelResponse]],
-    summary="List registered models (built-in and project custom plugins)",
+    response_model=ApiResponse[CursorPage[ModelResponse]],
+    summary="List registered models (built-in and project custom plugins) with cursor pagination",
 )
 def list_models(
     project_id: UUID = Query(..., description="Project ID"),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+    cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
-) -> ApiResponse[List[ModelResponse]]:
-    authz.require_project_permission(actor, "model:read", project_id)
-    models = service.list_models(project_id=project_id)
+    user_repo: IUserRepository = Depends(get_user_repo),
+) -> ApiResponse[CursorPage[ModelResponse]]:
+    owner_filter = authz.resolve_project_list_owner(actor, "model:read", project_id)
+    models = [
+        m
+        for m in service.list_models(project_id=project_id)
+        if m.project_id is None or owner_filter is None or m.user_id == owner_filter
+    ]
+    page_items, next_cursor = paginate_cursor(
+        models,
+        limit=limit,
+        cursor=cursor,
+        key_fn=lambda m: m.model_id,
+    )
+    owners = resolve_owners(user_repo, (m.user_id for m in page_items))
     return ApiResponse.ok(
-        data=[_to_model_response(m) for m in models],
-        message=f"Retrieved {len(models)} models",
+        data=CursorPage(
+            items=[_to_model_response(m, owner=owners.get(m.user_id) if m.user_id else None) for m in page_items],
+            nextCursor=next_cursor,
+        ),
+        message=f"Retrieved {len(page_items)} models",
     )
 
 
@@ -379,8 +420,9 @@ def get_model(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[ModelResponse]:
-    authz.require_project_permission(actor, "model:read", project_id)
+    authz.require_project_scope(actor, "model:read", project_id)
     try:
         model = service.get_model(model_id)
         if model.project_id is not None and model.project_id != project_id:
@@ -388,24 +430,30 @@ def get_model(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Model '{model_id}' not found in project '{project_id}'.",
             )
-        return ApiResponse.ok(data=_to_model_response(model), message="Model retrieved successfully")
+        if model.project_id is not None:
+            authz.require_project_permission(actor, "model:read", project_id, owner_id=model.user_id)
+        owner = resolve_owners(user_repo, [model.user_id]).get(model.user_id) if model.user_id else None
+        return ApiResponse.ok(data=_to_model_response(model, owner=owner), message="Model retrieved successfully")
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.get(
     "/models/{model_id}/versions",
-    response_model=ApiResponse[List[ModelVersionResponse]],
-    summary="List all trained versions for a model",
+    response_model=ApiResponse[CursorPage[ModelVersionResponse]],
+    summary="List all trained versions for a model with cursor pagination",
 )
 def list_model_versions(
     model_id: UUID,
     project_id: UUID = Query(..., description="Project ID"),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+    cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
-) -> ApiResponse[List[ModelVersionResponse]]:
-    authz.require_project_permission(actor, "model:read", project_id)
+    user_repo: IUserRepository = Depends(get_user_repo),
+) -> ApiResponse[CursorPage[ModelVersionResponse]]:
+    owner_filter = authz.resolve_project_list_owner(actor, "model:read", project_id)
     try:
         model = service.get_model(model_id)
         if model.project_id is not None and model.project_id != project_id:
@@ -413,13 +461,26 @@ def list_model_versions(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Model '{model_id}' not found in project '{project_id}'.",
             )
+        if model.project_id is not None:
+            authz.require_project_permission(actor, "model:read", project_id, owner_id=model.user_id)
         versions = [
-            v for v in service.list_model_versions(model_id, project_id=project_id)
-            if v.project_id == project_id
+            v
+            for v in service.list_model_versions(model_id, project_id=project_id)
+            if v.project_id == project_id and (owner_filter is None or v.user_id == owner_filter)
         ]
+        page_items, next_cursor = paginate_cursor(
+            versions,
+            limit=limit,
+            cursor=cursor,
+            key_fn=lambda v: v.version_id,
+        )
+        owners = resolve_owners(user_repo, (v.user_id for v in page_items))
         return ApiResponse.ok(
-            data=[_to_model_version_response(v) for v in versions],
-            message=f"Retrieved {len(versions)} model versions",
+            data=CursorPage(
+                items=[_to_model_version_response(v, owner=owners.get(v.user_id)) for v in page_items],
+                nextCursor=next_cursor,
+            ),
+            message=f"Retrieved {len(page_items)} model versions",
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -436,8 +497,9 @@ def get_model_version(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[ModelVersionResponse]:
-    authz.require_project_permission(actor, "model:read", project_id)
+    authz.require_project_scope(actor, "model:read", project_id)
     try:
         version = service.get_model_version(version_id)
         if version.project_id is None or version.project_id != project_id:
@@ -445,8 +507,10 @@ def get_model_version(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"ModelVersion '{version_id}' not found in project '{project_id}'.",
             )
+        authz.require_project_permission(actor, "model:read", project_id, owner_id=version.user_id)
+        owner = resolve_owners(user_repo, [version.user_id]).get(version.user_id)
         return ApiResponse.ok(
-            data=_to_model_version_response(version),
+            data=_to_model_version_response(version, owner=owner),
             message="Model version retrieved successfully",
         )
     except ValueError as e:
@@ -486,7 +550,7 @@ def get_model_version_lineage(
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelLineageResponse]:
-    authz.require_project_permission(actor, "model:read", project_id)
+    authz.require_project_scope(actor, "model:read", project_id)
     try:
         version = service.get_model_version(version_id)
         if version.project_id is None or version.project_id != project_id:
@@ -494,6 +558,7 @@ def get_model_version_lineage(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"ModelVersion '{version_id}' not found in project '{project_id}'.",
             )
+        authz.require_project_permission(actor, "model:read", project_id, owner_id=version.user_id)
         graph = service.get_model_version_lineage(version_id)
         return ApiResponse.ok(
             data=_to_model_lineage_response(graph),
@@ -514,11 +579,14 @@ def activate_model_version(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[ModelVersionResponse]:
     try:
         existing = service.get_model_version(version_id)
         if existing.project_id is not None:
-            authz.require_project_permission(actor, "deployment:deploy", existing.project_id, action="mutate")
+            authz.require_project_permission(
+                actor, "deployment:deploy", existing.project_id, owner_id=existing.user_id, action="mutate"
+            )
         else:
             authz.require_system_permission(actor, "model_builtin:manage")
         version = service.activate_model_version(
@@ -526,8 +594,9 @@ def activate_model_version(
             decision_threshold=request.decision_threshold if request else None,
             description=request.description if request else None,
         )
+        owner = resolve_owners(user_repo, [version.user_id]).get(version.user_id)
         return ApiResponse.ok(
-            data=_to_model_version_response(version),
+            data=_to_model_version_response(version, owner=owner),
             message=f"Model version '{version.semver}' activated successfully",
         )
     except ValueError as e:
@@ -551,6 +620,7 @@ def start_training_run(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[TrainingRunResponse]:
     authz.require_project_permission(actor, "training:create", request.project_id, action="create")
     try:
@@ -562,12 +632,13 @@ def start_training_run(
             compute_target=request.compute_target,
             run_name=request.run_name,
         )
-        run = service.prepare_and_dispatch(config=config, user_name=actor.username)
+        run = service.prepare_and_dispatch(config=config, user_name=actor.username, user_id=actor.user_id)
         # Re-fetch run so post-execution metrics & version_id are reflected for synchronous dispatch
         updated_run = service.get_training_run(run.run_id)
         artifact_id = service.get_run_dataset_artifact_id(updated_run.run_id)
+        owner = resolve_owners(user_repo, [updated_run.user_id]).get(updated_run.user_id)
         return ApiResponse.ok(
-            data=_to_training_run_response(updated_run, dataset_artifact_id=artifact_id),
+            data=_to_training_run_response(updated_run, dataset_artifact_id=artifact_id, owner=owner),
             status_code=status.HTTP_201_CREATED,
             message=f"Training run '{updated_run.run_name}' completed with status {updated_run.status}",
         )
@@ -579,27 +650,45 @@ def start_training_run(
 
 @router.get(
     "/runs",
-    response_model=ApiResponse[List[TrainingRunResponse]],
-    summary="List training runs for a project with optional model_id filter",
+    response_model=ApiResponse[CursorPage[TrainingRunResponse]],
+    summary="List training runs for a project with optional model_id filter and cursor pagination",
 )
 def list_training_runs(
     project_id: UUID = Query(..., description="Project ID"),
     model_id: Optional[UUID] = Query(None, description="Optional filter by Model ID"),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+    cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
-) -> ApiResponse[List[TrainingRunResponse]]:
-    authz.require_project_permission(actor, "training:read", project_id)
-    runs = service.list_training_runs(model_id=model_id, project_id=project_id)
+    user_repo: IUserRepository = Depends(get_user_repo),
+) -> ApiResponse[CursorPage[TrainingRunResponse]]:
+    owner_filter = authz.resolve_project_list_owner(actor, "training:read", project_id)
+    runs = [
+        r
+        for r in service.list_training_runs(model_id=model_id, project_id=project_id)
+        if owner_filter is None or r.user_id == owner_filter
+    ]
+    page_items, next_cursor = paginate_cursor(
+        runs,
+        limit=limit,
+        cursor=cursor,
+        key_fn=lambda r: r.run_id,
+    )
+    owners = resolve_owners(user_repo, (r.user_id for r in page_items))
     return ApiResponse.ok(
-        data=[
-            _to_training_run_response(
-                r,
-                dataset_artifact_id=service.get_run_dataset_artifact_id(r.run_id),
-            )
-            for r in runs
-        ],
-        message=f"Retrieved {len(runs)} training runs",
+        data=CursorPage(
+            items=[
+                _to_training_run_response(
+                    r,
+                    dataset_artifact_id=service.get_run_dataset_artifact_id(r.run_id),
+                    owner=owners.get(r.user_id),
+                )
+                for r in page_items
+            ],
+            nextCursor=next_cursor,
+        ),
+        message=f"Retrieved {len(page_items)} training runs",
     )
 
 
@@ -614,8 +703,9 @@ def get_training_run(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[TrainingRunResponse]:
-    authz.require_project_permission(actor, "training:read", project_id)
+    authz.require_project_scope(actor, "training:read", project_id)
     try:
         run = service.get_training_run(run_id)
         if run.project_id is None or run.project_id != project_id:
@@ -623,9 +713,11 @@ def get_training_run(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"TrainingRun '{run_id}' not found in project '{project_id}'.",
             )
+        authz.require_project_permission(actor, "training:read", project_id, owner_id=run.user_id)
         artifact_id = service.get_run_dataset_artifact_id(run.run_id)
+        owner = resolve_owners(user_repo, [run.user_id]).get(run.user_id)
         return ApiResponse.ok(
-            data=_to_training_run_response(run, dataset_artifact_id=artifact_id),
+            data=_to_training_run_response(run, dataset_artifact_id=artifact_id, owner=owner),
             message="Training run retrieved successfully",
         )
     except ValueError as e:
@@ -644,7 +736,7 @@ def get_training_run_lineage(
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelLineageResponse]:
-    authz.require_project_permission(actor, "training:read", project_id)
+    authz.require_project_scope(actor, "training:read", project_id)
     try:
         run = service.get_training_run(run_id)
         if run.project_id is None or run.project_id != project_id:
@@ -652,6 +744,7 @@ def get_training_run_lineage(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"TrainingRun '{run_id}' not found in project '{project_id}'.",
             )
+        authz.require_project_permission(actor, "training:read", project_id, owner_id=run.user_id)
         graph = service.get_training_run_lineage(run_id)
         return ApiResponse.ok(
             data=_to_model_lineage_response(graph),

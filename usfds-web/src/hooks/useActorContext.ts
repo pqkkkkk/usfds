@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import {
 	ACTOR_FEATURE,
+	canAccessRecordFeature,
 	canOpenActorFeature,
 	visibleProjectIds,
 	type ActorContextLike,
@@ -59,11 +60,27 @@ export function useActorContext(projectId?: string | null) {
 		[actor, ready, projectId]
 	);
 
+	const canAccessRecord = useCallback(
+		(feature: ActorFeatureKey, ownerId?: string | null, targetProjectId?: string | null) => {
+			if (!ready) {
+				return false;
+			}
+			return canAccessRecordFeature(
+				actor,
+				feature,
+				ownerId,
+				targetProjectId !== undefined ? targetProjectId : projectId
+			);
+		},
+		[actor, ready, projectId]
+	);
+
 	return {
 		actor,
 		loading: isLoading,
 		error: null as Error | null,
 		features,
 		canOpenFeature,
+		canAccessRecord,
 	};
 }

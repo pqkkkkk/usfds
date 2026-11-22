@@ -90,7 +90,7 @@ def _seed_project_and_datasets(project_id_str: str):
 		dataset = Dataset(
 			dataset_id=dataset_id,
 			project_id=UUID(project_id_str),
-			user_id=uuid4(),
+			user_id=proj.user_id,
 			dataset_name="detection_test_ds",
 		)
 		ds_repo.save(dataset)
@@ -170,7 +170,7 @@ def test_detection_api_end_to_end(server_settings):
 
 		# 3. Train and activate a Built-in Random Forest model version
 		res_models = client.get("/api/v1/training/models", params={"project_id": project_id})
-		rf_model = next(m for m in res_models.json()["data"] if m["model_name"] == "random_forest")
+		rf_model = next(m for m in res_models.json()["data"]["items"] if m["model_name"] == "random_forest")
 
 		res_run = client.post(
 			"/api/v1/training/runs",
@@ -241,7 +241,7 @@ def test_detection_api_end_to_end(server_settings):
 		# 7. List Detection Jobs (SUC-19)
 		res_list = client.get(f"/api/v1/detection/jobs?project_id={project_id}")
 		assert res_list.status_code == 200
-		jobs = res_list.json()["data"]
+		jobs = res_list.json()["data"]["items"]
 		assert len(jobs) == 2
 
 		# 8. View Detection Results (SUC-16)
@@ -390,7 +390,7 @@ def test_detection_api_with_velocity_feature_engineering_and_raw_columns(server_
 
 		# 6. Train Built-in Random Forest Model & Activate Version
 		res_models = client.get("/api/v1/training/models", params={"project_id": project_id})
-		rf_model = next(m for m in res_models.json()["data"] if m["model_name"] == "random_forest")
+		rf_model = next(m for m in res_models.json()["data"]["items"] if m["model_name"] == "random_forest")
 
 		res_run = client.post(
 			"/api/v1/training/runs",

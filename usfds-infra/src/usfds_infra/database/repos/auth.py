@@ -1,7 +1,7 @@
 """SQLAlchemy repositories for the `auth` domain."""
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 from uuid import UUID
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
@@ -89,6 +89,15 @@ class SqlUserRepository(IUserRepository):
 	def get_by_id(self, user_id: UUID) -> Optional[User]:
 		model = self.session.get(UserModel, str(user_id))
 		return self._to_entity(model) if model else None
+
+	def get_by_ids(self, user_ids: Sequence[UUID]) -> Dict[UUID, User]:
+		"""Batch-load users by IDs in a single IN query, keyed by UUID."""
+		unique_ids = list(dict.fromkeys(str(uid) for uid in user_ids if uid is not None))
+		if not unique_ids:
+			return {}
+		stmt = select(UserModel).where(UserModel.user_id.in_(unique_ids))
+		models = self.session.execute(stmt).scalars().all()
+		return {UUID(str(m.user_id)): self._to_entity(m) for m in models}
 
 	def get_by_username(self, username: str) -> Optional[User]:
 		stmt = select(UserModel).where(UserModel.username == username)

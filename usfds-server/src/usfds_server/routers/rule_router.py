@@ -9,6 +9,7 @@ from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.domain.entities.enums import RuleAction, RuleStatus
 from usfds_core.domain.entities.rule import Rule, RuleVersion
 from usfds_core.domain.schemas.rule_schemas import RuleExecutionContext
+from usfds_core.repositories.base_user_repo import IUserRepository
 from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.rule_engine.executor import RuleExecutor
 from usfds_core.services.rule_engine.manager import RuleManager
@@ -26,7 +27,14 @@ from usfds_server.dependencies import (
     get_rule_manager,
     get_storage,
 )
-from usfds_server.schemas.base_response import ApiResponse
+from usfds_server.providers.auth import get_user_repo
+from usfds_server.schemas.base_response import ApiResponse, CursorPage, ResourceOwnerDto
+from usfds_server.schemas.pagination import (
+    DEFAULT_PAGE_LIMIT,
+    MAX_PAGE_LIMIT,
+    paginate_cursor,
+    resolve_owners,
+)
 from usfds_server.schemas.rule_api_schemas import (
     BacktestRuleRequest,
     CreateRuleRequest,
@@ -57,11 +65,17 @@ def _to_rule_version_response(version: RuleVersion) -> RuleVersionResponse:
     )
 
 
-def _to_rule_response(rule: Rule, current_version: Optional[RuleVersion] = None) -> RuleResponse:
+def _to_rule_response(
+    rule: Rule,
+    current_version: Optional[RuleVersion] = None,
+    owner: Optional[ResourceOwnerDto] = None,
+) -> RuleResponse:
     version_resp = _to_rule_version_response(current_version) if current_version else None
     return RuleResponse(
         rule_id=rule.rule_id,
         project_id=rule.project_id,
+        user_id=rule.user_id,
+        owner=owner,
         rule_code=rule.rule_code,
         name=rule.name,
         description=rule.description,
@@ -89,6 +103,7 @@ def create_rule(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[RuleResponse]:
     authz.require_project_permission(actor, "rule:create", request.project_id, action="create")
     try:
@@ -100,11 +115,13 @@ def create_rule(
             condition=request.condition,
             action=request.action,
             created_by=actor.username,
+            user_id=actor.user_id,
             change_summary=request.change_summary,
             status=request.status,
         )
+        owner = resolve_owners(user_repo, [rule.user_id]).get(rule.user_id)
         return ApiResponse.ok(
-            data=_to_rule_response(rule, version),
+            data=_to_rule_response(rule, version, owner=owner),
             message=f"Rule '{rule.rule_code}' successfully created",
             status_code=status.HTTP_201_CREATED,
         )
@@ -116,24 +133,41 @@ def create_rule(
 
 @router.get(
     "",
-    response_model=ApiResponse[List[RuleResponse]],
-    summary="List rules by project with optional status filter",
+    response_model=ApiResponse[CursorPage[RuleResponse]],
+    summary="List rules by project with optional status filter and cursor pagination",
 )
 def list_rules(
     project_id: UUID = Query(..., description="Project ID to query rules for"),
     rule_status: Optional[RuleStatus] = Query(None, alias="status", description="Filter by ACTIVE / INACTIVE / DRAFT"),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+    cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
-) -> ApiResponse[List[RuleResponse]]:
-    authz.require_project_permission(actor, "rule:read", project_id)
-    rules = manager.get_rules_by_project(project_id, status=rule_status)
+    user_repo: IUserRepository = Depends(get_user_repo),
+) -> ApiResponse[CursorPage[RuleResponse]]:
+    owner_filter = authz.resolve_project_list_owner(actor, "rule:read", project_id)
+    rules = [
+        r
+        for r in manager.get_rules_by_project(project_id, status=rule_status)
+        if owner_filter is None or r.user_id == owner_filter
+    ]
+    page_items, next_cursor = paginate_cursor(
+        rules,
+        limit=limit,
+        cursor=cursor,
+        key_fn=lambda r: r.rule_id,
+    )
+    owners = resolve_owners(user_repo, (r.user_id for r in page_items))
     rule_responses = []
-    for r in rules:
+    for r in page_items:
         _, current_ver = manager.get_rule_with_current_version(r.rule_id)
-        rule_responses.append(_to_rule_response(r, current_ver))
+        rule_responses.append(_to_rule_response(r, current_ver, owner=owners.get(r.user_id)))
 
-    return ApiResponse.ok(data=rule_responses, message=f"Retrieved {len(rule_responses)} rules")
+    return ApiResponse.ok(
+        data=CursorPage(items=rule_responses, nextCursor=next_cursor),
+        message=f"Retrieved {len(rule_responses)} rules",
+    )
 
 
 @router.get(
@@ -147,13 +181,16 @@ def get_rule(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[RuleResponse]:
-    authz.require_project_permission(actor, "rule:read", project_id)
+    authz.require_project_scope(actor, "rule:read", project_id)
     pair = manager.get_rule_with_current_version(rule_id)
     if not pair or pair[0].project_id != project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
     rule, version = pair
-    return ApiResponse.ok(data=_to_rule_response(rule, version))
+    authz.require_project_permission(actor, "rule:read", project_id, owner_id=rule.user_id)
+    owner = resolve_owners(user_repo, [rule.user_id]).get(rule.user_id)
+    return ApiResponse.ok(data=_to_rule_response(rule, version, owner=owner))
 
 
 @router.put(
@@ -167,11 +204,14 @@ def update_rule(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[RuleResponse]:
     existing = manager.get_rule(rule_id)
     if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
-    authz.require_project_permission(actor, "rule:update", existing.project_id, action="mutate")
+    authz.require_project_permission(
+        actor, "rule:update", existing.project_id, owner_id=existing.user_id, action="mutate"
+    )
     try:
         rule, version = manager.update_rule(
             rule_id=rule_id,
@@ -186,8 +226,9 @@ def update_rule(
         if not version and rule.current_version_id:
             _, version = manager.get_rule_with_current_version(rule.rule_id)
 
+        owner = resolve_owners(user_repo, [rule.user_id]).get(rule.user_id)
         return ApiResponse.ok(
-            data=_to_rule_response(rule, version),
+            data=_to_rule_response(rule, version, owner=owner),
             message=f"Rule '{rule.rule_code}' successfully updated",
         )
     except ValueError as e:
@@ -209,6 +250,7 @@ def set_rule_status(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[RuleResponse]:
     existing = manager.get_rule(rule_id)
     if not existing:
@@ -219,12 +261,15 @@ def set_rule_status(
         perm = "rule:undeploy"
     else:
         perm = "rule:update"
-    authz.require_project_permission(actor, perm, existing.project_id, action="mutate")
+    authz.require_project_permission(
+        actor, perm, existing.project_id, owner_id=existing.user_id, action="mutate"
+    )
     try:
         rule = manager.set_rule_status(rule_id, request.status)
         _, current_ver = manager.get_rule_with_current_version(rule.rule_id)
+        owner = resolve_owners(user_repo, [rule.user_id]).get(rule.user_id)
         return ApiResponse.ok(
-            data=_to_rule_response(rule, current_ver),
+            data=_to_rule_response(rule, current_ver, owner=owner),
             message=f"Rule status updated to {request.status}",
         )
     except ValueError as e:
@@ -235,24 +280,36 @@ def set_rule_status(
 
 @router.get(
     "/{rule_id}/versions",
-    response_model=ApiResponse[List[RuleVersionResponse]],
-    summary="Get complete historical audit trail of rule versions",
+    response_model=ApiResponse[CursorPage[RuleVersionResponse]],
+    summary="Get complete historical audit trail of rule versions with cursor pagination",
 )
 def get_rule_versions(
     rule_id: UUID,
     project_id: UUID = Query(..., description="Project ID"),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+    cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
-) -> ApiResponse[List[RuleVersionResponse]]:
-    authz.require_project_permission(actor, "rule:read", project_id)
+) -> ApiResponse[CursorPage[RuleVersionResponse]]:
+    authz.require_project_scope(actor, "rule:read", project_id)
     rule = manager.get_rule(rule_id)
     if not rule or rule.project_id != project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
+    authz.require_project_permission(actor, "rule:read", project_id, owner_id=rule.user_id)
 
     versions = manager.get_rule_versions(rule_id)
-    data = [_to_rule_version_response(v) for v in versions]
-    return ApiResponse.ok(data=data, message=f"Retrieved {len(data)} versions")
+    page_items, next_cursor = paginate_cursor(
+        versions,
+        limit=limit,
+        cursor=cursor,
+        key_fn=lambda v: v.rule_version_id,
+    )
+    data = [_to_rule_version_response(v) for v in page_items]
+    return ApiResponse.ok(
+        data=CursorPage(items=data, nextCursor=next_cursor),
+        message=f"Retrieved {len(data)} versions",
+    )
 
 
 @router.delete(
@@ -269,7 +326,9 @@ def delete_rule(
     rule = manager.get_rule(rule_id)
     if not rule:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
-    authz.require_project_permission(actor, "rule:delete", rule.project_id, action="mutate")
+    authz.require_project_permission(
+        actor, "rule:delete", rule.project_id, owner_id=rule.user_id, action="mutate"
+    )
     deleted = manager.delete_rule(rule_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
@@ -297,7 +356,7 @@ def evaluate_single_rule(
     rule = manager.get_rule(rule_id)
     if not rule:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
-    authz.require_project_permission(actor, "rule:dry_run", rule.project_id)
+    authz.require_project_permission(actor, "rule:dry_run", rule.project_id, owner_id=rule.user_id)
 
     target_version = None
     if version_id:
@@ -348,8 +407,12 @@ def evaluate_project_rules(
     manager: RuleManager = Depends(get_rule_manager),
     executor: RuleExecutor = Depends(get_rule_executor),
 ) -> ApiResponse[List[RuleExecutionResultResponse]]:
-    authz.require_project_permission(actor, "rule:dry_run", request.project_id)
-    active_pairs = manager.get_active_rules_with_versions(request.project_id)
+    owner_filter = authz.resolve_project_list_owner(actor, "rule:dry_run", request.project_id)
+    active_pairs = [
+        (r, v)
+        for r, v in manager.get_active_rules_with_versions(request.project_id)
+        if owner_filter is None or r.user_id == owner_filter
+    ]
     if not active_pairs:
         return ApiResponse.ok(data=[], message="No active rules configured for this project")
 
@@ -409,7 +472,7 @@ def backtest_rule_on_dataset(
     artifact_repo: SqliteDatasetArtifactRepository = Depends(get_artifact_repo),
     storage: LocalFileStorage = Depends(get_storage),
 ) -> ApiResponse[RuleBacktestResultResponse]:
-    authz.require_project_permission(actor, "rule:dry_run", request.project_id)
+    authz.require_project_scope(actor, "rule:dry_run", request.project_id)
     # 1. Verify DatasetArtifact & project ownership (BR-PM-06)
     artifact = artifact_repo.get_by_id(request.dataset_artifact_id)
     if not artifact:
@@ -446,6 +509,7 @@ def backtest_rule_on_dataset(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Rule does not belong to the specified project (BR-PM-06)",
             )
+        authz.require_project_permission(actor, "rule:dry_run", request.project_id, owner_id=rule.user_id)
         rule_id_str = str(rule.rule_id)
         rule_code = request.rule_code or rule.rule_code
         rule_name = request.rule_name or rule.name

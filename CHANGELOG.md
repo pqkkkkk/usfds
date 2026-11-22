@@ -2,6 +2,14 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-22 — ISS-043, ISS-023 & ISS-031: `GrantScope.OWN` Enforcement, Unified `user_id` + FKs, Batch-Joined `owner`, and Cursor Pagination
+Plans: `.plan/own_scope_access_control.md`, `.plan/resource_owner_and_cursor_pagination.md` · Board: `.plan/BOARD.md`
+
+- Core & Infra (`authz_service.py`, `base_user_repo.py`, `tables/*`, `repos/*`, `seed_rbac.py`, `migrate.py`, Alembic `f232fc1f5c13`): unified owner column `user_id` (`NOT NULL` + `ON DELETE RESTRICT` on 6 user-owned tables; `nullable=True` on `models` for built-in models with `user_id=None`), added 13 named foreign keys (`7 x users.user_id ON DELETE RESTRICT`, `6 x projects.project_id ON DELETE CASCADE`) with legacy backfill and SQLite batch-mode `PRAGMA foreign_keys=OFF` safety (`ISS-023`); added `require_project_scope`, `resolve_project_list_owner`, and `IUserRepository.get_by_ids`; updated `ROLE_GRANTS` (`data_scientist` create/mutate/delete/deploy & `fraud_analyst` `detection:create` -> `OWN`; `project_admin` `dataset:delete`, `rule:deploy/undeploy/delete` -> `PROJECT`) with idempotent `grant_scope` sync (`ISS-043`).
+- Server & Worker (`dependencies.py`, `handlers.py`, `schemas/{base_response,pagination,*_api_schemas}.py`, `routers/{project,dataset,training,rule,detection,storage}_router.py`): enforced `GrantScope.OWN` across list/get-by-id/mutate/storage endpoints; removed fake `SYSTEM_USER_ID` and `"mock_user"` fallback; added `CursorPage` (`?limit=&cursor=` -> `{ items, nextCursor }`) on 8 `GET` list endpoints (`ISS-031`, excluding Investigation & Insight Report) and batch-joined `ResourceOwnerDto(user_id, username, full_name)` on 7 resource DTOs.
+- Web (`usfds-web/src/{lib/feature-policy.ts,hooks/*,types/*,api/*,components/common/OwnerBadge.tsx,components/modules/**}`): added per-record `canAccessRecordFeature` / `canAccessRecord` gating, `CursorPage<T>` / `useInfiniteQuery` load-more support, and `OwnerBadge` (`full_name || username`, tooltip `@username` + `user_id`, `Hệ thống` for built-in models) across 11 module views.
+- Tests: `./scripts/test.sh` passed all 6 packages (`core` `162 passed, 15 skipped`, `infra` `43 passed`, `server` `42 passed`, `worker` `3 passed`, `cli` `5 passed`, `web` `20 files / 38 passed`); `usfds-web` `npm run build` & `npm run lint` passed with 0 errors.
+
 ## 2026-11-22 — ISS-042: Project-Scoped Access Control Hardening (List, Get-by-ID & Cross-Project Guards)
 Plan: `.plan/project_scoped_access_control.md` · Board: `.plan/BOARD.md`
 

@@ -104,15 +104,20 @@ class ModelPluginRegistrationService:
         self.validator = validator or ModelPluginValidator()
 
     @staticmethod
-    def _resolve_user_id(user_id: Optional[Union[UUID, str]]) -> UUID:
+    def _resolve_user_id(user_id: Optional[Union[UUID, str]]) -> Optional[UUID]:
+        if user_id is None:
+            return None
         if isinstance(user_id, UUID):
             return user_id
         if isinstance(user_id, str) and user_id.strip():
+            clean = user_id.strip()
+            if clean == "system":
+                return None
             try:
-                return UUID(user_id.strip())
+                return UUID(clean)
             except ValueError:
-                return uuid5(NAMESPACE_DNS, user_id.strip())
-        return uuid4()
+                return uuid5(NAMESPACE_DNS, clean)
+        return None
 
     def register_from_directory(
         self,

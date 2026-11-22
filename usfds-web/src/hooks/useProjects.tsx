@@ -7,7 +7,7 @@ import {
 	useState,
 	type ReactNode,
 } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectApi } from '../api/projectApi';
 import { useAuth } from './useAuth';
 import type {
@@ -32,6 +32,9 @@ interface ProjectContextValue {
 	closeCreateModal: () => void;
 	selectProject: (projectOrId: ProjectResponse | string) => void;
 	refetchProjects: () => Promise<void>;
+	hasNextPage: boolean;
+	isFetchingNextPage: boolean;
+	fetchNextPage: () => Promise<unknown>;
 	createProject: (payload: CreateProjectRequest) => Promise<ProjectResponse>;
 	updateProject: (projectId: string, payload: UpdateProjectRequest) => Promise<ProjectResponse>;
 	resetProjectSchema: (projectId: string) => Promise<ProjectResponse>;
@@ -52,22 +55,32 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 	const { isAuthenticated } = useAuth();
 
 	const {
-		data: projects = [],
+		data: projectPages,
 		isLoading,
 		isFetching,
 		error,
 		refetch,
-	} = useQuery<ProjectResponse[]>({
+		hasNextPage = false,
+		isFetchingNextPage,
+		fetchNextPage,
+	} = useInfiniteQuery({
 		queryKey: PROJECTS_QUERY_KEY,
 		enabled: isAuthenticated,
-		queryFn: async () => {
-			const res = await projectApi.listProjects();
+		initialPageParam: undefined as string | undefined,
+		queryFn: async ({ pageParam }) => {
+			const res = await projectApi.listProjects({ cursor: pageParam });
 			if (!res.success) {
 				throw new Error(res.error || 'Không thể tải danh sách dự án');
 			}
-			return res.data || [];
+			return res.data ?? { items: [], nextCursor: null };
 		},
+		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
 	});
+
+	const projects = useMemo(
+		() => projectPages?.pages.flatMap((page) => page.items) ?? [],
+		[projectPages]
+	);
 
 	const activeProjects = useMemo(() => {
 		return projects.filter((p) => p.status === 'ACTIVE');
@@ -233,6 +246,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 			closeCreateModal,
 			selectProject,
 			refetchProjects,
+			hasNextPage,
+			isFetchingNextPage,
+			fetchNextPage,
 			createProject,
 			updateProject,
 			resetProjectSchema,
@@ -251,6 +267,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 			closeCreateModal,
 			selectProject,
 			refetchProjects,
+			hasNextPage,
+			isFetchingNextPage,
+			fetchNextPage,
 			createProject,
 			updateProject,
 			resetProjectSchema,

@@ -5,6 +5,8 @@
 
 export type RuleStatus = 'ACTIVE' | 'INACTIVE' | 'DRAFT';
 
+import type { ResourceOwner } from './api';
+
 export type RuleAction = 'ALLOW' | 'REVIEW' | 'REJECT';
 
 export type LogicalCombinator = 'ALL' | 'ANY' | 'NONE';
@@ -48,6 +50,8 @@ export interface RuleVersionResponse {
 export interface RuleResponse {
   rule_id: string;
   project_id: string;
+  user_id?: string | null;
+  owner?: ResourceOwner | null;
   rule_code: string;
   name: string;
   description: string;

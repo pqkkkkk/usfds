@@ -70,10 +70,10 @@ export const TrainingWizardView: React.FC = () => {
 				trainingApi.listModels(projectId),
 			]);
 			const dsList =
-				dsSettled.status === 'fulfilled' && dsSettled.value.data ? dsSettled.value.data : [];
+				dsSettled.status === 'fulfilled' && dsSettled.value.data ? dsSettled.value.data.items : [];
 			const modelList =
 				modelsSettled.status === 'fulfilled' && modelsSettled.value.data
-					? modelsSettled.value.data
+					? modelsSettled.value.data.items
 					: [];
 			setDatasets(dsList);
 			setModels(modelList);

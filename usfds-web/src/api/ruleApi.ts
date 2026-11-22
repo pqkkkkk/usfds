@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { ApiResponse } from '@/types';
+import type { ApiResponse, CursorPage } from '@/types';
 import type {
 	BacktestRuleRequest,
 	CreateRuleRequest,
@@ -19,11 +19,14 @@ export const ruleApi = {
 	 */
 	listRules: async (
 		projectId: string,
-		status?: RuleStatus
-	): Promise<ApiResponse<RuleResponse[]>> => {
-		return apiClient.get<RuleResponse[]>('/v1/rules', {
+		status?: RuleStatus,
+		pagination?: { limit?: number; cursor?: string }
+	): Promise<ApiResponse<CursorPage<RuleResponse>>> => {
+		return apiClient.get<CursorPage<RuleResponse>>('/v1/rules', {
 			project_id: projectId,
 			...(status ? { status } : {}),
+			limit: pagination?.limit,
+			cursor: pagination?.cursor,
 		});
 	},
 
@@ -68,10 +71,13 @@ export const ruleApi = {
 	 */
 	getRuleVersions: async (
 		ruleId: string,
-		projectId: string
-	): Promise<ApiResponse<RuleVersionResponse[]>> => {
-		return apiClient.get<RuleVersionResponse[]>(`/v1/rules/${ruleId}/versions`, {
+		projectId: string,
+		pagination?: { limit?: number; cursor?: string }
+	): Promise<ApiResponse<CursorPage<RuleVersionResponse>>> => {
+		return apiClient.get<CursorPage<RuleVersionResponse>>(`/v1/rules/${ruleId}/versions`, {
 			project_id: projectId,
+			limit: pagination?.limit,
+			cursor: pagination?.cursor,
 		});
 	},
 

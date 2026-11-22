@@ -76,3 +76,47 @@ def test_actor_context_and_four_access_checks():
 
 	with pytest.raises(PermissionDeniedError):
 		can_list(actor, "rule:update", active_project_ids=[proj_a, proj_b], requested_project_ids=[proj_b])
+
+
+def test_authz_project_scope_and_list_owner_helpers():
+	"""ISS-043: require_project_scope and resolve_project_list_owner resolve OWN, PROJECT, and deny missing scope."""
+	from usfds_core.services.auth.authz_service import AuthzService
+
+	user_id = uuid4()
+	proj_a = uuid4()
+	proj_b = uuid4()
+	proj_c = uuid4()
+
+	actor = sanitize_actor_context(
+		ActorContext(
+			user_id=user_id,
+			username="analyst",
+			projects=[
+				ProjectPermissions(
+					project_id=proj_a,
+					role_keys=["custom_own"],
+					permissions={"rule:read": [GrantScope.OWN]},
+				),
+				ProjectPermissions(
+					project_id=proj_b,
+					role_keys=["data_scientist"],
+					permissions={"rule:read": [GrantScope.PROJECT]},
+				),
+			],
+			system_role_keys=["system_member"],
+			system_permissions={},
+			is_system_admin=False,
+		)
+	)
+	authz = AuthzService(user_repo=None, role_repo=None, permission_repo=None, member_repo=None)  # type: ignore[arg-type]
+
+	assert authz.require_project_scope(actor, "rule:read", proj_a) == GrantScope.OWN
+	assert authz.resolve_project_list_owner(actor, "rule:read", proj_a) == user_id
+
+	assert authz.require_project_scope(actor, "rule:read", proj_b) == GrantScope.PROJECT
+	assert authz.resolve_project_list_owner(actor, "rule:read", proj_b) is None
+
+	with pytest.raises(PermissionDeniedError):
+		authz.require_project_scope(actor, "rule:read", proj_c)
+	with pytest.raises(PermissionDeniedError):
+		authz.resolve_project_list_owner(actor, "rule:read", proj_c)

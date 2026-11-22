@@ -12,8 +12,18 @@ class DatasetModel(Base, TimestampMixin):
     __tablename__ = "datasets"
 
     dataset_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    project_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
-    user_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    project_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("projects.project_id", ondelete="CASCADE", name="fk_datasets_project_id_projects"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.user_id", ondelete="RESTRICT", name="fk_datasets_user_id_users"),
+        nullable=False,
+        index=True,
+    )
     dataset_name: Mapped[str] = mapped_column(String(100), nullable=False)
     display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

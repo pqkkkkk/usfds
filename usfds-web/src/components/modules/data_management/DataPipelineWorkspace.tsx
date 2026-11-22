@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../layout/PageHeader';
+import { OwnerBadge } from '../../common/OwnerBadge';
 import { WorkspaceStepper } from '../../layout/WorkspaceStepper';
 import { DataProfilingWorkspace } from './DataProfilingWorkspace';
 import { SchemaMappingWorkspace } from './SchemaMappingWorkspace';
@@ -22,8 +23,7 @@ export const DataPipelineWorkspace = () => {
   const { datasetId, stepId = 'step-profiling' } = useParams<{ datasetId: string; stepId: string }>();
   const navigate = useNavigate();
   const { currentProjectId } = useProject();
-  const { features } = useActorContext(currentProjectId);
-  const canUpdateDataset = features.updateDataset.allowed;
+  const { features, canAccessRecord } = useActorContext(currentProjectId);
   const canOpenModels = features.modelManagement.allowed;
 
   const [mappingConfig, setMappingConfig] = useState<DataMappingConfig | null>(null);
@@ -55,6 +55,7 @@ export const DataPipelineWorkspace = () => {
     isExecutingFE,
     feError,
   } = useDatasetPipeline(datasetId, stepId, currentProjectId);
+  const canUpdateDataset = canAccessRecord('updateDataset', datasetDetail?.dataset.user_id);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-dark-950">
@@ -153,6 +154,13 @@ export const DataPipelineWorkspace = () => {
             {/* Step 4: Feature Engineering -> Execute & Proceed to Training */}
             {stepId === 'step-feature-eng' && (
               <div className="flex items-center gap-2">
+                {datasetDetail?.dataset && (
+                  <OwnerBadge
+                    owner={datasetDetail.dataset.owner}
+                    userId={datasetDetail.dataset.user_id}
+                    className="px-2.5 py-1 rounded-lg bg-dark-900 border border-dark-700"
+                  />
+                )}
                 {activeFeArtifact && canUpdateDataset && (
                   <button
                     onClick={async () => {

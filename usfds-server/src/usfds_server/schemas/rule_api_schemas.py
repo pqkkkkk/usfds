@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from usfds_core.domain.entities.enums import RuleAction, RuleStatus
+from usfds_server.schemas.base_response import ResourceOwnerDto
 
 
 # ==========================================
@@ -53,6 +54,8 @@ class SetRuleStatusRequest(BaseModel):
 class RuleResponse(BaseModel):
     rule_id: UUID
     project_id: UUID
+    user_id: UUID
+    owner: Optional[ResourceOwnerDto] = None
     rule_code: str
     name: str
     description: str

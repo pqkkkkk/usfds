@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { ApiResponse } from '@/types';
+import type { ApiResponse, CursorPage } from '@/types';
 import type {
 	CreateProjectRequest,
 	ProjectResponse,
@@ -12,11 +12,15 @@ export const projectApi = {
 		userId?: string;
 		status?: ProjectStatus;
 		search?: string;
-	}): Promise<ApiResponse<ProjectResponse[]>> => {
-		return apiClient.get<ProjectResponse[]>('/v1/projects', {
+		limit?: number;
+		cursor?: string;
+	}): Promise<ApiResponse<CursorPage<ProjectResponse>>> => {
+		return apiClient.get<CursorPage<ProjectResponse>>('/v1/projects', {
 			user_id: params?.userId,
 			status: params?.status,
 			search: params?.search,
+			limit: params?.limit,
+			cursor: params?.cursor,
 		});
 	},
 

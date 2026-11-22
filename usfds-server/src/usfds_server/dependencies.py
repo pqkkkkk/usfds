@@ -37,7 +37,7 @@ def seed_builtin_models(session_factory: sessionmaker[Session]) -> None:
         Model(
             model_id=BUILTIN_RANDOM_FOREST_ID,
             model_name="random_forest",
-            user_id=SYSTEM_USER_ID,
+            user_id=None,
             display_name="Random Forest Classifier",
             description="Built-in Random Forest classifier with automated tabular preprocessing.",
             execution_type=ExecutionType.BUILTIN,
@@ -54,7 +54,7 @@ def seed_builtin_models(session_factory: sessionmaker[Session]) -> None:
         Model(
             model_id=BUILTIN_XGBOOST_ID,
             model_name="xgboost",
-            user_id=SYSTEM_USER_ID,
+            user_id=None,
             display_name="XGBoost Classifier",
             description="Built-in XGBoost gradient boosting classifier with automated tabular preprocessing.",
             execution_type=ExecutionType.BUILTIN,

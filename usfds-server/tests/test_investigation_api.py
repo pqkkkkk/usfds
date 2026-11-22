@@ -43,9 +43,12 @@ def test_investigation_contract_and_independent_resolution(tmp_path):
 	settings.db_path, settings.storage_dir = str(tmp_path / "cases.db"), str(tmp_path / "storage")
 	try:
 		with TestClient(app) as client:
-			project_id, actor_id = uuid4(), uuid4()
+			from usfds_infra.database import SqlUserRepository
+
+			project_id = uuid4()
 			session_generator = get_db()
 			session = next(session_generator)
+			actor_id = SqlUserRepository(session).get_by_username("admin").user_id
 			project = Project(project_name="Investigation test", user_id=actor_id, project_id=project_id,
 				raw_schema={"columns": {"amount": {"logical_type": "NUMERIC"}}})
 			SqliteProjectRepository(session).save(project)

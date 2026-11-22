@@ -22,6 +22,7 @@ import { trainingApi } from '../../../api/trainingApi';
 import { useProject } from '../../../hooks/useProjects';
 import { useActorContext } from '@/hooks/useActorContext';
 import { formatModelVersion } from '@/utils/formatters';
+import { OwnerBadge } from '../../common/OwnerBadge';
 import type {
 	ModelResponse,
 	ModelVersionResponse,
@@ -36,10 +37,9 @@ export const ModelHubView: React.FC = () => {
 	const navigate = useNavigate();
 	const { currentProject } = useProject();
 	const projectId = currentProject?.project_id;
-	const { features } = useActorContext(projectId);
+	const { features, canAccessRecord } = useActorContext(projectId);
 	const canCreateModel = features.createModel.allowed || features.manageBuiltinModels.allowed;
 	const canCreateTraining = features.createTraining.allowed;
-	const canDeployModel = features.deployModel.allowed;
 
 	const [activeTab, setActiveTab] = useState<'runs' | 'registry'>('runs');
 	const [models, setModels] = useState<ModelResponse[]>([]);
@@ -81,11 +81,11 @@ export const ModelHubView: React.FC = () => {
 			]);
 			const loadedModels =
 				modelsSettled.status === 'fulfilled' && modelsSettled.value.data
-					? modelsSettled.value.data
+					? modelsSettled.value.data.items
 					: [];
 			const loadedRuns =
 				runsSettled.status === 'fulfilled' && runsSettled.value.data
-					? runsSettled.value.data
+					? runsSettled.value.data.items
 					: [];
 			setModels(loadedModels);
 			setRuns(loadedRuns);
@@ -94,7 +94,7 @@ export const ModelHubView: React.FC = () => {
 			const versionEntries = await Promise.allSettled(
 				loadedModels.map(async (m) => {
 					const vRes = await trainingApi.listModelVersions(m.model_id, projectId);
-					return [m.model_id, vRes.data || []] as const;
+					return [m.model_id, vRes.data?.items || []] as const;
 				})
 			);
 			const versionMap: Record<string, ModelVersionResponse[]> = {};
@@ -470,6 +470,7 @@ export const ModelHubView: React.FC = () => {
 										<th scope="col" className="py-3 px-4">Algorithm / Model</th>
 										<th scope="col" className="py-3 px-4">Version</th>
 										<th scope="col" className="py-3 px-4">Status</th>
+										<th scope="col" className="py-3 px-4">Chủ sở hữu</th>
 										<th scope="col" className="py-3 px-4 text-right">PR-AUC</th>
 										<th scope="col" className="py-3 px-4 text-right">ROC-AUC</th>
 										<th scope="col" className="py-3 px-4 text-right">F1-Score</th>
@@ -480,7 +481,7 @@ export const ModelHubView: React.FC = () => {
 								<tbody className="divide-y divide-dark-800/70 text-xs">
 									{filteredRuns.length === 0 ? (
 										<tr>
-											<td colSpan={9} className="py-12 text-center text-slate-400">
+											<td colSpan={10} className="py-12 text-center text-slate-400">
 												Chưa có lần chạy huấn luyện nào khớp bộ lọc.
 												{canCreateTraining && (
 													<>
@@ -543,6 +544,9 @@ export const ModelHubView: React.FC = () => {
 														)}
 													</td>
 													<td className="py-3 px-4">{renderRunStatusBadge(run.status)}</td>
+													<td className="py-3 px-4">
+														<OwnerBadge owner={run.owner} userId={run.user_id} />
+													</td>
 													<td className="py-3 px-4 text-right font-mono text-slate-100">
 														{typeof prAuc === 'number' ? prAuc.toFixed(4) : '—'}
 													</td>
@@ -567,7 +571,9 @@ export const ModelHubView: React.FC = () => {
 																<Eye className="w-3.5 h-3.5 text-brand-400" />
 																<span>Xem</span>
 															</button>
-															{versionObj && versionObj.status !== 'APPROVED' && canDeployModel && (
+															{versionObj &&
+																versionObj.status !== 'APPROVED' &&
+																canAccessRecord('deployModel', versionObj.user_id ?? run.user_id) && (
 																<button
 																	type="button"
 																	onClick={() =>
@@ -650,6 +656,7 @@ export const ModelHubView: React.FC = () => {
 										</div>
 
 										<div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+											<OwnerBadge owner={model.owner} userId={model.user_id} />
 											<span className="text-xs font-mono text-slate-400">
 												{versions.length} versions
 											</span>
@@ -679,6 +686,7 @@ export const ModelHubView: React.FC = () => {
 															<tr className="border-b border-dark-800 text-[10px] font-bold uppercase tracking-wider text-slate-400">
 																<th scope="col" className="py-2 px-3">SemVer</th>
 																<th scope="col" className="py-2 px-3">Status</th>
+																<th scope="col" className="py-2 px-3">Chủ sở hữu</th>
 																<th scope="col" className="py-2 px-3">Framework</th>
 																<th scope="col" className="py-2 px-3">Threshold</th>
 																<th scope="col" className="py-2 px-3">SHA-256 Checksum</th>
@@ -694,6 +702,9 @@ export const ModelHubView: React.FC = () => {
 																	</td>
 																	<td className="py-2.5 px-3">
 																		{renderVersionStatusBadge(ver.status)}
+																	</td>
+																	<td className="py-2.5 px-3">
+																		<OwnerBadge owner={ver.owner} userId={ver.user_id} />
 																	</td>
 																	<td className="py-2.5 px-3 font-mono text-slate-300">
 																		{ver.framework || 'scikit-learn'}
@@ -728,7 +739,7 @@ export const ModelHubView: React.FC = () => {
 																				<GitBranch className="w-3 h-3" />
 																				<span>Phả hệ</span>
 																			</button>
-																			{canDeployModel && (
+																			{canAccessRecord('deployModel', ver.user_id) && (
 																				<button
 																					type="button"
 																					onClick={() =>

@@ -117,48 +117,57 @@ describe('ModelLineagePanel & ModelHubView Lineage (ISS-008)', () => {
 			http.get(`${API}/v1/projects`, () =>
 				HttpResponse.json({
 					success: true,
-					data: [
-						{
-							project_id: 'proj-1',
-							project_name: 'Project One',
-							status: 'ACTIVE',
-							created_at: '2026-11-14T00:00:00Z',
-						},
-					],
+					data: {
+						items: [
+							{
+								project_id: 'proj-1',
+								project_name: 'Project One',
+								status: 'ACTIVE',
+								created_at: '2026-11-14T00:00:00Z',
+							},
+						],
+						nextCursor: null,
+					},
 				})
 			),
 			http.get(`${API}/v1/training/models`, () =>
 				HttpResponse.json({
 					success: true,
-					data: [
-						{
-							model_id: modelId,
-							user_id: 'u-1',
-							model_name: 'random_forest',
-							display_name: 'Random Forest',
-							execution_type: 'BUILTIN',
-							created_at: '2026-11-14T00:00:00Z',
-						},
-					],
+					data: {
+						items: [
+							{
+								model_id: modelId,
+								user_id: 'u-1',
+								model_name: 'random_forest',
+								display_name: 'Random Forest',
+								execution_type: 'BUILTIN',
+								created_at: '2026-11-14T00:00:00Z',
+							},
+						],
+						nextCursor: null,
+					},
 				})
 			),
-			http.get(`${API}/v1/training/runs`, () => HttpResponse.json({ success: true, data: [] })),
+			http.get(`${API}/v1/training/runs`, () => HttpResponse.json({ success: true, data: { items: [], nextCursor: null } })),
 			http.get(`${API}/v1/training/models/${modelId}/versions`, () =>
 				HttpResponse.json({
 					success: true,
-					data: [
-						{
-							version_id: versionId,
-							model_id: modelId,
-							project_id: 'proj-1',
-							run_id: 'run-100',
-							semver: '1.0.0',
-							artifact_uri: 'models/rf/1.0.0/model.joblib',
-							decision_threshold: 0.5,
-							status: 'CANDIDATE',
-							registered_at: '2026-11-14T01:03:00Z',
-						},
-					],
+					data: {
+						items: [
+							{
+								version_id: versionId,
+								model_id: modelId,
+								project_id: 'proj-1',
+								run_id: 'run-100',
+								semver: '1.0.0',
+								artifact_uri: 'models/rf/1.0.0/model.joblib',
+								decision_threshold: 0.5,
+								status: 'CANDIDATE',
+								registered_at: '2026-11-14T01:03:00Z',
+							},
+						],
+						nextCursor: null,
+					},
 				})
 			),
 			http.get(`${API}/v1/training/versions/${versionId}/lineage`, () =>

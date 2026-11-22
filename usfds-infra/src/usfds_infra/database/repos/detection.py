@@ -43,6 +43,7 @@ class SqliteDetectionJobRepository(IDetectionJobRepository):
         return DetectionJob(
             job_id=UUID(record.job_id),
             project_id=UUID(record.project_id),
+            user_id=UUID(record.user_id),
             deployment_id=UUID(record.deployment_id) if record.deployment_id else None,
             target_artifact_id=UUID(record.target_artifact_id) if record.target_artifact_id else None,
             model_version_id=UUID(record.model_version_id) if record.model_version_id else None,
@@ -78,6 +79,7 @@ class SqliteDetectionJobRepository(IDetectionJobRepository):
             record = DetectionJobModel(
                 job_id=str(job.job_id),
                 project_id=str(job.project_id),
+                user_id=str(job.user_id),
                 deployment_id=str(job.deployment_id) if job.deployment_id else None,
                 target_artifact_id=str(job.target_artifact_id) if job.target_artifact_id else None,
                 model_version_id=str(job.model_version_id) if job.model_version_id else None,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	ACTOR_FEATURE,
+	canAccessRecordFeature,
 	canOpenActorFeature,
 	getFirstAllowedModule,
 	scopesOn,
@@ -109,5 +110,56 @@ describe('feature-policy', () => {
 		expect(canOpenActorFeature(sysAdmin, 'adminUsers')).toBe(true);
 		expect(canOpenActorFeature(sysAdmin, 'createRule', PROJECT_1)).toBe(true);
 		expect(visibleProjectIds(sysAdmin, 'createRule')).toBeNull();
+	});
+
+	it('test_can_access_record_feature_respects_own_project_and_system_scopes', () => {
+		const ownActorId = 'aaaa1111-1111-1111-1111-111111111111';
+		const peerActorId = 'bbbb2222-2222-2222-2222-222222222222';
+		const actor: ActorContextLike = {
+			user_id: ownActorId,
+			is_system_admin: false,
+			system_role_keys: ['system_member'],
+			system_permissions: {},
+			projects: [
+				{
+					project_id: PROJECT_1,
+					role_keys: ['data_scientist'],
+					permissions: {
+						'dataset:delete': ['OWN'],
+						'rule:update': ['OWN'],
+						'rule:dry_run': ['PROJECT'],
+					},
+				},
+				{
+					project_id: PROJECT_2,
+					role_keys: ['project_admin'],
+					permissions: {
+						'dataset:delete': ['PROJECT'],
+						'rule:delete': ['PROJECT'],
+					},
+				},
+			],
+		};
+
+		// OWN scope: allowed only when ownerId === actor.user_id
+		expect(canAccessRecordFeature(actor, 'deleteDataset', ownActorId, PROJECT_1)).toBe(true);
+		expect(canAccessRecordFeature(actor, 'deleteDataset', peerActorId, PROJECT_1)).toBe(false);
+		expect(canAccessRecordFeature(actor, 'deleteDataset', null, PROJECT_1)).toBe(false);
+		expect(canAccessRecordFeature(actor, 'deleteDataset', undefined, PROJECT_1)).toBe(false);
+
+		// PROJECT scope: allowed regardless of ownerId
+		expect(canAccessRecordFeature(actor, 'dryRunRule', peerActorId, PROJECT_1)).toBe(true);
+		expect(canAccessRecordFeature(actor, 'deleteDataset', peerActorId, PROJECT_2)).toBe(true);
+		expect(canAccessRecordFeature(actor, 'deleteRule', null, PROJECT_2)).toBe(true);
+
+		// system_admin overrides everything
+		const sysAdmin: ActorContextLike = {
+			user_id: '00000000-0000-0000-0000-000000000001',
+			is_system_admin: true,
+			system_role_keys: ['system_admin'],
+			system_permissions: {},
+			projects: [],
+		};
+		expect(canAccessRecordFeature(sysAdmin, 'deleteDataset', peerActorId, PROJECT_1)).toBe(true);
 	});
 });

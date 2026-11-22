@@ -1,7 +1,25 @@
-from typing import Generic, Optional, TypeVar
+from typing import Generic, List, Optional, TypeVar
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 T = TypeVar("T")
+
+
+class ResourceOwnerDto(BaseModel):
+    """Public owner summary joined from `users` for resource display."""
+    model_config = ConfigDict(extra="ignore")
+
+    user_id: UUID
+    username: str
+    full_name: Optional[str] = None
+
+
+class CursorPage(BaseModel, Generic[T]):
+    """Cursor-based pagination payload for infinite-scroll list endpoints."""
+    model_config = ConfigDict(extra="ignore")
+
+    items: List[T]
+    nextCursor: Optional[str] = None
 
 
 class ApiResponse(BaseModel, Generic[T]):
@@ -45,4 +63,4 @@ class ApiResponse(BaseModel, Generic[T]):
         )
 
 
-__all__ = ["ApiResponse"]
+__all__ = ["ApiResponse", "CursorPage", "ResourceOwnerDto"]

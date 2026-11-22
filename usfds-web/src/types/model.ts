@@ -1,6 +1,7 @@
 /**
  * Model Training, Registry, and Evaluation Types
  */
+import type { ResourceOwner } from './api';
 
 export type ExecutionType = 'BUILTIN' | 'SCRIPT' | 'DOCKER_IMAGE';
 
@@ -42,7 +43,8 @@ export interface ModelPluginManifest {
 export interface ModelResponse {
 	model_id: string;
 	project_id?: string | null;
-	user_id: string;
+	user_id?: string | null;
+	owner?: ResourceOwner | null;
 	model_name: string;
 	display_name?: string | null;
 	description?: string | null;
@@ -60,6 +62,8 @@ export interface ModelVersionResponse {
 	version_id: string;
 	model_id: string;
 	project_id?: string | null;
+	user_id?: string | null;
+	owner?: ResourceOwner | null;
 	run_id?: string | null;
 	semver: string;
 	artifact_uri: string;
@@ -132,6 +136,8 @@ export interface TrainingCustomMetrics {
 export interface TrainingRunResponse {
 	run_id: string;
 	project_id?: string | null;
+	user_id?: string | null;
+	owner?: ResourceOwner | null;
 	model_id?: string | null;
 	version_id?: string | null;
 	dataset_artifact_id?: string | null;

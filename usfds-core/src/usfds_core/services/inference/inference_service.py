@@ -246,6 +246,7 @@ class InferenceService:
         job_name: Optional[str] = None,
         user_name: Optional[str] = None,
         decision_threshold: Optional[float] = None,
+        user_id: Optional[UUID] = None,
     ) -> DetectionJob:
         """Pre-dispatch phase for batch inference."""
         pipeline = self._validate_deployment(deployment_id)
@@ -288,6 +289,7 @@ class InferenceService:
         job = DetectionJob(
             job_id=job_id,
             project_id=project_id,
+            user_id=user_id or uuid4(),
             deployment_id=deployment_id,
             input_path=input_path,
             job_name=job_name or f"Batch-Detection-{deployment_id}",
@@ -635,6 +637,7 @@ class InferenceService:
         score_threshold: Optional[float] = None,
         job_name: Optional[str] = None,
         user_name: Optional[str] = None,
+        user_id: Optional[UUID] = None,
     ) -> DetectionJob:
         """Starts a hybrid batch detection job (SUC-15) combining an optional APPROVED ModelVersion
         and the project's ACTIVE business rules on either a RAW DatasetArtifact or a direct file path.
@@ -714,6 +717,7 @@ class InferenceService:
         job = DetectionJob(
             job_id=job_id,
             project_id=project_id,
+            user_id=user_id or uuid4(),
             deployment_id=model_version_id,
             target_artifact_id=target_artifact_id,
             model_version_id=model_version_id,

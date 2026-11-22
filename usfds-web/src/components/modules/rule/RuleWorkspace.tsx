@@ -9,6 +9,7 @@ import {
 	Loader2,
 } from 'lucide-react';
 import { PageHeader } from '../../layout/PageHeader';
+import { OwnerBadge } from '../../common/OwnerBadge';
 import { WorkspaceStepper, type PipelineStep } from '../../layout/WorkspaceStepper';
 import { RuleStudioWorkspace } from './RuleStudioWorkspace';
 import { RuleDryRunWorkspace } from './RuleDryRunWorkspace';
@@ -43,11 +44,8 @@ export const RuleWorkspace: React.FC = () => {
 	const investigationDraft = (location.state as { investigationDraft?: RuleDraft } | null)?.investigationDraft;
 	const { currentProject, currentProjectId, refetchProjects } = useProject();
 	const effectiveProjectId = currentProjectId || FALLBACK_PROJECT_ID;
-	const { features } = useActorContext(currentProjectId);
+	const { features, canAccessRecord } = useActorContext(currentProjectId);
 	const isNew = !ruleId || ruleId === 'new';
-	const canSaveRule = isNew ? features.createRule.allowed : features.updateRule.allowed;
-	const canDryRunRule = features.dryRunRule.allowed;
-	const canDeployRule = features.deployRule.allowed;
 	const isSchemaLocked = Boolean(currentProject?.is_schema_locked);
 	const availableFields = useMemo(
 		() => buildAvailableFieldsFromRawSchema(currentProject?.raw_schema),
@@ -55,6 +53,9 @@ export const RuleWorkspace: React.FC = () => {
 	);
 
 	const [currentRule, setCurrentRule] = useState<RuleResponse | null>(null);
+	const canSaveRule = isNew ? features.createRule.allowed : canAccessRecord('updateRule', currentRule?.user_id);
+	const canDryRunRule = isNew ? features.dryRunRule.allowed : canAccessRecord('dryRunRule', currentRule?.user_id);
+	const canDeployRule = isNew ? features.deployRule.allowed : canAccessRecord('deployRule', currentRule?.user_id);
 	const [ruleCode, setRuleCode] = useState<string>('R-001');
 	const [ruleName, setRuleName] = useState<string>('Quy tắc nghiệp vụ mới');
 	const [status, setStatus] = useState<RuleStatus>('DRAFT');
@@ -261,6 +262,13 @@ export const RuleWorkspace: React.FC = () => {
 				}}
 				actions={
 					<div className="flex items-center gap-2.5">
+						{currentRule && (
+							<OwnerBadge
+								owner={currentRule.owner}
+								userId={currentRule.user_id}
+								className="px-2.5 py-1 rounded-lg bg-dark-900 border border-slate-800"
+							/>
+						)}
 						{/* Back Button */}
 						{stepId === 'step-builder' ? (
 							<button

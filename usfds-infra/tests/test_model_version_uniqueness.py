@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
+from usfds_core.domain.entities.system import Project, User
 from usfds_core.domain.schemas.training_payload import TrainingRunResult
 from usfds_core.services.training.dispatchers.local_dispatcher import SynchronousRunDispatcher
 from usfds_core.services.training.training_service import TrainingOrchestrationService
@@ -13,8 +14,22 @@ from usfds_infra.database import (
 	SqliteDatasetArtifactRepository,
 	SqliteModelRepository,
 	SqliteModelVersionRepository,
+	SqliteProjectRepository,
 	SqliteTrainingRunRepository,
+	SqlUserRepository,
 )
+
+
+def _seed_user(session, user_id):
+	SqlUserRepository(session).save(
+		User(
+			user_id=user_id,
+			username=f"u_{user_id.hex[:8]}",
+			email=f"{user_id.hex[:8]}@usfds.local",
+			full_name="Test User",
+			password_hash="h",
+		)
+	)
 
 
 def test_model_version_unique_constraint_prevents_duplicates(session_factory):
@@ -23,11 +38,12 @@ def test_model_version_unique_constraint_prevents_duplicates(session_factory):
 	user_id = uuid4()
 
 	with session_factory() as session:
+		_seed_user(session, user_id)
 		SqliteModelRepository(session).save(
 			Model(model_id=model_id, user_id=user_id, model_name="rf_unique_test")
 		)
 		SqliteModelVersionRepository(session).save(
-			ModelVersion(model_id=model_id, semver="v1", artifact_uri="models/v1.joblib")
+			ModelVersion(model_id=model_id, user_id=user_id, semver="v1", artifact_uri="models/v1.joblib")
 		)
 		session.commit()
 
@@ -39,6 +55,7 @@ def test_model_version_unique_constraint_prevents_duplicates(session_factory):
 				ModelVersionModel(
 					version_id=str(uuid4()),
 					model_id=str(model_id),
+					user_id=str(user_id),
 					semver="v1",
 					artifact_uri="models/v1_dup.joblib",
 				)
@@ -54,12 +71,13 @@ def test_concurrent_completion_retries_and_allocates_distinct_versions(session_f
 	run2_id = uuid4()
 
 	with session_factory() as session:
+		_seed_user(session, user_id)
 		SqliteModelRepository(session).save(
 			Model(model_id=model_id, user_id=user_id, model_name="rf_concurrent_test")
 		)
 		run_repo = SqliteTrainingRunRepository(session)
-		run_repo.save(TrainingRun(run_id=run1_id, model_id=model_id, run_name="run_1"))
-		run_repo.save(TrainingRun(run_id=run2_id, model_id=model_id, run_name="run_2"))
+		run_repo.save(TrainingRun(run_id=run1_id, user_id=user_id, model_id=model_id, run_name="run_1"))
+		run_repo.save(TrainingRun(run_id=run2_id, user_id=user_id, model_id=model_id, run_name="run_2"))
 		session.commit()
 
 	with session_factory() as session1, session_factory() as session2:
@@ -132,14 +150,19 @@ def test_same_model_semver_allowed_across_projects_but_unique_within_project_and
 	project_b = uuid4()
 
 	with session_factory() as session:
+		_seed_user(session, user_id)
+		proj_repo = SqliteProjectRepository(session)
+		proj_repo.save(Project(project_id=project_a, user_id=user_id, project_name="Proj A"))
+		proj_repo.save(Project(project_id=project_b, user_id=user_id, project_name="Proj B"))
 		SqliteModelRepository(session).save(
-			Model(model_id=model_id, project_id=None, user_id=user_id, model_name="rf_project_scope")
+			Model(model_id=model_id, project_id=None, user_id=None, model_name="rf_project_scope")
 		)
 		repo = SqliteModelVersionRepository(session)
 		repo.save(
 			ModelVersion(
 				model_id=model_id,
 				project_id=project_a,
+				user_id=user_id,
 				semver="v1",
 				artifact_uri="models/a_v1.joblib",
 			)
@@ -148,6 +171,7 @@ def test_same_model_semver_allowed_across_projects_but_unique_within_project_and
 			ModelVersion(
 				model_id=model_id,
 				project_id=project_b,
+				user_id=user_id,
 				semver="v1",
 				artifact_uri="models/b_v1.joblib",
 			)
@@ -156,6 +180,7 @@ def test_same_model_semver_allowed_across_projects_but_unique_within_project_and
 			ModelVersion(
 				model_id=model_id,
 				project_id=None,
+				user_id=user_id,
 				semver="v1",
 				artifact_uri="models/null_v1.joblib",
 			)
@@ -169,6 +194,7 @@ def test_same_model_semver_allowed_across_projects_but_unique_within_project_and
 					version_id=str(uuid4()),
 					model_id=str(model_id),
 					project_id=str(project_a),
+					user_id=str(user_id),
 					semver="v1",
 					artifact_uri="models/a_v1_dup.joblib",
 				)
@@ -182,6 +208,7 @@ def test_same_model_semver_allowed_across_projects_but_unique_within_project_and
 					version_id=str(uuid4()),
 					model_id=str(model_id),
 					project_id=None,
+					user_id=str(user_id),
 					semver="v1",
 					artifact_uri="models/null_v1_dup.joblib",
 				)

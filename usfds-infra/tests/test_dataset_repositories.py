@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
 from usfds_core.domain.entities.enums import DataClassification, PipelineStage, ValidationStatus
+from usfds_core.domain.entities.system import Project, User
 from usfds_infra.database import (
     close_db,
     create_session_factory,
@@ -15,6 +16,8 @@ from usfds_infra.database import (
     session_scope,
     SqliteDatasetArtifactRepository,
     SqliteDatasetRepository,
+    SqliteProjectRepository,
+    SqlUserRepository,
 )
 
 
@@ -31,11 +34,21 @@ class TestDatasetRepositories(unittest.TestCase):
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir, ignore_errors=True)
 
+    def _seed_user_and_project(self, session):
+        user_id = uuid4()
+        project_id = uuid4()
+        SqlUserRepository(session).save(
+            User(user_id=user_id, username=f"u_{user_id.hex[:8]}", email=f"{user_id.hex[:8]}@usfds.local", full_name="Test", password_hash="h")
+        )
+        SqliteProjectRepository(session).save(
+            Project(project_id=project_id, user_id=user_id, project_name=f"proj_{project_id.hex[:8]}")
+        )
+        return user_id, project_id
+
     def test_dataset_repository_crud(self):
         with session_scope(self.session_factory) as session:
             repo = SqliteDatasetRepository(session)
-            project_id = uuid4()
-            user_id = uuid4()
+            user_id, project_id = self._seed_user_and_project(session)
 
             dataset = Dataset(
                 dataset_name="fraud_raw",
@@ -73,8 +86,7 @@ class TestDatasetRepositories(unittest.TestCase):
             ds_repo = SqliteDatasetRepository(session)
             art_repo = SqliteDatasetArtifactRepository(session)
 
-            project_id = uuid4()
-            user_id = uuid4()
+            user_id, project_id = self._seed_user_and_project(session)
             dataset = ds_repo.save(Dataset(
                 dataset_name="test_art_ds",
                 project_id=project_id,

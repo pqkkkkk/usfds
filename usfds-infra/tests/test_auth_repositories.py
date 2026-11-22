@@ -22,6 +22,16 @@ def test_schema_supports_multi_role_per_project_and_idempotent_seed(db_session):
 	member_repo = SqlProjectMemberRepository(db_session)
 
 	legacy_owner_id = uuid4()
+	user_repo.save(
+		User(
+			user_id=legacy_owner_id,
+			username="legacy_owner",
+			email="legacy_owner@usfds.local",
+			full_name="Legacy Owner",
+			password_hash="hashed",
+			status=UserStatus.ACTIVE,
+		)
+	)
 	legacy_project = Project(
 		project_id=uuid4(),
 		project_name="Legacy Fraud Project",
@@ -163,3 +173,100 @@ def test_load_actor_context_and_load_project_actor_context(db_session):
 	assert len(p2_bob) == 1
 	assert p2_bob[0].status == UserStatus.DISABLED
 	assert p2_bob[0].role_keys == ["fraud_analyst"]
+
+
+def test_seed_rbac_syncs_builtin_role_own_scopes_idempotently(db_session):
+	"""ISS-043: seed_rbac updates built-in role grants to OWN for ds/fa mutations and adds cleanup PROJECT grants to project_admin."""
+	from usfds_infra.database.models import RolePermissionModel
+
+	seed_rbac(db_session, bootstrap_password_hash="hashed-pw")
+	role_repo = SqlRoleRepository(db_session)
+	perm_repo = SqlPermissionRepository(db_session)
+	perm_by_id = {p.permission_id: p.code for p in perm_repo.list_all()}
+	perm_by_code = {p.code: p.permission_id for p in perm_repo.list_all()}
+
+	ds_role = role_repo.get_by_scope_and_name(RoleScope.PROJECT, "data_scientist")
+	fa_role = role_repo.get_by_scope_and_name(RoleScope.PROJECT, "fraud_analyst")
+	pa_role = role_repo.get_by_scope_and_name(RoleScope.PROJECT, "project_admin")
+	assert ds_role is not None and fa_role is not None and pa_role is not None
+
+	# Simulate legacy DB state where data_scientist had PROJECT scope on rule:update and dataset:delete
+	for code in ("rule:update", "dataset:delete"):
+		db_session.merge(
+			RolePermissionModel(
+				role_id=str(ds_role.role_id),
+				permission_id=str(perm_by_code[code]),
+				grant_scope=GrantScope.PROJECT.value,
+			)
+		)
+	db_session.flush()
+
+	# Re-run seed_rbac twice
+	seed_rbac(db_session, bootstrap_password_hash="hashed-pw")
+	seed_rbac(db_session, bootstrap_password_hash="hashed-pw")
+	db_session.flush()
+
+	ds_grants = {perm_by_id[rp.permission_id]: rp.grant_scope for rp in role_repo.get_role_permissions(ds_role.role_id)}
+	for own_code in (
+		"dataset:create", "dataset:update", "dataset:delete",
+		"model:create", "model:update", "training:create",
+		"deployment:deploy", "deployment:undeploy",
+		"rule:create", "rule:update", "rule:delete", "rule:deploy", "rule:undeploy",
+		"detection:create",
+	):
+		assert ds_grants.get(own_code) == GrantScope.OWN, f"Expected OWN for {own_code}, got {ds_grants.get(own_code)}"
+	for proj_code in (
+		"project:read", "dataset:read", "dataset:export",
+		"model:read", "training:read", "rule:read", "rule:dry_run",
+		"detection:read", "detection:export", "report:read",
+	):
+		assert ds_grants.get(proj_code) == GrantScope.PROJECT, f"Expected PROJECT for {proj_code}, got {ds_grants.get(proj_code)}"
+
+	fa_grants = {perm_by_id[rp.permission_id]: rp.grant_scope for rp in role_repo.get_role_permissions(fa_role.role_id)}
+	assert fa_grants.get("detection:create") == GrantScope.OWN
+
+	pa_grants = {perm_by_id[rp.permission_id]: rp.grant_scope for rp in role_repo.get_role_permissions(pa_role.role_id)}
+	for pa_code in ("dataset:delete", "rule:deploy", "rule:undeploy", "rule:delete"):
+		assert pa_grants.get(pa_code) == GrantScope.PROJECT, f"Expected PROJECT for project_admin {pa_code}"
+
+
+def test_user_repo_get_by_ids_returns_map_without_duplicates(db_session):
+	"""M1: SqlUserRepository.get_by_ids batch-loads users by IDs and ignores missing/duplicate IDs."""
+	user_repo = SqlUserRepository(db_session)
+	u1 = user_repo.save(
+		User(
+			user_id=uuid4(),
+			username="batch_u1",
+			email="batch_u1@usfds.local",
+			full_name="Batch User 1",
+			password_hash="hashed",
+			status=UserStatus.ACTIVE,
+		)
+	)
+	u2 = user_repo.save(
+		User(
+			user_id=uuid4(),
+			username="batch_u2",
+			email="batch_u2@usfds.local",
+			full_name="Batch User 2",
+			password_hash="hashed",
+			status=UserStatus.ACTIVE,
+		)
+	)
+	user_repo.save(
+		User(
+			user_id=uuid4(),
+			username="batch_u3",
+			email="batch_u3@usfds.local",
+			full_name="Batch User 3",
+			password_hash="hashed",
+			status=UserStatus.ACTIVE,
+		)
+	)
+
+	result = user_repo.get_by_ids([u1.user_id, u1.user_id, u2.user_id, uuid4()])
+	assert set(result.keys()) == {u1.user_id, u2.user_id}
+	assert result[u1.user_id].username == "batch_u1"
+	assert result[u1.user_id].full_name == "Batch User 1"
+	assert result[u2.user_id].username == "batch_u2"
+	assert user_repo.get_by_ids([]) == {}

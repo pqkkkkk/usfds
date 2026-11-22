@@ -20,6 +20,7 @@ import { useTheme } from '../../../hooks/useTheme';
 import { useActorContext } from '@/hooks/useActorContext';
 import { formatModelVersion } from '@/utils/formatters';
 import { PageHeader } from '../../layout/PageHeader';
+import { OwnerBadge } from '../../common/OwnerBadge';
 import type {
 	ModelResponse,
 	ModelVersionResponse,
@@ -34,13 +35,13 @@ export const TrainingRunDetailView: React.FC = () => {
 	const navigate = useNavigate();
 	const { currentProject } = useProject();
 	const { chartTokens } = useTheme();
-	const { features } = useActorContext(currentProject?.project_id);
+	const { features, canAccessRecord } = useActorContext(currentProject?.project_id);
 	const canCreateTraining = features.createTraining.allowed;
-	const canDeployModel = features.deployModel.allowed;
 
 	const [run, setRun] = useState<TrainingRunResponse | null>(null);
 	const [model, setModel] = useState<ModelResponse | null>(null);
 	const [version, setVersion] = useState<ModelVersionResponse | null>(null);
+	const canDeployModel = canAccessRecord('deployModel', version?.user_id ?? run?.user_id);
 	const [isLoading, setIsLoading] = useState<boolean>(true);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -221,6 +222,11 @@ export const TrainingRunDetailView: React.FC = () => {
 				]}
 				actions={
 					<div className="flex items-center gap-2.5">
+						<OwnerBadge
+							owner={version?.owner ?? run.owner}
+							userId={version?.user_id ?? run.user_id}
+							className="px-2.5 py-1 rounded-lg bg-dark-900 border border-dark-700"
+						/>
 						<button
 							type="button"
 							onClick={() => navigate('/models')}

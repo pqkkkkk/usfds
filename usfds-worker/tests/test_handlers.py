@@ -8,10 +8,13 @@ import pandas as pd
 from usfds_core.domain.entities.detection import DetectionJob
 from usfds_core.domain.entities.enums import DetectionJobStatus, TrainingRunStatus
 from usfds_core.domain.entities.model import TrainingRun
+from usfds_core.domain.entities.system import Project, User
 from usfds_infra.database import (
 	SqliteDatasetArtifactRepository,
 	SqliteDetectionJobRepository,
+	SqliteProjectRepository,
 	SqliteTrainingRunRepository,
+	SqlUserRepository,
 	create_session_factory,
 	create_sqlite_engine,
 	init_db,
@@ -29,6 +32,18 @@ from usfds_worker.handlers import (
 )
 
 
+def _seed_user_and_project(session):
+	user_id = uuid4()
+	project_id = uuid4()
+	SqlUserRepository(session).save(
+		User(user_id=user_id, username=f"u_{user_id.hex[:8]}", email=f"{user_id.hex[:8]}@usfds.local", full_name="Worker User", password_hash="h")
+	)
+	SqliteProjectRepository(session).save(
+		Project(project_id=project_id, user_id=user_id, project_name=f"proj_{project_id.hex[:8]}")
+	)
+	return user_id, project_id
+
+
 class TestWorkerHandlers(unittest.TestCase):
 	def test_missing_training_data_marks_run_failed_in_db(self):
 		with tempfile.TemporaryDirectory() as tmp:
@@ -39,7 +54,10 @@ class TestWorkerHandlers(unittest.TestCase):
 
 			run_id = uuid4()
 			with factory() as s:
-				SqliteTrainingRunRepository(s).save(TrainingRun(run_name="t", run_id=run_id, status=TrainingRunStatus.PENDING))
+				user_id, project_id = _seed_user_and_project(s)
+				SqliteTrainingRunRepository(s).save(
+					TrainingRun(run_name="t", run_id=run_id, project_id=project_id, user_id=user_id, status=TrainingRunStatus.PENDING)
+				)
 				s.commit()
 
 			handle_training_run(ctx, {
@@ -60,12 +78,13 @@ class TestWorkerHandlers(unittest.TestCase):
 			ctx = WorkerContext(session_factory=factory, storage=LocalFileStorage(Path(tmp) / "store"))
 
 			job_id = uuid4()
-			project_id = uuid4()
 			with factory() as s:
+				user_id, project_id = _seed_user_and_project(s)
 				SqliteDetectionJobRepository(s).save(
 					DetectionJob(
 						job_id=job_id,
 						project_id=project_id,
+						user_id=user_id,
 						job_name="batch-test",
 						status=DetectionJobStatus.PENDING,
 					)
@@ -92,6 +111,10 @@ class TestWorkerHandlers(unittest.TestCase):
 			storage = LocalFileStorage(Path(tmp) / "store")
 			ctx = WorkerContext(session_factory=factory, storage=storage)
 
+			with factory() as s:
+				user_id, project_id = _seed_user_and_project(s)
+				s.commit()
+
 			# Seed a CSV directly into storage (simulating an S3 presigned upload key)
 			rows = []
 			for i in range(40):
@@ -109,6 +132,8 @@ class TestWorkerHandlers(unittest.TestCase):
 			ingest_res = handle_dataset_ingestion(ctx, {
 				"file_path": "uploads/raw/sample.csv",
 				"dataset_name": "worker_ds",
+				"project_id": str(project_id),
+				"user_id": str(user_id),
 			})
 			dataset_id = ingest_res["dataset_id"]
 			raw_artifact_id = ingest_res["artifact_id"]

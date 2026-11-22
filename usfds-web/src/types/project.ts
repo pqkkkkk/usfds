@@ -1,3 +1,5 @@
+import type { ResourceOwner } from './api';
+
 export type ProjectStatus = 'ACTIVE' | 'ARCHIVED';
 
 export type LogicalDataType = 'NUMERIC' | 'STRING' | 'BOOLEAN' | 'DATETIME';
@@ -31,6 +33,7 @@ export interface ProjectResponse {
 	project_id: string;
 	project_name: string;
 	user_id: string;
+	owner?: ResourceOwner | null;
 	description?: string | null;
 	status: ProjectStatus;
 	is_schema_locked: boolean;

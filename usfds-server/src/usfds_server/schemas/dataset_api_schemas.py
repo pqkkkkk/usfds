@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
+from usfds_server.schemas.base_response import ResourceOwnerDto
 
 
 class ImportDatasetRequest(BaseModel):
@@ -24,6 +25,7 @@ class DatasetResponse(BaseModel):
     dataset_id: UUID
     project_id: UUID
     user_id: UUID
+    owner: Optional[ResourceOwnerDto] = None
     dataset_name: str
     display_name: Optional[str] = None
     description: Optional[str] = None

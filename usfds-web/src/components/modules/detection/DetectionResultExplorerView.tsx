@@ -20,6 +20,7 @@ import {
 	Loader2,
 } from 'lucide-react';
 import { PageHeader } from '../../layout/PageHeader';
+import { OwnerBadge } from '../../common/OwnerBadge';
 import { detectionApi } from '@/api';
 import { useProject, useActorContext } from '@/hooks';
 import { formatModelVersion } from '@/utils/formatters';
@@ -41,8 +42,7 @@ export function DetectionResultExplorerView() {
 	const queryClient = useQueryClient();
 	const { currentProject } = useProject();
 	const projectId = currentProject?.project_id || '';
-	const { features } = useActorContext(currentProject?.project_id);
-	const canExportDetection = features.exportDetection.allowed;
+	const { features, canAccessRecord } = useActorContext(currentProject?.project_id);
 	const canSendToInvestigation = features.sendToInvestigation.allowed;
 
 	// Filters
@@ -92,6 +92,7 @@ export function DetectionResultExplorerView() {
 	});
 
 	const job = resultsRes?.data?.job;
+	const canExportDetection = canAccessRecord('exportDetection', job?.user_id);
 	const transactions = useMemo(
 		() => resultsRes?.data?.transactions || [],
 		[resultsRes]
@@ -279,8 +280,9 @@ export function DetectionResultExplorerView() {
 						<div className="text-xl font-bold font-mono text-amber-400 mt-1">
 							{job?.fraud_records?.toLocaleString() ?? '—'}
 						</div>
-						<div className="text-[10px] text-slate-400 font-mono mt-0.5">
-							Tỷ lệ: {flagRatePct}%
+						<div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center justify-between gap-2">
+							<span>Tỷ lệ: {flagRatePct}%</span>
+							{job && <OwnerBadge owner={job.owner} userId={job.user_id} />}
 						</div>
 					</div>
 

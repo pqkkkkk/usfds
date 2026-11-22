@@ -23,7 +23,7 @@ describe('DatasetHubView', () => {
 	});
 
 	it('test_dataset_hub_headings_are_vietnamese', async () => {
-		server.use(http.get(`${API}/v1/datasets`, () => HttpResponse.json({ success: true, data: [] })));
+		server.use(http.get(`${API}/v1/datasets`, () => HttpResponse.json({ success: true, data: { items: [], nextCursor: null } })));
 
 		renderWithProviders(<DatasetHubView />);
 
@@ -39,7 +39,7 @@ describe('DatasetHubView', () => {
 		let importBody: any = null;
 
 		server.use(
-			http.get(`${API}/v1/datasets`, () => HttpResponse.json({ success: true, data: [] })),
+			http.get(`${API}/v1/datasets`, () => HttpResponse.json({ success: true, data: { items: [], nextCursor: null } })),
 			http.get(`${API}/health`, () =>
 				HttpResponse.json({
 					status: 'healthy',
@@ -109,7 +109,7 @@ describe('DatasetHubView', () => {
 		};
 
 		server.use(
-			http.get(`${API}/v1/datasets`, () => HttpResponse.json({ success: true, data: [] })),
+			http.get(`${API}/v1/datasets`, () => HttpResponse.json({ success: true, data: { items: [], nextCursor: null } })),
 			http.get(`${API}/health`, () =>
 				HttpResponse.json({
 					status: 'healthy',

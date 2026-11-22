@@ -82,6 +82,18 @@ class AuthzService:
 		if effective_scope(actor, permission, None) is None:
 			raise PermissionDeniedError(f"Missing system permission: {permission}")
 
+	def require_project_scope(self, actor: ActorContext, permission: str, project_id: UUID) -> GrantScope:
+		scope = effective_scope(actor, permission, project_id)
+		if scope is None:
+			raise PermissionDeniedError(f"Missing permission {permission} on project {project_id}")
+		return scope
+
+	def resolve_project_list_owner(self, actor: ActorContext, permission: str, project_id: UUID) -> Optional[UUID]:
+		filters = self.can_list(actor, permission, [project_id], [project_id])
+		if not filters:
+			raise PermissionDeniedError(f"Missing permission {permission} on project {project_id}")
+		return filters[0].owner_id
+
 	def require_project_permission(
 		self,
 		actor: ActorContext,

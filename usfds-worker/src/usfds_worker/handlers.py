@@ -286,7 +286,7 @@ def handle_plugin_dry_run(ctx: WorkerContext, data: Dict[str, Any]) -> Dict[str,
 		)
 		model = service.register_plugged_model(
 			model_artifact_path=data.get("model_artifact_path"),
-			user_id=str(data.get("user_id") or "mock_user"),
+			user_id=data.get("user_id"),
 			project_id=project_id,
 			manifest_override=manifest_override,
 			zip_bytes=zip_bytes,

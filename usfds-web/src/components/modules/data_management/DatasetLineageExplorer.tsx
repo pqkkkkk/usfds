@@ -16,6 +16,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { PageHeader } from '../../layout/PageHeader';
+import { OwnerBadge } from '../../common/OwnerBadge';
 import { LineageCanvasView } from '../LineageCanvasView';
 import { useDatasetDetail } from '../../../hooks/useDatasetDetail';
 import { useProject } from '@/hooks/useProjects';
@@ -26,10 +27,10 @@ export const DatasetLineageExplorer = () => {
   const { datasetId } = useParams<{ datasetId: string }>();
   const navigate = useNavigate();
   const { currentProjectId } = useProject();
-  const { features } = useActorContext(currentProjectId);
-  const canUpdateDataset = features.updateDataset.allowed;
+  const { canAccessRecord } = useActorContext(currentProjectId);
 
   const {
+    datasetDetail,
     datasetName,
     isLoading,
     viewMode,
@@ -48,6 +49,7 @@ export const DatasetLineageExplorer = () => {
     height,
     getStageBadge,
   } = useDatasetDetail(datasetId, currentProjectId);
+  const canUpdateDataset = canAccessRecord('updateDataset', datasetDetail?.dataset.user_id);
 
   // Render recursive tree item
   const renderTreeItem = (node: LineageTreeNode, depth: number = 0) => {
@@ -120,6 +122,13 @@ export const DatasetLineageExplorer = () => {
         onNavigate={() => navigate('/datasets')}
         actions={
           <div className="flex items-center gap-2.5">
+            {datasetDetail?.dataset && (
+              <OwnerBadge
+                owner={datasetDetail.dataset.owner}
+                userId={datasetDetail.dataset.user_id}
+                className="px-2.5 py-1 rounded-lg bg-dark-900 border border-dark-700"
+              />
+            )}
             <button
               onClick={() => navigate('/datasets')}
               className="px-3 py-1.5 rounded-lg bg-dark-850 hover:bg-dark-800 border border-dark-700 text-xs text-slate-300 transition flex items-center gap-1.5"

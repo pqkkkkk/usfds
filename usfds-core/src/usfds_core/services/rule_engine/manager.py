@@ -80,6 +80,7 @@ class RuleManager:
         created_by: Optional[str] = None,
         change_summary: Optional[str] = "Initial rule creation",
         status: RuleStatus = RuleStatus.ACTIVE,
+        user_id: Optional[UUID] = None,
     ) -> Tuple[Rule, RuleVersion]:
         """
         Create a new business rule along with its initial version (version 1).
@@ -102,6 +103,7 @@ class RuleManager:
         rule = Rule(
             rule_id=rule_id,
             project_id=proj_uuid,
+            user_id=user_id or uuid4(),
             rule_code=rule_code,
             name=name,
             description=description,

@@ -2,6 +2,8 @@
  * Detection Jobs, Hybrid Inference Results, and Investigation Case types
  */
 
+import type { ResourceOwner } from './api';
+
 export type DetectionJobStatusType = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 export type DetectionDecisionAction = 'REJECT' | 'REVIEW' | 'ALLOW';
 export type DetectionActionFilter = 'ALL' | 'FLAGGED' | 'REJECT' | 'REVIEW' | 'ALLOW';
@@ -77,6 +79,8 @@ export interface StartDetectionJobRequest {
 export interface DetectionJobResponse {
 	job_id: string;
 	project_id: string;
+	user_id?: string | null;
+	owner?: ResourceOwner | null;
 	deployment_id?: string | null;
 	target_artifact_id?: string | null;
 	model_version_id?: string | null;

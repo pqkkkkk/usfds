@@ -36,12 +36,12 @@ export const ProjectSchemaDrawer: React.FC<ProjectSchemaDrawerProps> = ({
 	const [isResetting, setIsResetting] = useState(false);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
 	const [successMsg, setSuccessMsg] = useState<string | null>(null);
-	const { canOpenFeature: can } = useActorContext(project?.project_id);
+	const { canAccessRecord } = useActorContext(project?.project_id);
 
 	if (!project) {
 		return null;
 	}
-	const canResetPermission = can('resetProjectSchema', project.project_id);
+	const canResetPermission = canAccessRecord('resetProjectSchema', project.user_id, project.project_id);
 
 	const columnsMap = project.raw_schema?.columns || {};
 	const columnEntries = Object.entries(columnsMap);

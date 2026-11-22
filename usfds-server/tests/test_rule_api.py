@@ -26,8 +26,31 @@ from usfds_server.config import settings
 
 
 def test_rule_crud_and_versioning_flow():
+    from usfds_core.domain.entities.system import Project
+    from usfds_infra.database import SqliteProjectRepository, SqlUserRepository
+    from usfds_server import dependencies
+
     with TestClient(app) as client:
-        project_id = str(uuid4())
+        assert dependencies._session_factory is not None
+        project_uuid = uuid4()
+        with dependencies._session_factory() as session:
+            admin_id = SqlUserRepository(session).get_by_username("admin").user_id
+            SqliteProjectRepository(session).save(
+                Project(
+                    project_id=project_uuid,
+                    user_id=admin_id,
+                    project_name="Rule Flow Project",
+                    base_dataset_id=uuid4(),
+                    raw_schema={
+                        "columns": {
+                            "amount": {"logical_type": "NUMERIC", "physical_dtype": "float64", "nullable": False},
+                            "channel": {"logical_type": "STRING", "physical_dtype": "object", "nullable": False},
+                        }
+                    },
+                )
+            )
+            session.commit()
+        project_id = str(project_uuid)
 
         # 1. Create a new rule
         create_payload = {
@@ -66,7 +89,7 @@ def test_rule_crud_and_versioning_flow():
         # 3. List rules by project
         list_res = client.get(f"/api/v1/rules?project_id={project_id}")
         assert list_res.status_code == 200
-        assert len(list_res.json()["data"]) == 1
+        assert len(list_res.json()["data"]["items"]) == 1
 
         # 4. Evaluate single rule (Triggered)
         eval_payload = {
@@ -111,7 +134,7 @@ def test_rule_crud_and_versioning_flow():
         # 6. Verify version history audit trail
         history_res = client.get(f"/api/v1/rules/{rule_id}/versions", params={"project_id": project_id})
         assert history_res.status_code == 200
-        history_data = history_res.json()["data"]
+        history_data = history_res.json()["data"]["items"]
         assert len(history_data) == 2
         assert [v["version_number"] for v in history_data] == [1, 2]
 

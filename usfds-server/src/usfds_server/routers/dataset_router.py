@@ -9,6 +9,7 @@ from usfds_core.domain.schemas.preprocessing_config import (
     DataMappingConfig,
     FeatureEngineeringConfig,
 )
+from usfds_core.repositories.base_user_repo import IUserRepository
 from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.data_management.service import DataManagementService
 from usfds_core.storage.base_storage import IFileStorage
@@ -20,7 +21,14 @@ from usfds_infra.job_queue import (
 )
 from usfds_server.config import settings
 from usfds_server.dependencies import get_actor_context, get_authz_service, get_data_management_service, get_job_queue, get_storage
-from usfds_server.schemas.base_response import ApiResponse
+from usfds_server.providers.auth import get_user_repo
+from usfds_server.schemas.base_response import ApiResponse, CursorPage, ResourceOwnerDto
+from usfds_server.schemas.pagination import (
+    DEFAULT_PAGE_LIMIT,
+    MAX_PAGE_LIMIT,
+    paginate_cursor,
+    resolve_owners,
+)
 from usfds_server.schemas.dataset_api_schemas import (
     DatasetArtifactResponse,
     DatasetDetailResponse,
@@ -35,6 +43,7 @@ router = APIRouter(prefix="/api/v1/datasets", tags=["Data Management"])
 def _build_dataset_response(
     dataset: Dataset,
     artifacts: List[DatasetArtifact],
+    owner: Optional[ResourceOwnerDto] = None,
 ) -> DatasetResponse:
     latest_art = artifacts[-1] if artifacts else None
     latest_stage = (
@@ -54,6 +63,7 @@ def _build_dataset_response(
         dataset_id=dataset.dataset_id,
         project_id=dataset.project_id,
         user_id=dataset.user_id,
+        owner=owner,
         dataset_name=dataset.dataset_name,
         display_name=dataset.display_name,
         description=dataset.description,
@@ -109,6 +119,7 @@ def import_dataset(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[DatasetDetailResponse]:
     """Entry point for Data Management: Ingest raw dataset from local file path, create Dataset entity,
     compute basic data profiling, and generate RAW artifact in one step.
@@ -140,8 +151,9 @@ def import_dataset(
                 job_id=f"ingest-{uuid4()}",
             )
             dataset, artifacts, lineage = service.get_dataset(UUID(str(res["dataset_id"])))
+            owner = resolve_owners(user_repo, [dataset.user_id]).get(dataset.user_id)
             detail = DatasetDetailResponse(
-                dataset=_build_dataset_response(dataset, artifacts),
+                dataset=_build_dataset_response(dataset, artifacts, owner=owner),
                 artifacts=[_build_artifact_response(a) for a in artifacts],
                 lineage=lineage.to_dict(),
             )
@@ -163,8 +175,9 @@ def import_dataset(
             user_name=actor.username,
         )
         lineage = service.get_lineage(dataset.dataset_id)
+        owner = resolve_owners(user_repo, [dataset.user_id]).get(dataset.user_id)
         detail = DatasetDetailResponse(
-            dataset=_build_dataset_response(dataset, [artifact]),
+            dataset=_build_dataset_response(dataset, [artifact], owner=owner),
             artifacts=[_build_artifact_response(artifact)],
             lineage=lineage.to_dict(),
         )
@@ -179,19 +192,36 @@ def import_dataset(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.get("", response_model=ApiResponse[List[DatasetResponse]])
+@router.get("", response_model=ApiResponse[CursorPage[DatasetResponse]])
 def list_datasets(
     project_id: UUID = Query(..., description="Project ID"),
     search: Optional[str] = Query(None, description="Search query by name or description"),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+    cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
-) -> ApiResponse[List[DatasetResponse]]:
-    """List datasets for a project with latest pipeline stage and quality score summary."""
-    authz.require_project_permission(actor, "dataset:read", project_id)
-    items = service.list_datasets(project_id=project_id, search=search)
+    user_repo: IUserRepository = Depends(get_user_repo),
+) -> ApiResponse[CursorPage[DatasetResponse]]:
+    """List datasets for a project with latest pipeline stage, owner summary, and cursor pagination."""
+    owner_filter = authz.resolve_project_list_owner(actor, "dataset:read", project_id)
+    items = [
+        (ds, arts)
+        for ds, arts in service.list_datasets(project_id=project_id, search=search)
+        if owner_filter is None or ds.user_id == owner_filter
+    ]
+    page_items, next_cursor = paginate_cursor(
+        items,
+        limit=limit,
+        cursor=cursor,
+        key_fn=lambda row: row[0].dataset_id,
+    )
+    owners = resolve_owners(user_repo, (ds.user_id for ds, _ in page_items))
     return ApiResponse.ok(
-        data=[_build_dataset_response(ds, arts) for ds, arts in items],
+        data=CursorPage(
+            items=[_build_dataset_response(ds, arts, owner=owners.get(ds.user_id)) for ds, arts in page_items],
+            nextCursor=next_cursor,
+        ),
         message="Datasets retrieved successfully",
     )
 
@@ -203,9 +233,10 @@ def get_dataset(
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
+    user_repo: IUserRepository = Depends(get_user_repo),
 ) -> ApiResponse[DatasetDetailResponse]:
     """Retrieve complete metadata, history of artifacts, and lineage DAG for a dataset."""
-    authz.require_project_permission(actor, "dataset:read", project_id)
+    authz.require_project_scope(actor, "dataset:read", project_id)
     try:
         dataset, artifacts, lineage = service.get_dataset(dataset_id)
         if dataset.project_id != project_id:
@@ -213,8 +244,10 @@ def get_dataset(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Dataset '{dataset_id}' not found in project '{project_id}'.",
             )
+        authz.require_project_permission(actor, "dataset:read", project_id, owner_id=dataset.user_id)
+        owner = resolve_owners(user_repo, [dataset.user_id]).get(dataset.user_id)
         detail = DatasetDetailResponse(
-            dataset=_build_dataset_response(dataset, artifacts),
+            dataset=_build_dataset_response(dataset, artifacts, owner=owner),
             artifacts=[_build_artifact_response(a) for a in artifacts],
             lineage=lineage.to_dict(),
         )
@@ -233,7 +266,9 @@ def delete_dataset(
     """Delete a dataset and all associated artifacts."""
     try:
         dataset, _, _ = service.get_dataset(dataset_id)
-        authz.require_project_permission(actor, "dataset:delete", dataset.project_id, action="mutate")
+        authz.require_project_permission(
+            actor, "dataset:delete", dataset.project_id, owner_id=dataset.user_id, action="mutate"
+        )
         service.delete_dataset(dataset_id)
         return ApiResponse.ok(data=None, message="Dataset deleted successfully")
     except ValueError as e:
@@ -256,7 +291,9 @@ def map_schema(
     """Map raw columns to standard 5-core FDS fields, convert to mapped.parquet, and validate."""
     try:
         dataset, _, _ = service.get_dataset(dataset_id)
-        authz.require_project_permission(actor, "dataset:update", dataset.project_id, action="mutate")
+        authz.require_project_permission(
+            actor, "dataset:update", dataset.project_id, owner_id=dataset.user_id, action="mutate"
+        )
         if settings.dispatch_backend == "queue":
             res = get_job_queue().enqueue_and_wait(
                 QUEUE_DATA_PIPELINE,
@@ -291,7 +328,7 @@ def get_artifact(
     service: DataManagementService = Depends(get_data_management_service),
 ) -> ApiResponse[DatasetArtifactResponse]:
     """Retrieve complete metadata and validation details for a specific artifact."""
-    authz.require_project_permission(actor, "dataset:read", project_id)
+    authz.require_project_scope(actor, "dataset:read", project_id)
     try:
         dataset, _, _ = service.get_dataset(dataset_id)
         if dataset.project_id != project_id:
@@ -299,6 +336,7 @@ def get_artifact(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Dataset '{dataset_id}' not found in project '{project_id}'.",
             )
+        authz.require_project_permission(actor, "dataset:read", project_id, owner_id=dataset.user_id)
         artifact = service.get_artifact(dataset_id, artifact_id)
         return ApiResponse.ok(
             data=_build_artifact_response(artifact),
@@ -319,7 +357,9 @@ def execute_feature_engineering(
     """Execute feature engineering pipeline stage from MAPPED artifact."""
     try:
         dataset, _, _ = service.get_dataset(dataset_id)
-        authz.require_project_permission(actor, "dataset:update", dataset.project_id, action="mutate")
+        authz.require_project_permission(
+            actor, "dataset:update", dataset.project_id, owner_id=dataset.user_id, action="mutate"
+        )
         if settings.dispatch_backend == "queue":
             res = get_job_queue().enqueue_and_wait(
                 QUEUE_DATA_PIPELINE,
@@ -359,7 +399,9 @@ def export_normalized_dataset(
     """Export normalized dataset files as a compressed ZIP package."""
     try:
         dataset, _, _ = service.get_dataset(dataset_id)
-        authz.require_project_permission(actor, "dataset:export", dataset.project_id)
+        authz.require_project_permission(
+            actor, "dataset:export", dataset.project_id, owner_id=dataset.user_id
+        )
         zip_bytes, filename = service.export_dataset(
             dataset_id=dataset_id,
             artifact_id=artifact_id,

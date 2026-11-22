@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from usfds_core.domain.entities.enums import ProjectStatus
+from usfds_server.schemas.base_response import ResourceOwnerDto
 
 
 class CreateProjectRequest(BaseModel):
@@ -25,6 +26,7 @@ class ProjectResponse(BaseModel):
     project_id: UUID
     project_name: str
     user_id: UUID
+    owner: Optional[ResourceOwnerDto] = None
     description: Optional[str] = None
     status: str
     is_schema_locked: bool = False

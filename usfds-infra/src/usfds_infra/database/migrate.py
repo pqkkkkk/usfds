@@ -55,10 +55,22 @@ def upgrade_database(engine: Engine) -> None:
 	"""
 	if not inspect(engine).has_table("alembic_version"):
 		_run_legacy_fixups(engine)
-	with engine.begin() as connection:
-		cfg = alembic_config()
-		cfg.attributes["connection"] = connection
-		command.upgrade(cfg, "head")
+	is_sqlite = engine.dialect.name == "sqlite"
+	with engine.connect() as connection:
+		if is_sqlite:
+			cursor = connection.connection.cursor()
+			cursor.execute("PRAGMA foreign_keys=OFF;")
+			cursor.close()
+		try:
+			with connection.begin():
+				cfg = alembic_config()
+				cfg.attributes["connection"] = connection
+				command.upgrade(cfg, "head")
+		finally:
+			if is_sqlite:
+				cursor = connection.connection.cursor()
+				cursor.execute("PRAGMA foreign_keys=ON;")
+				cursor.close()
 	drift = schema_drift(engine)
 	if drift:
 		logger.warning(

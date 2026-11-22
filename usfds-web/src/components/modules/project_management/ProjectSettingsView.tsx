@@ -20,6 +20,7 @@ import {
 	Hash,
 } from 'lucide-react';
 import { PageHeader } from '../../layout/PageHeader';
+import { OwnerBadge } from '../../common/OwnerBadge';
 import { useProject } from '../../../hooks/useProjects';
 import { useActorContext } from '@/hooks/useActorContext';
 import type { LogicalDataType } from '../../../types/project';
@@ -49,9 +50,9 @@ export const ProjectSettingsView: React.FC = () => {
 	const [isResetting, setIsResetting] = useState(false);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
 	const [successMsg, setSuccessMsg] = useState<string | null>(null);
-	const { features } = useActorContext(currentProject?.project_id);
-	const canUpdateProject = features.updateProject.allowed;
-	const canResetSchemaPerm = features.resetProjectSchema.allowed;
+	const { features, canAccessRecord } = useActorContext(currentProject?.project_id);
+	const canUpdateProject = canAccessRecord('updateProject', currentProject?.user_id, currentProject?.project_id);
+	const canResetSchemaPerm = canAccessRecord('resetProjectSchema', currentProject?.user_id, currentProject?.project_id);
 	const canViewMembers = features.viewProjectMembers.allowed;
 
 	const columnEntries = useMemo(() => {
@@ -184,6 +185,10 @@ export const ProjectSettingsView: React.FC = () => {
 								<p className="text-xs text-slate-400 leading-relaxed">
 									{currentProject.description || 'Chưa có mô tả chi tiết cho dự án này.'}
 								</p>
+								<div className="pt-1 flex items-center gap-2 text-xs text-slate-400">
+									<span>Chủ sở hữu:</span>
+									<OwnerBadge owner={currentProject.owner} userId={currentProject.user_id} />
+								</div>
 							</div>
 						</div>
 

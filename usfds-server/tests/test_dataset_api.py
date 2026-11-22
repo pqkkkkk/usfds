@@ -31,8 +31,10 @@ from usfds_server.config import settings
 
 def test_end_to_end_data_management_pipeline():
     with TestClient(app) as client:
-        project_id = str(uuid4())
-        user_id = str(uuid4())
+        proj_res = client.post("/api/v1/projects", json={"project_name": "DS Pipeline Project"})
+        assert proj_res.status_code == 201
+        project_id = proj_res.json()["data"]["project_id"]
+        user_id = proj_res.json()["data"]["user_id"]
 
         # -------------------------------------------------------------
         # 1. Import raw dataset from local file path (Entry point)
@@ -87,7 +89,7 @@ def test_end_to_end_data_management_pipeline():
         assert res_list.status_code == 200
         list_envelope = res_list.json()
         assert list_envelope["success"] is True
-        assert len(list_envelope["data"]) == 1
+        assert len(list_envelope["data"]["items"]) == 1
 
         # -------------------------------------------------------------
         # 3. Retrieve specific artifact details (including profiling & validation report)
@@ -236,12 +238,14 @@ def test_import_dataset_from_presigned_s3_staging_key_copies_and_cleans_staging(
             s3_storage.save_bytes(object_key, csv_bytes)
             assert s3_storage.exists(object_key)
 
+            proj_res = client.post("/api/v1/projects", json={"project_name": "Presigned S3 Proj"})
+            assert proj_res.status_code == 201
             res = client.post(
                 "/api/v1/datasets/import",
                 json={
                     "file_path": object_key,
                     "dataset_name": "presigned_s3_ds",
-                    "project_id": str(uuid4()),
+                    "project_id": proj_res.json()["data"]["project_id"],
                 },
             )
             assert res.status_code == 201, res.text
@@ -308,17 +312,31 @@ def test_local_storage_mode_imports_from_external_local_filesystem_path(tmp_path
     )
 
     with TestClient(app) as client:
+        proj_res = client.post("/api/v1/projects", json={"project_name": "Local Storage Proj"})
+        assert proj_res.status_code == 201
         res = client.post(
             "/api/v1/datasets/import",
             json={
                 "file_path": str(external_csv),
                 "dataset_name": "electron_external_ds",
-                "project_id": str(uuid4()),
+                "project_id": proj_res.json()["data"]["project_id"],
             },
         )
         assert res.status_code == 201, res.text
         data = res.json()["data"]
         assert data["artifacts"][0]["storage_path"].startswith("datasets/")
+
+
+def _seed_admin_project(session, project_id=None):
+	from usfds_core.domain.entities.system import Project
+	from usfds_infra.database import SqliteProjectRepository, SqlUserRepository
+
+	admin_id = SqlUserRepository(session).get_by_username("admin").user_id
+	pid = project_id or uuid4()
+	SqliteProjectRepository(session).save(
+		Project(project_id=pid, user_id=admin_id, project_name=f"proj_{pid.hex[:8]}")
+	)
+	return admin_id, pid
 
 
 def test_delete_dataset_removes_artifact_files_from_storage(client, server_session_factory, server_settings):
@@ -335,11 +353,12 @@ def test_delete_dataset_removes_artifact_files_from_storage(client, server_sessi
 	full_file.write_bytes(b"parquet-bytes")
 
 	with session_scope(server_session_factory) as session:
+		user_id, project_id = _seed_admin_project(session)
 		SqliteDatasetRepository(session).save(
 			Dataset(
 				dataset_id=dataset_id,
-				project_id=uuid4(),
-				user_id=uuid4(),
+				project_id=project_id,
+				user_id=user_id,
 				dataset_name="ds_cleanup",
 				data_classification=DataClassification.INTERNAL,
 			)
@@ -371,8 +390,6 @@ def test_delete_dataset_used_by_active_training_run_returns_409(client, server_s
 		session_scope,
 	)
 
-	project_id = uuid4()
-	user_id = uuid4()
 	dataset_id = uuid4()
 	artifact_id = uuid4()
 	rel_path = f"datasets/{dataset_id}/raw/data.csv"
@@ -381,6 +398,7 @@ def test_delete_dataset_used_by_active_training_run_returns_409(client, server_s
 	full_file.write_text("a,b\n1,2\n", encoding="utf-8")
 
 	with session_scope(server_session_factory) as session:
+		user_id, project_id = _seed_admin_project(session)
 		SqliteDatasetRepository(session).save(
 			Dataset(dataset_id=dataset_id, project_id=project_id, user_id=user_id, dataset_name="ds_in_train")
 		)
@@ -398,6 +416,7 @@ def test_delete_dataset_used_by_active_training_run_returns_409(client, server_s
 		run = SqliteTrainingRunRepository(session).save(
 			TrainingRun(
 				project_id=project_id,
+				user_id=user_id,
 				model_id=model.model_id,
 				run_name="active_run",
 				status=TrainingRunStatus.RUNNING,
@@ -422,7 +441,6 @@ def test_delete_dataset_used_by_active_detection_job_returns_409(client, server_
 		session_scope,
 	)
 
-	project_id = uuid4()
 	dataset_id = uuid4()
 	artifact_id = uuid4()
 	rel_path = f"datasets/{dataset_id}/raw/data.csv"
@@ -431,8 +449,9 @@ def test_delete_dataset_used_by_active_detection_job_returns_409(client, server_
 	full_file.write_text("a,b\n1,2\n", encoding="utf-8")
 
 	with session_scope(server_session_factory) as session:
+		user_id, project_id = _seed_admin_project(session)
 		SqliteDatasetRepository(session).save(
-			Dataset(dataset_id=dataset_id, project_id=project_id, user_id=uuid4(), dataset_name="ds_in_detect")
+			Dataset(dataset_id=dataset_id, project_id=project_id, user_id=user_id, dataset_name="ds_in_detect")
 		)
 		SqliteDatasetArtifactRepository(session).save(
 			DatasetArtifact(
@@ -445,6 +464,7 @@ def test_delete_dataset_used_by_active_detection_job_returns_409(client, server_
 		SqliteDetectionJobRepository(session).save(
 			DetectionJob(
 				project_id=project_id,
+				user_id=user_id,
 				target_artifact_id=artifact_id,
 				input_path=rel_path,
 				status=DetectionJobStatus.PENDING,
@@ -471,12 +491,11 @@ def test_delete_dataset_with_completed_jobs_succeeds(client, server_session_fact
 		session_scope,
 	)
 
-	project_id = uuid4()
-	user_id = uuid4()
 	dataset_id = uuid4()
 	artifact_id = uuid4()
 
 	with session_scope(server_session_factory) as session:
+		user_id, project_id = _seed_admin_project(session)
 		SqliteDatasetRepository(session).save(
 			Dataset(dataset_id=dataset_id, project_id=project_id, user_id=user_id, dataset_name="ds_completed")
 		)
@@ -494,6 +513,7 @@ def test_delete_dataset_with_completed_jobs_succeeds(client, server_session_fact
 		run = SqliteTrainingRunRepository(session).save(
 			TrainingRun(
 				project_id=project_id,
+				user_id=user_id,
 				model_id=model.model_id,
 				run_name="completed_run",
 				status=TrainingRunStatus.COMPLETED,
@@ -503,6 +523,7 @@ def test_delete_dataset_with_completed_jobs_succeeds(client, server_session_fact
 		SqliteDetectionJobRepository(session).save(
 			DetectionJob(
 				project_id=project_id,
+				user_id=user_id,
 				target_artifact_id=artifact_id,
 				input_path="datasets/x/raw/data.csv",
 				status=DetectionJobStatus.COMPLETED,

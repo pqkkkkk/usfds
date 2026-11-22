@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import uuid4
-from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from usfds_infra.database.base import Base
 
@@ -12,7 +12,18 @@ class DetectionJobModel(Base):
 	__tablename__ = "detection_jobs"
 
 	job_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-	project_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+	project_id: Mapped[str] = mapped_column(
+		String(36),
+		ForeignKey("projects.project_id", ondelete="CASCADE", name="fk_detection_jobs_project_id_projects"),
+		nullable=False,
+		index=True,
+	)
+	user_id: Mapped[str] = mapped_column(
+		String(36),
+		ForeignKey("users.user_id", ondelete="RESTRICT", name="fk_detection_jobs_user_id_users"),
+		nullable=False,
+		index=True,
+	)
 	deployment_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
 	target_artifact_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
 	model_version_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)

@@ -12,6 +12,7 @@ import {
   Layers
 } from 'lucide-react';
 import { PageHeader } from '../../layout/PageHeader';
+import { OwnerBadge } from '../../common/OwnerBadge';
 import { ImportDatasetModal } from './ImportDatasetModal';
 import { useDatasetList } from '../../../hooks/useDatasetList';
 import { useProject } from '../../../hooks/useProjects';
@@ -21,9 +22,8 @@ import type { DatasetDetailResponse } from '../../../types/dataset';
 export const DatasetHubView = () => {
   const navigate = useNavigate();
   const { currentProjectId } = useProject();
-  const { features } = useActorContext(currentProjectId);
+  const { features, canAccessRecord } = useActorContext(currentProjectId);
   const canCreateDataset = features.createDataset.allowed;
-  const canDeleteDataset = features.deleteDataset.allowed;
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const {
@@ -40,6 +40,9 @@ export const DatasetHubView = () => {
     toggleSelectAll,
     deleteDataset,
     refetch,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
   } = useDatasetList(currentProjectId);
 
   const handleImportSuccess = (detail: DatasetDetailResponse) => {
@@ -210,6 +213,7 @@ export const DatasetHubView = () => {
                   <th className="py-3.5 px-4 font-semibold">Giai đoạn mới nhất</th>
                   <th className="py-3.5 px-4 font-semibold">Điểm chất lượng</th>
                   <th className="py-3.5 px-4 font-semibold">Artifacts</th>
+                  <th className="py-3.5 px-4 font-semibold">Chủ sở hữu</th>
                   <th className="py-3.5 px-4 font-semibold">Thời gian tạo</th>
                   <th className="py-3.5 px-4 font-semibold text-right">Thao tác</th>
                 </tr>
@@ -217,7 +221,7 @@ export const DatasetHubView = () => {
               <tbody className="divide-y divide-dark-850">
                 {filteredDatasets.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-500">
+                    <td colSpan={10} className="py-12 text-center text-slate-500">
                       Không tìm thấy tập dữ liệu nào phù hợp.
                     </td>
                   </tr>
@@ -307,6 +311,11 @@ export const DatasetHubView = () => {
                           </span>
                         </td>
 
+                        {/* Chủ sở hữu */}
+                        <td className="py-3.5 px-4">
+                          <OwnerBadge owner={dataset.owner} userId={dataset.user_id} />
+                        </td>
+
                         {/* Thời gian tạo */}
                         <td className="py-3.5 px-4 text-slate-400 text-[11px] font-mono">
                           {dataset.created_at ? new Date(dataset.created_at).toLocaleDateString() : 'Recent'}
@@ -325,7 +334,7 @@ export const DatasetHubView = () => {
                             </button>
 
                             {/* Delete Button */}
-                            {canDeleteDataset && (
+                            {canAccessRecord('deleteDataset', dataset.user_id) && (
                               <button
                                 onClick={(e) => deleteDataset(dataset.dataset_id, e)}
                                 title="Xóa tập dữ liệu"
@@ -343,6 +352,18 @@ export const DatasetHubView = () => {
               </tbody>
             </table>
           </div>
+          {hasNextPage && (
+            <div className="p-3 border-t border-dark-800 flex justify-center bg-dark-950/40">
+              <button
+                type="button"
+                disabled={isFetchingNextPage}
+                onClick={() => void fetchNextPage()}
+                className="px-4 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs text-slate-200 font-medium disabled:opacity-50"
+              >
+                {isFetchingNextPage ? 'Đang tải...' : 'Tải thêm'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

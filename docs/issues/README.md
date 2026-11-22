@@ -53,7 +53,7 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-020 | No schema migrations (create_all only) | bug | infra | **P0** | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-021 | Queue request/reply jobs leak on timeout, no retry | bug | infra, worker | P2 | Open | — | [11-14](11-14-2026.md) |
 | ISS-022 | Plugin/script subprocesses have no timeout | bug | training, inference | P2 | Resolved (26-11-17) | [quick_backend_hardening](../../.plan/quick_backend_hardening.md) | [11-14](11-14-2026.md) |
-| ISS-023 | Missing FKs / uniqueness constraints | bug | infra | P2 | Open | — | [11-14](11-14-2026.md) |
+| ISS-023 | Missing FKs / uniqueness constraints | bug | infra | P2 | Resolved (26-11-22) | [own_scope_access_control](../../.plan/own_scope_access_control.md) <!-- [26-11-22] --> | [11-14](11-14-2026.md) |
 | ISS-024 | Dev env not pinned; parts of suite broken | tech-debt | devex | **P0** | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-025 | Test setup duplicated, depends on global state | tech-debt | devex | **P0** | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-026 | Hot-spot files cause merge conflicts | tech-debt | devex | P1 | Resolved backend (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
@@ -61,7 +61,7 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-028 | Web API client swallows errors | bug | web | P1 | Resolved (26-11-16) | [web_api_client_error_propagation](../../.plan/web_api_client_error_propagation.md) <!-- [26-11-16] --> | [11-14](11-14-2026.md) |
 | ISS-029 | Inconsistent server ports (8000 vs 8200) | bug | web, server | P3 | Resolved (26-11-14) | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
 | ISS-030 | Ad-hoc HTTP error mapping, swallowed exceptions | tech-debt | server | P3 | Open | — | [11-14](11-14-2026.md) |
-| ISS-031 | List endpoints not paginated; N+1 in reports | improvement | server | P3 | Open | — | [11-14](11-14-2026.md) |
+| ISS-031 | List endpoints not paginated; N+1 in reports | improvement | server | P3 | Partial (26-11-22 — 8 core list endpoints paginated; reports/blacklist deferred) | [resource_owner_and_cursor_pagination](../../.plan/resource_owner_and_cursor_pagination.md) <!-- [26-11-22] --> | [11-14](11-14-2026.md) |
 | ISS-032 | Web data fetching/typing inconsistent | tech-debt | web | P3 | Open | — | [11-14](11-14-2026.md) |
 | ISS-033 | `usfds-agent` not runnable | tech-debt | agent | P3 | Open | — | [11-14](11-14-2026.md) |
 | ISS-034 | Documentation inconsistencies (SUC IDs, links) | docs | docs | P2 | In progress | [parallel_agent_setup](../../.plan/parallel_agent_setup.md) | [11-14](11-14-2026.md) |
@@ -73,7 +73,8 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-040 | Feature management capability not specified or implemented | feature | data-management, web | P2 | Needs spec | [feature_management](../../.plan/feature_management.md) <!-- [26-11-17] --> | [11-17](11-17-2026.md) |
 | ISS-041 | Graph exploration capability not specified or implemented | feature | investigation, web | P2 | Needs spec | [graph_exploration](../../.plan/graph_exploration.md) <!-- [26-11-17] --> | [11-17](11-17-2026.md) |
 | ISS-042 | Missing `project_id` enforcement and cross-project authorization bypasses on list, get-by-id, and related endpoints | security | auth, server, training, data-management, rule-engine, detection, storage, web | **P0** | Resolved (26-11-22) | [project_scoped_access_control](../../.plan/project_scoped_access_control.md) <!-- [26-11-21] [26-11-22] --> | [11-21](11-21-2026.md) |
-| ISS-043 | `GrantScope.OWN` access control not enforced across routers and missing `owner_id` on domain tables | bug | auth, server, infra, training, rule-engine, detection, investigation | P1 | Open | — | [11-21](11-21-2026.md) |
+| ISS-043 | `GrantScope.OWN` access control not enforced across routers and missing `owner_id` on domain tables | bug | auth, server, infra, training, rule-engine, detection, investigation | P1 | Resolved (26-11-22 — Investigation deferred to redesign) | [own_scope_access_control](../../.plan/own_scope_access_control.md) <!-- [26-11-22] --> | [11-21](11-21-2026.md) |
 | ISS-044 | Data Management & Feature Engineering load full datasets with pandas | improvement | data-management, training | P2 | Open <!-- [26-11-21] --> | — | [11-21](11-21-2026.md) |
+| ISS-045 | Investigation Assign flow has no owner role and Workbench loads full source files | improvement | investigation, server, web | P2 | Open — needs spec <!-- [26-11-22] --> | — | [11-22](11-22-2026.md) |
 
 Older resolved bugs (pre-ISS numbering) are kept in [`docs/bugs.md`](../bugs.md).

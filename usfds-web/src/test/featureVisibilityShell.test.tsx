@@ -52,11 +52,11 @@ function mockActor(permissions: Record<string, string[]>, roleKey: string) {
 			})
 		),
 		http.get(`${API}/v1/projects`, () =>
-			HttpResponse.json({ success: true, data: [SAMPLE_PROJECT] })
+			HttpResponse.json({ success: true, data: { items: [SAMPLE_PROJECT], nextCursor: null } })
 		),
-		http.get(`${API}/v1/datasets`, () => HttpResponse.json({ success: true, data: [] })),
-		http.get(`${API}/v1/rules`, () => HttpResponse.json({ success: true, data: [] })),
-		http.get(`${API}/v1/detection/jobs`, () => HttpResponse.json({ success: true, data: [] })),
+		http.get(`${API}/v1/datasets`, () => HttpResponse.json({ success: true, data: { items: [], nextCursor: null } })),
+		http.get(`${API}/v1/rules`, () => HttpResponse.json({ success: true, data: { items: [], nextCursor: null } })),
+		http.get(`${API}/v1/detection/jobs`, () => HttpResponse.json({ success: true, data: { items: [], nextCursor: null } })),
 		http.get(`${API}/v1/cases`, () =>
 			HttpResponse.json({ success: true, data: { items: [], total: 0, page: 1, size: 50 } })
 		),
