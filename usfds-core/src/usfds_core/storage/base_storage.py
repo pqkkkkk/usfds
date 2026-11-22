@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, Union
+import tempfile
+from typing import Iterator, Optional, Union
 
 
 class IFileStorage(ABC):
@@ -32,6 +34,22 @@ class IFileStorage(ABC):
     def save_file(self, src_path: Union[str, Path], dest_path: str) -> str:
         """Copy or store a file from `src_path` to `dest_path`."""
         return self.save_bytes(dest_path, self.read_bytes(str(src_path)))
+
+    @contextmanager
+    def open_local_path(self, file_path: str) -> Iterator[Path]:
+        """Yield a local filesystem path with the file's content (e.g. for DuckDB `read_parquet`).
+
+        Default: copy into a temp file removed on exit. Backends override it (local = zero-copy, S3 = download).
+        """
+        data = self.read_bytes(file_path)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir) / (Path(file_path).name or "file")
+            tmp_path.write_bytes(data)
+            yield tmp_path
+
+    def upload_file(self, local_path: Union[str, Path], dest_path: str) -> str:
+        """Store the content of a server-local file at `dest_path` and return the storage path/URI."""
+        return self.save_bytes(dest_path, Path(local_path).read_bytes())
 
     def generate_presigned_upload_url(
         self,

@@ -52,6 +52,7 @@ from usfds_core.services.inference.scoring_service import ModelScorer
 from usfds_core.services.inference.workspace import InferenceWorkspace
 from usfds_core.services.project_management.schema_validator import ProjectSchemaValidator
 from usfds_core.services.rule_engine.manager import RuleManager
+from usfds_core.services.warehouse.project_warehouse import ProjectWarehouse
 from usfds_core.storage.base_storage import IFileStorage
 
 logger = logging.getLogger(__name__)
@@ -381,6 +382,13 @@ class InferenceService:
 
         if self.detection_job_repo:
             self.detection_job_repo.save(job)
+
+        if result.is_success and self.file_storage is not None:
+            # Warehouse failure must never fail the job: Insight bootstraps missing facts on first read.
+            try:
+                ProjectWarehouse(self.file_storage).write_job_facts(job)
+            except Exception as warehouse_error:
+                logger.warning(f"Warehouse facts not written for job {job.job_id}: {warehouse_error}")
 
         return job
 

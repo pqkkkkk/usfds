@@ -1,5 +1,7 @@
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, List, Optional, Union
+import tempfile
+from typing import Any, Iterator, List, Optional, Union
 
 from usfds_core.storage.base_storage import IFileStorage
 
@@ -152,6 +154,28 @@ class S3FileStorage(IFileStorage):
 					self.save_bytes(key, self.read_bytes(src_key))
 			return key
 		raise FileNotFoundError(f"Source file does not exist: {src_path}")
+
+	def upload_file(self, local_path: Union[str, Path], dest_path: str) -> str:
+		"""Stream a server-local file to object storage (multipart for large files)."""
+		key = self._key(dest_path)
+		self._client.upload_file(str(local_path), self.bucket, key)
+		return key
+
+	@contextmanager
+	def open_local_path(self, file_path: str) -> Iterator[Path]:
+		"""Download the object to a temp file (removed on exit) so engines like DuckDB can read it from disk."""
+		client_err = _client_error_cls()
+
+		key = self._key(file_path)
+		with tempfile.TemporaryDirectory() as tmp_dir:
+			tmp_path = Path(tmp_dir) / (Path(key).name or "object")
+			try:
+				self._client.download_file(self.bucket, key, str(tmp_path))
+			except client_err as e:
+				if getattr(e, "response", {}).get("Error", {}).get("Code", "") in ("NoSuchKey", "404", "NotFound"):
+					raise FileNotFoundError(f"File not found in object storage: s3://{self.bucket}/{key}") from e
+				raise
+			yield tmp_path
 
 	def generate_presigned_upload_url(
 		self,

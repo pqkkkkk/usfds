@@ -24,11 +24,16 @@ from usfds_core.repositories.in_memory_repos import (
 	InMemoryRuleVersionRepository,
 )
 from usfds_core.services.insight_report.service import InsightReportService
+from usfds_core.storage.base_storage import IFileStorage
 
 
-class _MemoryStorage:
+class _MemoryStorage(IFileStorage):
 	def __init__(self):
 		self.files: dict[str, bytes] = {}
+
+	def save_bytes(self, path: str, data: bytes) -> str:
+		self.files[path] = data
+		return path
 
 	def exists(self, path: str) -> bool:
 		return path in self.files
@@ -250,3 +255,56 @@ def test_insight_report_end_to_end_metrics_and_sar_export():
 
 	with pytest.raises(LookupError):
 		service.generate_sar_dossier(project_id, c_other.case_id)
+
+
+def test_insight_report_filters_by_tx_timestamp_on_warehouse_without_pandas(monkeypatch):
+	def _blocked(*args, **kwargs):
+		raise AssertionError("pd.read_parquet must not be used (ISS-012)")
+
+	monkeypatch.setattr(pd, "read_parquet", _blocked)
+
+	project_repo = InMemoryProjectRepository()
+	job_repo = InMemoryDetectionJobRepository()
+	storage = _MemoryStorage()
+	case_store = _MemoryCaseStore()
+	project_id = uuid4()
+	project_repo.save(Project(project_id=project_id, user_id=uuid4(), project_name="TS Filter"))
+
+	job_id = uuid4()
+	path = f"datasets/{project_id}/inferences/{job_id}/predictions.parquet"
+	rows = [
+		{"event_id": "OCT-1", "user_id": "U1", "timestamp": "2026-10-05T10:00:00Z", "amount": 100.0, "model_score": 0.9,
+		 "rule_action": "ALLOW", "final_action": "REVIEW", "triggered_rules": "[]", "label": 1},
+		{"event_id": "NOV-1", "user_id": "U2", "timestamp": "2026-11-10T10:00:00Z", "amount": 200.0, "model_score": 0.8,
+		 "rule_action": "REJECT", "final_action": "REJECT", "triggered_rules": json.dumps(["R_X"]), "label": 1},
+		{"event_id": "NOV-2", "user_id": "U3", "timestamp": "2026-11-20T10:00:00Z", "amount": 50.0, "model_score": 0.1,
+		 "rule_action": "ALLOW", "final_action": "ALLOW", "triggered_rules": "[]", "label": 0},
+		{"event_id": "DEC-1", "user_id": "U4", "timestamp": "2026-12-02T10:00:00Z", "amount": 400.0, "model_score": 0.95,
+		 "rule_action": "ALLOW", "final_action": "REVIEW", "triggered_rules": "[]", "label": 1},
+	]
+	buf = io.BytesIO()
+	pd.DataFrame(rows).to_parquet(buf, index=False)
+	storage.files[path] = buf.getvalue()
+	# The job itself ran in January: filtering by job date would hide everything below.
+	job_repo.save(DetectionJob(
+		job_id=job_id, project_id=project_id, job_name="Jan Scan", output_path=path, score_threshold=0.5,
+		status=DetectionJobStatus.COMPLETED, created_at=datetime(2027, 1, 5, tzinfo=timezone.utc),
+	))
+	service = InsightReportService(
+		project_repo=project_repo, detection_job_repo=job_repo, case_repo=case_store,
+		blacklist_repo=_MemoryBlacklistRepo([]), audit_repo=case_store, file_storage=storage,
+	)
+	window = {"date_from": datetime(2026, 11, 1, tzinfo=timezone.utc), "date_to": datetime(2026, 11, 30, 23, 59, tzinfo=timezone.utc)}
+
+	ov = service.get_executive_overview(project_id, **window)
+	assert ov["kpis"]["gross_scanned_volume"] == 250.0  # NOV-1 + NOV-2 only
+	assert ov["kpis"]["amount_at_risk"] == 200.0
+
+	eff = service.get_effectiveness_analysis(project_id, **window)
+	assert {r["rule_code"]: r["total_hits"] for r in eff["rule_leaderboard"]} == {"R_X": 1}
+
+	pat = service.get_typology_and_patterns(project_id, **window)
+	assert sum(b["flagged_count"] for b in pat["amount_brackets"]) == 1
+
+	assert service.get_executive_overview(project_id)["kpis"]["gross_scanned_volume"] == 750.0
+	assert any(k.startswith(f"warehouse/{project_id}/fact_transactions/") for k in storage.files)

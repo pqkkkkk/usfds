@@ -15,8 +15,10 @@ import pandas as pd
 from usfds_core.domain.entities.case import Case, CaseStatus, EntityBlacklist
 from usfds_core.domain.entities.detection import DetectionJob
 from usfds_core.domain.entities.rule import Rule, RuleVersion
-from usfds_core.domain.schemas.preprocessing_config import SystemColumn
-from usfds_core.domain.schemas.system_metadata import resolve_canonical_column
+from usfds_core.services.warehouse.normalization import extract_hour_utc as _extract_hour_utc
+from usfds_core.services.warehouse.normalization import parse_rule_codes as _parse_rule_codes
+from usfds_core.services.warehouse.normalization import safe_float as _safe_float
+from usfds_core.services.warehouse.project_warehouse import ProjectWarehouse, create_bounded_duckdb_connection
 from usfds_core.storage.base_storage import IFileStorage
 
 FRAUD_TYPOLOGY_LABELS: dict[str, str] = {
@@ -45,55 +47,56 @@ AMOUNT_BRACKET_SPECS: list[tuple[str, str, float, float]] = [
 ]
 
 
-def _safe_float(val: Any, default: float = 0.0) -> float:
-	if val is None:
-		return default
-	try:
-		res = float(val)
-		return default if not math.isfinite(res) else res
-	except (ValueError, TypeError):
-		return default
-
-
-def _parse_rule_codes(raw_val: Any) -> list[str]:
-	if raw_val is None:
-		return []
-	if isinstance(raw_val, list):
-		out: list[str] = []
-		for item in raw_val:
-			if isinstance(item, dict) and item.get("rule_code"):
-				out.append(str(item["rule_code"]))
-			elif isinstance(item, str) and item.strip():
-				out.append(item.strip())
-		return sorted(set(out))
-	if isinstance(raw_val, str):
-		text = raw_val.strip()
-		if not text:
-			return []
-		try:
-			parsed = json.loads(text)
-			return _parse_rule_codes(parsed)
-		except Exception:
-			return [text]
-	return []
-
-
-def _extract_hour_utc(raw_ts: Any) -> int:
-	if raw_ts is None:
-		return 0
-	if isinstance(raw_ts, datetime):
-		dt = raw_ts if raw_ts.tzinfo else raw_ts.replace(tzinfo=timezone.utc)
-		return dt.astimezone(timezone.utc).hour
-	try:
-		ts = pd.to_datetime(raw_ts, utc=True, errors="coerce")
-		if pd.isna(ts):
-			num = _safe_float(raw_ts, -1.0)
-			if num >= 0:
-				return int((num // 3600) % 24)
-			return 0
-		return int(ts.hour)
-	except Exception:
-		return 0
+# DEPRECATED [26-11-22] ISS-012: helpers moved to usfds_core.services.warehouse.normalization (shared with the warehouse).
+# def _safe_float(val: Any, default: float = 0.0) -> float:
+# 	if val is None:
+# 		return default
+# 	try:
+# 		res = float(val)
+# 		return default if not math.isfinite(res) else res
+# 	except (ValueError, TypeError):
+# 		return default
+#
+#
+# def _parse_rule_codes(raw_val: Any) -> list[str]:
+# 	if raw_val is None:
+# 		return []
+# 	if isinstance(raw_val, list):
+# 		out: list[str] = []
+# 		for item in raw_val:
+# 			if isinstance(item, dict) and item.get("rule_code"):
+# 				out.append(str(item["rule_code"]))
+# 			elif isinstance(item, str) and item.strip():
+# 				out.append(item.strip())
+# 		return sorted(set(out))
+# 	if isinstance(raw_val, str):
+# 		text = raw_val.strip()
+# 		if not text:
+# 			return []
+# 		try:
+# 			parsed = json.loads(text)
+# 			return _parse_rule_codes(parsed)
+# 		except Exception:
+# 			return [text]
+# 	return []
+#
+#
+# def _extract_hour_utc(raw_ts: Any) -> int:
+# 	if raw_ts is None:
+# 		return 0
+# 	if isinstance(raw_ts, datetime):
+# 		dt = raw_ts if raw_ts.tzinfo else raw_ts.replace(tzinfo=timezone.utc)
+# 		return dt.astimezone(timezone.utc).hour
+# 	try:
+# 		ts = pd.to_datetime(raw_ts, utc=True, errors="coerce")
+# 		if pd.isna(ts):
+# 			num = _safe_float(raw_ts, -1.0)
+# 			if num >= 0:
+# 				return int((num // 3600) % 24)
+# 			return 0
+# 		return int(ts.hour)
+# 	except Exception:
+# 		return 0
 
 
 class DuckDBInsightEngine:
@@ -107,6 +110,8 @@ class DuckDBInsightEngine:
 		rules: Optional[list[tuple[Rule, Optional[RuleVersion]]]] = None,
 		blacklist: Optional[list[EntityBlacklist]] = None,
 		label_source: str = "VERIFIED_WITH_DATASET_FALLBACK",
+		date_from: Optional[datetime] = None,
+		date_to: Optional[datetime] = None,
 	):
 		self.file_storage = file_storage
 		self.jobs = jobs
@@ -118,192 +123,307 @@ class DuckDBInsightEngine:
 			if str(label_source).upper() == "VERIFIED_ONLY"
 			else "VERIFIED_WITH_DATASET_FALLBACK"
 		)
-		self.conn = duckdb.connect(":memory:")
+		self.date_from = date_from
+		self.date_to = date_to
+		self.conn = create_bounded_duckdb_connection()
 		self.has_dataset_labels = False
-		self._tx_df = self._build_unified_transactions_df()
-		self.conn.register("v_transactions", self._tx_df)
+		self._build_unified_transactions_table()
 
-	def _read_parquet_bytes(self, storage_path: str) -> Optional[bytes]:
-		if not storage_path:
-			return None
-		if self.file_storage and self.file_storage.exists(storage_path):
-			try:
-				return self.file_storage.read_bytes(storage_path)
-			except Exception:
-				return None
-		return None
+	def _build_unified_transactions_table(self) -> None:
+		"""Materializes `v_transactions` in DuckDB: warehouse facts (latest scan per event) joined with Case ground truth."""
+		warehouse = ProjectWarehouse(self.file_storage)
+		warehouse.sync_missing_jobs(self.jobs)
+		warehouse.load_fact_table(self.conn, self.jobs, date_from=self.date_from, date_to=self.date_to, table="facts")
+		self.has_dataset_labels = bool(self.conn.execute("SELECT COALESCE(BOOL_OR(has_label_col), FALSE) FROM facts").fetchone()[0])
+		self._load_cases_table()
+		fallback = self.label_source == "VERIFIED_WITH_DATASET_FALLBACK"
+		self.conn.execute(f"""
+			CREATE OR REPLACE TABLE v_transactions AS
+			SELECT
+				f.job_id, f.job_name, f.job_created_at, f.model_version_id, f.score_threshold, f.event_id,
+				COALESCE(c.c_user_id, f.user_id) AS user_id,
+				COALESCE(c.c_hour, f.hour_utc) AS hour_utc,
+				COALESCE(c.c_amount, f.amount) AS amount,
+				COALESCE(c.c_model_score, f.model_score) AS model_score,
+				f.rule_action,
+				COALESCE(c.c_final_action, f.final_action) AS final_action,
+				CASE WHEN c.event_id IS NOT NULL THEN 1 ELSE f.is_flagged END AS is_flagged,
+				CASE WHEN COALESCE(len(c.c_rule_codes), 0) > 0 THEN 1 ELSE f.has_rule_hit END AS has_rule_hit,
+				f.has_ai_hit,
+				CAST(to_json(list_sort(list_distinct(list_concat(
+					COALESCE(f.rule_codes, []::VARCHAR[]), COALESCE(c.c_rule_codes, []::VARCHAR[])
+				)))) AS VARCHAR) AS rule_codes_json,
+				CASE WHEN c.event_id IS NULL THEN 0 ELSE 1 END AS has_case,
+				COALESCE(c.case_id, '') AS case_id,
+				COALESCE(c.case_status, '') AS case_status,
+				COALESCE(c.case_priority, '') AS case_priority,
+				COALESCE(c.resolution_reason, '') AS resolution_reason,
+				COALESCE(c.verified_label, -1) AS verified_label,
+				f.dataset_label AS dataset_label,
+				CASE
+					WHEN c.verified_label IS NOT NULL THEN c.verified_label
+					WHEN {fallback} AND f.dataset_label <> -1 THEN f.dataset_label
+					ELSE -1
+				END AS effective_label,
+				CASE
+					WHEN c.verified_label IS NOT NULL THEN 'VERIFIED_CASE'
+					WHEN {fallback} AND f.dataset_label <> -1 THEN 'DATASET_FALLBACK'
+					ELSE 'UNVERIFIED'
+				END AS label_origin
+			FROM facts f
+			LEFT JOIN v_cases c ON c.event_id = f.event_id
+			UNION ALL
+			-- Cases whose event is not in the loaded facts (e.g. cases created by intake) still count.
+			SELECT
+				c.fb_job_id, c.fb_job_name, c.fb_job_created_at, c.fb_model_version_id, CAST(0.5 AS DOUBLE), c.event_id,
+				c.c_user_id, c.c_hour, c.fb_amount, c.fb_model_score, c.fb_rule_action, c.c_final_action,
+				1, c.fb_has_rule_hit, c.fb_has_ai_hit, CAST(to_json(c.c_rule_codes) AS VARCHAR),
+				1, c.case_id, c.case_status, c.case_priority, c.resolution_reason,
+				COALESCE(c.verified_label, -1), -1, COALESCE(c.verified_label, -1),
+				CASE WHEN c.verified_label IS NOT NULL THEN 'VERIFIED_CASE' ELSE 'UNVERIFIED' END
+			FROM v_cases c
+			WHERE c.event_id NOT IN (SELECT event_id FROM facts)
+		""")
 
-	def _build_unified_transactions_df(self) -> pd.DataFrame:
-		"""Loads projected columns from DetectionJob parquet files and joins with Case ground-truth labels."""
-		cases_by_event: dict[str, Case] = {str(c.event_id): c for c in self.cases}
-		seen_events: set[str] = set()
-		rows: list[dict[str, Any]] = []
-
-		# Sort jobs chronologically so latest scan wins if an event_id was scanned multiple times
-		sorted_jobs = sorted(
-			self.jobs,
-			key=lambda j: j.created_at or datetime.min.replace(tzinfo=timezone.utc),
-		)
-
-		for job in sorted_jobs:
-			status_str = job.status.value if hasattr(job.status, "value") else str(job.status)
-			if status_str != "COMPLETED" or not job.output_path:
-				continue
-			raw_bytes = self._read_parquet_bytes(job.output_path)
-			if not raw_bytes:
-				continue
-			try:
-				df = pd.read_parquet(io.BytesIO(raw_bytes))
-			except Exception:
-				continue
-			if df.empty:
-				continue
-
-			id_col = resolve_canonical_column(df, SystemColumn.EVENT_ID)
-			user_col = resolve_canonical_column(df, SystemColumn.USER_ID)
-			ts_col = resolve_canonical_column(df, SystemColumn.TIMESTAMP)
-			amt_col = resolve_canonical_column(df, SystemColumn.AMOUNT)
-			lbl_col = resolve_canonical_column(df, SystemColumn.LABEL)
-
-			if lbl_col is not None:
-				self.has_dataset_labels = True
-
-			threshold = _safe_float(job.score_threshold, 0.5)
-			has_model = bool(job.model_version_id is not None or (job.summary_metrics or {}).get("has_model", True))
-			job_id_str = str(job.job_id)
-			job_name_str = job.job_name or f"Job-{job_id_str[:8]}"
-			job_time_str = (job.created_at or datetime.now(timezone.utc)).isoformat()
-			model_ver_str = str(job.model_version_id) if job.model_version_id else ""
-
-			records = df.to_dict(orient="records")
-			for idx, rec in enumerate(records):
-				ev_raw = rec.get(id_col) if id_col and rec.get(id_col) is not None else f"{job_id_str}:{idx + 1}"
-				ev_id = str(ev_raw)
-				seen_events.add(ev_id)
-
-				user_id = str(rec.get(user_col) if user_col and rec.get(user_col) is not None else "unknown")
-				amount = max(0.0, _safe_float(rec.get(amt_col) if amt_col else 0.0, 0.0))
-				m_score = min(1.0, max(0.0, _safe_float(rec.get("model_score", rec.get("fraud_probability", 0.0)), 0.0)))
-
-				final_action = str(
-					rec.get("final_action") or ("REVIEW" if rec.get("prediction") == 1 else "ALLOW")
-				).upper()
-				rule_action = str(rec.get("rule_action") or "ALLOW").upper()
-				is_flagged = 1 if final_action in ("REJECT", "REVIEW") else 0
-
-				rule_codes = _parse_rule_codes(rec.get("triggered_rules"))
-				has_rule_hit = 1 if (len(rule_codes) > 0 or rule_action in ("REJECT", "REVIEW")) else 0
-				has_ai_hit = 1 if (has_model and m_score >= threshold) else 0
-
-				ds_label: Optional[int] = None
-				if lbl_col and rec.get(lbl_col) is not None:
-					try:
-						lbl_val = int(float(rec[lbl_col]))
-						if lbl_val in (0, 1):
-							ds_label = lbl_val
-					except (ValueError, TypeError):
-						ds_label = None
-
-				matched_case = cases_by_event.get(ev_id)
-				verified_lbl = matched_case.verified_label if matched_case else None
-				if matched_case and matched_case.triggered_rule_codes:
-					rule_codes = sorted(set(rule_codes) | set(matched_case.triggered_rule_codes))
-					if rule_codes:
-						has_rule_hit = 1
-
-				if verified_lbl is not None:
-					eff_label: Optional[int] = verified_lbl
-					lbl_origin = "VERIFIED_CASE"
-				elif self.label_source == "VERIFIED_WITH_DATASET_FALLBACK" and ds_label is not None:
-					eff_label = ds_label
-					lbl_origin = "DATASET_FALLBACK"
-				else:
-					eff_label = None
-					lbl_origin = "UNVERIFIED"
-
-				hour_utc = (
-					_extract_hour_utc(matched_case.tx_timestamp)
-					if matched_case
-					else _extract_hour_utc(rec.get(ts_col) if ts_col else None)
-				)
-
-				rows.append({
-					"job_id": job_id_str,
-					"job_name": job_name_str,
-					"job_created_at": job_time_str,
-					"model_version_id": model_ver_str,
-					"score_threshold": threshold,
-					"event_id": ev_id,
-					"user_id": matched_case.user_id if matched_case else user_id,
-					"hour_utc": hour_utc,
-					"amount": float(matched_case.amount) if matched_case else amount,
-					"model_score": float(matched_case.model_score) if (matched_case and matched_case.model_score is not None) else m_score,
-					"rule_action": rule_action,
-					"final_action": matched_case.final_action.value if matched_case else final_action,
-					"is_flagged": 1 if matched_case else is_flagged,
-					"has_rule_hit": has_rule_hit,
-					"has_ai_hit": has_ai_hit,
-					"rule_codes_json": json.dumps(rule_codes),
-					"has_case": 1 if matched_case else 0,
-					"case_id": str(matched_case.case_id) if matched_case else "",
-					"case_status": matched_case.status.value if matched_case else "",
-					"case_priority": matched_case.priority.value if matched_case else "",
-					"resolution_reason": matched_case.resolution_reason or "" if matched_case else "",
-					"verified_label": verified_lbl if verified_lbl is not None else -1,
-					"dataset_label": ds_label if ds_label is not None else -1,
-					"effective_label": eff_label if eff_label is not None else -1,
-					"label_origin": lbl_origin,
-				})
-
-		# Fallback: Include any Case whose event_id was not present in loaded parquet files
-		for case in self.cases:
-			ev_id = str(case.event_id)
-			if ev_id in seen_events:
-				continue
-			seen_events.add(ev_id)
-			rule_codes = case.triggered_rule_codes
+	def _load_cases_table(self) -> None:
+		"""Cases are small (DB rows): precompute per-case values in Python and expose them as the `v_cases` table."""
+		self.conn.execute("""
+			CREATE OR REPLACE TABLE v_cases (
+				event_id VARCHAR, c_user_id VARCHAR, c_hour INTEGER, c_amount DOUBLE, c_model_score DOUBLE,
+				c_final_action VARCHAR, c_rule_codes VARCHAR[], case_id VARCHAR, case_status VARCHAR,
+				case_priority VARCHAR, resolution_reason VARCHAR, verified_label INTEGER,
+				fb_job_id VARCHAR, fb_job_name VARCHAR, fb_job_created_at VARCHAR, fb_model_version_id VARCHAR,
+				fb_amount DOUBLE, fb_model_score DOUBLE, fb_rule_action VARCHAR, fb_has_rule_hit INTEGER, fb_has_ai_hit INTEGER
+			)
+		""")
+		cases_by_event = {str(c.event_id): c for c in self.cases}  # last case wins, as before
+		rows = []
+		for ev_id, case in cases_by_event.items():
+			codes = list(case.triggered_rule_codes)
 			m_score = _safe_float(case.model_score, 0.0) if case.model_score is not None else 0.0
-			has_rule_hit = 1 if len(rule_codes) > 0 else 0
-			has_ai_hit = 1 if (case.model_score is not None and m_score >= 0.5) else (1 if not has_rule_hit else 0)
-			verified_lbl = case.verified_label
+			has_rule_hit = 1 if codes else 0
 			rows.append({
-				"job_id": str(case.detection_job_id) if case.detection_job_id else "case-intake",
-				"job_name": f"Case Intake ({case.created_at.strftime('%Y-%m-%d')})",
-				"job_created_at": case.created_at.isoformat(),
-				"model_version_id": str(case.model_version_id) if case.model_version_id else "",
-				"score_threshold": 0.5,
 				"event_id": ev_id,
-				"user_id": case.user_id,
-				"hour_utc": _extract_hour_utc(case.tx_timestamp),
-				"amount": max(0.0, _safe_float(case.amount, 0.0)),
-				"model_score": m_score,
-				"rule_action": case.final_action.value if has_rule_hit else "ALLOW",
-				"final_action": case.final_action.value,
-				"is_flagged": 1,
-				"has_rule_hit": has_rule_hit,
-				"has_ai_hit": has_ai_hit,
-				"rule_codes_json": json.dumps(rule_codes),
-				"has_case": 1,
+				"c_user_id": case.user_id,
+				"c_hour": _extract_hour_utc(case.tx_timestamp),
+				"c_amount": float(case.amount),
+				"c_model_score": float(case.model_score) if case.model_score is not None else None,
+				"c_final_action": case.final_action.value,
+				"c_rule_codes_json": json.dumps(codes),
 				"case_id": str(case.case_id),
 				"case_status": case.status.value,
 				"case_priority": case.priority.value,
 				"resolution_reason": case.resolution_reason or "",
-				"verified_label": verified_lbl if verified_lbl is not None else -1,
-				"dataset_label": -1,
-				"effective_label": verified_lbl if verified_lbl is not None else -1,
-				"label_origin": "VERIFIED_CASE" if verified_lbl is not None else "UNVERIFIED",
+				"verified_label": case.verified_label,
+				"fb_job_id": str(case.detection_job_id) if case.detection_job_id else "case-intake",
+				"fb_job_name": f"Case Intake ({case.created_at.strftime('%Y-%m-%d')})",
+				"fb_job_created_at": case.created_at.isoformat(),
+				"fb_model_version_id": str(case.model_version_id) if case.model_version_id else "",
+				"fb_amount": max(0.0, _safe_float(case.amount, 0.0)),
+				"fb_model_score": m_score,
+				"fb_rule_action": case.final_action.value if has_rule_hit else "ALLOW",
+				"fb_has_rule_hit": has_rule_hit,
+				"fb_has_ai_hit": 1 if (case.model_score is not None and m_score >= 0.5) else (1 if not has_rule_hit else 0),
 			})
-
 		if not rows:
-			return pd.DataFrame(columns=[
-				"job_id", "job_name", "job_created_at", "model_version_id", "score_threshold",
-				"event_id", "user_id", "hour_utc", "amount", "model_score", "rule_action",
-				"final_action", "is_flagged", "has_rule_hit", "has_ai_hit", "rule_codes_json",
-				"has_case", "case_id", "case_status", "case_priority", "resolution_reason",
-				"verified_label", "dataset_label", "effective_label", "label_origin",
-			])
+			return
+		cases_df = pd.DataFrame(rows)  # noqa: F841  (referenced by name in the SQL below)
+		self.conn.register("cases_df", cases_df)
+		try:
+			self.conn.execute("""
+				INSERT INTO v_cases
+				SELECT event_id, c_user_id, c_hour, c_amount, c_model_score, c_final_action,
+					CAST(from_json(c_rule_codes_json, '["VARCHAR"]') AS VARCHAR[]), case_id, case_status,
+					case_priority, resolution_reason, CAST(verified_label AS INTEGER),
+					fb_job_id, fb_job_name, fb_job_created_at, fb_model_version_id,
+					fb_amount, fb_model_score, fb_rule_action, fb_has_rule_hit, fb_has_ai_hit
+				FROM cases_df
+			""")
+		finally:
+			self.conn.unregister("cases_df")
 
-		return pd.DataFrame(rows)
+	# DEPRECATED [26-11-22] ISS-012: replaced by _build_unified_transactions_table (warehouse facts + SQL join); kept for reference.
+# 	def _read_parquet_bytes(self, storage_path: str) -> Optional[bytes]:
+# 		if not storage_path:
+# 			return None
+# 		if self.file_storage and self.file_storage.exists(storage_path):
+# 			try:
+# 				return self.file_storage.read_bytes(storage_path)
+# 			except Exception:
+# 				return None
+# 		return None
+#
+# 	def _build_unified_transactions_df(self) -> pd.DataFrame:
+# 		"""Loads projected columns from DetectionJob parquet files and joins with Case ground-truth labels."""
+# 		cases_by_event: dict[str, Case] = {str(c.event_id): c for c in self.cases}
+# 		seen_events: set[str] = set()
+# 		rows: list[dict[str, Any]] = []
+#
+# 		# Sort jobs chronologically so latest scan wins if an event_id was scanned multiple times
+# 		sorted_jobs = sorted(
+# 			self.jobs,
+# 			key=lambda j: j.created_at or datetime.min.replace(tzinfo=timezone.utc),
+# 		)
+#
+# 		for job in sorted_jobs:
+# 			status_str = job.status.value if hasattr(job.status, "value") else str(job.status)
+# 			if status_str != "COMPLETED" or not job.output_path:
+# 				continue
+# 			raw_bytes = self._read_parquet_bytes(job.output_path)
+# 			if not raw_bytes:
+# 				continue
+# 			try:
+# 				df = pd.read_parquet(io.BytesIO(raw_bytes))
+# 			except Exception:
+# 				continue
+# 			if df.empty:
+# 				continue
+#
+# 			id_col = resolve_canonical_column(df, SystemColumn.EVENT_ID)
+# 			user_col = resolve_canonical_column(df, SystemColumn.USER_ID)
+# 			ts_col = resolve_canonical_column(df, SystemColumn.TIMESTAMP)
+# 			amt_col = resolve_canonical_column(df, SystemColumn.AMOUNT)
+# 			lbl_col = resolve_canonical_column(df, SystemColumn.LABEL)
+#
+# 			if lbl_col is not None:
+# 				self.has_dataset_labels = True
+#
+# 			threshold = _safe_float(job.score_threshold, 0.5)
+# 			has_model = bool(job.model_version_id is not None or (job.summary_metrics or {}).get("has_model", True))
+# 			job_id_str = str(job.job_id)
+# 			job_name_str = job.job_name or f"Job-{job_id_str[:8]}"
+# 			job_time_str = (job.created_at or datetime.now(timezone.utc)).isoformat()
+# 			model_ver_str = str(job.model_version_id) if job.model_version_id else ""
+#
+# 			records = df.to_dict(orient="records")
+# 			for idx, rec in enumerate(records):
+# 				ev_raw = rec.get(id_col) if id_col and rec.get(id_col) is not None else f"{job_id_str}:{idx + 1}"
+# 				ev_id = str(ev_raw)
+# 				seen_events.add(ev_id)
+#
+# 				user_id = str(rec.get(user_col) if user_col and rec.get(user_col) is not None else "unknown")
+# 				amount = max(0.0, _safe_float(rec.get(amt_col) if amt_col else 0.0, 0.0))
+# 				m_score = min(1.0, max(0.0, _safe_float(rec.get("model_score", rec.get("fraud_probability", 0.0)), 0.0)))
+#
+# 				final_action = str(
+# 					rec.get("final_action") or ("REVIEW" if rec.get("prediction") == 1 else "ALLOW")
+# 				).upper()
+# 				rule_action = str(rec.get("rule_action") or "ALLOW").upper()
+# 				is_flagged = 1 if final_action in ("REJECT", "REVIEW") else 0
+#
+# 				rule_codes = _parse_rule_codes(rec.get("triggered_rules"))
+# 				has_rule_hit = 1 if (len(rule_codes) > 0 or rule_action in ("REJECT", "REVIEW")) else 0
+# 				has_ai_hit = 1 if (has_model and m_score >= threshold) else 0
+#
+# 				ds_label: Optional[int] = None
+# 				if lbl_col and rec.get(lbl_col) is not None:
+# 					try:
+# 						lbl_val = int(float(rec[lbl_col]))
+# 						if lbl_val in (0, 1):
+# 							ds_label = lbl_val
+# 					except (ValueError, TypeError):
+# 						ds_label = None
+#
+# 				matched_case = cases_by_event.get(ev_id)
+# 				verified_lbl = matched_case.verified_label if matched_case else None
+# 				if matched_case and matched_case.triggered_rule_codes:
+# 					rule_codes = sorted(set(rule_codes) | set(matched_case.triggered_rule_codes))
+# 					if rule_codes:
+# 						has_rule_hit = 1
+#
+# 				if verified_lbl is not None:
+# 					eff_label: Optional[int] = verified_lbl
+# 					lbl_origin = "VERIFIED_CASE"
+# 				elif self.label_source == "VERIFIED_WITH_DATASET_FALLBACK" and ds_label is not None:
+# 					eff_label = ds_label
+# 					lbl_origin = "DATASET_FALLBACK"
+# 				else:
+# 					eff_label = None
+# 					lbl_origin = "UNVERIFIED"
+#
+# 				hour_utc = (
+# 					_extract_hour_utc(matched_case.tx_timestamp)
+# 					if matched_case
+# 					else _extract_hour_utc(rec.get(ts_col) if ts_col else None)
+# 				)
+#
+# 				rows.append({
+# 					"job_id": job_id_str,
+# 					"job_name": job_name_str,
+# 					"job_created_at": job_time_str,
+# 					"model_version_id": model_ver_str,
+# 					"score_threshold": threshold,
+# 					"event_id": ev_id,
+# 					"user_id": matched_case.user_id if matched_case else user_id,
+# 					"hour_utc": hour_utc,
+# 					"amount": float(matched_case.amount) if matched_case else amount,
+# 					"model_score": float(matched_case.model_score) if (matched_case and matched_case.model_score is not None) else m_score,
+# 					"rule_action": rule_action,
+# 					"final_action": matched_case.final_action.value if matched_case else final_action,
+# 					"is_flagged": 1 if matched_case else is_flagged,
+# 					"has_rule_hit": has_rule_hit,
+# 					"has_ai_hit": has_ai_hit,
+# 					"rule_codes_json": json.dumps(rule_codes),
+# 					"has_case": 1 if matched_case else 0,
+# 					"case_id": str(matched_case.case_id) if matched_case else "",
+# 					"case_status": matched_case.status.value if matched_case else "",
+# 					"case_priority": matched_case.priority.value if matched_case else "",
+# 					"resolution_reason": matched_case.resolution_reason or "" if matched_case else "",
+# 					"verified_label": verified_lbl if verified_lbl is not None else -1,
+# 					"dataset_label": ds_label if ds_label is not None else -1,
+# 					"effective_label": eff_label if eff_label is not None else -1,
+# 					"label_origin": lbl_origin,
+# 				})
+#
+# 		# Fallback: Include any Case whose event_id was not present in loaded parquet files
+# 		for case in self.cases:
+# 			ev_id = str(case.event_id)
+# 			if ev_id in seen_events:
+# 				continue
+# 			seen_events.add(ev_id)
+# 			rule_codes = case.triggered_rule_codes
+# 			m_score = _safe_float(case.model_score, 0.0) if case.model_score is not None else 0.0
+# 			has_rule_hit = 1 if len(rule_codes) > 0 else 0
+# 			has_ai_hit = 1 if (case.model_score is not None and m_score >= 0.5) else (1 if not has_rule_hit else 0)
+# 			verified_lbl = case.verified_label
+# 			rows.append({
+# 				"job_id": str(case.detection_job_id) if case.detection_job_id else "case-intake",
+# 				"job_name": f"Case Intake ({case.created_at.strftime('%Y-%m-%d')})",
+# 				"job_created_at": case.created_at.isoformat(),
+# 				"model_version_id": str(case.model_version_id) if case.model_version_id else "",
+# 				"score_threshold": 0.5,
+# 				"event_id": ev_id,
+# 				"user_id": case.user_id,
+# 				"hour_utc": _extract_hour_utc(case.tx_timestamp),
+# 				"amount": max(0.0, _safe_float(case.amount, 0.0)),
+# 				"model_score": m_score,
+# 				"rule_action": case.final_action.value if has_rule_hit else "ALLOW",
+# 				"final_action": case.final_action.value,
+# 				"is_flagged": 1,
+# 				"has_rule_hit": has_rule_hit,
+# 				"has_ai_hit": has_ai_hit,
+# 				"rule_codes_json": json.dumps(rule_codes),
+# 				"has_case": 1,
+# 				"case_id": str(case.case_id),
+# 				"case_status": case.status.value,
+# 				"case_priority": case.priority.value,
+# 				"resolution_reason": case.resolution_reason or "",
+# 				"verified_label": verified_lbl if verified_lbl is not None else -1,
+# 				"dataset_label": -1,
+# 				"effective_label": verified_lbl if verified_lbl is not None else -1,
+# 				"label_origin": "VERIFIED_CASE" if verified_lbl is not None else "UNVERIFIED",
+# 			})
+#
+# 		if not rows:
+# 			return pd.DataFrame(columns=[
+# 				"job_id", "job_name", "job_created_at", "model_version_id", "score_threshold",
+# 				"event_id", "user_id", "hour_utc", "amount", "model_score", "rule_action",
+# 				"final_action", "is_flagged", "has_rule_hit", "has_ai_hit", "rule_codes_json",
+# 				"has_case", "case_id", "case_status", "case_priority", "resolution_reason",
+# 				"verified_label", "dataset_label", "effective_label", "label_origin",
+# 			])
+#
+# 		return pd.DataFrame(rows)
 
 	def compute_executive_overview(self) -> dict[str, Any]:
 		"""Computes SUC-22: 6 Executive KPIs, 4-Stage Funnel, Financial Protection Trend, and Queue Breakdown."""
@@ -562,7 +682,7 @@ class DuckDBInsightEngine:
 		}
 
 		# Area 2: Rule Ground-Truth Leaderboard
-		gross_count = len(self._tx_df)
+		gross_count = int(self.conn.execute("SELECT COUNT(*) FROM v_transactions").fetchone()[0])
 		rule_catalog: dict[str, dict[str, Any]] = {}
 		for rule, ver in self.rules:
 			status_str = rule.status.value if hasattr(rule.status, "value") else str(rule.status)
@@ -604,40 +724,81 @@ class DuckDBInsightEngine:
 						"false_positive_value": 0.0,
 					}
 
-		if not self._tx_df.empty:
-			for row in self._tx_df.itertuples(index=False):
-				codes = _parse_rule_codes(row.rule_codes_json)
-				if not codes:
-					continue
-				amt = float(row.amount)
-				eff_lbl = int(row.effective_label)
-				for code in codes:
-					entry = rule_catalog.setdefault(code, {
-						"rule_id": "",
-						"rule_code": code,
-						"rule_name": code,
-						"status": "ACTIVE",
-						"action": str(row.rule_action or "REVIEW"),
-						"version_number": 1,
-						"total_hits": 0,
-						"verified_cases": 0,
-						"verified_tp": 0,
-						"verified_fp": 0,
-						"pending_cases": 0,
-						"fraud_value_caught": 0.0,
-						"false_positive_value": 0.0,
-					})
-					entry["total_hits"] += 1
-					if eff_lbl == 1:
-						entry["verified_cases"] += 1
-						entry["verified_tp"] += 1
-						entry["fraud_value_caught"] = round(entry["fraud_value_caught"] + amt, 2)
-					elif eff_lbl == 0:
-						entry["verified_cases"] += 1
-						entry["verified_fp"] += 1
-						entry["false_positive_value"] = round(entry["false_positive_value"] + amt, 2)
-					else:
-						entry["pending_cases"] += 1
+		# DEPRECATED [26-11-22] ISS-012: per-row pandas itertuples loop replaced by the SQL aggregation below.
+# 		if not self._tx_df.empty:
+# 			for row in self._tx_df.itertuples(index=False):
+# 				codes = _parse_rule_codes(row.rule_codes_json)
+# 				if not codes:
+# 					continue
+# 				amt = float(row.amount)
+# 				eff_lbl = int(row.effective_label)
+# 				for code in codes:
+# 					entry = rule_catalog.setdefault(code, {
+# 						"rule_id": "",
+# 						"rule_code": code,
+# 						"rule_name": code,
+# 						"status": "ACTIVE",
+# 						"action": str(row.rule_action or "REVIEW"),
+# 						"version_number": 1,
+# 						"total_hits": 0,
+# 						"verified_cases": 0,
+# 						"verified_tp": 0,
+# 						"verified_fp": 0,
+# 						"pending_cases": 0,
+# 						"fraud_value_caught": 0.0,
+# 						"false_positive_value": 0.0,
+# 					})
+# 					entry["total_hits"] += 1
+# 					if eff_lbl == 1:
+# 						entry["verified_cases"] += 1
+# 						entry["verified_tp"] += 1
+# 						entry["fraud_value_caught"] = round(entry["fraud_value_caught"] + amt, 2)
+# 					elif eff_lbl == 0:
+# 						entry["verified_cases"] += 1
+# 						entry["verified_fp"] += 1
+# 						entry["false_positive_value"] = round(entry["false_positive_value"] + amt, 2)
+# 					else:
+# 						entry["pending_cases"] += 1
+
+		hit_rows = self.conn.execute("""
+			SELECT
+				code,
+				COUNT(*) AS hits,
+				SUM(CASE WHEN effective_label = 1 THEN 1 ELSE 0 END) AS tp,
+				SUM(CASE WHEN effective_label = 0 THEN 1 ELSE 0 END) AS fp,
+				SUM(CASE WHEN effective_label NOT IN (0, 1) THEN 1 ELSE 0 END) AS pending,
+				SUM(CASE WHEN effective_label = 1 THEN amount ELSE 0.0 END) AS tp_amount,
+				SUM(CASE WHEN effective_label = 0 THEN amount ELSE 0.0 END) AS fp_amount,
+				ANY_VALUE(rule_action) AS rule_action
+			FROM (
+				SELECT unnest(from_json(rule_codes_json, '["VARCHAR"]')) AS code, amount, effective_label, rule_action
+				FROM v_transactions
+			)
+			GROUP BY code
+		""").fetchall()
+		for code, hits, tp, fp, pending, tp_amount, fp_amount, rule_action in hit_rows:
+			entry = rule_catalog.setdefault(code, {
+				"rule_id": "",
+				"rule_code": code,
+				"rule_name": code,
+				"status": "ACTIVE",
+				"action": str(rule_action or "REVIEW"),
+				"version_number": 1,
+				"total_hits": 0,
+				"verified_cases": 0,
+				"verified_tp": 0,
+				"verified_fp": 0,
+				"pending_cases": 0,
+				"fraud_value_caught": 0.0,
+				"false_positive_value": 0.0,
+			})
+			entry["total_hits"] += int(hits)
+			entry["verified_cases"] += int(tp) + int(fp)
+			entry["verified_tp"] += int(tp)
+			entry["verified_fp"] += int(fp)
+			entry["pending_cases"] += int(pending)
+			entry["fraud_value_caught"] = round(entry["fraud_value_caught"] + float(tp_amount or 0.0), 2)
+			entry["false_positive_value"] = round(entry["false_positive_value"] + float(fp_amount or 0.0), 2)
 
 		leaderboard: list[dict[str, Any]] = []
 		for entry in rule_catalog.values():

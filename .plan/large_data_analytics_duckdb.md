@@ -50,9 +50,9 @@
 ## 3. Files
 | Action | File | Milestone | Note |
 |---|---|---|---|
-| modify | `usfds-core/src/usfds_core/storage/base_storage.py` | M1 | Thêm `list_keys(prefix)`, `open_local_path` (context manager), `upload_file` |
-| modify | `usfds-infra/src/usfds_infra/storage/local_storage.py` | M1 | Override: `Path` trực tiếp (zero-copy), `upload_file`, `list_keys` |
-| modify | `usfds-infra/src/usfds_infra/storage/s3_storage.py` | M1 | Override: `download_file` vào file tạm, `upload_file`, `list_objects_v2` phân trang |
+| modify | `usfds-core/src/usfds_core/storage/base_storage.py` | M1 | Thêm `open_local_path` (context manager), `upload_file` (không thêm `list_keys`: engine biết danh sách job từ DB nên tính khóa fact và dùng `exists()`; không compaction) <!-- [26-11-22] --> |
+| modify | `usfds-infra/src/usfds_infra/storage/local_storage.py` | M1 | Override: `Path` trực tiếp (zero-copy), `upload_file` |
+| modify | `usfds-infra/src/usfds_infra/storage/s3_storage.py` | M1 | Override: `download_file` vào file tạm, `upload_file` |
 | create | `usfds-core/src/usfds_core/services/warehouse/__init__.py` | M1 | Package mới |
 | create | `usfds-core/src/usfds_core/services/warehouse/project_warehouse.py` | M1 | `create_bounded_duckdb_connection`, `ProjectWarehouse` (`write_job_facts`, `sync_missing_jobs`, `fact_view` có khử trùng lặp) |
 | modify | `usfds-core/src/usfds_core/services/inference/inference_service.py` | M1, M2 | M1: `handle_job_completion` ghi file fact; M2: `get_detection_job_results`, `export_detection_job_results*`, `fetch_job_events(job_id, event_ids)` bằng DuckDB |
@@ -60,7 +60,7 @@
 | modify | `usfds-core/src/usfds_core/services/insight_report/service.py` | M1 | `date_from`/`date_to` theo `tx_timestamp` |
 | modify | `usfds-core/src/usfds_core/repositories/base_case_repo.py` | M1 | `get_case_ids_by_events(project_id, event_ids)` (thay `list_by_project` khi gắn `case_id` cho trang kết quả) |
 | modify | `usfds-infra/src/usfds_infra/database/case_repositories.py` | M1 | Cài đặt bằng SQL `IN` tương thích PostgreSQL |
-| modify | `usfds-infra/tests/test_s3_storage.py` | M1 | Test storage |
+| modify | `usfds-infra/tests/test_s3_storage.py` | M1 | Test storage (`open_local_path`/`upload_file`) |
 | modify | `usfds-infra/tests/test_case_repositories.py` | M1 | Test repo dưới `pg_compat` |
 | create | `usfds-core/tests/test_project_warehouse.py` | M1 | Test warehouse |
 | modify | `usfds-core/tests/test_insight_report_service.py` | M1 | Test lọc `tx_timestamp`, không `pd.read_parquet` |
@@ -111,7 +111,7 @@
 | M0 | `test_processor_marks_business_errors_unrecoverable_and_retries_transient` (`usfds-worker/tests/test_retry_policy.py`) | Handler ném lần lượt `ValueError("x")`, `FileNotFoundError("y")`, `OSError("s3 down")` | Gọi processor từ `_make_processor` | 2 lỗi đầu → `bullmq.UnrecoverableError` với message `"ValueError: x"` / `"FileNotFoundError: y"`; `OSError` → `RuntimeError("OSError: s3 down")` (retry được) | ISS-021 |
 | M0 | `test_training_and_batch_handlers_skip_records_already_in_terminal_state` (`usfds-worker/tests/test_retry_policy.py`) | Run `COMPLETED` và DetectionJob `FAILED` (giao lại sau crash) | Gọi lại `handle_training_run` / `handle_batch_inference` | Return ngay, executor không được gọi, trạng thái và `error_message` giữ nguyên, không tạo `ModelVersion` mới | ISS-021 |
 | M0 | `test_queue_wait_timeout_returns_504_envelope` (`usfds-server/tests/test_queue_timeout_api.py`) | `client_queue_mode`, `enqueue_and_wait` bị patch ném `QueueWaitTimeoutError(cancelled=True/False)` | `POST` dataset ingest | `504`, body `ApiResponse` `success=false`, message tiếng Việt tương ứng (không chứa `job_id`), `data.job_id` có mặt | ISS-021 |
-| M1 | `test_storage_open_local_path_list_keys_and_upload_local_and_s3` (`usfds-infra/tests/test_s3_storage.py`) | File Parquet trong `LocalFileStorage` và `S3FileStorage` (moto) | `list_keys(prefix)`, `open_local_path(key)`, `upload_file(src, key)` | Local trả `Path` gốc không copy; S3 stream qua file tạm và tự dọn khi thoát `with`; `list_keys` trả đủ khóa theo prefix (kể cả > 1 trang) | ISS-012 |
+| M1 | `test_storage_open_local_path_and_upload_file_local_and_s3` (`usfds-infra/tests/test_s3_storage.py`) | File Parquet trong `LocalFileStorage` và `S3FileStorage` (moto) | `open_local_path(key)`, `upload_file(src, key)` | Local trả `Path` gốc không copy; S3 tải về file tạm và tự dọn khi thoát `with`; khóa không tồn tại ném `FileNotFoundError` | ISS-012 |
 | M1 | `test_case_repo_get_case_ids_by_events_is_pg_compatible` (`usfds-infra/tests/test_case_repositories.py`) | Case thuộc nhiều project | `get_case_ids_by_events(p, ["EV-1","EV-MISSING"])` dưới `pg_compat` | Chỉ trả `{"EV-1": case_id}` của project `p`, không `PostgresCompatibilityError` | ISS-012 |
 | M1 | `test_warehouse_writes_one_file_per_job_and_dedupes_latest_scan` (`usfds-core/tests/test_project_warehouse.py`) | 2 job `COMPLETED`, job sau quét lại 1 `event_id` với điểm khác; `pd.read_parquet` bị monkeypatch ném lỗi | `handle_job_completion` cho từng job rồi đọc `fact_view` | Có 2 file `job_{id}.parquet`; `event_id` trùng chỉ còn bản của job mới hơn; connection có `threads=2` & `memory_limit` | ISS-012 |
 | M1 | `test_warehouse_bootstraps_legacy_completed_jobs` (`usfds-core/tests/test_project_warehouse.py`) | Job `COMPLETED` cũ chỉ có `predictions.parquet` | `sync_missing_jobs(project_id)` | File fact được tạo bằng DuckDB; gọi lại lần 2 không tạo thêm | ISS-012 |
@@ -129,13 +129,13 @@
   - [x] [worker] `_make_processor` phân loại lỗi → `UnrecoverableError`; 2 handler bỏ qua bản ghi ở trạng thái cuối
   - [x] [server] Exception handler `504`; 2 setting timeout; 6 chỗ gọi truyền `timeout_seconds`; `deploy/.env.example`
   - [x] [verify] `./scripts/test.sh infra worker server`
-- [ ] **M1 — Storage streaming, DuckDB bounded & Project Fact Warehouse** (`usfds-core`, `usfds-infra`): mỗi job ghi 1 file fact, Insight đọc warehouse theo `tx_timestamp`.
-  - [ ] [tests] Viết các test M1 trong §5; xác nhận fail đúng lý do
-  - [ ] [core] `IFileStorage.list_keys/open_local_path/upload_file`; `ICaseRepository.get_case_ids_by_events`
-  - [ ] [infra] Cài đặt trong `LocalFileStorage`, `S3FileStorage`, `SqliteCaseRepository`
-  - [ ] [core] `services/warehouse/project_warehouse.py`: `create_bounded_duckdb_connection`, `write_job_facts`, `sync_missing_jobs`, `fact_view`
-  - [ ] [core] `handle_job_completion` gọi `write_job_facts`; viết lại `DuckDBInsightEngine` + `InsightReportService` trên `fact_view` theo `tx_timestamp`
-  - [ ] [verify] `./scripts/test.sh core infra`
+- [x] **M1 — Storage streaming, DuckDB bounded & Project Fact Warehouse** (`usfds-core`, `usfds-infra`): mỗi job ghi 1 file fact, Insight đọc warehouse theo `tx_timestamp`.
+  - [x] [tests] Viết các test M1 trong §5; xác nhận fail đúng lý do
+  - [x] [core] `IFileStorage.list_keys/open_local_path/upload_file`; `ICaseRepository.get_case_ids_by_events` (chuyển sang M2, nơi duy nhất dùng nó)
+  - [x] [infra] Cài đặt trong `LocalFileStorage`, `S3FileStorage`, `SqliteCaseRepository`
+  - [x] [core] `services/warehouse/project_warehouse.py`: `create_bounded_duckdb_connection`, `write_job_facts`, `sync_missing_jobs`, `fact_view`
+  - [x] [core] `handle_job_completion` gọi `write_job_facts`; viết lại `DuckDBInsightEngine` + `InsightReportService` trên `fact_view` theo `tx_timestamp`
+  - [x] [verify] `./scripts/test.sh core infra`
 - [ ] **M2 — Worker Analytics Queue & DuckDB pushdown cho Detection Results/Export/Send** (`usfds-infra`, `usfds-worker`, `usfds-core`, `usfds-server`)
   - [ ] [tests] Viết các test M2 trong §5; xác nhận fail
   - [ ] [infra] Append `QUEUE_ANALYTICS`, `JOB_INSIGHT_REPORT`
@@ -150,6 +150,7 @@
 
 Checkpoint log (the agent appends one line per finished milestone):
 - 26-11-22 M0 done: infra 47 passed · worker 8 passed · server 44 passed; notes: bỏ `attempts=3` cho training/batch (executor đã ghi `FAILED`, user xác nhận), retry chỉ áp dụng cho `JOB_INSIGHT_REPORT` (M2); handler bỏ qua bản ghi ở trạng thái cuối gồm cả `CANCELLED`; thêm 2 test `attempts/backoff` ở `test_job_queue.py`
+- 26-11-22 M1 done: core 166 passed (15 skipped, có sẵn) · infra 48 passed · worker 8 · server 44 · cli 5; notes: không thêm `list_keys`, không compaction; `get_case_ids_by_events` chuyển sang M2; thêm test `test_warehouse_load_filters_by_tx_timestamp_not_job_date`; chưa gộp 34 query `score_calibration`/`threshold_curve` thành single-pass (chỉ đổi nguồn dữ liệu sang warehouse + rule leaderboard bằng SQL)
 
 ## 7. Review hotspots (filled in after implementation)
 - —

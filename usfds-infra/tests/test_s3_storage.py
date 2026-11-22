@@ -1,7 +1,10 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 from moto import mock_aws
 
+from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_infra.storage.s3_storage import S3FileStorage
 
 
@@ -97,6 +100,33 @@ class TestS3FileStorage(unittest.TestCase):
 		get_url = self.storage.generate_presigned_download_url(copied_key, filename="export.csv", expires_in=600)
 		self.assertIn("/usfds/datasets/d1/raw/raw.csv?", get_url)
 		self.assertIn("export.csv", get_url)
+
+	def test_storage_open_local_path_and_upload_file_local_and_s3(self):
+		with tempfile.TemporaryDirectory() as tmp:
+			src = Path(tmp) / "src.parquet"
+			src.write_bytes(b"PAR1-fake")
+			local = LocalFileStorage(Path(tmp) / "store")
+
+			for storage in (local, self.storage):
+				key = storage.upload_file(src, "warehouse/p1/fact_transactions/job_a.parquet")
+				self.assertTrue(storage.exists(key))
+				self.assertEqual(storage.read_bytes(key), b"PAR1-fake")
+
+			with local.open_local_path("warehouse/p1/fact_transactions/job_a.parquet") as path:
+				# Local filesystem: zero-copy, the stored file itself.
+				self.assertEqual(path, local.get_absolute_path("warehouse/p1/fact_transactions/job_a.parquet"))
+
+			with self.storage.open_local_path("warehouse/p1/fact_transactions/job_a.parquet") as s3_path:
+				self.assertEqual(Path(s3_path).read_bytes(), b"PAR1-fake")
+			# S3: downloaded to a temp file that is removed when the block exits.
+			self.assertFalse(Path(s3_path).exists())
+
+			with self.assertRaises(FileNotFoundError):
+				with self.storage.open_local_path("warehouse/none.parquet"):
+					pass
+			with self.assertRaises(FileNotFoundError):
+				with local.open_local_path("warehouse/none.parquet"):
+					pass
 
 
 if __name__ == "__main__":

@@ -100,11 +100,12 @@ class InsightReportService:
 				continue
 			if model_ver_str is not None and str(j.model_version_id or "") != model_ver_str:
 				continue
-			j_dt = _ensure_utc(j.created_at)
-			if dt_from and j_dt and j_dt < dt_from:
-				continue
-			if dt_to and j_dt and j_dt > dt_to:
-				continue
+			# DEPRECATED [26-11-22] ISS-012: date_from/date_to now filter by transaction time (tx_timestamp) in the engine.
+			# j_dt = _ensure_utc(j.created_at)
+			# if dt_from and j_dt and j_dt < dt_from:
+			# 	continue
+			# if dt_to and j_dt and j_dt > dt_to:
+			# 	continue
 			filtered_jobs.append(j)
 
 		filtered_cases: list[Case] = []
@@ -113,7 +114,7 @@ class InsightReportService:
 				continue
 			if model_ver_str is not None and str(c.model_version_id or "") != model_ver_str:
 				continue
-			c_dt = _ensure_utc(c.created_at)
+			c_dt = _ensure_utc(c.tx_timestamp)  # [26-11-22] ISS-012: by transaction time, like the facts
 			if dt_from and c_dt and c_dt < dt_from:
 				continue
 			if dt_to and c_dt and c_dt > dt_to:
@@ -162,6 +163,8 @@ class InsightReportService:
 			rules=rules_with_ver,
 			blacklist=blacklist_entries,
 			label_source=label_source,
+			date_from=date_from,
+			date_to=date_to,
 		)
 		return engine, completed_jobs
 

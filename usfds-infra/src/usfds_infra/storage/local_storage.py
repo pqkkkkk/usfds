@@ -1,6 +1,7 @@
+from contextlib import contextmanager
 from pathlib import Path
 import shutil
-from typing import List, Union
+from typing import Iterator, List, Union
 
 from usfds_core.storage.base_storage import IFileStorage
 
@@ -81,6 +82,18 @@ class LocalFileStorage(IFileStorage):
         if src != target:
             shutil.copyfile(src, target)
         return str(target)
+
+    def upload_file(self, local_path: Union[str, Path], dest_path: str) -> str:
+        """Copy a server-local file into storage (same behavior as `save_file`)."""
+        return self.save_file(local_path, dest_path)
+
+    @contextmanager
+    def open_local_path(self, file_path: str) -> Iterator[Path]:
+        """Zero-copy: yield the stored file itself."""
+        target = self._resolve_path(file_path)
+        if not target.is_file():
+            raise FileNotFoundError(f"File not found in local storage: {target}")
+        yield target
 
     def get_file_size(self, file_path: str) -> int:
         """Return file size in bytes."""
