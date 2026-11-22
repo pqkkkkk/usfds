@@ -62,6 +62,15 @@ export const ModelHubView: React.FC = () => {
 	const [lineageVersion, setLineageVersion] = useState<ModelVersionResponse | null>(null);
 
 	const fetchHubData = useCallback(async (silent = false) => {
+		if (!projectId) {
+			setModels([]);
+			setRuns([]);
+			setVersionsByModel({});
+			if (!silent) {
+				setIsLoading(false);
+			}
+			return;
+		}
 		if (!silent) {
 			setIsLoading(true);
 		}
@@ -84,7 +93,7 @@ export const ModelHubView: React.FC = () => {
 			// Load versions for all models so we can show active badges and version counts
 			const versionEntries = await Promise.allSettled(
 				loadedModels.map(async (m) => {
-					const vRes = await trainingApi.listModelVersions(m.model_id, projectId || undefined);
+					const vRes = await trainingApi.listModelVersions(m.model_id, projectId);
 					return [m.model_id, vRes.data || []] as const;
 				})
 			);

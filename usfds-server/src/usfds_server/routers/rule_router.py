@@ -143,15 +143,16 @@ def list_rules(
 )
 def get_rule(
     rule_id: UUID,
+    project_id: UUID = Query(..., description="Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
 ) -> ApiResponse[RuleResponse]:
+    authz.require_project_permission(actor, "rule:read", project_id)
     pair = manager.get_rule_with_current_version(rule_id)
-    if not pair:
+    if not pair or pair[0].project_id != project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
     rule, version = pair
-    authz.require_project_permission(actor, "rule:read", rule.project_id)
     return ApiResponse.ok(data=_to_rule_response(rule, version))
 
 
@@ -239,14 +240,15 @@ def set_rule_status(
 )
 def get_rule_versions(
     rule_id: UUID,
+    project_id: UUID = Query(..., description="Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     manager: RuleManager = Depends(get_rule_manager),
 ) -> ApiResponse[List[RuleVersionResponse]]:
+    authz.require_project_permission(actor, "rule:read", project_id)
     rule = manager.get_rule(rule_id)
-    if not rule:
+    if not rule or rule.project_id != project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rule not found with ID {rule_id}")
-    authz.require_project_permission(actor, "rule:read", rule.project_id)
 
     versions = manager.get_rule_versions(rule_id)
     data = [_to_rule_version_response(v) for v in versions]
@@ -300,6 +302,11 @@ def evaluate_single_rule(
     target_version = None
     if version_id:
         target_version = manager._version_repo.get_by_id(version_id)
+        if not target_version or target_version.rule_id != rule.rule_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="RuleVersion does not belong to the specified rule (BR-PM-06)",
+            )
     elif rule.current_version_id:
         target_version = manager._version_repo.get_by_id(rule.current_version_id)
 
@@ -412,7 +419,7 @@ def backtest_rule_on_dataset(
         )
 
     dataset = dataset_repo.get_by_id(artifact.dataset_id)
-    if dataset and str(dataset.project_id) != str(request.project_id):
+    if not dataset or str(dataset.project_id) != str(request.project_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="DatasetArtifact does not belong to the specified project (BR-PM-06)",
@@ -446,6 +453,11 @@ def backtest_rule_on_dataset(
         target_ver: Optional[RuleVersion] = None
         if request.version_id:
             target_ver = manager._version_repo.get_by_id(request.version_id)
+            if not target_ver or target_ver.rule_id != rule.rule_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="RuleVersion does not belong to the specified rule (BR-PM-06)",
+                )
         elif rule.current_version_id:
             target_ver = manager._version_repo.get_by_id(rule.current_version_id)
 

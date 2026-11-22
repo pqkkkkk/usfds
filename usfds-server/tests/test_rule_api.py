@@ -59,7 +59,7 @@ def test_rule_crud_and_versioning_flow():
         assert rule_data["current_version"]["action"] == "REJECT"
 
         # 2. Get rule by ID
-        get_res = client.get(f"/api/v1/rules/{rule_id}")
+        get_res = client.get(f"/api/v1/rules/{rule_id}", params={"project_id": project_id})
         assert get_res.status_code == 200
         assert get_res.json()["data"]["rule_id"] == rule_id
 
@@ -109,7 +109,7 @@ def test_rule_crud_and_versioning_flow():
         assert updated_data["current_version"]["action"] == "REVIEW"
 
         # 6. Verify version history audit trail
-        history_res = client.get(f"/api/v1/rules/{rule_id}/versions")
+        history_res = client.get(f"/api/v1/rules/{rule_id}/versions", params={"project_id": project_id})
         assert history_res.status_code == 200
         history_data = history_res.json()["data"]
         assert len(history_data) == 2

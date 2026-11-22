@@ -58,10 +58,12 @@ export const storageApi = {
 
 	requestPresignedDownload: async (params: {
 		objectKey: string;
+		projectId: string;
 		filename?: string;
 	}): Promise<ApiResponse<PresignedDownloadData>> => {
 		return apiClient.get<PresignedDownloadData>('/v1/storage/presigned-download', {
 			object_key: params.objectKey,
+			project_id: params.projectId,
 			filename: params.filename,
 		});
 	},

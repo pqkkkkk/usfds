@@ -1,7 +1,7 @@
 # Plan: Project-Scoped Access Control Hardening (List, Get-by-ID & Cross-Project Guards)
 
 > **Task ID:** `project_scoped_access_control` (= this file name) · **Issues:** `ISS-042` · **Spec:** `.plan/user_management_rbac.md`, `.plan/rbac_feature_visibility.md`, reference pattern `usfds-server/src/usfds_server/routers/investigation_router.py`
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Draft
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Done (26-11-22)
 
 ## 1. Context (facts)
 - **`GET /api/v1/datasets`** (`usfds-server/src/usfds_server/routers/dataset_router.py:183-201`): `project_id` là `Optional[UUID]`. Khi bỏ `project_id`, bỏ qua `authz.require_project_permission(actor, "dataset:read", project_id)` và chỉ lọc theo `ds.project_id in member_pids` (`L195-L197`), khiến member không có `dataset:read` vẫn liệt kê được toàn bộ dataset của project.
@@ -95,25 +95,31 @@
 ## 6. Milestones & to-do (checkpoints, not stop points: all tests green at each)
 The agent ticks items as it works. This is the task's only to-do list (`TODO.md` is no longer used for new work).
 
-- [ ] **M1 — Core Training Cross-Project & Null-Project Guards** (`usfds-core`): `TrainingOrchestrationService` chặn cross-project artifact/model và không rò rỉ run `project_id=None`.
-  - [ ] [tests] Viết 2 M1 tests trong `usfds-core/tests/training/test_training_service.py`; xác nhận fail trước khi sửa
-  - [ ] [core] Cập nhật `usfds-core/src/usfds_core/services/training/training_service.py` (inject optional `dataset_repo`, kiểm tra `model`/`dataset_artifact` theo `project_id`, bỏ `or r.project_id is None` trong `list_training_runs`)
-  - [ ] [verify] `./scripts/test.sh core`
-- [ ] **M2 — Mandatory `project_id` Enforcement & Ownership Verification Across Routers** (`usfds-server`): toàn bộ `list`, `get by id`, `import`, `training/runs`, `rule evaluate/backtest`, `storage/presigned-download` siết quyền trước DB và chống oracle.
-  - [ ] [tests] Viết 3 M2 acceptance tests trong `usfds-server/tests/test_auth_and_rbac_api.py`; xác nhận fail trước khi sửa
-  - [ ] [server] Cập nhật `providers/training.py`, `schemas/{dataset,training}_api_schemas.py`, `routers/{dataset,training,detection,rule,storage}_router.py`
-  - [ ] [tests] Cập nhật các test server hiện có (`test_dataset_api.py`, `test_training_api.py`, `test_detection_api.py`, `test_rule_api.py`, `test_queue_mode_api.py`) truyền `project_id` theo contract mới
-  - [ ] [verify] `./scripts/test.sh core infra server worker cli`
-- [ ] **M3 — Web API Clients, Hooks & Views Alignment** (`usfds-web`, `all`): toàn bộ lời gọi `list` và `get by id` trên frontend truyền `project_id` và test/build/lint xanh.
-  - [ ] [tests] Viết `usfds-web/src/test/projectScopedApi.test.ts` và cập nhật assertions trong `DatasetHubView.test.tsx`, `ModelHubView.test.tsx`, `ModelLineagePanel.test.tsx`
-  - [ ] [web] Cập nhật `api/{dataset,training,detection,rule,storage}Api.ts`, `hooks/{useDatasetList,useDatasetDetail,useDatasetPipeline,useModelLineage}.ts`, và các components gọi tương ứng
-  - [ ] [verify] `./scripts/test.sh` + `cd usfds-web && npm run build && npm run lint`
+- [x] **M1 — Core Training Cross-Project & Null-Project Guards** (`usfds-core`): `TrainingOrchestrationService` chặn cross-project artifact/model và không rò rỉ run `project_id=None`.
+  - [x] [tests] Viết 2 M1 tests trong `usfds-core/tests/training/test_training_service.py`; xác nhận fail trước khi sửa
+  - [x] [core] Cập nhật `usfds-core/src/usfds_core/services/training/training_service.py` (inject optional `dataset_repo`, kiểm tra `model`/`dataset_artifact` theo `project_id`, bỏ `or r.project_id is None` trong `list_training_runs`)
+  - [x] [verify] `./scripts/test.sh core`
+- [x] **M2 — Mandatory `project_id` Enforcement & Ownership Verification Across Routers** (`usfds-server`): toàn bộ `list`, `get by id`, `import`, `training/runs`, `rule evaluate/backtest`, `storage/presigned-download` siết quyền trước DB và chống oracle.
+  - [x] [tests] Viết 3 M2 acceptance tests trong `usfds-server/tests/test_auth_and_rbac_api.py`; xác nhận fail trước khi sửa
+  - [x] [server] Cập nhật `providers/training.py`, `schemas/{dataset,training}_api_schemas.py`, `routers/{dataset,training,detection,rule,storage}_router.py`
+  - [x] [tests] Cập nhật các test server hiện có (`test_dataset_api.py`, `test_training_api.py`, `test_detection_api.py`, `test_rule_api.py`, `test_queue_mode_api.py`) truyền `project_id` theo contract mới
+  - [x] [verify] `./scripts/test.sh core infra server worker cli`
+- [x] **M3 — Web API Clients, Hooks & Views Alignment** (`usfds-web`, `all`): toàn bộ lời gọi `list` và `get by id` trên frontend truyền `project_id` và test/build/lint xanh.
+  - [x] [tests] Viết `usfds-web/src/test/projectScopedApi.test.ts` và cập nhật assertions trong `DatasetHubView.test.tsx`, `ModelHubView.test.tsx`, `ModelLineagePanel.test.tsx`
+  - [x] [web] Cập nhật `api/{dataset,training,detection,rule,storage}Api.ts`, `hooks/{useDatasetList,useDatasetDetail,useDatasetPipeline,useModelLineage}.ts`, và các components gọi tương ứng
+  - [x] [verify] `./scripts/test.sh` + `cd usfds-web && npm run build && npm run lint`
 
 Checkpoint log (the agent appends one line per finished milestone):
-- —
+- 26-11-21 M1 done: `161 passed, 15 skipped, 169 warnings in 9.45s`; notes: —
+- 26-11-21 M2 done: `core 161 passed (15 skipped), infra 40 passed, server 39 passed, worker 3 passed, cli 5 passed`; notes: updated `test_api.py` S3 presigned-download test to pass `project_id` and scoped key
+- 26-11-21 M3 done: `web 20 files / 35 tests passed (+1 node test), build 862ms, lint 0 errors; re-verified core 161 passed (15 skipped), infra 40 passed, server 39 passed, worker 3 passed, cli 5 passed`; notes: required `projectId` in web API clients and guarded hooks/components when no active project is selected
 
 ## 7. Review hotspots (filled in after implementation)
-- —
+1. `usfds-core/src/usfds_core/services/training/training_service.py:108-121` & `:485-505` (M1): đối chiếu `model.project_id` and `dataset.project_id` với `effective_project_id` trước khi tạo `TrainingRun` (chỉ bỏ qua check model cho built-in `model.project_id is None`, và giữ fallback `dataset_repo is None` cho caller không inject); loại bỏ `r.project_id is None` khỏi `list_training_runs(project_id=...)`. Covered by `test_prepare_and_dispatch_rejects_cross_project_artifact_and_model`, `test_list_training_runs_excludes_null_project_runs_when_filtered`.
+2. `usfds-server/src/usfds_server/routers/training_router.py:433-495` (M2): các endpoint `GET by ID` & lineage check `authz.require_project_permission(..., project_id)` trước khi truy vấn DB và chặn `entity.project_id is None` (trả `404`) đối với `ModelVersion`/`TrainingRun` trong khi cho phép built-in `Model.project_id is None` qua `model:read` trên `project_id`. Covered by `test_get_by_id_endpoints_require_project_id_block_null_and_prevent_oracle`.
+3. `usfds-server/src/usfds_server/routers/storage_router.py:115-190` (M2): `_authorize_download_key` chuẩn hóa `object_key` (chặn `\` và `..`), suy ra quyền export/read tương ứng theo prefix (`uploads/*`, `exports/reports/*`, `exports/datasets/*`, `exports/detection/*`, `datasets/*`) và đối chiếu DB/UUID với `project_id` query param bắt buộc. Covered by `test_cross_project_training_rule_version_and_storage_download_blocked`.
+4. `usfds-server/src/usfds_server/routers/rule_router.py:402-455` (M2): `backtest_rule_on_dataset` ép `if not dataset or str(dataset.project_id) != ...` (fix lỗi bypass khi `dataset is None`) và cùng `evaluate_single_rule` xác minh `target_ver.rule_id == rule.rule_id` khi truyền `version_id`. Covered by `test_cross_project_training_rule_version_and_storage_download_blocked`.
+5. `usfds-web/src/hooks/useModelLineage.ts:5-38` & `usfds-web/src/hooks/useDatasetList.ts:16-31` & `usfds-web/src/hooks/useDatasetDetail.ts:10-34` (M3): các hook fetch giữ `enabled: Boolean(... && projectId)` để tránh gửi request thiếu `project_id` gây 422 khi ProjectContext chưa mount xong. Covered by `projectScopedApi.test.ts`, `ModelLineagePanel.test.tsx`, `ModelHubView.test.tsx`.
 
 ## 8. Open questions
 - — (đã chốt toàn bộ với user ngày 26-11-21: PA-A cho `list` và `get by id`, bắt buộc `project_id` cho `POST /datasets/import` và `POST /training/runs`, chặn bản ghi `project_id=NULL` trừ built-in models, gộp `rule_router` và `storage/presigned-download`, tách riêng `GrantScope.OWN`.)

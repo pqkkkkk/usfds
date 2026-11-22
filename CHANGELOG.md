@@ -2,6 +2,14 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-22 — ISS-042: Project-Scoped Access Control Hardening (List, Get-by-ID & Cross-Project Guards)
+Plan: `.plan/project_scoped_access_control.md` · Board: `.plan/BOARD.md`
+
+- Core (`training_service.py`): injected optional `dataset_repo` into `TrainingOrchestrationService` to validate `model.project_id` and `dataset.project_id` against `project_id` (`BR-PM-06`, keeping built-in `model.project_id is None` allowed), and removed `or r.project_id is None` from `list_training_runs(project_id=...)` so `NULL`-project runs do not leak.
+- Server (`providers/training.py`, `schemas/{dataset,training}_api_schemas.py`, `routers/{dataset,training,detection,rule,storage}_router.py`): enforced mandatory `project_id: UUID` on all project-scoped `list`, `get by id`, `lineage`, `export`, `POST /datasets/import`, `POST /training/runs`, and `GET /storage/presigned-download` endpoints; checked project permissions before DB/storage reads; returned `404` on project mismatch or `project_id IS NULL` (`ModelVersion`/`TrainingRun`) to prevent existence oracles; validated `target_version.rule_id == rule.rule_id` and non-null `dataset` project ownership in `rule_router`; hardened `_authorize_download_key` against traversal (`\`/`..`) and unverified object key prefixes.
+- Web (`usfds-web/src/{api,hooks,components}/**`): required `projectId` across `datasetApi`, `trainingApi`, `detectionApi`, `ruleApi`, and `storageApi` calls, added `projectId` guards in `useDatasetList`, `useDatasetDetail`, `useDatasetPipeline`, `useModelLineage`, and updated callers across Data Management, Model, Detection, and Rule modules (`ISS-042`).
+- Tests: `./scripts/test.sh` passed all 6 packages (`core` `161 passed, 15 skipped`, `infra` `40 passed`, `server` `39 passed`, `worker` `3 passed`, `cli` `5 passed`, `web` `20 files / 35 passed`); `usfds-web` `npm run build` & `npm run lint` passed with 0 errors.
+
 ## 2026-11-21 — ISS-010 (M3): Project-Scoped Model Versioning & Uniqueness
 Plan: `.plan/model_versioning_scheme.md` · Board: `.plan/BOARD.md`
 

@@ -38,7 +38,11 @@ export const ModelLineageModal = ({
 				</div>
 
 				<div className="p-4">
-					<ModelLineagePanel versionId={version.version_id} compact />
+					<ModelLineagePanel
+						versionId={version.version_id}
+						projectId={version.project_id || undefined}
+						compact
+					/>
 				</div>
 			</div>
 		</div>

@@ -35,7 +35,7 @@ class StartTrainingRunRequest(BaseModel):
         ...,
         description="ID of the FEATURE_ENGINEERED (or PRE_PROCESSED) dataset artifact",
     )
-    project_id: Optional[UUID] = Field(default=None, description="Optional Project ID owning the run")
+    project_id: UUID = Field(..., description="Project ID owning the run")
     hyperparameters: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Optional hyperparameter overrides for this run",

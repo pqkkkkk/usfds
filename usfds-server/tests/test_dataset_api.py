@@ -92,7 +92,10 @@ def test_end_to_end_data_management_pipeline():
         # -------------------------------------------------------------
         # 3. Retrieve specific artifact details (including profiling & validation report)
         # -------------------------------------------------------------
-        res_art = client.get(f"/api/v1/datasets/{dataset_id}/artifacts/{raw_artifact_id}")
+        res_art = client.get(
+            f"/api/v1/datasets/{dataset_id}/artifacts/{raw_artifact_id}",
+            params={"project_id": project_id},
+        )
         assert res_art.status_code == 200, res_art.text
         art_envelope = res_art.json()
         assert art_envelope["success"] is True
@@ -160,7 +163,7 @@ def test_end_to_end_data_management_pipeline():
         # -------------------------------------------------------------
         # View data lineage inside GET dataset by id
         # -------------------------------------------------------------
-        res_get = client.get(f"/api/v1/datasets/{dataset_id}")
+        res_get = client.get(f"/api/v1/datasets/{dataset_id}", params={"project_id": project_id})
         assert res_get.status_code == 200, res_get.text
         get_envelope = res_get.json()
         assert get_envelope["success"] is True
@@ -195,7 +198,7 @@ def test_end_to_end_data_management_pipeline():
         assert res_del.status_code == 200
         assert res_del.json()["success"] is True
 
-        res_check = client.get(f"/api/v1/datasets/{dataset_id}")
+        res_check = client.get(f"/api/v1/datasets/{dataset_id}", params={"project_id": project_id})
         assert res_check.status_code == 404
         assert res_check.json()["success"] is False
         assert res_check.json()["statusCode"] == 404

@@ -83,7 +83,7 @@ export function DetectionJobWizardView() {
 			const dsRes = await datasetApi.listDatasets(projectId);
 			const datasets = dsRes.data || [];
 			const details = await Promise.allSettled(
-				datasets.map((d) => datasetApi.getDatasetDetail(d.dataset_id))
+				datasets.map((d) => datasetApi.getDatasetDetail(d.dataset_id, projectId))
 			);
 			const items: RawArtifactOptionItem[] = [];
 			for (const settled of details) {

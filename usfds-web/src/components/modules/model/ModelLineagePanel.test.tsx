@@ -83,7 +83,7 @@ describe('ModelLineagePanel & ModelHubView Lineage (ISS-008)', () => {
 			)
 		);
 
-		renderWithProviders(<ModelLineagePanel versionId={versionId} />);
+		renderWithProviders(<ModelLineagePanel versionId={versionId} projectId="proj-1" />);
 
 		expect((await screen.findAllByText('v1.0.0')).length).toBeGreaterThan(0);
 		expect(screen.getByText('rf-run-001')).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe('ModelLineagePanel & ModelHubView Lineage (ISS-008)', () => {
 			)
 		);
 
-		renderWithProviders(<ModelLineagePanel runId={runId} />);
+		renderWithProviders(<ModelLineagePanel runId={runId} projectId="proj-1" />);
 
 		expect(await screen.findByText(/Không thể tải phả hệ/)).toBeInTheDocument();
 	});
@@ -114,6 +114,19 @@ describe('ModelLineagePanel & ModelHubView Lineage (ISS-008)', () => {
 		const versionId = 'ver-100';
 
 		server.use(
+			http.get(`${API}/v1/projects`, () =>
+				HttpResponse.json({
+					success: true,
+					data: [
+						{
+							project_id: 'proj-1',
+							project_name: 'Project One',
+							status: 'ACTIVE',
+							created_at: '2026-11-14T00:00:00Z',
+						},
+					],
+				})
+			),
 			http.get(`${API}/v1/training/models`, () =>
 				HttpResponse.json({
 					success: true,
@@ -137,6 +150,7 @@ describe('ModelLineagePanel & ModelHubView Lineage (ISS-008)', () => {
 						{
 							version_id: versionId,
 							model_id: modelId,
+							project_id: 'proj-1',
 							run_id: 'run-100',
 							semver: '1.0.0',
 							artifact_uri: 'models/rf/1.0.0/model.joblib',

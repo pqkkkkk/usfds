@@ -20,6 +20,19 @@ describe('ModelHubView', () => {
 
 	it('ModelHubView renders partial data when per-model version fetch fails', async () => {
 		server.use(
+			http.get(`${API}/v1/projects`, () =>
+				HttpResponse.json({
+					success: true,
+					data: [
+						{
+							project_id: 'proj-1',
+							project_name: 'Project One',
+							status: 'ACTIVE',
+							created_at: '2026-11-16T00:00:00Z',
+						},
+					],
+				})
+			),
 			http.get(`${API}/v1/training/models`, () =>
 				HttpResponse.json({
 					success: true,

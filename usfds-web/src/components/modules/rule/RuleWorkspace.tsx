@@ -78,7 +78,7 @@ export const RuleWorkspace: React.FC = () => {
 		if (!isNew && ruleId) {
 			setLoading(true);
 			ruleApi
-				.getRule(ruleId)
+				.getRule(ruleId, effectiveProjectId)
 				.then((res) => {
 					if (res.data) {
 						const rule = res.data;

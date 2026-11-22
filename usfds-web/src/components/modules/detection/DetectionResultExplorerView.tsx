@@ -68,6 +68,7 @@ export function DetectionResultExplorerView() {
 	} = useQuery({
 		queryKey: [
 			'detection-job-results',
+			projectId,
 			jobId,
 			actionFilter,
 			ruleCodeFilter,
@@ -76,13 +77,14 @@ export function DetectionResultExplorerView() {
 		queryFn: () =>
 			detectionApi.getJobResults({
 				jobId,
+				projectId,
 				actionFilter,
 				ruleCode: ruleCodeFilter || undefined,
 				search: searchQuery.trim() || undefined,
 				limit: 300,
 				offset: 0,
 			}),
-		enabled: Boolean(jobId),
+		enabled: Boolean(jobId && projectId),
 		refetchInterval: (query) => {
 			const status = query.state.data?.data?.job?.status;
 			return status === 'PENDING' || status === 'RUNNING' ? 2500 : false;
@@ -141,8 +143,12 @@ export function DetectionResultExplorerView() {
 	});
 
 	const handleExport = (format: 'csv' | 'parquet', onlyFlagged: boolean) => {
+		if (!projectId) {
+			return;
+		}
 		void detectionApi.exportResults({
 			jobId,
+			projectId,
 			fileFormat: format,
 			onlyFlagged,
 		});

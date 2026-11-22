@@ -38,12 +38,16 @@ def test_health_check_endpoint():
 
 
 def test_presigned_storage_endpoints_with_s3_backend(monkeypatch):
+    from uuid import uuid4
     from usfds_infra.storage.s3_storage import S3FileStorage
     import usfds_server.dependencies as deps
 
+    project_id = str(uuid4())
+    sample_key = f"exports/reports/{project_id}/sample.csv"
+
     class _StubS3Client:
         def __init__(self):
-            self.objects = {"exports/sample.csv": b"id,amount\n1,10.0\n"}
+            self.objects = {sample_key: b"id,amount\n1,10.0\n"}
 
         def head_bucket(self, Bucket):
             return {}
@@ -65,17 +69,17 @@ def test_presigned_storage_endpoints_with_s3_backend(monkeypatch):
 
         up_res = client.post(
             "/api/v1/storage/presigned-upload",
-            json={"filename": "transactions.csv", "purpose": "dataset_raw", "content_type": "text/csv"},
+            json={"filename": "transactions.csv", "purpose": "dataset_raw", "project_id": project_id, "content_type": "text/csv"},
         )
         assert up_res.status_code == 200
         up_data = up_res.json()["data"]
-        assert up_data["object_key"].startswith("uploads/dataset_raw/global/")
+        assert up_data["object_key"].startswith(f"uploads/dataset_raw/{project_id}/")
         assert up_data["object_key"].endswith("/transactions.csv")
         assert "op=put_object" in up_data["upload_url"]
 
         dl_res = client.get(
             "/api/v1/storage/presigned-download",
-            params={"object_key": "exports/sample.csv", "filename": "custom.csv"},
+            params={"object_key": sample_key, "project_id": project_id, "filename": "custom.csv"},
         )
         assert dl_res.status_code == 200
         dl_data = dl_res.json()["data"]

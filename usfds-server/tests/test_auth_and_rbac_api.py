@@ -179,7 +179,7 @@ def test_router_rbac_isolation_and_storage_guard(server_settings, monkeypatch):
 		# Storage presigned-download for Project 2 object_key returns 403
 		dl_res = test_client.get(
 			"/api/v1/storage/presigned-download",
-			params={"object_key": f"uploads/dataset_raw/{p2_id}/file.csv"},
+			params={"object_key": f"uploads/dataset_raw/{p2_id}/file.csv", "project_id": str(p2_id)},
 			headers=headers,
 		)
 		assert dl_res.status_code == 403
@@ -505,3 +505,386 @@ def test_all_project_routers_enforce_permissions_without_rule_propose(server_set
 		).status_code == 403
 		assert test_client.get(f"/api/v1/reports/executive-summary?project_id={project_id}", headers=ds_headers).status_code == 403
 		assert test_client.get(f"/api/v1/reports/overview?project_id={project_id}", headers=ds_headers).status_code == 200
+
+
+def test_list_and_import_endpoints_require_project_id_and_enforce_permission(server_settings, monkeypatch):
+	"""ISS-042: List endpoints and import/training create require project_id and enforce project permissions."""
+	from fastapi.testclient import TestClient
+	from usfds_core.domain.entities.auth import Role
+	from usfds_core.domain.entities.enums import RoleScope
+	from usfds_infra.database.repos.auth import SqlProjectMemberRepository, SqlRoleRepository
+	from usfds_server import dependencies
+	from usfds_server.api import app
+
+	monkeypatch.setattr(server_settings, "auth_mode", "required")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_username", "admin")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_password", "AdminPass123!")
+
+	with TestClient(app) as test_client:
+		admin_token = test_client.post("/api/v1/auth/login", json={"username": "admin", "password": "AdminPass123!"}).json()["data"]["access_token"]
+		admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+		project_a = test_client.post("/api/v1/projects", json={"project_name": "Scope List A"}, headers=admin_headers).json()["data"]["project_id"]
+
+		roles = test_client.get("/api/v1/rbac/roles", headers=admin_headers).json()["data"]
+		fa_role = next(r for r in roles if r["name"] == "fraud_analyst")
+		member_no_ds_role = test_client.post(
+			"/api/v1/rbac/roles",
+			json={
+				"name": "member_no_ds",
+				"display_name": "Member Without Dataset Perms",
+				"scope": "PROJECT",
+				"grants": [{"permission_code": "project:read", "grant_scope": "PROJECT"}],
+			},
+			headers=admin_headers,
+		).json()["data"]
+
+		test_client.post(
+			f"/api/v1/projects/{project_a}/members",
+			json={"username": "u_nods", "password": "UserNoDs123!", "role_id": member_no_ds_role["role_id"]},
+			headers=admin_headers,
+		)
+		test_client.post(
+			f"/api/v1/projects/{project_a}/members",
+			json={"username": "fa_list", "password": "FaListPass123!", "role_id": fa_role["role_id"]},
+			headers=admin_headers,
+		)
+
+		nods_token = test_client.post("/api/v1/auth/login", json={"username": "u_nods", "password": "UserNoDs123!"}).json()["data"]["access_token"]
+		fa_token = test_client.post("/api/v1/auth/login", json={"username": "fa_list", "password": "FaListPass123!"}).json()["data"]["access_token"]
+		nods_headers = {"Authorization": f"Bearer {nods_token}"}
+		fa_headers = {"Authorization": f"Bearer {fa_token}"}
+
+		rf_id = str(dependencies.BUILTIN_RANDOM_FOREST_ID)
+
+		# (a) Missing project_id -> 422
+		assert test_client.get("/api/v1/datasets", headers=nods_headers).status_code == 422
+		assert test_client.post("/api/v1/datasets/import", json={"file_path": "x.csv"}, headers=nods_headers).status_code == 422
+		assert test_client.get("/api/v1/training/models", headers=fa_headers).status_code == 422
+		assert test_client.get(f"/api/v1/training/models/{rf_id}/versions", headers=fa_headers).status_code == 422
+		assert test_client.get("/api/v1/training/runs", headers=fa_headers).status_code == 422
+		assert test_client.post(
+			"/api/v1/training/runs",
+			json={"model_id": rf_id, "dataset_artifact_id": str(uuid4())},
+			headers=fa_headers,
+		).status_code == 422
+
+		# (b) With project_id=A but missing permission -> 403
+		assert test_client.get(f"/api/v1/datasets?project_id={project_a}", headers=nods_headers).status_code == 403
+		assert test_client.post(
+			"/api/v1/datasets/import",
+			json={"file_path": "x.csv", "project_id": project_a},
+			headers=nods_headers,
+		).status_code == 403
+		assert test_client.get(f"/api/v1/training/models?project_id={project_a}", headers=fa_headers).status_code == 403
+		assert test_client.get(f"/api/v1/training/models/{rf_id}/versions?project_id={project_a}", headers=fa_headers).status_code == 403
+		assert test_client.get(f"/api/v1/training/runs?project_id={project_a}", headers=fa_headers).status_code == 403
+		assert test_client.post(
+			"/api/v1/training/runs",
+			json={"project_id": project_a, "model_id": rf_id, "dataset_artifact_id": str(uuid4())},
+			headers=fa_headers,
+		).status_code == 403
+
+
+def test_get_by_id_endpoints_require_project_id_block_null_and_prevent_oracle(server_settings, monkeypatch):
+	"""ISS-042: GET-by-ID endpoints require project_id, block NULL-project models/runs, and prevent 404 vs 403 oracle."""
+	from uuid import UUID
+	from fastapi.testclient import TestClient
+	from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
+	from usfds_core.domain.entities.detection import DetectionJob
+	from usfds_core.domain.entities.enums import ExecutionType, ModelVersionStatus, PipelineStage, RuleAction, RuleStatus, TrainingRunStatus
+	from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
+	from usfds_core.domain.entities.rule import Rule, RuleVersion
+	from usfds_infra.database.repos.dataset import SqliteDatasetArtifactRepository, SqliteDatasetRepository
+	from usfds_infra.database.repos.detection import SqliteDetectionJobRepository
+	from usfds_infra.database.repos.model import SqliteModelRepository, SqliteModelVersionRepository, SqliteTrainingRunRepository
+	from usfds_infra.database.repos.rule import SqliteRuleRepository, SqliteRuleVersionRepository
+	from usfds_server import dependencies
+	from usfds_server.api import app
+
+	monkeypatch.setattr(server_settings, "auth_mode", "required")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_username", "admin")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_password", "AdminPass123!")
+
+	with TestClient(app) as test_client:
+		admin_token = test_client.post("/api/v1/auth/login", json={"username": "admin", "password": "AdminPass123!"}).json()["data"]["access_token"]
+		admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+		proj_a = test_client.post("/api/v1/projects", json={"project_name": "Oracle A"}, headers=admin_headers).json()["data"]["project_id"]
+		proj_b = test_client.post("/api/v1/projects", json={"project_name": "Oracle B"}, headers=admin_headers).json()["data"]["project_id"]
+		proj_b_uuid = UUID(proj_b)
+
+		roles = test_client.get("/api/v1/rbac/roles", headers=admin_headers).json()["data"]
+		ds_role = next(r for r in roles if r["name"] == "data_scientist")
+		fa_role = next(r for r in roles if r["name"] == "fraud_analyst")
+
+		test_client.post(
+			f"/api/v1/projects/{proj_a}/members",
+			json={"username": "ds_oracle", "password": "DsOracle123!", "role_id": ds_role["role_id"]},
+			headers=admin_headers,
+		)
+		test_client.post(
+			f"/api/v1/projects/{proj_a}/members",
+			json={"username": "fa_oracle", "password": "FaOracle123!", "role_id": fa_role["role_id"]},
+			headers=admin_headers,
+		)
+		ds_token = test_client.post("/api/v1/auth/login", json={"username": "ds_oracle", "password": "DsOracle123!"}).json()["data"]["access_token"]
+		fa_token = test_client.post("/api/v1/auth/login", json={"username": "fa_oracle", "password": "FaOracle123!"}).json()["data"]["access_token"]
+		ds_headers = {"Authorization": f"Bearer {ds_token}"}
+		fa_headers = {"Authorization": f"Bearer {fa_token}"}
+
+		ds_b = uuid4()
+		art_b = uuid4()
+		model_b = uuid4()
+		ver_b = uuid4()
+		run_b = uuid4()
+		job_b = uuid4()
+		rule_b = uuid4()
+		ver_null = uuid4()
+		run_null = uuid4()
+		rf_id = dependencies.BUILTIN_RANDOM_FOREST_ID
+
+		with dependencies._session_factory() as session:
+			SqliteDatasetRepository(session).save(
+				Dataset(dataset_id=ds_b, project_id=proj_b_uuid, user_id=uuid4(), dataset_name="ds_b")
+			)
+			SqliteDatasetArtifactRepository(session).save(
+				DatasetArtifact(artifact_id=art_b, dataset_id=ds_b, pipeline_stage=PipelineStage.RAW, storage_path="datasets/b/raw.csv")
+			)
+			SqliteModelRepository(session).save(
+				Model(model_id=model_b, project_id=proj_b_uuid, user_id=uuid4(), model_name="custom_b", execution_type=ExecutionType.SCRIPT)
+			)
+			SqliteTrainingRunRepository(session).save(
+				TrainingRun(run_id=run_b, project_id=proj_b_uuid, model_id=model_b, version_id=ver_b, run_name="run_b", status=TrainingRunStatus.COMPLETED)
+			)
+			SqliteModelVersionRepository(session).save(
+				ModelVersion(version_id=ver_b, model_id=model_b, project_id=proj_b_uuid, run_id=run_b, semver="v1", artifact_uri="models/b/v1.zip", status=ModelVersionStatus.CANDIDATE)
+			)
+			SqliteTrainingRunRepository(session).save(
+				TrainingRun(run_id=run_null, project_id=None, model_id=rf_id, version_id=ver_null, run_name="run_null", status=TrainingRunStatus.COMPLETED)
+			)
+			SqliteModelVersionRepository(session).save(
+				ModelVersion(version_id=ver_null, model_id=rf_id, project_id=None, run_id=run_null, semver="v1", artifact_uri="models/null/v1.joblib", status=ModelVersionStatus.CANDIDATE)
+			)
+			SqliteDetectionJobRepository(session).save(
+				DetectionJob(job_id=job_b, project_id=proj_b_uuid, job_name="job_b", input_path="datasets/b/raw.csv")
+			)
+			r_ver_id = uuid4()
+			SqliteRuleRepository(session).save(
+				Rule(rule_id=rule_b, project_id=proj_b_uuid, rule_code="R-B1", name="Rule B", description="", status=RuleStatus.DRAFT, current_version_id=r_ver_id)
+			)
+			SqliteRuleVersionRepository(session).save(
+				RuleVersion(rule_version_id=r_ver_id, rule_id=rule_b, version_number=1, condition={"==": [1, 1]}, action=RuleAction.REVIEW)
+			)
+			session.commit()
+
+		get_paths = [
+			f"/api/v1/datasets/{ds_b}",
+			f"/api/v1/datasets/{ds_b}/artifacts/{art_b}",
+			f"/api/v1/training/models/{model_b}",
+			f"/api/v1/training/models/{model_b}/versions",
+			f"/api/v1/training/versions/{ver_b}",
+			f"/api/v1/training/versions/{ver_b}/lineage",
+			f"/api/v1/training/runs/{run_b}",
+			f"/api/v1/training/runs/{run_b}/lineage",
+			f"/api/v1/detection/jobs/{job_b}",
+			f"/api/v1/detection/jobs/{job_b}/results",
+			f"/api/v1/detection/jobs/{job_b}/export",
+			f"/api/v1/rules/{rule_b}",
+			f"/api/v1/rules/{rule_b}/versions",
+		]
+
+		# (a) Missing project_id -> 422
+		for path in get_paths:
+			assert test_client.get(path, headers=ds_headers).status_code == 422, path
+
+		# (b) project_id=B -> 403 for both real B IDs and nonexistent random IDs (no 404 oracle)
+		for path in get_paths:
+			assert test_client.get(path, params={"project_id": proj_b}, headers=ds_headers).status_code == 403, path
+
+		missing_id = uuid4()
+		oracle_probe_paths = [
+			f"/api/v1/datasets/{missing_id}",
+			f"/api/v1/datasets/{missing_id}/artifacts/{uuid4()}",
+			f"/api/v1/training/models/{missing_id}",
+			f"/api/v1/training/models/{missing_id}/versions",
+			f"/api/v1/training/versions/{missing_id}",
+			f"/api/v1/training/versions/{missing_id}/lineage",
+			f"/api/v1/training/runs/{missing_id}",
+			f"/api/v1/training/runs/{missing_id}/lineage",
+			f"/api/v1/detection/jobs/{missing_id}",
+			f"/api/v1/detection/jobs/{missing_id}/results",
+			f"/api/v1/detection/jobs/{missing_id}/export",
+			f"/api/v1/rules/{missing_id}",
+			f"/api/v1/rules/{missing_id}/versions",
+		]
+		for path in oracle_probe_paths:
+			assert test_client.get(path, params={"project_id": proj_b}, headers=ds_headers).status_code == 403, path
+
+		# (c) project_id=A with B's IDs or NULL-project ModelVersion/TrainingRun -> 404
+		for path in get_paths:
+			assert test_client.get(path, params={"project_id": proj_a}, headers=ds_headers).status_code == 404, path
+
+		null_paths = [
+			f"/api/v1/training/versions/{ver_null}",
+			f"/api/v1/training/versions/{ver_null}/lineage",
+			f"/api/v1/training/runs/{run_null}",
+			f"/api/v1/training/runs/{run_null}/lineage",
+		]
+		for path in null_paths:
+			assert test_client.get(path, params={"project_id": proj_a}, headers=ds_headers).status_code == 404, path
+
+		# (d) Built-in model (project_id=None) -> 200 with model:read on A, 403 without model:read on A
+		assert test_client.get(f"/api/v1/training/models/{rf_id}", params={"project_id": proj_a}, headers=ds_headers).status_code == 200
+		assert test_client.get(f"/api/v1/training/models/{rf_id}", params={"project_id": proj_a}, headers=fa_headers).status_code == 403
+
+
+def test_cross_project_training_rule_version_and_storage_download_blocked(server_settings, monkeypatch):
+	"""ISS-042: Cross-project training artifact, rule version_id, and storage presigned-download are blocked."""
+	import io
+	import pandas as pd
+	from uuid import UUID
+	from fastapi.testclient import TestClient
+	from moto import mock_aws
+	from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
+	from usfds_core.domain.entities.detection import DetectionJob
+	from usfds_core.domain.entities.enums import PipelineStage, RuleAction, RuleStatus, ValidationStatus
+	from usfds_core.domain.entities.rule import Rule, RuleVersion
+	from usfds_infra.database.repos.dataset import SqliteDatasetArtifactRepository, SqliteDatasetRepository
+	from usfds_infra.database.repos.detection import SqliteDetectionJobRepository
+	from usfds_infra.database.repos.rule import SqliteRuleRepository, SqliteRuleVersionRepository
+	from usfds_infra.storage.s3_storage import S3FileStorage
+	from usfds_server import dependencies
+	from usfds_server.api import app
+
+	monkeypatch.setattr(server_settings, "auth_mode", "required")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_username", "admin")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_password", "AdminPass123!")
+
+	with mock_aws():
+		s3_storage = S3FileStorage(bucket="usfds", access_key="test", secret_key="test", region="us-east-1")
+		with TestClient(app) as test_client:
+			monkeypatch.setattr(dependencies, "_storage", s3_storage)
+
+			admin_token = test_client.post("/api/v1/auth/login", json={"username": "admin", "password": "AdminPass123!"}).json()["data"]["access_token"]
+			admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+			proj_a = test_client.post("/api/v1/projects", json={"project_name": "Cross A"}, headers=admin_headers).json()["data"]["project_id"]
+			proj_b = test_client.post("/api/v1/projects", json={"project_name": "Cross B"}, headers=admin_headers).json()["data"]["project_id"]
+
+			roles = test_client.get("/api/v1/rbac/roles", headers=admin_headers).json()["data"]
+			ds_role = next(r for r in roles if r["name"] == "data_scientist")
+			test_client.post(
+				f"/api/v1/projects/{proj_a}/members",
+				json={"username": "ds_cross", "password": "DsCross123!", "role_id": ds_role["role_id"]},
+				headers=admin_headers,
+			)
+			ds_token = test_client.post("/api/v1/auth/login", json={"username": "ds_cross", "password": "DsCross123!"}).json()["data"]["access_token"]
+			ds_headers = {"Authorization": f"Bearer {ds_token}"}
+
+			ds_a = uuid4()
+			art_a = uuid4()
+			ds_b = uuid4()
+			art_b = uuid4()
+			job_b = uuid4()
+			rule_a = uuid4()
+			rv_a = uuid4()
+			rule_b = uuid4()
+			rv_b = uuid4()
+
+			buf = io.BytesIO()
+			pd.DataFrame({"event_id": ["e1", "e2"], "user_id": ["u1", "u2"], "timestamp": ["2026-01-01", "2026-01-02"], "amount": [10.0, 20.0], "label": [0, 1]}).to_parquet(buf, index=False)
+			train_key = f"datasets/{ds_b}/artifacts/{art_b}/train.parquet"
+			s3_storage.save_bytes(train_key, buf.getvalue())
+
+			with dependencies._session_factory() as session:
+				ds_repo = SqliteDatasetRepository(session)
+				art_repo = SqliteDatasetArtifactRepository(session)
+				rule_repo = SqliteRuleRepository(session)
+				rv_repo = SqliteRuleVersionRepository(session)
+				job_repo = SqliteDetectionJobRepository(session)
+
+				ds_repo.save(Dataset(dataset_id=ds_a, project_id=UUID(proj_a), user_id=uuid4(), dataset_name="ds_a"))
+				art_repo.save(DatasetArtifact(artifact_id=art_a, dataset_id=ds_a, pipeline_stage=PipelineStage.RAW, storage_path=f"datasets/{ds_a}/raw.csv", validation_status=ValidationStatus.PASSED))
+				ds_repo.save(Dataset(dataset_id=ds_b, project_id=UUID(proj_b), user_id=uuid4(), dataset_name="ds_b"))
+				art_repo.save(
+					DatasetArtifact(
+						artifact_id=art_b,
+						dataset_id=ds_b,
+						pipeline_stage=PipelineStage.FEATURE_ENGINEERED,
+						storage_path=f"datasets/{ds_b}/artifacts/{art_b}",
+						output_paths={"train": train_key},
+						validation_status=ValidationStatus.PASSED,
+						validation_report={"target_column": "label"},
+					)
+				)
+				job_repo.save(DetectionJob(job_id=job_b, project_id=UUID(proj_b), job_name="job_b", input_path="datasets/b/raw.csv"))
+
+				rule_repo.save(Rule(rule_id=rule_a, project_id=UUID(proj_a), rule_code="RA", name="Rule A", description="", status=RuleStatus.DRAFT, current_version_id=rv_a))
+				rv_repo.save(RuleVersion(rule_version_id=rv_a, rule_id=rule_a, version_number=1, condition={"==": [1, 1]}, action=RuleAction.REVIEW))
+				rule_repo.save(Rule(rule_id=rule_b, project_id=UUID(proj_b), rule_code="RB", name="Rule B", description="", status=RuleStatus.DRAFT, current_version_id=rv_b))
+				rv_repo.save(RuleVersion(rule_version_id=rv_b, rule_id=rule_b, version_number=1, condition={">": [{"var": "amount"}, 1]}, action=RuleAction.REJECT))
+				session.commit()
+
+			# 1. Cross-project dataset_artifact_id in POST /training/runs -> 400
+			rf_id = str(dependencies.BUILTIN_RANDOM_FOREST_ID)
+			res_train = test_client.post(
+				"/api/v1/training/runs",
+				json={"project_id": proj_a, "model_id": rf_id, "dataset_artifact_id": str(art_b)},
+				headers=ds_headers,
+			)
+			assert res_train.status_code == 400
+
+			# 2. Cross-project RuleVersion in evaluate & backtest -> 400/404
+			res_eval = test_client.post(
+				f"/api/v1/rules/{rule_a}/evaluate",
+				params={"version_id": str(rv_b)},
+				json={"transaction_id": "tx1", "raw_features": {"amount": 100}},
+				headers=ds_headers,
+			)
+			assert res_eval.status_code in (400, 404)
+
+			res_bt = test_client.post(
+				"/api/v1/rules/backtest",
+				json={"project_id": proj_a, "dataset_artifact_id": str(art_a), "rule_id": str(rule_a), "version_id": str(rv_b)},
+				headers=ds_headers,
+			)
+			assert res_bt.status_code in (400, 404)
+
+			# 3. Storage presigned-download guards
+			assert test_client.get(
+				"/api/v1/storage/presigned-download",
+				params={"object_key": f"uploads/dataset_raw/{proj_a}/file.csv"},
+				headers=ds_headers,
+			).status_code == 422
+
+			assert test_client.get(
+				"/api/v1/storage/presigned-download",
+				params={"project_id": proj_a, "object_key": f"uploads/dataset_raw/{proj_a}/../secret.csv"},
+				headers=ds_headers,
+			).status_code == 400
+
+			assert test_client.get(
+				"/api/v1/storage/presigned-download",
+				params={"project_id": proj_a, "object_key": f"uploads/dataset_raw/{proj_b}/file.csv"},
+				headers=ds_headers,
+			).status_code == 403
+
+			assert test_client.get(
+				"/api/v1/storage/presigned-download",
+				params={"project_id": proj_a, "object_key": f"exports/datasets/{ds_b}/export.zip"},
+				headers=ds_headers,
+			).status_code == 403
+
+			assert test_client.get(
+				"/api/v1/storage/presigned-download",
+				params={"project_id": proj_a, "object_key": f"exports/detection/{job_b}/res.csv"},
+				headers=ds_headers,
+			).status_code == 403
+
+			# data_scientist does not have report:export on Project A -> 403
+			assert test_client.get(
+				"/api/v1/storage/presigned-download",
+				params={"project_id": proj_a, "object_key": f"exports/reports/{proj_a}/audit.md"},
+				headers=ds_headers,
+			).status_code == 403

@@ -345,6 +345,121 @@ class TestTrainingOrchestrationService(unittest.TestCase):
         self.assertEqual([v.version_id for v in versions_a], [ver_a1.version_id])
         self.assertEqual([v.version_id for v in versions_b], [ver_b1.version_id])
 
+    def test_prepare_and_dispatch_rejects_cross_project_artifact_and_model(self):
+        """ISS-042 / BR-PM-06: prepare_and_dispatch rejects artifacts or custom models from another project while allowing BUILTIN models."""
+        from usfds_core.domain.entities.dataset import Dataset
+        from usfds_core.repositories.in_memory_repos import InMemoryDatasetRepository
+
+        project_a = uuid4()
+        project_b = uuid4()
+        dataset_repo = InMemoryDatasetRepository()
+        ds_a = dataset_repo.save(Dataset(dataset_name="ds_a", user_id=uuid4(), project_id=project_a))
+        ds_b = dataset_repo.save(Dataset(dataset_name="ds_b", user_id=uuid4(), project_id=project_b))
+
+        art_a = self.artifact_repo.save(
+            DatasetArtifact(
+                dataset_id=ds_a.dataset_id,
+                pipeline_stage=PipelineStage.PRE_PROCESSED,
+                storage_path="datasets/ds_a",
+                output_paths={"train": self.train_storage_path},
+                validation_status=ValidationStatus.PASSED,
+                validation_report={"target_column": "is_fraud"},
+                row_count=60,
+            )
+        )
+        art_b = self.artifact_repo.save(
+            DatasetArtifact(
+                dataset_id=ds_b.dataset_id,
+                pipeline_stage=PipelineStage.PRE_PROCESSED,
+                storage_path="datasets/ds_b",
+                output_paths={"train": self.train_storage_path},
+                validation_status=ValidationStatus.PASSED,
+                validation_report={"target_column": "is_fraud"},
+                row_count=60,
+            )
+        )
+        custom_model_b = self.model_repo.save(
+            Model(
+                model_name="custom_b",
+                user_id=uuid4(),
+                project_id=project_b,
+                execution_type=ExecutionType.SCRIPT,
+            )
+        )
+
+        dispatched = []
+        service = TrainingOrchestrationService(
+            dispatcher=SynchronousRunDispatcher(executor_func=lambda p: dispatched.append(p)),
+            training_run_repo=self.run_repo,
+            model_version_repo=self.version_repo,
+            model_repo=self.model_repo,
+            dataset_artifact_repo=self.artifact_repo,
+            dataset_repo=dataset_repo,
+            file_storage=self.storage,
+        )
+
+        # Cross-project dataset artifact rejected
+        with self.assertRaises(ValueError):
+            service.prepare_and_dispatch(
+                TrainingRunConfig(
+                    model_id=self.model.model_id,
+                    dataset_artifact_id=art_b.artifact_id,
+                    project_id=project_a,
+                )
+            )
+        self.assertEqual(len(self.run_repo._runs), 0)
+        self.assertEqual(len(dispatched), 0)
+
+        # Cross-project custom model rejected
+        with self.assertRaises(ValueError):
+            service.prepare_and_dispatch(
+                TrainingRunConfig(
+                    model_id=custom_model_b.model_id,
+                    dataset_artifact_id=art_a.artifact_id,
+                    project_id=project_a,
+                )
+            )
+        self.assertEqual(len(self.run_repo._runs), 0)
+        self.assertEqual(len(dispatched), 0)
+
+        # Built-in model (project_id=None) with Project A artifact succeeds
+        run = service.prepare_and_dispatch(
+            TrainingRunConfig(
+                model_id=self.model.model_id,
+                dataset_artifact_id=art_a.artifact_id,
+                project_id=project_a,
+            )
+        )
+        self.assertEqual(run.project_id, project_a)
+        self.assertEqual(len(dispatched), 1)
+
+    def test_list_training_runs_excludes_null_project_runs_when_filtered(self):
+        """ISS-042: list_training_runs(project_id=A) must not leak runs where project_id is None."""
+        from usfds_core.domain.entities.model import TrainingRun
+
+        project_a = uuid4()
+        run_a = self.run_repo.save(
+            TrainingRun(project_id=project_a, model_id=self.model.model_id, run_name="run_a")
+        )
+        self.run_repo.save(
+            TrainingRun(project_id=None, model_id=self.model.model_id, run_name="run_null")
+        )
+
+        service = TrainingOrchestrationService(
+            dispatcher=SynchronousRunDispatcher(executor_func=lambda p: None),
+            training_run_repo=self.run_repo,
+            model_version_repo=self.version_repo,
+            model_repo=self.model_repo,
+            dataset_artifact_repo=self.artifact_repo,
+            file_storage=self.storage,
+        )
+
+        all_model_runs = service.list_training_runs(project_id=project_a)
+        self.assertEqual([r.run_id for r in all_model_runs], [run_a.run_id])
+
+        by_model_runs = service.list_training_runs(model_id=self.model.model_id, project_id=project_a)
+        self.assertEqual([r.run_id for r in by_model_runs], [run_a.run_id])
+
 
 if __name__ == "__main__":
     unittest.main()

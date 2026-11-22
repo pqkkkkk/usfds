@@ -31,12 +31,15 @@ export const detectionApi = {
 		);
 	},
 
-	getJob: async (jobId: string): Promise<ApiResponse<DetectionJobResponse>> => {
-		return apiClient.get<DetectionJobResponse>(`/v1/detection/jobs/${jobId}`);
+	getJob: async (jobId: string, projectId: string): Promise<ApiResponse<DetectionJobResponse>> => {
+		return apiClient.get<DetectionJobResponse>(`/v1/detection/jobs/${jobId}`, {
+			project_id: projectId,
+		});
 	},
 
 	getJobResults: async (params: {
 		jobId: string;
+		projectId: string;
 		actionFilter?: string;
 		ruleCode?: string;
 		search?: string;
@@ -48,6 +51,7 @@ export const detectionApi = {
 		return apiClient.get<DetectionJobResultsResponse>(
 			`/v1/detection/jobs/${params.jobId}/results`,
 			{
+				project_id: params.projectId,
 				action_filter:
 					params.actionFilter && params.actionFilter !== 'ALL'
 						? params.actionFilter
@@ -64,17 +68,19 @@ export const detectionApi = {
 
 	getExportUrl: (params: {
 		jobId: string;
+		projectId: string;
 		fileFormat?: 'csv' | 'parquet';
 		onlyFlagged?: boolean;
 	}): string => {
 		const fmt = params.fileFormat || 'csv';
 		const flagged = params.onlyFlagged ? 'true' : 'false';
 		const baseUrl = apiClient.getRawAxios().defaults.baseURL || '/api';
-		return `${baseUrl}/v1/detection/jobs/${params.jobId}/export?file_format=${fmt}&only_flagged=${flagged}`;
+		return `${baseUrl}/v1/detection/jobs/${params.jobId}/export?project_id=${encodeURIComponent(params.projectId)}&file_format=${fmt}&only_flagged=${flagged}`;
 	},
 
 	exportResults: async (params: {
 		jobId: string;
+		projectId: string;
 		fileFormat?: 'csv' | 'parquet';
 		onlyFlagged?: boolean;
 	}): Promise<void> => {
@@ -85,6 +91,7 @@ export const detectionApi = {
 			const res = await apiClient.get<PresignedDownloadUrlResponse>(
 				`/v1/detection/jobs/${params.jobId}/export`,
 				{
+					project_id: params.projectId,
 					file_format: fmt,
 					only_flagged: flagged,
 					presigned: true,
@@ -102,6 +109,7 @@ export const detectionApi = {
 			`/v1/detection/jobs/${params.jobId}/export`,
 			{
 				params: {
+					project_id: params.projectId,
 					file_format: fmt,
 					only_flagged: flagged,
 				},

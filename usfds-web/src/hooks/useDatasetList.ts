@@ -21,7 +21,9 @@ export function useDatasetList(projectId?: string) {
     refetch,
   } = useQuery<DatasetResponse[]>({
     queryKey: [...DATASETS_QUERY_KEY, projectId],
+    enabled: Boolean(projectId),
     queryFn: async () => {
+      if (!projectId) return [];
       const res = await datasetApi.listDatasets(projectId);
       if (!res.success) {
         throw new Error(res.error || 'Không tải được danh sách tập dữ liệu');

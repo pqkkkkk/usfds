@@ -123,13 +123,19 @@ def start_detection_job(
 )
 def get_detection_job(
 	job_id: UUID,
+	project_id: UUID = Query(..., description="Project ID"),
 	actor: ActorContext = Depends(get_actor_context),
 	authz: AuthzService = Depends(get_authz_service),
 	service: InferenceService = Depends(get_inference_service),
 ) -> ApiResponse[DetectionJobResponse]:
+	authz.require_project_permission(actor, "detection:read", project_id)
 	try:
 		job = service.get_detection_job(job_id)
-		authz.require_project_permission(actor, "detection:read", job.project_id)
+		if job.project_id != project_id:
+			raise HTTPException(
+				status_code=status.HTTP_404_NOT_FOUND,
+				detail=f"DetectionJob '{job_id}' not found in project '{project_id}'.",
+			)
 		return ApiResponse.ok(
 			data=_to_job_response(job),
 			message="Detection job retrieved successfully",
@@ -145,6 +151,7 @@ def get_detection_job(
 )
 def get_detection_job_results(
 	job_id: UUID,
+	project_id: UUID = Query(..., description="Project ID"),
 	action_filter: Optional[str] = Query(
 		None,
 		description="Filter by decision: FLAGGED | REJECT | REVIEW | ALLOW",
@@ -159,9 +166,14 @@ def get_detection_job_results(
 	authz: AuthzService = Depends(get_authz_service),
 	service: InferenceService = Depends(get_inference_service),
 ) -> ApiResponse[DetectionJobResultsResponse]:
+	authz.require_project_permission(actor, "detection:read", project_id)
 	try:
 		job = service.get_detection_job(job_id)
-		authz.require_project_permission(actor, "detection:read", job.project_id)
+		if job.project_id != project_id:
+			raise HTTPException(
+				status_code=status.HTTP_404_NOT_FOUND,
+				detail=f"DetectionJob '{job_id}' not found in project '{project_id}'.",
+			)
 		res = service.get_detection_job_results(
 			job_id=job_id,
 			action_filter=action_filter,
@@ -214,6 +226,7 @@ def get_detection_job_results(
 )
 def export_detection_job_results(
 	job_id: UUID,
+	project_id: UUID = Query(..., description="Project ID"),
 	file_format: str = Query("csv", description="Export format: csv | parquet"),
 	only_flagged: bool = Query(False, description="Export only flagged (REJECT + REVIEW) transactions"),
 	presigned: bool = Query(False, description="Return a presigned download URL when backed by S3"),
@@ -222,9 +235,14 @@ def export_detection_job_results(
 	service: InferenceService = Depends(get_inference_service),
 	storage: IFileStorage = Depends(get_storage),
 ):
+	authz.require_project_permission(actor, "detection:export", project_id)
 	try:
 		job = service.get_detection_job(job_id)
-		authz.require_project_permission(actor, "detection:export", job.project_id)
+		if job.project_id != project_id:
+			raise HTTPException(
+				status_code=status.HTTP_404_NOT_FOUND,
+				detail=f"DetectionJob '{job_id}' not found in project '{project_id}'.",
+			)
 		if presigned and file_format.strip().lower() == "parquet" and not only_flagged:
 			if job.output_path and storage.exists(job.output_path):
 				safe_name = (job.job_name or str(job.job_id)).replace(" ", "_")

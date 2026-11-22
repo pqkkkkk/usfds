@@ -50,7 +50,11 @@ export const TrainingRunDetailView: React.FC = () => {
 	const [isActivateModalOpen, setIsActivateModalOpen] = useState<boolean>(false);
 
 	const loadRunDetails = useCallback(async (silent = false) => {
-		if (!runId) {
+		const projectId = currentProject?.project_id;
+		if (!runId || !projectId) {
+			if (!silent) {
+				setIsLoading(false);
+			}
 			return;
 		}
 		if (!silent) {
@@ -58,7 +62,7 @@ export const TrainingRunDetailView: React.FC = () => {
 			setErrorMsg(null);
 		}
 		try {
-			const runRes = await trainingApi.getTrainingRun(runId);
+			const runRes = await trainingApi.getTrainingRun(runId, projectId);
 			if (!runRes.success || !runRes.data) {
 				setErrorMsg(runRes.error || 'Không tìm thấy bản ghi TrainingRun.');
 				return;
@@ -73,10 +77,11 @@ export const TrainingRunDetailView: React.FC = () => {
 				0.5;
 			setSelectedThreshold(Number(initThreshold.toFixed(4)));
 
+			const effectiveProjectId = runData.project_id || projectId;
 			const promises: Promise<void>[] = [];
 			if (runData.model_id) {
 				promises.push(
-					trainingApi.getModel(runData.model_id).then((mRes) => {
+					trainingApi.getModel(runData.model_id, effectiveProjectId).then((mRes) => {
 						if (mRes.success && mRes.data) {
 							setModel(mRes.data);
 						}
@@ -85,7 +90,7 @@ export const TrainingRunDetailView: React.FC = () => {
 			}
 			if (runData.version_id) {
 				promises.push(
-					trainingApi.getModelVersion(runData.version_id).then((vRes) => {
+					trainingApi.getModelVersion(runData.version_id, effectiveProjectId).then((vRes) => {
 						if (vRes.success && vRes.data) {
 							setVersion(vRes.data);
 						}
@@ -98,7 +103,7 @@ export const TrainingRunDetailView: React.FC = () => {
 				setIsLoading(false);
 			}
 		}
-	}, [runId]);
+	}, [runId, currentProject?.project_id]);
 
 	useEffect(() => {
 		loadRunDetails();
@@ -805,7 +810,7 @@ export const TrainingRunDetailView: React.FC = () => {
 						</div>
 
 						{/* 5. Data & Model Lineage Visualization (ISS-008) */}
-						<ModelLineagePanel runId={run.run_id} />
+						<ModelLineagePanel runId={run.run_id} projectId={run.project_id || currentProject?.project_id} />
 					</>
 				)}
 			</div>

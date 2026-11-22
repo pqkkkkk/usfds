@@ -113,8 +113,7 @@ def import_dataset(
     """Entry point for Data Management: Ingest raw dataset from local file path, create Dataset entity,
     compute basic data profiling, and generate RAW artifact in one step.
     """
-    if req.project_id is not None:
-        authz.require_project_permission(actor, "dataset:create", req.project_id, action="create")
+    authz.require_project_permission(actor, "dataset:create", req.project_id, action="create")
     try:
         classification = None
         if req.data_classification:
@@ -182,19 +181,15 @@ def import_dataset(
 
 @router.get("", response_model=ApiResponse[List[DatasetResponse]])
 def list_datasets(
-    project_id: Optional[UUID] = Query(None, description="Filter by Project ID"),
+    project_id: UUID = Query(..., description="Project ID"),
     search: Optional[str] = Query(None, description="Search query by name or description"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
 ) -> ApiResponse[List[DatasetResponse]]:
-    """List all datasets with latest pipeline stage and quality score summary."""
-    if project_id is not None:
-        authz.require_project_permission(actor, "dataset:read", project_id)
+    """List datasets for a project with latest pipeline stage and quality score summary."""
+    authz.require_project_permission(actor, "dataset:read", project_id)
     items = service.list_datasets(project_id=project_id, search=search)
-    if project_id is None and not actor.is_system_admin:
-        member_pids = {p.project_id for p in actor.projects}
-        items = [(ds, arts) for ds, arts in items if ds.project_id in member_pids]
     return ApiResponse.ok(
         data=[_build_dataset_response(ds, arts) for ds, arts in items],
         message="Datasets retrieved successfully",
@@ -204,14 +199,20 @@ def list_datasets(
 @router.get("/{dataset_id}", response_model=ApiResponse[DatasetDetailResponse])
 def get_dataset(
     dataset_id: UUID,
+    project_id: UUID = Query(..., description="Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
 ) -> ApiResponse[DatasetDetailResponse]:
     """Retrieve complete metadata, history of artifacts, and lineage DAG for a dataset."""
+    authz.require_project_permission(actor, "dataset:read", project_id)
     try:
         dataset, artifacts, lineage = service.get_dataset(dataset_id)
-        authz.require_project_permission(actor, "dataset:read", dataset.project_id)
+        if dataset.project_id != project_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Dataset '{dataset_id}' not found in project '{project_id}'.",
+            )
         detail = DatasetDetailResponse(
             dataset=_build_dataset_response(dataset, artifacts),
             artifacts=[_build_artifact_response(a) for a in artifacts],
@@ -284,14 +285,20 @@ def map_schema(
 def get_artifact(
     dataset_id: UUID,
     artifact_id: UUID,
+    project_id: UUID = Query(..., description="Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: DataManagementService = Depends(get_data_management_service),
 ) -> ApiResponse[DatasetArtifactResponse]:
     """Retrieve complete metadata and validation details for a specific artifact."""
+    authz.require_project_permission(actor, "dataset:read", project_id)
     try:
         dataset, _, _ = service.get_dataset(dataset_id)
-        authz.require_project_permission(actor, "dataset:read", dataset.project_id)
+        if dataset.project_id != project_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Dataset '{dataset_id}' not found in project '{project_id}'.",
+            )
         artifact = service.get_artifact(dataset_id, artifact_id)
         return ApiResponse.ok(
             data=_build_artifact_response(artifact),

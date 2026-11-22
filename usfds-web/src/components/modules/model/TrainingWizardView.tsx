@@ -59,6 +59,10 @@ export const TrainingWizardView: React.FC = () => {
 	const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
 
 	const loadInitialCatalog = useCallback(async () => {
+		if (!projectId) {
+			setIsLoadingInit(false);
+			return;
+		}
 		setIsLoadingInit(true);
 		try {
 			const [dsSettled, modelsSettled] = await Promise.allSettled([
@@ -77,7 +81,7 @@ export const TrainingWizardView: React.FC = () => {
 			// Fetch artifacts for each dataset
 			const details = await Promise.allSettled(
 				dsList.map(async (ds) => {
-					const detailRes = await datasetApi.getDatasetDetail(ds.dataset_id);
+					const detailRes = await datasetApi.getDatasetDetail(ds.dataset_id, projectId);
 					return [
 						ds.dataset_id,
 						detailRes.data ? detailRes.data.artifacts : [],

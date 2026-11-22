@@ -12,14 +12,16 @@ import type {
 } from '../types/model';
 
 export const trainingApi = {
-	listModels: async (projectId?: string): Promise<ApiResponse<ModelResponse[]>> => {
+	listModels: async (projectId: string): Promise<ApiResponse<ModelResponse[]>> => {
 		return apiClient.get<ModelResponse[]>('/v1/training/models', {
 			project_id: projectId,
 		});
 	},
 
-	getModel: async (modelId: string): Promise<ApiResponse<ModelResponse>> => {
-		return apiClient.get<ModelResponse>(`/v1/training/models/${modelId}`);
+	getModel: async (modelId: string, projectId: string): Promise<ApiResponse<ModelResponse>> => {
+		return apiClient.get<ModelResponse>(`/v1/training/models/${modelId}`, {
+			project_id: projectId,
+		});
 	},
 
 	registerPluggedModel: async (
@@ -66,16 +68,21 @@ export const trainingApi = {
 
 	listModelVersions: async (
 		modelId: string,
-		projectId?: string
+		projectId: string
 	): Promise<ApiResponse<ModelVersionResponse[]>> => {
 		return apiClient.get<ModelVersionResponse[]>(
 			`/v1/training/models/${modelId}/versions`,
-			projectId ? { project_id: projectId } : undefined
+			{ project_id: projectId }
 		);
 	},
 
-	getModelVersion: async (versionId: string): Promise<ApiResponse<ModelVersionResponse>> => {
-		return apiClient.get<ModelVersionResponse>(`/v1/training/versions/${versionId}`);
+	getModelVersion: async (
+		versionId: string,
+		projectId: string
+	): Promise<ApiResponse<ModelVersionResponse>> => {
+		return apiClient.get<ModelVersionResponse>(`/v1/training/versions/${versionId}`, {
+			project_id: projectId,
+		});
 	},
 
 	activateModelVersion: async (
@@ -99,25 +106,40 @@ export const trainingApi = {
 		);
 	},
 
-	listTrainingRuns: async (params?: {
+	listTrainingRuns: async (params: {
+		projectId: string;
 		modelId?: string;
-		projectId?: string;
 	}): Promise<ApiResponse<TrainingRunResponse[]>> => {
 		return apiClient.get<TrainingRunResponse[]>('/v1/training/runs', {
-			model_id: params?.modelId,
-			project_id: params?.projectId,
+			model_id: params.modelId,
+			project_id: params.projectId,
 		});
 	},
 
-	getTrainingRun: async (runId: string): Promise<ApiResponse<TrainingRunResponse>> => {
-		return apiClient.get<TrainingRunResponse>(`/v1/training/runs/${runId}`);
+	getTrainingRun: async (
+		runId: string,
+		projectId: string
+	): Promise<ApiResponse<TrainingRunResponse>> => {
+		return apiClient.get<TrainingRunResponse>(`/v1/training/runs/${runId}`, {
+			project_id: projectId,
+		});
 	},
 
-	getModelVersionLineage: async (versionId: string): Promise<ApiResponse<ModelLineageGraph>> => {
-		return apiClient.get<ModelLineageGraph>(`/v1/training/versions/${versionId}/lineage`);
+	getModelVersionLineage: async (
+		versionId: string,
+		projectId: string
+	): Promise<ApiResponse<ModelLineageGraph>> => {
+		return apiClient.get<ModelLineageGraph>(`/v1/training/versions/${versionId}/lineage`, {
+			project_id: projectId,
+		});
 	},
 
-	getTrainingRunLineage: async (runId: string): Promise<ApiResponse<ModelLineageGraph>> => {
-		return apiClient.get<ModelLineageGraph>(`/v1/training/runs/${runId}/lineage`);
+	getTrainingRunLineage: async (
+		runId: string,
+		projectId: string
+	): Promise<ApiResponse<ModelLineageGraph>> => {
+		return apiClient.get<ModelLineageGraph>(`/v1/training/runs/${runId}/lineage`, {
+			project_id: projectId,
+		});
 	},
 };

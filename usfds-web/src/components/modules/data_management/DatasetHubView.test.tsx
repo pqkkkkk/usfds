@@ -216,7 +216,7 @@ describe('DatasetHubView', () => {
 		);
 
 		await datasetApi.exportDataset('ds-1', 'art-1', exportReq);
-		await detectionApi.exportResults({ jobId: 'job-1', fileFormat: 'csv' });
+		await detectionApi.exportResults({ jobId: 'job-1', projectId: 'proj-1', fileFormat: 'csv' });
 		await insightReportApi.exportReport({
 			projectId: 'proj-1',
 			template: 'EXECUTIVE_AUDIT_REPORT',
@@ -263,7 +263,7 @@ describe('DatasetHubView', () => {
 		);
 
 		await datasetApi.exportDataset('ds-1', 'art-1', exportReq);
-		await detectionApi.exportResults({ jobId: 'job-1', fileFormat: 'csv' });
+		await detectionApi.exportResults({ jobId: 'job-1', projectId: 'proj-1', fileFormat: 'csv' });
 		await insightReportApi.exportReport({
 			projectId: 'proj-1',
 			template: 'EXECUTIVE_AUDIT_REPORT',

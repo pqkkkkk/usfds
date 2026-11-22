@@ -15,7 +15,7 @@ export const datasetApi = {
   /**
    * Lấy danh sách dataset (tùy chọn lọc theo projectId hoặc từ khóa tìm kiếm)
    */
-  listDatasets: async (projectId?: string, search?: string): Promise<ApiResponse<DatasetResponse[]>> => {
+  listDatasets: async (projectId: string, search?: string): Promise<ApiResponse<DatasetResponse[]>> => {
     return apiClient.get<DatasetResponse[]>('/v1/datasets', {
       project_id: projectId,
       search: search,
@@ -25,8 +25,13 @@ export const datasetApi = {
   /**
    * Lấy chi tiết thông tin dataset bao gồm toàn bộ artifacts và lineage graph
    */
-  getDatasetDetail: async (datasetId: string): Promise<ApiResponse<DatasetDetailResponse>> => {
-    return apiClient.get<DatasetDetailResponse>(`/v1/datasets/${datasetId}`);
+  getDatasetDetail: async (
+    datasetId: string,
+    projectId: string
+  ): Promise<ApiResponse<DatasetDetailResponse>> => {
+    return apiClient.get<DatasetDetailResponse>(`/v1/datasets/${datasetId}`, {
+      project_id: projectId,
+    });
   },
 
   /**
@@ -71,9 +76,12 @@ export const datasetApi = {
    */
   getArtifact: async (
     datasetId: string,
-    artifactId: string
+    artifactId: string,
+    projectId: string
   ): Promise<ApiResponse<DatasetArtifactResponse>> => {
-    return apiClient.get<DatasetArtifactResponse>(`/v1/datasets/${datasetId}/artifacts/${artifactId}`);
+    return apiClient.get<DatasetArtifactResponse>(`/v1/datasets/${datasetId}/artifacts/${artifactId}`, {
+      project_id: projectId,
+    });
   },
 
   /**

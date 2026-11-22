@@ -35,8 +35,9 @@ def _import_payload(csv_path: Path) -> dict:
 
 def test_import_dataset_in_queue_mode_runs_worker_ingestion_handler(client_queue_mode, server_settings):
 	csv_path = _write_raw_csv(server_settings.storage_dir)
+	payload = _import_payload(csv_path)
 
-	res = client_queue_mode.post("/api/v1/datasets/import", json=_import_payload(csv_path))
+	res = client_queue_mode.post("/api/v1/datasets/import", json=payload)
 
 	assert res.status_code == 201, res.text
 	data = res.json()["data"]
@@ -48,7 +49,10 @@ def test_import_dataset_in_queue_mode_runs_worker_ingestion_handler(client_queue
 		(QUEUE_DATA_PIPELINE, JOB_DATASET_INGESTION, "completed"),
 	]
 	# The dataset written by the worker handler is visible through the API (same DB).
-	res_get = client_queue_mode.get(f"/api/v1/datasets/{data['dataset']['dataset_id']}")
+	res_get = client_queue_mode.get(
+		f"/api/v1/datasets/{data['dataset']['dataset_id']}",
+		params={"project_id": payload["project_id"]},
+	)
 	assert res_get.status_code == 200, res_get.text
 
 

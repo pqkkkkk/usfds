@@ -169,12 +169,13 @@ def test_detection_api_end_to_end(server_settings):
 		assert res_rule.status_code == 201, res_rule.text
 
 		# 3. Train and activate a Built-in Random Forest model version
-		res_models = client.get("/api/v1/training/models")
+		res_models = client.get("/api/v1/training/models", params={"project_id": project_id})
 		rf_model = next(m for m in res_models.json()["data"] if m["model_name"] == "random_forest")
 
 		res_run = client.post(
 			"/api/v1/training/runs",
 			json={
+				"project_id": project_id,
 				"model_id": rf_model["model_id"],
 				"dataset_artifact_id": fe_artifact_id,
 				"hyperparameters": {"n_estimators": 10},
@@ -245,7 +246,7 @@ def test_detection_api_end_to_end(server_settings):
 
 		# 8. View Detection Results (SUC-16)
 		res_results = client.get(
-			f"/api/v1/detection/jobs/{job1['job_id']}/results?action_filter=FLAGGED&limit=25&offset=0"
+			f"/api/v1/detection/jobs/{job1['job_id']}/results?project_id={project_id}&action_filter=FLAGGED&limit=25&offset=0"
 		)
 		assert res_results.status_code == 200, res_results.text
 		results_data = res_results.json()["data"]
@@ -255,7 +256,7 @@ def test_detection_api_end_to_end(server_settings):
 
 		# 9. Export Detection Results as CSV
 		res_export = client.get(
-			f"/api/v1/detection/jobs/{job1['job_id']}/export?only_flagged=true&file_format=csv"
+			f"/api/v1/detection/jobs/{job1['job_id']}/export?project_id={project_id}&only_flagged=true&file_format=csv"
 		)
 		assert res_export.status_code == 200
 		assert "text/csv" in res_export.headers["content-type"]
@@ -286,9 +287,9 @@ def test_detection_api_end_to_end(server_settings):
 		retry = client.post(f"/api/v1/detection/jobs/{job1['job_id']}/send-to-investigation", json={"event_ids": [first_flagged["event_id"]]})
 		assert retry.json()["data"]["accepted_count"] == 0
 		assert retry.json()["data"]["skipped_event_ids"] == [first_flagged["event_id"]]
-		annotated = client.get(f"/api/v1/detection/jobs/{job1['job_id']}/results").json()["data"]["transactions"]
+		annotated = client.get(f"/api/v1/detection/jobs/{job1['job_id']}/results", params={"project_id": project_id}).json()["data"]["transactions"]
 		assert next(row for row in annotated if row["event_id"] == first_flagged["event_id"])["case_id"] == case_id
-		production_rows = client.get(f"/api/v1/detection/jobs/{job2['job_id']}/results").json()["data"]["transactions"]
+		production_rows = client.get(f"/api/v1/detection/jobs/{job2['job_id']}/results", params={"project_id": project_id}).json()["data"]["transactions"]
 		new_event = next(row["event_id"] for row in production_rows if row["is_flagged"] and not row["case_id"])
 		failed = client.post(f"/api/v1/detection/jobs/{job2['job_id']}/send-to-investigation", json={"event_ids": [new_event, "UNKNOWN"]})
 		assert failed.status_code == 400
@@ -388,7 +389,7 @@ def test_detection_api_with_velocity_feature_engineering_and_raw_columns(server_
 		fe_artifact_id = res_fe.json()["data"]["artifact_id"]
 
 		# 6. Train Built-in Random Forest Model & Activate Version
-		res_models = client.get("/api/v1/training/models")
+		res_models = client.get("/api/v1/training/models", params={"project_id": project_id})
 		rf_model = next(m for m in res_models.json()["data"] if m["model_name"] == "random_forest")
 
 		res_run = client.post(

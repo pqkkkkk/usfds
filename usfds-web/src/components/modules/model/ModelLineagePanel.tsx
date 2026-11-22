@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ExternalLink, GitBranch, Loader2, RefreshCw } from 'lucide-react';
 import { useModelLineage } from '@/hooks/useModelLineage';
+import { useProject } from '@/hooks/useProjects';
 import { computeCanvasLayout } from '@/utils/lineageLayout';
 import { formatModelVersion } from '@/utils/formatters';
 import { LineageCanvasView } from '../LineageCanvasView';
@@ -11,18 +12,23 @@ import type { LineageRawNode } from '@/types/navigation';
 interface ModelLineagePanelProps {
 	versionId?: string;
 	runId?: string;
+	projectId?: string;
 	compact?: boolean;
 }
 
 export const ModelLineagePanel = ({
 	versionId,
 	runId,
+	projectId,
 	compact = false,
 }: ModelLineagePanelProps) => {
 	const navigate = useNavigate();
+	const { currentProjectId } = useProject();
+	const effectiveProjectId = projectId || currentProjectId;
 	const { lineage, isLoading, errorMessage, refetch } = useModelLineage({
 		versionId,
 		runId,
+		projectId: effectiveProjectId,
 	});
 
 	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);

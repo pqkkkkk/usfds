@@ -40,8 +40,10 @@ from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetR
 #         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-def _seed_feature_engineered_artifact(storage_dir: str) -> str:
+def _seed_feature_engineered_artifact(storage_dir: str, project_id: str | None = None) -> tuple[str, str]:
     """Seed a synthetic FEATURE_ENGINEERED Dataset + DatasetArtifact into the test SQLite DB and storage."""
+    from uuid import UUID
+
     assert dependencies._session_factory is not None
     session = dependencies._session_factory()
     try:
@@ -65,6 +67,7 @@ def _seed_feature_engineered_artifact(storage_dir: str) -> str:
 
         dataset_id = uuid4()
         artifact_id = uuid4()
+        resolved_project_id = UUID(project_id) if project_id else uuid4()
         train_rel = f"datasets/{dataset_id}/artifacts/{artifact_id}/train_enriched.parquet"
         test_rel = f"datasets/{dataset_id}/artifacts/{artifact_id}/test_enriched.parquet"
         storage.save_bytes(train_rel, pq_bytes)
@@ -72,7 +75,7 @@ def _seed_feature_engineered_artifact(storage_dir: str) -> str:
 
         dataset = Dataset(
             dataset_id=dataset_id,
-            project_id=uuid4(),
+            project_id=resolved_project_id,
             user_id=uuid4(),
             dataset_name="fe_test_ds",
         )
@@ -91,7 +94,7 @@ def _seed_feature_engineered_artifact(storage_dir: str) -> str:
         )
         art_repo.save(artifact)
         session.commit()
-        return str(artifact_id)
+        return str(artifact_id), str(resolved_project_id)
     finally:
         session.close()
 
@@ -101,10 +104,10 @@ def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
     lr_plugin_dir = repo_root / "custom-models" / "logistic_regression"
 
     with TestClient(app) as client:
-        fe_artifact_id = _seed_feature_engineered_artifact(settings.storage_dir)
+        fe_artifact_id, project_id = _seed_feature_engineered_artifact(settings.storage_dir)
 
         # 1. Verify Built-in models (random_forest, xgboost) are pre-seeded and available out-of-the-box
-        res_list = client.get("/api/v1/training/models")
+        res_list = client.get("/api/v1/training/models", params={"project_id": project_id})
         assert res_list.status_code == 200
         initial_models = res_list.json()["data"]
         model_names = [m["model_name"] for m in initial_models]
@@ -122,7 +125,7 @@ def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
 
         res_plugin = client.post(
             "/api/v1/training/models/plugins",
-            json={"model_artifact_path": plugin_zip_rel},
+            json={"model_artifact_path": plugin_zip_rel, "project_id": project_id},
         )
         assert res_plugin.status_code == 201, res_plugin.text
         plugin_model = res_plugin.json()["data"]
@@ -131,7 +134,7 @@ def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
         assert plugin_model["model_name"] == "custom_logistic_regression"
 
         # 3. Model catalog now has 3 models (2 built-in + 1 plugin)
-        res_list_after = client.get("/api/v1/training/models")
+        res_list_after = client.get("/api/v1/training/models", params={"project_id": project_id})
         assert res_list_after.status_code == 200
         assert len(res_list_after.json()["data"]) == 3
 
@@ -139,6 +142,7 @@ def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
         res_rf_run = client.post(
             "/api/v1/training/runs",
             json={
+                "project_id": project_id,
                 "model_id": rf_model["model_id"],
                 "dataset_artifact_id": fe_artifact_id,
                 "hyperparameters": {"n_estimators": 10},
@@ -154,6 +158,7 @@ def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
         res_run = client.post(
             "/api/v1/training/runs",
             json={
+                "project_id": project_id,
                 "model_id": plugin_model_id,
                 "dataset_artifact_id": fe_artifact_id,
                 "hyperparameters": {"C": 1.0, "max_iter": 100},
@@ -167,14 +172,14 @@ def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
         assert run_data["version_id"] is not None
 
         # 6. Query model versions and run details
-        res_versions = client.get(f"/api/v1/training/models/{plugin_model_id}/versions")
+        res_versions = client.get(f"/api/v1/training/models/{plugin_model_id}/versions", params={"project_id": project_id})
         assert res_versions.status_code == 200
         versions = res_versions.json()["data"]
         assert len(versions) == 1
         assert versions[0]["semver"] == "v1"
         assert versions[0]["artifact_uri"].endswith("model_bundle.zip")
 
-        res_ver_detail = client.get(f"/api/v1/training/versions/{versions[0]['version_id']}")
+        res_ver_detail = client.get(f"/api/v1/training/versions/{versions[0]['version_id']}", params={"project_id": project_id})
         assert res_ver_detail.status_code == 200
         assert res_ver_detail.json()["data"]["status"] == "CANDIDATE"
 
@@ -199,7 +204,7 @@ def test_training_router_builtin_and_plugin_models_lifecycle(server_settings):
         assert res_upload_zip.status_code == 201, res_upload_zip.text
         assert res_upload_zip.json()["data"]["execution_type"] == "SCRIPT"
 
-        res_run_detail = client.get(f"/api/v1/training/runs/{run_data['run_id']}")
+        res_run_detail = client.get(f"/api/v1/training/runs/{run_data['run_id']}", params={"project_id": project_id})
         assert res_run_detail.status_code == 200
         assert res_run_detail.json()["data"]["run_id"] == run_data["run_id"]
         assert res_run_detail.json()["data"]["dataset_artifact_id"] == fe_artifact_id
@@ -298,7 +303,7 @@ def _seed_lineage_chain():
         run_repo.link_dataset(run.run_id, fe.artifact_id, DatasetRole.TRAIN)
         ver_repo.save(version)
         session.commit()
-        return str(version.version_id), str(run.run_id)
+        return str(version.version_id), str(run.run_id), str(project_id)
     finally:
         session.close()
 
@@ -306,8 +311,8 @@ def _seed_lineage_chain():
 def test_get_version_lineage_endpoint_returns_dag(server_settings):
     """ISS-008: GET /api/v1/training/versions/{version_id}/lineage returns full upstream DAG."""
     with TestClient(app) as client:
-        version_id, run_id = _seed_lineage_chain()
-        res = client.get(f"/api/v1/training/versions/{version_id}/lineage")
+        version_id, run_id, project_id = _seed_lineage_chain()
+        res = client.get(f"/api/v1/training/versions/{version_id}/lineage", params={"project_id": project_id})
         assert res.status_code == 200, res.text
         body = res.json()
         assert body["success"] is True
@@ -327,15 +332,15 @@ def test_get_version_lineage_endpoint_returns_dag(server_settings):
 def test_get_run_lineage_endpoint_returns_dag_and_404(server_settings):
     """ISS-008: GET /api/v1/training/runs/{run_id}/lineage returns DAG for valid run and 404 for unknown."""
     with TestClient(app) as client:
-        version_id, run_id = _seed_lineage_chain()
-        res = client.get(f"/api/v1/training/runs/{run_id}/lineage")
+        version_id, run_id, project_id = _seed_lineage_chain()
+        res = client.get(f"/api/v1/training/runs/{run_id}/lineage", params={"project_id": project_id})
         assert res.status_code == 200, res.text
         data = res.json()["data"]
         assert data["root_run_id"] == run_id
         assert data["root_version_id"] == version_id
         assert len(data["nodes"]) == 5
 
-        res_missing = client.get(f"/api/v1/training/runs/{uuid4()}/lineage")
+        res_missing = client.get(f"/api/v1/training/runs/{uuid4()}/lineage", params={"project_id": project_id})
         assert res_missing.status_code == 404
 
 
@@ -423,18 +428,18 @@ def test_plugin_upload_does_not_block_event_loop(server_settings, monkeypatch):
 def test_list_model_versions_filters_by_project_id(server_settings):
     """ISS-010 / BR-PM-06: GET /models/{model_id}/versions?project_id=... isolates versions per project on BUILTIN models."""
     with TestClient(app) as client:
-        fe_artifact_id = _seed_feature_engineered_artifact(settings.storage_dir)
-        models = client.get("/api/v1/training/models").json()["data"]
-        rf_model = next(m for m in models if m["model_name"] == "random_forest")
-
         project_a = str(uuid4())
         project_b = str(uuid4())
+        fe_artifact_a, _ = _seed_feature_engineered_artifact(settings.storage_dir, project_id=project_a)
+        fe_artifact_b, _ = _seed_feature_engineered_artifact(settings.storage_dir, project_id=project_b)
+        models = client.get("/api/v1/training/models", params={"project_id": project_a}).json()["data"]
+        rf_model = next(m for m in models if m["model_name"] == "random_forest")
 
         res_a = client.post(
             "/api/v1/training/runs",
             json={
                 "model_id": rf_model["model_id"],
-                "dataset_artifact_id": fe_artifact_id,
+                "dataset_artifact_id": fe_artifact_a,
                 "project_id": project_a,
                 "hyperparameters": {"n_estimators": 5},
                 "run_name": "run-proj-a",
@@ -446,7 +451,7 @@ def test_list_model_versions_filters_by_project_id(server_settings):
             "/api/v1/training/runs",
             json={
                 "model_id": rf_model["model_id"],
-                "dataset_artifact_id": fe_artifact_id,
+                "dataset_artifact_id": fe_artifact_b,
                 "project_id": project_b,
                 "hyperparameters": {"n_estimators": 5},
                 "run_name": "run-proj-b",

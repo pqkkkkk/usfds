@@ -352,22 +352,16 @@ async def upload_and_register_plugged_model(
 @router.get(
     "/models",
     response_model=ApiResponse[List[ModelResponse]],
-    summary="List all registered models (built-in and custom plugins)",
+    summary="List registered models (built-in and project custom plugins)",
 )
 def list_models(
-    project_id: Optional[UUID] = Query(None, description="Optional filter by project ID"),
+    project_id: UUID = Query(..., description="Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[List[ModelResponse]]:
-    if project_id is not None:
-        authz.require_project_permission(actor, "model:read", project_id)
+    authz.require_project_permission(actor, "model:read", project_id)
     models = service.list_models(project_id=project_id)
-    if project_id is None and not actor.is_system_admin:
-        models = [
-            m for m in models
-            if m.project_id is None or effective_scope(actor, "model:read", m.project_id) is not None
-        ]
     return ApiResponse.ok(
         data=[_to_model_response(m) for m in models],
         message=f"Retrieved {len(models)} models",
@@ -381,14 +375,19 @@ def list_models(
 )
 def get_model(
     model_id: UUID,
+    project_id: UUID = Query(..., description="Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelResponse]:
+    authz.require_project_permission(actor, "model:read", project_id)
     try:
         model = service.get_model(model_id)
-        if model.project_id is not None:
-            authz.require_project_permission(actor, "model:read", model.project_id)
+        if model.project_id is not None and model.project_id != project_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Model '{model_id}' not found in project '{project_id}'.",
+            )
         return ApiResponse.ok(data=_to_model_response(model), message="Model retrieved successfully")
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -401,23 +400,23 @@ def get_model(
 )
 def list_model_versions(
     model_id: UUID,
-    project_id: Optional[UUID] = Query(None, description="Optional filter by project ID"),
+    project_id: UUID = Query(..., description="Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[List[ModelVersionResponse]]:
+    authz.require_project_permission(actor, "model:read", project_id)
     try:
         model = service.get_model(model_id)
-        if model.project_id is not None:
-            authz.require_project_permission(actor, "model:read", model.project_id)
-        if project_id is not None:
-            authz.require_project_permission(actor, "model:read", project_id)
-        versions = service.list_model_versions(model_id, project_id=project_id)
-        if project_id is None and not actor.is_system_admin:
-            versions = [
-                v for v in versions
-                if v.project_id is None or effective_scope(actor, "model:read", v.project_id) is not None
-            ]
+        if model.project_id is not None and model.project_id != project_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Model '{model_id}' not found in project '{project_id}'.",
+            )
+        versions = [
+            v for v in service.list_model_versions(model_id, project_id=project_id)
+            if v.project_id == project_id
+        ]
         return ApiResponse.ok(
             data=[_to_model_version_response(v) for v in versions],
             message=f"Retrieved {len(versions)} model versions",
@@ -433,14 +432,19 @@ def list_model_versions(
 )
 def get_model_version(
     version_id: UUID,
+    project_id: UUID = Query(..., description="Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelVersionResponse]:
+    authz.require_project_permission(actor, "model:read", project_id)
     try:
         version = service.get_model_version(version_id)
-        if version.project_id is not None:
-            authz.require_project_permission(actor, "model:read", version.project_id)
+        if version.project_id is None or version.project_id != project_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ModelVersion '{version_id}' not found in project '{project_id}'.",
+            )
         return ApiResponse.ok(
             data=_to_model_version_response(version),
             message="Model version retrieved successfully",
@@ -477,14 +481,19 @@ def _to_model_lineage_response(graph: ModelLineageGraph) -> ModelLineageResponse
 )
 def get_model_version_lineage(
     version_id: UUID,
+    project_id: UUID = Query(..., description="Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelLineageResponse]:
+    authz.require_project_permission(actor, "model:read", project_id)
     try:
         version = service.get_model_version(version_id)
-        if version.project_id is not None:
-            authz.require_project_permission(actor, "model:read", version.project_id)
+        if version.project_id is None or version.project_id != project_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ModelVersion '{version_id}' not found in project '{project_id}'.",
+            )
         graph = service.get_model_version_lineage(version_id)
         return ApiResponse.ok(
             data=_to_model_lineage_response(graph),
@@ -571,23 +580,17 @@ def start_training_run(
 @router.get(
     "/runs",
     response_model=ApiResponse[List[TrainingRunResponse]],
-    summary="List training runs with optional model_id and project_id filters",
+    summary="List training runs for a project with optional model_id filter",
 )
 def list_training_runs(
+    project_id: UUID = Query(..., description="Project ID"),
     model_id: Optional[UUID] = Query(None, description="Optional filter by Model ID"),
-    project_id: Optional[UUID] = Query(None, description="Optional filter by Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[List[TrainingRunResponse]]:
-    if project_id is not None:
-        authz.require_project_permission(actor, "training:read", project_id)
+    authz.require_project_permission(actor, "training:read", project_id)
     runs = service.list_training_runs(model_id=model_id, project_id=project_id)
-    if project_id is None and not actor.is_system_admin:
-        runs = [
-            r for r in runs
-            if r.project_id is not None and effective_scope(actor, "training:read", r.project_id) is not None
-        ]
     return ApiResponse.ok(
         data=[
             _to_training_run_response(
@@ -607,14 +610,19 @@ def list_training_runs(
 )
 def get_training_run(
     run_id: UUID,
+    project_id: UUID = Query(..., description="Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[TrainingRunResponse]:
+    authz.require_project_permission(actor, "training:read", project_id)
     try:
         run = service.get_training_run(run_id)
-        if run.project_id is not None:
-            authz.require_project_permission(actor, "training:read", run.project_id)
+        if run.project_id is None or run.project_id != project_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"TrainingRun '{run_id}' not found in project '{project_id}'.",
+            )
         artifact_id = service.get_run_dataset_artifact_id(run.run_id)
         return ApiResponse.ok(
             data=_to_training_run_response(run, dataset_artifact_id=artifact_id),
@@ -631,14 +639,19 @@ def get_training_run(
 )
 def get_training_run_lineage(
     run_id: UUID,
+    project_id: UUID = Query(..., description="Project ID"),
     actor: ActorContext = Depends(get_actor_context),
     authz: AuthzService = Depends(get_authz_service),
     service: TrainingOrchestrationService = Depends(get_training_service),
 ) -> ApiResponse[ModelLineageResponse]:
+    authz.require_project_permission(actor, "training:read", project_id)
     try:
         run = service.get_training_run(run_id)
-        if run.project_id is not None:
-            authz.require_project_permission(actor, "training:read", run.project_id)
+        if run.project_id is None or run.project_id != project_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"TrainingRun '{run_id}' not found in project '{project_id}'.",
+            )
         graph = service.get_training_run_lineage(run_id)
         return ApiResponse.ok(
             data=_to_model_lineage_response(graph),

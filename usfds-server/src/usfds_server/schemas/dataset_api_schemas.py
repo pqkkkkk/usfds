@@ -11,7 +11,7 @@ class ImportDatasetRequest(BaseModel):
     dataset_name: Optional[str] = Field(None, max_length=100, description="Optional unique dataset name. Defaults to filename stem.")
     display_name: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
-    project_id: Optional[UUID] = None
+    project_id: UUID
     user_id: Optional[UUID] = None
     contains_pii: bool = False
     data_classification: Optional[str] = "INTERNAL"

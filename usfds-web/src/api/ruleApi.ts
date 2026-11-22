@@ -30,8 +30,10 @@ export const ruleApi = {
 	/**
 	 * Get single rule details and current version (SUC-18)
 	 */
-	getRule: async (ruleId: string): Promise<ApiResponse<RuleResponse>> => {
-		return apiClient.get<RuleResponse>(`/v1/rules/${ruleId}`);
+	getRule: async (ruleId: string, projectId: string): Promise<ApiResponse<RuleResponse>> => {
+		return apiClient.get<RuleResponse>(`/v1/rules/${ruleId}`, {
+			project_id: projectId,
+		});
 	},
 
 	/**
@@ -64,8 +66,13 @@ export const ruleApi = {
 	/**
 	 * Get version history audit trail for a rule (SUC-18)
 	 */
-	getRuleVersions: async (ruleId: string): Promise<ApiResponse<RuleVersionResponse[]>> => {
-		return apiClient.get<RuleVersionResponse[]>(`/v1/rules/${ruleId}/versions`);
+	getRuleVersions: async (
+		ruleId: string,
+		projectId: string
+	): Promise<ApiResponse<RuleVersionResponse[]>> => {
+		return apiClient.get<RuleVersionResponse[]>(`/v1/rules/${ruleId}/versions`, {
+			project_id: projectId,
+		});
 	},
 
 	/**

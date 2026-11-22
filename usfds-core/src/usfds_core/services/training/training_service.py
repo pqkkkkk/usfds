@@ -20,6 +20,7 @@ from usfds_core.domain.schemas.model_plugin import ModelPluginManifest
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
 from usfds_core.domain.schemas.training_payload import TrainingRunPayload, TrainingRunResult
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
+from usfds_core.repositories.base_dataset_repo import IDatasetRepository
 from usfds_core.repositories.base_model_repo import IModelRepository
 from usfds_core.repositories.base_model_version_repo import (
     DuplicateModelVersionError,
@@ -76,12 +77,14 @@ class TrainingOrchestrationService:
         dataset_artifact_repo: IDatasetArtifactRepository,
         file_storage: Optional[IFileStorage] = None,
         plugin_registry: Optional[ModelPluginRegistrationService] = None,
+        dataset_repo: Optional[IDatasetRepository] = None,
     ):
         self.dispatcher = dispatcher
         self.training_run_repo = training_run_repo
         self.model_version_repo = model_version_repo
         self.model_repo = model_repo
         self.dataset_artifact_repo = dataset_artifact_repo
+        self.dataset_repo = dataset_repo
         self.file_storage = file_storage or InMemoryFileStorage()
         self.plugin_registry = plugin_registry or ModelPluginRegistrationService(
             model_repo=self.model_repo,
@@ -101,6 +104,21 @@ class TrainingOrchestrationService:
         artifact = self.dataset_artifact_repo.get_by_id(config.dataset_artifact_id)
         if not artifact:
             raise ValueError(f"DatasetArtifact with ID {config.dataset_artifact_id} not found.")
+
+        effective_project_id = config.project_id or model.project_id
+        if (
+            config.project_id is not None
+            and model.project_id is not None
+            and model.project_id != config.project_id
+        ):
+            raise ValueError("Selected Model does not belong to the specified project (BR-PM-06).")
+
+        if self.dataset_repo is not None and effective_project_id is not None:
+            dataset = self.dataset_repo.get_by_id(artifact.dataset_id)
+            if not dataset or dataset.project_id != effective_project_id:
+                raise ValueError(
+                    "Selected DatasetArtifact does not belong to the specified project (BR-PM-06)."
+                )
 
         allowed_stages = (PipelineStage.FEATURE_ENGINEERED, PipelineStage.PRE_PROCESSED)
         if artifact.pipeline_stage not in allowed_stages:
@@ -482,7 +500,7 @@ class TrainingOrchestrationService:
         if project_id is not None:
             runs = [
                 r for r in runs
-                if r.project_id == project_id or r.project_id is None
+                if r.project_id == project_id
             ]
         return runs
 

@@ -15,7 +15,11 @@ import type { PipelineStep } from '../components/layout/WorkspaceStepper';
 
 export type PipelineStepId = 'step-profiling' | 'step-mapping' | 'step-validation' | 'step-feature-eng';
 
-export function useDatasetPipeline(datasetId: string | undefined, currentStepId: string = 'step-profiling') {
+export function useDatasetPipeline(
+  datasetId: string | undefined,
+  currentStepId: string = 'step-profiling',
+  projectId?: string
+) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,16 +35,16 @@ export function useDatasetPipeline(datasetId: string | undefined, currentStepId:
     error,
     refetch,
   } = useQuery<DatasetDetailResponse | null>({
-    queryKey: [...DATASET_DETAIL_QUERY_KEY, datasetId],
+    queryKey: [...DATASET_DETAIL_QUERY_KEY, projectId, datasetId],
     queryFn: async () => {
-      if (!datasetId) return null;
-      const res = await datasetApi.getDatasetDetail(datasetId);
+      if (!datasetId || !projectId) return null;
+      const res = await datasetApi.getDatasetDetail(datasetId, projectId);
       if (!res.success) {
         throw new Error(res.error || 'Không tải được tập dữ liệu');
       }
       return res.data;
     },
-    enabled: Boolean(datasetId),
+    enabled: Boolean(datasetId && projectId),
   });
 
   // Track the active mapped and FE artifacts created in this pipeline session

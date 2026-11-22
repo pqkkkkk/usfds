@@ -119,7 +119,7 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 
 			const details = await Promise.allSettled(
 				dsList.map(async (ds) => {
-					const detailRes = await datasetApi.getDatasetDetail(ds.dataset_id);
+					const detailRes = await datasetApi.getDatasetDetail(ds.dataset_id, effectiveProjectId);
 					return [
 						ds,
 						detailRes.data ? detailRes.data.artifacts : [],

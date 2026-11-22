@@ -47,7 +47,7 @@ export const DatasetLineageExplorer = () => {
     width,
     height,
     getStageBadge,
-  } = useDatasetDetail(datasetId);
+  } = useDatasetDetail(datasetId, currentProjectId);
 
   // Render recursive tree item
   const renderTreeItem = (node: LineageTreeNode, depth: number = 0) => {

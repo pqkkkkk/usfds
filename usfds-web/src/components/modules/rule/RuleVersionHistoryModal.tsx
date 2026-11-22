@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, History, User, Calendar, RotateCcw } from 'lucide-react';
 import type { RuleResponse, RuleVersionResponse } from '../../../types/rule';
 import { ruleApi } from '../../../api/ruleApi';
+import { useProject } from '../../../hooks/useProjects';
 
 interface RuleVersionHistoryModalProps {
   rule: RuleResponse | null;
@@ -16,15 +17,17 @@ export const RuleVersionHistoryModal: React.FC<RuleVersionHistoryModalProps> = (
   onClose,
   onRestoreVersion,
 }) => {
+  const { currentProjectId } = useProject();
   const [versions, setVersions] = useState<RuleVersionResponse[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<RuleVersionResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen && rule) {
+    const projectId = rule?.project_id || currentProjectId;
+    if (isOpen && rule && projectId) {
       setLoading(true);
       ruleApi
-        .getRuleVersions(rule.rule_id)
+        .getRuleVersions(rule.rule_id, projectId)
         .then((res) => {
           if (res.data) {
             setVersions(res.data);

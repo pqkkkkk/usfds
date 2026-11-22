@@ -54,7 +54,7 @@ export const DataPipelineWorkspace = () => {
     executeFeatureEngineering,
     isExecutingFE,
     feError,
-  } = useDatasetPipeline(datasetId, stepId);
+  } = useDatasetPipeline(datasetId, stepId, currentProjectId);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-dark-950">

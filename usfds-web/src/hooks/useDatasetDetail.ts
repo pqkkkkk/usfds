@@ -7,7 +7,7 @@ import type { LineageTreeNode, LineageDataResponse, LineageCanvasNode, LineageCa
 
 export const DATASET_DETAIL_QUERY_KEY = ['dataset-detail'] as const;
 
-export function useDatasetDetail(datasetId: string | undefined) {
+export function useDatasetDetail(datasetId: string | undefined, projectId?: string) {
   const [viewMode, setViewMode] = useState<'canvas' | 'tree'>('canvas');
   const [selectedNodeId, setSelectedNodeId] = useState<string>('');
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
@@ -21,16 +21,16 @@ export function useDatasetDetail(datasetId: string | undefined) {
     error,
     refetch,
   } = useQuery<DatasetDetailResponse | null>({
-    queryKey: [...DATASET_DETAIL_QUERY_KEY, datasetId],
+    queryKey: [...DATASET_DETAIL_QUERY_KEY, projectId, datasetId],
     queryFn: async () => {
-      if (!datasetId) return null;
-      const res = await datasetApi.getDatasetDetail(datasetId);
+      if (!datasetId || !projectId) return null;
+      const res = await datasetApi.getDatasetDetail(datasetId, projectId);
       if (!res.success) {
         throw new Error(res.error || 'Không tải được chi tiết tập dữ liệu');
       }
       return res.data;
     },
-    enabled: Boolean(datasetId),
+    enabled: Boolean(datasetId && projectId),
   });
 
   // Auto-select initial node once data is loaded

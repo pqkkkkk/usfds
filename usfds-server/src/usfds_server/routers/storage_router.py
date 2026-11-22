@@ -8,7 +8,14 @@ from pydantic import BaseModel, Field
 from usfds_core.domain.entities.auth import ActorContext, PermissionDeniedError
 from usfds_core.storage.base_storage import IFileStorage
 from usfds_core.services.auth.authz_service import AuthzService
-from usfds_server.dependencies import get_actor_context, get_authz_service, get_storage
+from usfds_infra.database import SqliteDatasetRepository, SqliteDetectionJobRepository
+from usfds_server.dependencies import (
+	get_actor_context,
+	get_authz_service,
+	get_dataset_repo,
+	get_detection_job_repo,
+	get_storage,
+)
 from usfds_server.schemas.base_response import ApiResponse
 
 router = APIRouter(prefix="/api/v1/storage", tags=["Storage"])
@@ -105,6 +112,85 @@ def create_presigned_upload_url(
 	)
 
 
+def _authorize_download_key(
+	actor: ActorContext,
+	authz: AuthzService,
+	project_id: UUID,
+	raw_key: str,
+	dataset_repo: SqliteDatasetRepository,
+	detection_job_repo: SqliteDetectionJobRepository,
+) -> str:
+	if "\\" in raw_key:
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid object_key.")
+	clean_key = raw_key.strip().lstrip("/")
+	parts = [p for p in clean_key.split("/") if p]
+	if not parts or ".." in parts:
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid object_key.")
+
+	prefix = parts[0]
+	if prefix == "uploads" and len(parts) >= 3:
+		purpose_perms = {
+			"dataset_raw": "dataset:read",
+			"detection_input": "detection:read",
+			"model_plugin": "model:read",
+		}
+		perm = purpose_perms.get(parts[1])
+		if perm is None:
+			authz.require_project_permission(actor, "project:read", project_id)
+			raise PermissionDeniedError("Cannot verify project ownership for object key")
+		authz.require_project_permission(actor, perm, project_id)
+		if parts[2] != str(project_id):
+			raise PermissionDeniedError("Object key does not belong to the specified project")
+		return clean_key
+
+	if prefix == "exports" and len(parts) >= 3:
+		kind = parts[1]
+		if kind == "reports":
+			authz.require_project_permission(actor, "report:export", project_id)
+			if parts[2] != str(project_id):
+				raise PermissionDeniedError("Object key does not belong to the specified project")
+			return clean_key
+		if kind == "datasets":
+			authz.require_project_permission(actor, "dataset:export", project_id)
+			try:
+				ds_id = UUID(parts[2])
+			except ValueError as err:
+				raise PermissionDeniedError("Cannot verify project ownership for object key") from err
+			ds = dataset_repo.get_by_id(ds_id)
+			if ds is None or ds.project_id != project_id:
+				raise PermissionDeniedError("Object key does not belong to the specified project")
+			return clean_key
+		if kind == "detection":
+			authz.require_project_permission(actor, "detection:export", project_id)
+			try:
+				job_id = UUID(parts[2])
+			except ValueError as err:
+				raise PermissionDeniedError("Cannot verify project ownership for object key") from err
+			job = detection_job_repo.get_by_id(job_id)
+			if job is None or job.project_id != project_id:
+				raise PermissionDeniedError("Object key does not belong to the specified project")
+			return clean_key
+
+	if prefix == "datasets" and len(parts) >= 2:
+		if len(parts) >= 3 and parts[2] == "inferences":
+			authz.require_project_permission(actor, "detection:export", project_id)
+			if parts[1] != str(project_id):
+				raise PermissionDeniedError("Object key does not belong to the specified project")
+			return clean_key
+		authz.require_project_permission(actor, "dataset:export", project_id)
+		try:
+			ds_id = UUID(parts[1])
+		except ValueError as err:
+			raise PermissionDeniedError("Cannot verify project ownership for object key") from err
+		ds = dataset_repo.get_by_id(ds_id)
+		if ds is None or ds.project_id != project_id:
+			raise PermissionDeniedError("Object key does not belong to the specified project")
+		return clean_key
+
+	authz.require_project_permission(actor, "project:read", project_id)
+	raise PermissionDeniedError("Cannot verify project ownership for object key")
+
+
 @router.get(
 	"/presigned-download",
 	response_model=ApiResponse[PresignedDownloadResponse],
@@ -113,24 +199,23 @@ def create_presigned_upload_url(
 )
 def create_presigned_download_url(
 	object_key: str = Query(..., min_length=1, description="Storage object key"),
+	project_id: UUID = Query(..., description="Project ID"),
 	filename: Optional[str] = Query(None, description="Optional attachment filename"),
 	expires_in: int = Query(900, ge=60, le=86400, description="URL expiration time in seconds"),
 	actor: ActorContext = Depends(get_actor_context),
 	authz: AuthzService = Depends(get_authz_service),
 	storage: IFileStorage = Depends(get_storage),
+	dataset_repo: SqliteDatasetRepository = Depends(get_dataset_repo),
+	detection_job_repo: SqliteDetectionJobRepository = Depends(get_detection_job_repo),
 ) -> ApiResponse[PresignedDownloadResponse]:
-	clean_key = object_key.strip().lstrip("/")
-	if not actor.is_system_admin:
-		project_uuid: Optional[UUID] = None
-		for part in clean_key.split("/"):
-			try:
-				project_uuid = UUID(part)
-				break
-			except ValueError:
-				continue
-		if project_uuid is None:
-			raise PermissionDeniedError("Cannot verify project ownership for object key")
-		authz.require_project_permission(actor, "project:read", project_uuid)
+	clean_key = _authorize_download_key(
+		actor=actor,
+		authz=authz,
+		project_id=project_id,
+		raw_key=object_key,
+		dataset_repo=dataset_repo,
+		detection_job_repo=detection_job_repo,
+	)
 	resolved_name = Path(filename.strip()).name if filename and filename.strip() else Path(clean_key).name
 	try:
 		download_url = storage.generate_presigned_download_url(
