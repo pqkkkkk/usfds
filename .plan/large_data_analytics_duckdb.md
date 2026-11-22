@@ -136,13 +136,13 @@
   - [x] [core] `services/warehouse/project_warehouse.py`: `create_bounded_duckdb_connection`, `write_job_facts`, `sync_missing_jobs`, `fact_view`
   - [x] [core] `handle_job_completion` gọi `write_job_facts`; viết lại `DuckDBInsightEngine` + `InsightReportService` trên `fact_view` theo `tx_timestamp`
   - [x] [verify] `./scripts/test.sh core infra`
-- [ ] **M2 — Worker Analytics Queue & DuckDB pushdown cho Detection Results/Export/Send** (`usfds-infra`, `usfds-worker`, `usfds-core`, `usfds-server`)
-  - [ ] [tests] Viết các test M2 trong §5; xác nhận fail
-  - [ ] [infra] Append `QUEUE_ANALYTICS`, `JOB_INSIGHT_REPORT`
-  - [ ] [worker] `enabled_queues`, `handle_insight_report`, đăng ký `ANALYTICS_QUEUE_HANDLERS` (main + testing)
-  - [ ] [core] `get_detection_job_results`, `export_detection_job_results*`, `fetch_job_events` bằng DuckDB
-  - [ ] [server] `insight_report_router.py` dispatch qua `QUEUE_ANALYTICS` (`attempts=3`, `analytics_wait_timeout_seconds`); `detection_router.py` stream export + `send_to_investigation` đọc chọn lọc 1 lần; `ingest_request` nhận `source_rows`
-  - [ ] [verify] `./scripts/test.sh core infra worker server`
+- [x] **M2 — Worker Analytics Queue & DuckDB pushdown cho Detection Results/Export/Send** (`usfds-infra`, `usfds-worker`, `usfds-core`, `usfds-server`)
+  - [x] [tests] Viết các test M2 trong §5; xác nhận fail
+  - [x] [infra] Append `QUEUE_ANALYTICS`, `JOB_INSIGHT_REPORT`
+  - [x] [worker] `enabled_queues`, `handle_insight_report`, đăng ký `ANALYTICS_QUEUE_HANDLERS` (main + testing)
+  - [x] [core] `get_detection_job_results`, `export_detection_job_results*`, `fetch_job_events` bằng DuckDB
+  - [x] [server] `insight_report_router.py` dispatch qua `QUEUE_ANALYTICS` (`attempts=3`, `analytics_wait_timeout_seconds`); `detection_router.py` stream export + `send_to_investigation` đọc chọn lọc 1 lần; `ingest_request` nhận `source_rows`
+  - [x] [verify] `./scripts/test.sh core infra worker server`
 - [ ] **M3 — UI Insight & Report theo khung thời gian giao dịch** (`usfds-web`)
   - [ ] [tests] Viết test M3 trong §5; xác nhận fail
   - [ ] [web] `ReportScopeToolbar.tsx`, `InsightReportModule.tsx`, `ExecutiveOverviewTab.tsx`
@@ -151,6 +151,7 @@
 Checkpoint log (the agent appends one line per finished milestone):
 - 26-11-22 M0 done: infra 47 passed · worker 8 passed · server 44 passed; notes: bỏ `attempts=3` cho training/batch (executor đã ghi `FAILED`, user xác nhận), retry chỉ áp dụng cho `JOB_INSIGHT_REPORT` (M2); handler bỏ qua bản ghi ở trạng thái cuối gồm cả `CANCELLED`; thêm 2 test `attempts/backoff` ở `test_job_queue.py`
 - 26-11-22 M1 done: core 166 passed (15 skipped, có sẵn) · infra 48 passed · worker 8 · server 44 · cli 5; notes: không thêm `list_keys`, không compaction; `get_case_ids_by_events` chuyển sang M2; thêm test `test_warehouse_load_filters_by_tx_timestamp_not_job_date`; chưa gộp 34 query `score_calibration`/`threshold_curve` thành single-pass (chỉ đổi nguồn dữ liệu sang warehouse + rule leaderboard bằng SQL)
+- 26-11-22 M2 done: core 167 passed (15 skipped, có sẵn) · infra 49 · worker 10 · server 47 · cli 5; notes: thêm `prediction_results.py` (DuckDB cho Results/Export/Fetch events); `export_detection_job_results_to_file` + `FileResponse` stream; `_source_frame(event_ids)` và `ingest_request(source_rows)`; thêm `usfds-worker/tests/test_worker_config.py` và 1 test queue-mode `LookupError → 404`; `InlineJobQueue` ghi `attempts`/`timeout_seconds` để kiểm tra; Behavior profile (`investigation_router.py` dòng gọi `_source_frame` không có `event_ids`) vẫn đọc full file — thuộc ISS-045
 
 ## 7. Review hotspots (filled in after implementation)
 - —

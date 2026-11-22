@@ -701,3 +701,65 @@ class TestPluginInferenceTimeout(unittest.TestCase):
                     timeout_seconds=1,
                 )
         self.assertIn("timed out", str(ctx.exception).lower())
+
+
+class _CaseIdsOnlyRepo:
+    """Case repo double: the results page must ask only for the ids on the page, never list the whole project."""
+
+    def __init__(self, case_ids_by_event):
+        self.case_ids_by_event = case_ids_by_event
+        self.requested = []
+
+    def list_by_project(self, project_id):
+        raise AssertionError("list_by_project must not be used for the results page (ISS-012)")
+
+    def get_case_ids_by_events(self, project_id, event_ids):
+        self.requested.append(list(event_ids))
+        return {e: self.case_ids_by_event[e] for e in event_ids if e in self.case_ids_by_event}
+
+
+def test_detection_results_pagination_uses_duckdb_without_pandas_full_load(monkeypatch):
+    def _blocked(*args, **kwargs):
+        raise AssertionError("pd.read_parquet must not be used (ISS-012)")
+
+    rows = []
+    for i in range(100):
+        final_action = "REJECT" if i % 10 == 0 else ("REVIEW" if i % 10 in (1, 2) else "ALLOW")
+        rows.append({
+            "event_id": f"EV-{i:03d}", "user_id": f"U-{i % 7}", "timestamp": "2026-11-01T10:00:00Z",
+            "amount": float(10 + i), "model_score": i / 100, "rule_action": final_action, "final_action": final_action,
+            "is_flagged": 1 if final_action != "ALLOW" else 0,
+            "triggered_rules": '["R1"]' if i % 2 == 0 else "[]", "triggered_rule_details": "[]", "feature_x": float(i),
+        })
+    storage = InMemoryStorage()
+    project_id = uuid4()
+    job = DetectionJob(project_id=project_id, job_name="results", output_path="out/predictions.parquet", status=DetectionJobStatus.COMPLETED)
+    buf = io.BytesIO()
+    pd.DataFrame(rows).to_parquet(buf, index=False)
+    storage.save_bytes(job.output_path, buf.getvalue())
+    job_repo = InMemoryDetectionJobRepository()
+    job_repo.save(job)
+    case_ids = {f"EV-{i:03d}": str(uuid4()) for i in (10, 20, 22, 90)}
+    case_repo = _CaseIdsOnlyRepo(case_ids)
+    service = InferenceService(file_storage=storage, detection_job_repo=job_repo, case_repo=case_repo)
+    monkeypatch.setattr(pd, "read_parquet", _blocked)
+
+    res = service.get_detection_job_results(
+        job.job_id, action_filter="FLAGGED", rule_code="R1", min_score=0.05, max_score=0.9, limit=10, offset=5,
+    )
+
+    rank = {"REJECT": 0, "REVIEW": 1}
+    matching = [r for r in rows if r["final_action"] != "ALLOW" and r["triggered_rules"] == '["R1"]' and 0.05 <= r["model_score"] <= 0.9]
+    matching.sort(key=lambda r: (rank[r["final_action"]], -r["model_score"], -r["amount"]))
+    expected_page = [r["event_id"] for r in matching[5:15]]
+    assert res["total_filtered"] == len(matching) and len(matching) > 15
+    assert [t["event_id"] for t in res["transactions"]] == expected_page
+    assert all(t["is_flagged"] and t["triggered_rules"] == ["R1"] for t in res["transactions"])
+    assert res["transactions"][0]["features"]["feature_x"] == float(int(expected_page[0][3:]))
+    assert case_repo.requested == [expected_page]
+    for t in res["transactions"]:
+        assert t["case_id"] == case_ids.get(t["event_id"])
+
+    searched = service.get_detection_job_results(job.job_id, search="u-3", action_filter="REJECT", limit=50)
+    assert {t["user_id"] for t in searched["transactions"]} == {"U-3"}
+    assert searched["total_filtered"] == len([r for r in rows if r["final_action"] == "REJECT" and r["user_id"] == "U-3"])

@@ -9,6 +9,7 @@ import json
 import logging
 import math
 from pathlib import Path
+import tempfile
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID, uuid4
@@ -47,6 +48,11 @@ from usfds_core.services.inference.executor import (
     execute_plugin_bundle_inference,
     prepare_and_validate_input,
     run_feature_transformations,
+)
+from usfds_core.services.inference.prediction_results import (
+    export_prediction_results,
+    fetch_prediction_events,
+    query_prediction_results,
 )
 from usfds_core.services.inference.scoring_service import ModelScorer
 from usfds_core.services.inference.workspace import InferenceWorkspace
@@ -822,7 +828,10 @@ class InferenceService:
         limit: int = 200,
         offset: int = 0,
     ) -> Dict[str, Any]:
-        """Retrieves summary analytics and filtered transaction results for a DetectionJob (SUC-16)."""
+        """Retrieves summary analytics and filtered transaction results for a DetectionJob (SUC-16).
+
+        Filtering, ordering and paging run in DuckDB (ISS-012); only the requested page is materialized.
+        """
         job = self.get_detection_job(job_id)
         status_str = job.status.value if hasattr(job.status, "value") else str(job.status)
         if status_str != DetectionJobStatus.COMPLETED.value or not job.output_path:
@@ -833,20 +842,25 @@ class InferenceService:
                 "summary_metrics": job.summary_metrics or {},
             }
 
-        df = self._load_job_predictions_df(job)
+        total_filtered, page = query_prediction_results(
+            self.file_storage,
+            job.output_path,
+            action_filter=action_filter,
+            rule_code=rule_code,
+            search=search,
+            min_score=min_score,
+            max_score=max_score,
+            limit=limit,
+            offset=offset,
+        )
+        if not page:
+            return {"job": job, "total_filtered": total_filtered, "transactions": [], "summary_metrics": job.summary_metrics or {}}
 
-        # Resolve canonical display columns from unified alias registry
-        id_col = resolve_canonical_column(df, SystemColumn.EVENT_ID)
-        user_col = resolve_canonical_column(df, SystemColumn.USER_ID)
-        ts_col = resolve_canonical_column(df, SystemColumn.TIMESTAMP)
-        amt_col = resolve_canonical_column(df, SystemColumn.AMOUNT)
-
-        # Map existing investigation cases by event_id for this project
-        existing_cases_by_event: Dict[str, str] = {}
-        if self.case_repo:
-            cases = self.case_repo.list_by_project(job.project_id)
-            for c in cases:
-                existing_cases_by_event[str(c.event_id)] = str(c.case_id)
+        columns = [c for c in page[0].keys() if c != "__idx"]
+        id_col = resolve_canonical_column(columns, SystemColumn.EVENT_ID)
+        user_col = resolve_canonical_column(columns, SystemColumn.USER_ID)
+        ts_col = resolve_canonical_column(columns, SystemColumn.TIMESTAMP)
+        amt_col = resolve_canonical_column(columns, SystemColumn.AMOUNT)
 
         internal_cols = {
             "model_score",
@@ -857,14 +871,22 @@ class InferenceService:
             "final_action",
             "is_flagged",
             "prediction",
+            "__idx",
         }
 
-        records = df.to_dict(orient="records")
-        filtered_rows: List[Dict[str, Any]] = []
+        def _event_id(row: Dict[str, Any]) -> str:
+            return str(row.get(id_col) if id_col and row.get(id_col) is not None else row["__idx"] + 1)
 
-        for idx, row in enumerate(records):
-            ev_val = row.get(id_col) if id_col and row.get(id_col) is not None else (idx + 1)
-            ev_str = str(ev_val)
+        # Cases only for the events on this page (not the whole project)
+        existing_cases_by_event: Dict[str, str] = {}
+        if self.case_repo:
+            existing_cases_by_event = self.case_repo.get_case_ids_by_events(
+                job.project_id, [_event_id(row) for row in page]
+            )
+
+        transactions: List[Dict[str, Any]] = []
+        for row in page:
+            ev_str = _event_id(row)
             user_str = str(row.get(user_col) if user_col and row.get(user_col) is not None else "—")
             ts_str = str(row.get(ts_col) if ts_col and row.get(ts_col) is not None else "—")
             amt_val = 0.0
@@ -882,7 +904,6 @@ class InferenceService:
 
             f_action = str(row.get("final_action") or ("REVIEW" if row.get("prediction") == 1 else "ALLOW")).upper()
             r_action = str(row.get("rule_action") or "ALLOW").upper()
-            is_flagged = bool(f_action in ("REJECT", "REVIEW"))
 
             raw_trig = row.get("triggered_rules", "[]")
             if isinstance(raw_trig, str):
@@ -906,28 +927,6 @@ class InferenceService:
             else:
                 trig_details = []
 
-            # Apply filters
-            if action_filter:
-                af = action_filter.strip().upper()
-                if af == "FLAGGED" and not is_flagged:
-                    continue
-                elif af in ("REJECT", "REVIEW", "ALLOW") and f_action != af:
-                    continue
-
-            if rule_code and rule_code.strip():
-                if rule_code.strip() not in trig_codes:
-                    continue
-
-            if min_score is not None and m_score < min_score:
-                continue
-            if max_score is not None and m_score > max_score:
-                continue
-
-            if search and search.strip():
-                q = search.strip().lower()
-                if q not in ev_str.lower() and q not in user_str.lower():
-                    continue
-
             # Extract clean feature snapshot for Evidence Drawer
             features_snapshot: Dict[str, Any] = {}
             for k, v in row.items():
@@ -940,9 +939,9 @@ class InferenceService:
                 else:
                     features_snapshot[str(k)] = v
 
-            filtered_rows.append(
+            transactions.append(
                 {
-                    "row_index": idx,
+                    "row_index": row["__idx"],
                     "event_id": ev_str,
                     "user_id": user_str,
                     "timestamp": ts_str,
@@ -952,27 +951,201 @@ class InferenceService:
                     "triggered_rule_details": trig_details,
                     "rule_action": r_action,
                     "final_action": f_action,
-                    "is_flagged": is_flagged,
+                    "is_flagged": bool(f_action in ("REJECT", "REVIEW")),
                     "case_id": existing_cases_by_event.get(ev_str),
                     "features": features_snapshot,
                 }
             )
 
-        # Sort flagged transactions first, then by model_score descending
-        action_rank = {"REJECT": 0, "REVIEW": 1, "ALLOW": 2}
-        filtered_rows.sort(
-            key=lambda r: (action_rank.get(r["final_action"], 3), -r["model_score"], -r["amount"])
-        )
-
-        total_filtered = len(filtered_rows)
-        paginated = filtered_rows[offset : offset + limit]
-
         return {
             "job": job,
             "total_filtered": total_filtered,
-            "transactions": paginated,
+            "transactions": transactions,
             "summary_metrics": job.summary_metrics or {},
         }
+
+    # DEPRECATED [26-11-22] ISS-012: pandas full-load implementation replaced by the DuckDB version above.
+    # def get_detection_job_results(
+    #     self,
+    #     job_id: UUID,
+    #     action_filter: Optional[str] = None,
+    #     rule_code: Optional[str] = None,
+    #     search: Optional[str] = None,
+    #     min_score: Optional[float] = None,
+    #     max_score: Optional[float] = None,
+    #     limit: int = 200,
+    #     offset: int = 0,
+    # ) -> Dict[str, Any]:
+    #     """Retrieves summary analytics and filtered transaction results for a DetectionJob (SUC-16)."""
+    #     job = self.get_detection_job(job_id)
+    #     status_str = job.status.value if hasattr(job.status, "value") else str(job.status)
+    #     if status_str != DetectionJobStatus.COMPLETED.value or not job.output_path:
+    #         return {
+    #             "job": job,
+    #             "total_filtered": 0,
+    #             "transactions": [],
+    #             "summary_metrics": job.summary_metrics or {},
+    #         }
+#
+    #     df = self._load_job_predictions_df(job)
+#
+    #     # Resolve canonical display columns from unified alias registry
+    #     id_col = resolve_canonical_column(df, SystemColumn.EVENT_ID)
+    #     user_col = resolve_canonical_column(df, SystemColumn.USER_ID)
+    #     ts_col = resolve_canonical_column(df, SystemColumn.TIMESTAMP)
+    #     amt_col = resolve_canonical_column(df, SystemColumn.AMOUNT)
+#
+    #     # Map existing investigation cases by event_id for this project
+    #     existing_cases_by_event: Dict[str, str] = {}
+    #     if self.case_repo:
+    #         cases = self.case_repo.list_by_project(job.project_id)
+    #         for c in cases:
+    #             existing_cases_by_event[str(c.event_id)] = str(c.case_id)
+#
+    #     internal_cols = {
+    #         "model_score",
+    #         "fraud_probability",
+    #         "triggered_rules",
+    #         "triggered_rule_details",
+    #         "rule_action",
+    #         "final_action",
+    #         "is_flagged",
+    #         "prediction",
+    #     }
+#
+    #     records = df.to_dict(orient="records")
+    #     filtered_rows: List[Dict[str, Any]] = []
+#
+    #     for idx, row in enumerate(records):
+    #         ev_val = row.get(id_col) if id_col and row.get(id_col) is not None else (idx + 1)
+    #         ev_str = str(ev_val)
+    #         user_str = str(row.get(user_col) if user_col and row.get(user_col) is not None else "—")
+    #         ts_str = str(row.get(ts_col) if ts_col and row.get(ts_col) is not None else "—")
+    #         amt_val = 0.0
+    #         if amt_col and row.get(amt_col) is not None:
+    #             try:
+    #                 amt_val = float(row[amt_col])
+    #                 if math.isnan(amt_val):
+    #                     amt_val = 0.0
+    #             except (ValueError, TypeError):
+    #                 amt_val = 0.0
+#
+    #         m_score = float(row.get("model_score", row.get("fraud_probability", 0.0)) or 0.0)
+    #         if math.isnan(m_score):
+    #             m_score = 0.0
+#
+    #         f_action = str(row.get("final_action") or ("REVIEW" if row.get("prediction") == 1 else "ALLOW")).upper()
+    #         r_action = str(row.get("rule_action") or "ALLOW").upper()
+    #         is_flagged = bool(f_action in ("REJECT", "REVIEW"))
+#
+    #         raw_trig = row.get("triggered_rules", "[]")
+    #         if isinstance(raw_trig, str):
+    #             try:
+    #                 trig_codes: List[str] = json.loads(raw_trig)
+    #             except Exception:
+    #                 trig_codes = []
+    #         elif isinstance(raw_trig, list):
+    #             trig_codes = [str(x) for x in raw_trig]
+    #         else:
+    #             trig_codes = []
+#
+    #         raw_details = row.get("triggered_rule_details", "[]")
+    #         if isinstance(raw_details, str):
+    #             try:
+    #                 trig_details: List[Dict[str, Any]] = json.loads(raw_details)
+    #             except Exception:
+    #                 trig_details = []
+    #         elif isinstance(raw_details, list):
+    #             trig_details = raw_details
+    #         else:
+    #             trig_details = []
+#
+    #         # Apply filters
+    #         if action_filter:
+    #             af = action_filter.strip().upper()
+    #             if af == "FLAGGED" and not is_flagged:
+    #                 continue
+    #             elif af in ("REJECT", "REVIEW", "ALLOW") and f_action != af:
+    #                 continue
+#
+    #         if rule_code and rule_code.strip():
+    #             if rule_code.strip() not in trig_codes:
+    #                 continue
+#
+    #         if min_score is not None and m_score < min_score:
+    #             continue
+    #         if max_score is not None and m_score > max_score:
+    #             continue
+#
+    #         if search and search.strip():
+    #             q = search.strip().lower()
+    #             if q not in ev_str.lower() and q not in user_str.lower():
+    #                 continue
+#
+    #         # Extract clean feature snapshot for Evidence Drawer
+    #         features_snapshot: Dict[str, Any] = {}
+    #         for k, v in row.items():
+    #             if k in internal_cols:
+    #                 continue
+    #             if isinstance(v, float) and math.isnan(v):
+    #                 features_snapshot[str(k)] = None
+    #             elif hasattr(v, "item"):
+    #                 features_snapshot[str(k)] = v.item()
+    #             else:
+    #                 features_snapshot[str(k)] = v
+#
+    #         filtered_rows.append(
+    #             {
+    #                 "row_index": idx,
+    #                 "event_id": ev_str,
+    #                 "user_id": user_str,
+    #                 "timestamp": ts_str,
+    #                 "amount": round(amt_val, 2),
+    #                 "model_score": round(m_score, 4),
+    #                 "triggered_rules": trig_codes,
+    #                 "triggered_rule_details": trig_details,
+    #                 "rule_action": r_action,
+    #                 "final_action": f_action,
+    #                 "is_flagged": is_flagged,
+    #                 "case_id": existing_cases_by_event.get(ev_str),
+    #                 "features": features_snapshot,
+    #             }
+    #         )
+#
+    #     # Sort flagged transactions first, then by model_score descending
+    #     action_rank = {"REJECT": 0, "REVIEW": 1, "ALLOW": 2}
+    #     filtered_rows.sort(
+    #         key=lambda r: (action_rank.get(r["final_action"], 3), -r["model_score"], -r["amount"])
+    #     )
+#
+    #     total_filtered = len(filtered_rows)
+    #     paginated = filtered_rows[offset : offset + limit]
+#
+    #     return {
+    #         "job": job,
+    #         "total_filtered": total_filtered,
+    #         "transactions": paginated,
+    #         "summary_metrics": job.summary_metrics or {},
+    #     }
+
+    def export_detection_job_results_to_file(
+        self,
+        job_id: UUID,
+        dest_path: Path,
+        file_format: str = "csv",
+        only_flagged: bool = False,
+    ) -> Tuple[str, str]:
+        """Writes the DetectionJob results to `dest_path` (CSV/Parquet) with DuckDB, without loading them in memory.
+        Returns (filename, media_type).
+        """
+        job = self.get_detection_job(job_id)
+        if not job.output_path:
+            raise ValueError(f"DetectionJob '{job.job_id}' has no output predictions file.")
+        export_prediction_results(self.file_storage, job.output_path, dest_path, file_format, only_flagged)
+        safe_name = (job.job_name or str(job.job_id)).replace(" ", "_")
+        if file_format.strip().lower() == "parquet":
+            return f"{safe_name}_results.parquet", "application/octet-stream"
+        return f"{safe_name}_results.csv", "text/csv"
 
     def export_detection_job_results(
         self,
@@ -981,21 +1154,43 @@ class InferenceService:
         only_flagged: bool = False,
     ) -> Tuple[bytes, str, str]:
         """Exports the DetectionJob results as CSV or Parquet bytes (SUC-16 6a).
-        Returns (file_bytes, filename, media_type).
+        Returns (file_bytes, filename, media_type). Prefer `export_detection_job_results_to_file` for large jobs.
         """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            dest = Path(tmp_dir) / "export"
+            filename, media_type = self.export_detection_job_results_to_file(job_id, dest, file_format, only_flagged)
+            return dest.read_bytes(), filename, media_type
+
+    def fetch_job_events(self, job_id: UUID, event_ids: List[str]) -> pd.DataFrame:
+        """Raw prediction rows of the given events only (selective DuckDB read of `predictions.parquet`)."""
         job = self.get_detection_job(job_id)
-        df = self._load_job_predictions_df(job)
+        if not job.output_path:
+            raise ValueError(f"DetectionJob '{job.job_id}' has no output predictions file.")
+        return fetch_prediction_events(self.file_storage, job.output_path, event_ids)
 
-        if only_flagged and "is_flagged" in df.columns:
-            df = df[df["is_flagged"] == 1]
-
-        fmt = file_format.strip().lower()
-        safe_name = (job.job_name or str(job.job_id)).replace(" ", "_")
-        if fmt == "parquet":
-            buf = io.BytesIO()
-            df.to_parquet(buf, index=False)
-            return buf.getvalue(), f"{safe_name}_results.parquet", "application/octet-stream"
-
-        buf = io.BytesIO()
-        df.to_csv(buf, index=False)
-        return buf.getvalue(), f"{safe_name}_results.csv", "text/csv"
+    # DEPRECATED [26-11-22] ISS-012: pandas full-load export replaced by the DuckDB version above.
+    # def export_detection_job_results(
+    #     self,
+    #     job_id: UUID,
+    #     file_format: str = "csv",
+    #     only_flagged: bool = False,
+    # ) -> Tuple[bytes, str, str]:
+    #     """Exports the DetectionJob results as CSV or Parquet bytes (SUC-16 6a).
+    #     Returns (file_bytes, filename, media_type).
+    #     """
+    #     job = self.get_detection_job(job_id)
+    #     df = self._load_job_predictions_df(job)
+#
+    #     if only_flagged and "is_flagged" in df.columns:
+    #         df = df[df["is_flagged"] == 1]
+#
+    #     fmt = file_format.strip().lower()
+    #     safe_name = (job.job_name or str(job.job_id)).replace(" ", "_")
+    #     if fmt == "parquet":
+    #         buf = io.BytesIO()
+    #         df.to_parquet(buf, index=False)
+    #         return buf.getvalue(), f"{safe_name}_results.parquet", "application/octet-stream"
+#
+    #     buf = io.BytesIO()
+    #     df.to_csv(buf, index=False)
+    #     return buf.getvalue(), f"{safe_name}_results.csv", "text/csv"

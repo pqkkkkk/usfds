@@ -13,10 +13,12 @@ from usfds_infra.job_queue import (
 	JOB_BATCH_INFERENCE,
 	JOB_DATASET_INGESTION,
 	JOB_FEATURE_ENGINEERING,
+	JOB_INSIGHT_REPORT,
 	JOB_PLUGIN_DRY_RUN,
 	JOB_RULE_BACKTEST,
 	JOB_SCHEMA_MAPPING,
 	JOB_TRAINING_RUN,
+	QUEUE_ANALYTICS,
 	QUEUE_BATCH_INFERENCE,
 	QUEUE_DATA_PIPELINE,
 	QUEUE_TRAINING,
@@ -30,6 +32,7 @@ from usfds_worker.handlers import (
 	handle_batch_inference,
 	handle_dataset_ingestion,
 	handle_feature_engineering,
+	handle_insight_report,
 	handle_plugin_dry_run,
 	handle_rule_backtest,
 	handle_schema_mapping,
@@ -55,6 +58,22 @@ DATA_PIPELINE_QUEUE_HANDLERS: Dict[str, HandlerFn] = {
 	JOB_SCHEMA_MAPPING: handle_schema_mapping,
 	JOB_FEATURE_ENGINEERING: handle_feature_engineering,
 }
+
+ANALYTICS_QUEUE_HANDLERS: Dict[str, HandlerFn] = {
+	JOB_INSIGHT_REPORT: handle_insight_report,
+}
+
+_QUEUE_NAME_BY_KEY = {
+	"training": QUEUE_TRAINING,
+	"batch_inference": QUEUE_BATCH_INFERENCE,
+	"data_pipeline": QUEUE_DATA_PIPELINE,
+	"analytics": QUEUE_ANALYTICS,
+}
+
+
+def selected_queue_names(settings: WorkerSettings) -> list[str]:
+	"""BullMQ queue names this worker process listens on (USFDS_WORKER_QUEUES)."""
+	return [_QUEUE_NAME_BY_KEY[key] for key in settings.enabled_queues]
 
 
 NON_RETRYABLE_ERRORS = (ValueError, LookupError, FileNotFoundError, TypeError, MemoryError)
@@ -108,26 +127,36 @@ async def _serve(settings: WorkerSettings) -> None:
 		"concurrency": settings.concurrency,
 		"lockDuration": settings.lock_duration_ms,
 	}
-	workers = [
-		Worker(
-			QUEUE_TRAINING,
-			_make_processor(ctx, TRAINING_QUEUE_HANDLERS, default_handler=handle_training_run),
-			opts,
-		),
-		Worker(
-			QUEUE_BATCH_INFERENCE,
-			_make_processor(ctx, BATCH_INFERENCE_QUEUE_HANDLERS, default_handler=handle_batch_inference),
-			opts,
-		),
-		Worker(
-			QUEUE_DATA_PIPELINE,
-			_make_processor(ctx, DATA_PIPELINE_QUEUE_HANDLERS),
-			opts,
-		),
-	]
-	logger.info(
-		f"usfds-worker listening on {QUEUE_TRAINING}, {QUEUE_BATCH_INFERENCE}, {QUEUE_DATA_PIPELINE}"
-	)
+	# DEPRECATED [26-11-22] ISS-012: fixed 3-worker list replaced by processors map filtered by USFDS_WORKER_QUEUES.
+	# workers = [
+	# 	Worker(
+	# 		QUEUE_TRAINING,
+	# 		_make_processor(ctx, TRAINING_QUEUE_HANDLERS, default_handler=handle_training_run),
+	# 		opts,
+	# 	),
+	# 	Worker(
+	# 		QUEUE_BATCH_INFERENCE,
+	# 		_make_processor(ctx, BATCH_INFERENCE_QUEUE_HANDLERS, default_handler=handle_batch_inference),
+	# 		opts,
+	# 	),
+	# 	Worker(
+	# 		QUEUE_DATA_PIPELINE,
+	# 		_make_processor(ctx, DATA_PIPELINE_QUEUE_HANDLERS),
+	# 		opts,
+	# 	),
+	# ]
+	# logger.info(
+	# 	f"usfds-worker listening on {QUEUE_TRAINING}, {QUEUE_BATCH_INFERENCE}, {QUEUE_DATA_PIPELINE}"
+	# )
+	processors = {
+		QUEUE_TRAINING: _make_processor(ctx, TRAINING_QUEUE_HANDLERS, default_handler=handle_training_run),
+		QUEUE_BATCH_INFERENCE: _make_processor(ctx, BATCH_INFERENCE_QUEUE_HANDLERS, default_handler=handle_batch_inference),
+		QUEUE_DATA_PIPELINE: _make_processor(ctx, DATA_PIPELINE_QUEUE_HANDLERS),
+		QUEUE_ANALYTICS: _make_processor(ctx, ANALYTICS_QUEUE_HANDLERS),
+	}
+	queue_names = selected_queue_names(settings)
+	workers = [Worker(name, processors[name], opts) for name in queue_names]
+	logger.info(f"usfds-worker listening on {', '.join(queue_names)}")
 
 	stop = asyncio.Event()
 	loop = asyncio.get_running_loop()

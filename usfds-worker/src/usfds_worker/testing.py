@@ -11,10 +11,11 @@ from typing import Any, Callable, Dict, List, Optional
 
 import pytest
 
-from usfds_infra.job_queue import QUEUE_BATCH_INFERENCE, QUEUE_DATA_PIPELINE, QUEUE_TRAINING
+from usfds_infra.job_queue import QUEUE_ANALYTICS, QUEUE_BATCH_INFERENCE, QUEUE_DATA_PIPELINE, QUEUE_TRAINING
 from usfds_infra.job_queue.bullmq_queue import raise_from_failed_reason
 from usfds_worker.handlers import WorkerContext
 from usfds_worker.main import (
+	ANALYTICS_QUEUE_HANDLERS,
 	BATCH_INFERENCE_QUEUE_HANDLERS,
 	DATA_PIPELINE_QUEUE_HANDLERS,
 	TRAINING_QUEUE_HANDLERS,
@@ -24,6 +25,7 @@ _QUEUE_HANDLERS = {
 	QUEUE_TRAINING: TRAINING_QUEUE_HANDLERS,
 	QUEUE_BATCH_INFERENCE: BATCH_INFERENCE_QUEUE_HANDLERS,
 	QUEUE_DATA_PIPELINE: DATA_PIPELINE_QUEUE_HANDLERS,
+	QUEUE_ANALYTICS: ANALYTICS_QUEUE_HANDLERS,
 }
 
 
@@ -39,12 +41,12 @@ class InlineJobQueue:
 		self._context_factory = context_factory
 		self.jobs: List[Dict[str, Any]] = []
 
-	def _run(self, queue_name: str, job_name: str, data: Dict[str, Any]) -> Any:
+	def _run(self, queue_name: str, job_name: str, data: Dict[str, Any], **job_options: Any) -> Any:
 		handlers = _QUEUE_HANDLERS.get(queue_name)
 		if handlers is None or job_name not in handlers:
 			raise ValueError(f"Unknown job '{job_name}' on queue '{queue_name}'")
 		payload = json.loads(json.dumps(data, allow_nan=False))
-		record: Dict[str, Any] = {"queue": queue_name, "name": job_name, "data": payload, "state": "active"}
+		record: Dict[str, Any] = {"queue": queue_name, "name": job_name, "data": payload, "state": "active", **job_options}
 		self.jobs.append(record)
 		try:
 			result = handlers[job_name](self._context_factory(), payload)
@@ -81,9 +83,11 @@ class InlineJobQueue:
 		job_id: Optional[str] = None,
 		timeout_seconds: float = 300.0,
 		poll_interval_seconds: float = 0.25,
+		attempts: int = 1,
+		backoff_ms: int = 5000,
 	) -> Any:
 		try:
-			return self._run(queue_name, job_name, data)
+			return self._run(queue_name, job_name, data, attempts=attempts, timeout_seconds=timeout_seconds)
 		except Exception as e:
 			raise_from_failed_reason(f"{type(e).__name__}: {e}")
 

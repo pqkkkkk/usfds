@@ -9,6 +9,7 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
 from usfds_core.domain.entities.auth import ActorContext
+from usfds_core.services.inference.prediction_results import fetch_prediction_events
 from usfds_core.domain.entities.case import Case, CaseStatus, EntityBlacklist
 from usfds_core.domain.entities.enums import RiskLevel, RuleAction
 from usfds_core.repositories.base_case_repo import CaseConflictError
@@ -67,7 +68,7 @@ def _artifact(session: Session, storage: LocalFileStorage, project_id: UUID, art
 	return frame
 
 
-def _source_frame(session: Session, storage: LocalFileStorage, project_id: UUID, artifact_id: UUID | None, job_id: UUID | None) -> pd.DataFrame:
+def _source_frame(session: Session, storage: LocalFileStorage, project_id: UUID, artifact_id: UUID | None, job_id: UUID | None, event_ids: list[str] | None = None) -> pd.DataFrame:
 	if job_id is None:
 		if artifact_id is None:
 			raise HTTPException(400, "A source artifact or detection job is required")
@@ -78,7 +79,11 @@ def _source_frame(session: Session, storage: LocalFileStorage, project_id: UUID,
 	if job.status != "COMPLETED" or not job.output_path:
 		raise HTTPException(400, "Detection job must be completed before investigation")
 	try:
-		frame = pd.read_parquet(io.BytesIO(storage.read_bytes(job.output_path)))
+		if event_ids is None:
+			frame = pd.read_parquet(io.BytesIO(storage.read_bytes(job.output_path)))
+		else:
+			# [26-11-22] ISS-012: read only the requested events with DuckDB instead of the whole file.
+			frame = fetch_prediction_events(storage, job.output_path, event_ids)
 	except FileNotFoundError as error:
 		raise HTTPException(404, "Detection output is unavailable") from error
 	frame = prepare_and_validate_input(frame, {})
@@ -97,9 +102,10 @@ def _error(error: Exception):
 	raise error
 
 
-def ingest_request(request: CaseIntakeRequest, session: Session, storage: LocalFileStorage, actor: str, analyst_notes: str | None = None):
+def ingest_request(request: CaseIntakeRequest, session: Session, storage: LocalFileStorage, actor: str, analyst_notes: str | None = None, source_rows: pd.DataFrame | None = None):
 	_project(session, request.project_id, True)
-	frame = _source_frame(session, storage, request.project_id, request.dataset_artifact_id, request.detection_job_id)
+	# `source_rows`: rows already read by the caller (e.g. send-to-investigation) so the file is not read twice (ISS-012).
+	frame = source_rows if source_rows is not None else _source_frame(session, storage, request.project_id, request.dataset_artifact_id, request.detection_job_id, [t.event_id for t in request.transactions])
 	frame = frame.assign(event_id=frame["event_id"].astype(str))
 	indexed = frame.set_index("event_id")
 	counts = frame["event_id"].value_counts()

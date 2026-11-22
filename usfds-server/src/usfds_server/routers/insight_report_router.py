@@ -1,6 +1,7 @@
+import base64
 from datetime import datetime
 from typing import Any, Literal, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
@@ -8,7 +9,15 @@ from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.services.auth.authz_service import AuthzService
 from usfds_core.services.insight_report.service import InsightReportService
 from usfds_core.storage.base_storage import IFileStorage
-from usfds_server.dependencies import get_actor_context, get_authz_service, get_insight_report_service, get_storage
+from usfds_infra.job_queue import JOB_INSIGHT_REPORT, QUEUE_ANALYTICS
+from usfds_server.config import settings
+from usfds_server.dependencies import (
+	get_actor_context,
+	get_authz_service,
+	get_insight_report_service,
+	get_job_queue,
+	get_storage,
+)
 from usfds_server.schemas.base_response import ApiResponse
 
 router = APIRouter(prefix="/api/v1/reports", tags=["Insight & Report"])
@@ -30,6 +39,45 @@ def _parse_job_ids(job_ids_csv: Optional[str]) -> Optional[list[UUID]]:
 				detail=f"Invalid job_id UUID '{clean}' in job_ids filter.",
 			) from err
 	return result or None
+
+
+_REPORT_METHODS = {
+	"overview": "get_executive_overview",
+	"effectiveness": "get_effectiveness_analysis",
+	"patterns": "get_typology_and_patterns",
+	"executive_summary": "generate_executive_audit_report",
+	"export": "export_report",
+}
+
+
+def _jsonable(value: Any) -> Any:
+	if isinstance(value, datetime):
+		return value.isoformat()
+	if isinstance(value, UUID):
+		return str(value)
+	if isinstance(value, list):
+		return [_jsonable(v) for v in value]
+	return value
+
+
+def _report(service: InsightReportService, operation: str, **params: Any) -> Any:
+	"""Run an Insight & Report computation in-process, or on the analytics worker queue (ISS-012).
+
+	Authorization stays in the router; only the heavy DuckDB computation moves to the worker.
+	"""
+	if settings.dispatch_backend != "queue":
+		return getattr(service, _REPORT_METHODS[operation])(**params)
+	result = get_job_queue().enqueue_and_wait(
+		QUEUE_ANALYTICS,
+		JOB_INSIGHT_REPORT,
+		{"operation": operation, "params": {k: _jsonable(v) for k, v in params.items()}},
+		job_id=f"report-{uuid4()}",
+		timeout_seconds=settings.analytics_wait_timeout_seconds,
+		attempts=3,
+	)
+	if operation == "export":
+		return base64.b64decode(result["content_base64"]), result["filename"], result["media_type"]
+	return result
 
 
 def _handle_service_error(err: Exception) -> None:
@@ -61,7 +109,8 @@ def get_executive_overview(
 	authz.require_project_permission(actor, "report:read", project_id)
 	try:
 		parsed_jobs = _parse_job_ids(job_ids)
-		data = service.get_executive_overview(
+		data = _report(
+			service, "overview",
 			project_id=project_id,
 			job_ids=parsed_jobs,
 			date_from=date_from,
@@ -95,7 +144,8 @@ def get_effectiveness_analysis(
 	authz.require_project_permission(actor, "report:read", project_id)
 	try:
 		parsed_jobs = _parse_job_ids(job_ids)
-		data = service.get_effectiveness_analysis(
+		data = _report(
+			service, "effectiveness",
 			project_id=project_id,
 			job_ids=parsed_jobs,
 			model_version_id=model_version_id,
@@ -129,7 +179,8 @@ def get_typology_and_patterns(
 	authz.require_project_permission(actor, "report:read", project_id)
 	try:
 		parsed_jobs = _parse_job_ids(job_ids)
-		data = service.get_typology_and_patterns(
+		data = _report(
+			service, "patterns",
 			project_id=project_id,
 			job_ids=parsed_jobs,
 			date_from=date_from,
@@ -190,7 +241,8 @@ def get_executive_audit_report(
 	authz.require_project_permission(actor, "report:create", project_id, action="create")
 	try:
 		parsed_jobs = _parse_job_ids(job_ids)
-		data = service.generate_executive_audit_report(
+		data = _report(
+			service, "executive_summary",
 			project_id=project_id,
 			job_ids=parsed_jobs,
 			date_from=date_from,
@@ -230,7 +282,8 @@ def export_compliance_report(
 	authz.require_project_permission(actor, "report:export", project_id)
 	try:
 		parsed_jobs = _parse_job_ids(job_ids)
-		file_bytes, filename, media_type = service.export_report(
+		file_bytes, filename, media_type = _report(
+			service, "export",
 			project_id=project_id,
 			report_type=report_type,
 			file_format=file_format,

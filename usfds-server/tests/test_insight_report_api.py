@@ -154,3 +154,66 @@ def test_insight_report_api_endpoints_and_exports(tmp_path):
 			assert "attachment; filename=" in dl_md.headers.get("content-disposition", "")
 	finally:
 		settings.db_path, settings.storage_dir = old_db, old_storage
+
+
+def _seed_report_job(project_name: str) -> str:
+	"""Project + completed DetectionJob with 3 scanned transactions, via the running app's DB/storage."""
+	from usfds_infra.database import SqlUserRepository
+	from usfds_server import dependencies
+
+	project_id, job_id = uuid4(), uuid4()
+	session = dependencies._session_factory()
+	actor_id = SqlUserRepository(session).get_by_username("admin").user_id
+	SqliteProjectRepository(session).save(Project(project_id=project_id, user_id=actor_id, project_name=project_name))
+	pred_df = pd.DataFrame([
+		{"event_id": "EV-1", "user_id": "U-1", "timestamp": "2026-11-02T01:30:00Z", "amount": 1500.0, "model_score": 0.94,
+		 "rule_action": "REJECT", "final_action": "REJECT", "is_flagged": 1, "triggered_rules": json.dumps(["R_ATO"]), "label": 1},
+		{"event_id": "EV-2", "user_id": "U-2", "timestamp": "2026-11-02T14:00:00Z", "amount": 80.0, "model_score": 0.62,
+		 "rule_action": "ALLOW", "final_action": "REVIEW", "is_flagged": 1, "triggered_rules": "[]", "label": 0},
+		{"event_id": "EV-3", "user_id": "U-3", "timestamp": "2026-11-02T16:00:00Z", "amount": 25.0, "model_score": 0.05,
+		 "rule_action": "ALLOW", "final_action": "ALLOW", "is_flagged": 0, "triggered_rules": "[]", "label": 0},
+	])
+	output_rel = f"datasets/{project_id}/inferences/{job_id}/predictions.parquet"
+	dependencies.get_storage().save_bytes(output_rel, pred_df.to_parquet(index=False))
+	SqliteDetectionJobRepository(session).save(DetectionJob(
+		job_id=job_id, project_id=project_id, user_id=actor_id, job_name="Queue Scan", output_path=output_rel,
+		score_threshold=0.5, status=DetectionJobStatus.COMPLETED, total_records=3, fraud_records=2,
+		created_at=datetime(2026, 11, 2, 2, 0, tzinfo=timezone.utc),
+	))
+	session.commit()
+	session.close()
+	return str(project_id)
+
+
+def test_insight_report_runs_on_analytics_worker_queue_in_queue_mode(client_queue_mode):
+	from usfds_infra.job_queue import JOB_INSIGHT_REPORT, QUEUE_ANALYTICS
+
+	project_id = _seed_report_job("Queue Insight")
+	params = {"project_id": project_id}
+
+	ov = client_queue_mode.get("/api/v1/reports/overview", params=params)
+	assert ov.status_code == 200, ov.text
+	assert ov.json()["data"]["kpis"]["gross_scanned_volume"] == 1605.0
+	eff = client_queue_mode.get("/api/v1/reports/effectiveness", params=params)
+	assert eff.status_code == 200, eff.text
+	assert eff.json()["data"]["rule_leaderboard"][0]["rule_code"] == "R_ATO"
+	pat = client_queue_mode.get("/api/v1/reports/patterns", params=params)
+	assert pat.status_code == 200, pat.text
+	assert len(pat.json()["data"]["hourly_distribution"]) == 24
+	summary = client_queue_mode.get("/api/v1/reports/executive-summary", params=params)
+	assert summary.status_code == 200, summary.text
+	export = client_queue_mode.get("/api/v1/reports/export", params={**params, "report_type": "executive", "file_format": "csv"})
+	assert export.status_code == 200, export.text
+	assert b"R_ATO" in export.content and "attachment" in export.headers["content-disposition"]
+
+	jobs = client_queue_mode.job_queue.jobs
+	assert [(j["queue"], j["name"], j["state"]) for j in jobs] == [(QUEUE_ANALYTICS, JOB_INSIGHT_REPORT, "completed")] * 5
+	assert {j["attempts"] for j in jobs} == {3}  # analytics jobs retry transient failures (ISS-021)
+	assert {j["timeout_seconds"] for j in jobs} == {120.0}
+
+
+def test_insight_report_queue_mode_maps_worker_lookup_error_to_404(client_queue_mode):
+	res = client_queue_mode.get("/api/v1/reports/overview", params={"project_id": str(uuid4())})
+
+	assert res.status_code == 404, res.text
+	assert client_queue_mode.job_queue.jobs[-1]["failed_reason"].startswith("LookupError:")

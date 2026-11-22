@@ -1,6 +1,8 @@
 import os
 from dataclasses import dataclass
 
+ALL_QUEUES = ("training", "batch_inference", "data_pipeline", "analytics")
+
 
 def _require(name: str) -> str:
 	value = os.getenv(name)
@@ -20,9 +22,14 @@ class WorkerSettings:
 	bullmq_schema: str = "bullmq"
 	concurrency: int = 1
 	lock_duration_ms: int = 60_000
+	enabled_queues: tuple[str, ...] = ALL_QUEUES
 
 	@classmethod
 	def from_env(cls) -> "WorkerSettings":
+		queues = tuple(q.strip() for q in os.getenv("USFDS_WORKER_QUEUES", ",".join(ALL_QUEUES)).split(",") if q.strip())
+		unknown = [q for q in queues if q not in ALL_QUEUES]
+		if unknown or not queues:
+			raise RuntimeError(f"USFDS_WORKER_QUEUES has unknown queue(s) {unknown}; allowed: {', '.join(ALL_QUEUES)}")
 		return cls(
 			db_url=_require("USFDS_DB_URL"),
 			s3_endpoint_url=_require("USFDS_S3_ENDPOINT_URL"),
@@ -33,4 +40,5 @@ class WorkerSettings:
 			bullmq_schema=os.getenv("USFDS_BULLMQ_SCHEMA", "bullmq"),
 			concurrency=int(os.getenv("USFDS_WORKER_CONCURRENCY", "1")),
 			lock_duration_ms=int(os.getenv("USFDS_WORKER_LOCK_MS", "60000")),
+			enabled_queues=queues,
 		)

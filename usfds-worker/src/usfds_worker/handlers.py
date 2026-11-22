@@ -28,6 +28,7 @@ from usfds_core.domain.schemas.training_payload import TrainingRunPayload
 from usfds_core.services.data_management.service import DataManagementService
 from usfds_core.services.inference.executor import BatchInferenceExecutor
 from usfds_core.services.inference.inference_service import InferenceService
+from usfds_core.services.insight_report.service import InsightReportService
 from usfds_core.services.project_management.project_service import ProjectManagementService
 from usfds_core.services.rule_engine.executor import RuleExecutor
 from usfds_core.services.rule_engine.manager import RuleManager
@@ -48,7 +49,7 @@ from usfds_infra.database import (
 	SqliteRuleVersionRepository,
 	SqliteTrainingRunRepository,
 )
-from usfds_infra.database.case_repositories import SqliteCaseRepository
+from usfds_infra.database.case_repositories import SqliteAuditRepository, SqliteBlacklistRepository, SqliteCaseRepository
 
 logger = logging.getLogger(__name__)
 
@@ -352,3 +353,45 @@ def handle_rule_backtest(ctx: WorkerContext, data: Dict[str, Any]) -> Dict[str, 
 		res_dict = asdict(bt_result)
 		res_dict["action"] = str(bt_result.action.value if hasattr(bt_result.action, "value") else bt_result.action)
 		return res_dict
+
+
+_INSIGHT_OPERATIONS = {
+	"overview": "get_executive_overview",
+	"effectiveness": "get_effectiveness_analysis",
+	"patterns": "get_typology_and_patterns",
+	"executive_summary": "generate_executive_audit_report",
+	"export": "export_report",
+}
+
+
+def handle_insight_report(ctx: WorkerContext, data: Dict[str, Any]) -> Dict[str, Any]:
+	"""Compute an Insight & Report result (DuckDB over the project fact warehouse) outside the API process (ISS-012)."""
+	operation = data.get("operation")
+	if operation not in _INSIGHT_OPERATIONS:
+		raise ValueError(f"Unknown insight report operation '{operation}'")
+	params = dict(data.get("params") or {})
+	for key in ("date_from", "date_to"):
+		if params.get(key):
+			params[key] = datetime.fromisoformat(params[key])
+	for key in ("project_id", "case_id", "model_version_id"):
+		if params.get(key):
+			params[key] = UUID(str(params[key]))
+	if params.get("job_ids"):
+		params["job_ids"] = [UUID(str(j)) for j in params["job_ids"]]
+	logger.info(f"Executing insight report '{operation}' for project {params.get('project_id')}")
+	with ctx.session_factory() as session:
+		service = InsightReportService(
+			project_repo=SqliteProjectRepository(session),
+			detection_job_repo=SqliteDetectionJobRepository(session),
+			case_repo=SqliteCaseRepository(session),
+			blacklist_repo=SqliteBlacklistRepository(session),
+			audit_repo=SqliteAuditRepository(session),
+			rule_repo=SqliteRuleRepository(session),
+			rule_version_repo=SqliteRuleVersionRepository(session),
+			file_storage=ctx.storage,
+		)
+		result = getattr(service, _INSIGHT_OPERATIONS[operation])(**params)
+	if operation == "export":
+		file_bytes, filename, media_type = result
+		return {"content_base64": base64.b64encode(file_bytes).decode("ascii"), "filename": filename, "media_type": media_type}
+	return result

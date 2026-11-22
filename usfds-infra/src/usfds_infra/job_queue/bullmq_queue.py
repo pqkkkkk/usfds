@@ -8,6 +8,7 @@ from usfds_infra.database.engine import to_psycopg_conninfo
 QUEUE_TRAINING = "usfds-training"
 QUEUE_BATCH_INFERENCE = "usfds-batch-inference"
 QUEUE_DATA_PIPELINE = "usfds-data-pipeline"
+QUEUE_ANALYTICS = "usfds-analytics"
 
 JOB_TRAINING_RUN = "training_run"
 JOB_PLUGIN_DRY_RUN = "plugin_dry_run"
@@ -16,6 +17,7 @@ JOB_RULE_BACKTEST = "rule_backtest"
 JOB_DATASET_INGESTION = "dataset_ingestion"
 JOB_SCHEMA_MAPPING = "schema_mapping"
 JOB_FEATURE_ENGINEERING = "feature_engineering"
+JOB_INSIGHT_REPORT = "insight_report"
 
 DEFAULT_SCHEMA = "bullmq"
 

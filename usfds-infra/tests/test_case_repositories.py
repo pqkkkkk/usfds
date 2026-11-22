@@ -117,3 +117,21 @@ def test_case_search_by_rule_code_filters_exact_code(db_session):
 	cases, total = repo.search(project_id, {"rule_code": "R1"}, "priority", 1, 20)
 	assert total == 1
 	assert [c.event_id for c in cases] == ["TX-R1"]
+
+def test_case_repo_get_case_ids_by_events_is_pg_compatible(tmp_path):
+	engine = create_sqlite_engine(tmp_path / "ids.db")
+	init_db(engine)
+	factory = create_session_factory(engine)
+	project_id, other_project_id = uuid4(), uuid4()
+	mine = Case(project_id, "EV-1", "U1", datetime.now(timezone.utc), 100, RuleAction.REVIEW, uuid4())
+	other = Case(other_project_id, "EV-1", "U2", datetime.now(timezone.utc), 50, RuleAction.REVIEW, uuid4())
+	with factory() as session:
+		repo = SqliteCaseRepository(session)
+		repo.save(mine)
+		repo.save(other)
+		session.commit()
+	with factory() as session:
+		repo = SqliteCaseRepository(session)
+		assert repo.get_case_ids_by_events(project_id, ["EV-1", "EV-MISSING"]) == {"EV-1": str(mine.case_id)}
+		assert repo.get_case_ids_by_events(project_id, []) == {}
+	engine.dispose()

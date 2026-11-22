@@ -1,8 +1,13 @@
 import json
 import math
+import shutil
+import tempfile
+from pathlib import Path
 from typing import List, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 import pandas as pd
 from sqlalchemy.orm import Session
 
@@ -295,25 +300,36 @@ def export_detection_job_results(
 						message="Detection results export ready",
 					)
 
-		file_bytes, filename, media_type = service.export_detection_job_results(
-			job_id=job_id,
-			file_format=file_format,
-			only_flagged=only_flagged,
-		)
-		if presigned:
-			export_key = f"exports/detection/{job_id}/{filename}"
-			storage.save_bytes(export_key, file_bytes)
-			dl_url = storage.generate_presigned_download_url(export_key, filename=filename)
-			if dl_url:
-				return ApiResponse.ok(
-					data={"download_url": dl_url, "filename": filename, "object_key": export_key},
-					message="Detection results export ready",
-				)
-		return Response(
-			content=file_bytes,
-			media_type=media_type,
-			headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-		)
+		# [26-11-22] ISS-012: DuckDB writes the export to a temp file that is streamed / uploaded, never held in memory.
+		tmp_dir = Path(tempfile.mkdtemp(prefix="usfds_export_"))
+		keep_tmp_dir = False
+		try:
+			export_file = tmp_dir / "export"
+			filename, media_type = service.export_detection_job_results_to_file(
+				job_id=job_id,
+				dest_path=export_file,
+				file_format=file_format,
+				only_flagged=only_flagged,
+			)
+			if presigned:
+				export_key = f"exports/detection/{job_id}/{filename}"
+				storage.upload_file(export_file, export_key)
+				dl_url = storage.generate_presigned_download_url(export_key, filename=filename)
+				if dl_url:
+					return ApiResponse.ok(
+						data={"download_url": dl_url, "filename": filename, "object_key": export_key},
+						message="Detection results export ready",
+					)
+			keep_tmp_dir = True
+			return FileResponse(
+				export_file,
+				media_type=media_type,
+				filename=filename,
+				background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True),
+			)
+		finally:
+			if not keep_tmp_dir:
+				shutil.rmtree(tmp_dir, ignore_errors=True)
 	except (ValueError, FileNotFoundError) as e:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
@@ -337,7 +353,7 @@ def send_to_investigation(
 		job = service.get_detection_job(job_id)
 		authz.require_project_permission(actor_ctx, "case:create", job.project_id, action="create")
 		project = _project(session, job.project_id, True)
-		frame = _source_frame(session, storage, job.project_id, None, job_id)
+		frame = _source_frame(session, storage, job.project_id, None, job_id, event_ids=request.event_ids)
 		frame["event_id"] = frame["event_id"].astype(str)
 		counts = frame["event_id"].value_counts()
 		indexed = frame.set_index("event_id", drop=False)
@@ -370,7 +386,7 @@ def send_to_investigation(
 				"final_action": row["final_action"], "triggered_rules": rules, "feature_contributions": contributions, "attributes": attributes,
 			}))
 		payload = CaseIntakeRequest(project_id=job.project_id, detection_job_id=job_id, model_version_id=job.model_version_id, transactions=transactions)
-		result = ingest_request(payload, session, storage, actor_ctx.username, request.analyst_notes)
+		result = ingest_request(payload, session, storage, actor_ctx.username, request.analyst_notes, source_rows=frame)
 		return ApiResponse.ok(
 			data=result,
 			status_code=status.HTTP_201_CREATED,

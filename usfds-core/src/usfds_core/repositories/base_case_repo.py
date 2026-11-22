@@ -25,6 +25,11 @@ class ICaseRepository(ABC):
 	def list_by_project(self, project_id: UUID) -> list[Case]:
 		raise NotImplementedError
 
+	def get_case_ids_by_events(self, project_id: UUID, event_ids: list[str]) -> dict[str, str]:
+		"""event_id -> case_id for the given events of one project (override with a single IN query)."""
+		found = {event_id: self.get_by_event(project_id, event_id) for event_id in event_ids}
+		return {event_id: str(case.case_id) for event_id, case in found.items() if case is not None}
+
 
 class IBlacklistRepository(ABC):
 	@abstractmethod

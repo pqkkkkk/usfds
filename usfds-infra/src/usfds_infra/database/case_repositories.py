@@ -66,6 +66,14 @@ class SqliteCaseRepository(ICaseRepository):
 	def list_by_project(self, project_id: UUID) -> list[Case]:
 		return [_case(model) for model in self.session.scalars(select(CaseModel).where(CaseModel.project_id == str(project_id)).order_by(CaseModel.created_at, CaseModel.case_id))]
 
+	def get_case_ids_by_events(self, project_id: UUID, event_ids: list[str]) -> dict[str, str]:
+		if not event_ids:
+			return {}
+		rows = self.session.execute(
+			select(CaseModel.event_id, CaseModel.case_id).where(CaseModel.project_id == str(project_id), CaseModel.event_id.in_(list(event_ids)))
+		).all()
+		return {event_id: str(case_id) for event_id, case_id in rows}
+
 	def _search_query(self, project_id: UUID, filters: dict, dialect_name: str):
 		query = select(CaseModel).where(CaseModel.project_id == str(project_id))
 		for key in ("status", "priority", "user_id", "assigned_to"):

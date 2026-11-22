@@ -428,3 +428,56 @@ def test_detection_api_with_velocity_feature_engineering_and_raw_columns(server_
 		assert job_data["status"] == "COMPLETED", f"Job failed with: {job_data.get('error_message')}"
 		assert job_data["total_records"] == 20
 
+
+
+def test_detection_export_and_send_to_investigation_use_duckdb_without_full_frame_load(client, monkeypatch):
+	import io
+	import json
+	from uuid import uuid4
+
+	import pandas as pd
+
+	from usfds_core.domain.entities.detection import DetectionJob
+	from usfds_core.domain.entities.enums import DetectionJobStatus
+	from usfds_core.domain.entities.system import Project
+	from usfds_infra.database import SqlUserRepository, SqliteDetectionJobRepository, SqliteProjectRepository
+	from usfds_server import dependencies
+
+	project_id, job_id = uuid4(), uuid4()
+	session = dependencies._session_factory()
+	actor_id = SqlUserRepository(session).get_by_username("admin").user_id
+	SqliteProjectRepository(session).save(Project(project_id=project_id, user_id=actor_id, project_name="Duck Export"))
+	detail = [{"rule_id": str(uuid4()), "rule_version_id": str(uuid4()), "rule_code": "R_BIG", "rule_name": "Big", "version_number": 1, "action": "REJECT", "matched_clauses": ["amount >= 1000"]}]
+	rows = [
+		{"event_id": "EV-1", "user_id": "U-1", "timestamp": "2026-11-02T01:30:00Z", "amount": 1500.0, "model_score": 0.94, "rule_action": "REJECT",
+		 "final_action": "REJECT", "is_flagged": 1, "triggered_rules": json.dumps(["R_BIG"]), "triggered_rule_details": json.dumps(detail)},
+		{"event_id": "EV-2", "user_id": "U-2", "timestamp": "2026-11-02T02:00:00Z", "amount": 80.0, "model_score": 0.62, "rule_action": "ALLOW",
+		 "final_action": "REVIEW", "is_flagged": 1, "triggered_rules": "[]", "triggered_rule_details": "[]"},
+		{"event_id": "EV-3", "user_id": "U-3", "timestamp": "2026-11-02T03:00:00Z", "amount": 25.0, "model_score": 0.05, "rule_action": "ALLOW",
+		 "final_action": "ALLOW", "is_flagged": 0, "triggered_rules": "[]", "triggered_rule_details": "[]"},
+	]
+	output = f"datasets/{project_id}/inferences/{job_id}/predictions.parquet"
+	dependencies.get_storage().save_bytes(output, pd.DataFrame(rows).to_parquet(index=False))
+	SqliteDetectionJobRepository(session).save(DetectionJob(
+		job_id=job_id, project_id=project_id, user_id=actor_id, job_name="Duck Job", output_path=output,
+		status=DetectionJobStatus.COMPLETED, total_records=3, fraud_records=2,
+	))
+	session.commit()
+	session.close()
+
+	def _blocked(*args, **kwargs):
+		raise AssertionError("pd.read_parquet must not be used (ISS-012)")
+
+	monkeypatch.setattr(pd, "read_parquet", _blocked)
+
+	export = client.get(f"/api/v1/detection/jobs/{job_id}/export", params={"project_id": str(project_id), "only_flagged": "true", "file_format": "csv"})
+	assert export.status_code == 200, export.text
+	frame = pd.read_csv(io.BytesIO(export.content))
+	assert sorted(frame["event_id"]) == ["EV-1", "EV-2"]
+	assert "attachment" in export.headers["content-disposition"]
+
+	sent = client.post(f"/api/v1/detection/jobs/{job_id}/send-to-investigation", json={"event_ids": ["EV-1"]})
+	assert sent.status_code == 201, sent.text
+	assert sent.json()["data"]["accepted_count"] == 1
+	assert client.post(f"/api/v1/detection/jobs/{job_id}/send-to-investigation", json={"event_ids": ["EV-3"]}).status_code == 400
+	assert client.post(f"/api/v1/detection/jobs/{job_id}/send-to-investigation", json={"event_ids": ["UNKNOWN"]}).status_code == 400
