@@ -5,13 +5,13 @@ description: End-to-end lifecycle for implementing an approved USFDS task in one
 
 # USFDS task workflow
 
-The user reviews **tests and a few key logic points**, not the whole diff. Everything in this workflow exists to make that safe.
+The user reviews **Design & Approach, tests, and a few key logic points**, not the whole diff. Everything in this workflow exists to make that safe.
 
 ## 0. Preconditions
 - An approved plan exists in `.plan/<task>.md` (skill `usfds-plan`). If not, plan first and stop.
 - **1 task = 1 session = 1 plan file.** You implement the whole task yourself, every milestone in order. Do not hand parts to other agents, and do not open extra tasks.
 - You work in your own git worktree and branch `task/<task_slug>`. Do not commit to `main`.
-- Track progress only in your plan's §6 (tick each to-do item as you finish it). Do not edit `CHANGELOG.md` or `.plan/BOARD.md` in the task branch, and never add to `TODO.md` (frozen history). Report what should change; they are updated at merge.
+- Track progress only in your plan's §6 (tick each to-do item as you finish it). Do not edit `CHANGELOG.md` or `.plan/BOARD.md` in the task branch during implementation, and never add to `TODO.md` (frozen history). (When running multiple agents concurrently, `.plan/BOARD.md` is marked `In progress` on `main` when the task is claimed; final status + `CHANGELOG.md` are updated at step 5.)
 
 ## Milestone loop
 Run sections 1–3 once per milestone (M1, M2, …) in plan order. Can stop early only when:
@@ -32,7 +32,7 @@ At the end of each milestone:
 3. Do not weaken, skip or delete an approved test to get green. If a test is wrong, stop and tell the user why.
 
 ## 2. Implement
-- Follow `AGENTs.md` coding rules (tabs, semicolons in TS, 1TBS, minimal diff, no unrelated refactors, `DEPRECATED` instead of deleting).
+- Follow `AGENTs.md` coding rules (tabs in new files, follow existing file style when editing; semicolons & 1TBS in TS, no semicolons in Python; minimal diff, no unrelated refactors; remove obsolete code cleanly when explicitly dropped by the task).
 - Backend changes: skill `usfds-backend-change`. Web changes: skill `usfds-frontend-change`.
 - Stay inside plan §3 scope. If you must touch another file, note it in the report with the reason.
 - Hot-spot files: append only.
@@ -60,6 +60,7 @@ At the end of each milestone:
 
 **Assumptions made:** <list or —>
 **Not done / follow-ups:** <list or —, with proposed ISS entries>
+**Manual E2E to run:** <copy §9 checklist or —>
 **Merge notes:** Alembic revision `<id>` (down_revision `<id>`) · hot-spot edits: <files> · CHANGELOG/BOARD lines to add: <text>
 ```
 

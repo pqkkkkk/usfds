@@ -10,6 +10,7 @@ import {
 	Beaker,
 	Target,
 	GitMerge,
+	GitBranch,
 	HelpCircle,
 	Edit3,
 	Save,
@@ -19,6 +20,7 @@ import {
 	ChevronDown,
 	ChevronRight,
 	BookOpen,
+	ClipboardCheck,
 } from 'lucide-react';
 import {
 	docsDashboardApi,
@@ -34,6 +36,7 @@ import {
 interface PlanReviewViewProps {
 	plan: ParsedPlan;
 	isLight?: boolean;
+	wideLayout?: boolean;
 	onSelectIssue: (issueId: string) => void;
 	onSelectFileRef: (fileRef: string) => void;
 	onSelectPlan: (slug: string) => void;
@@ -41,7 +44,7 @@ interface PlanReviewViewProps {
 	onRefreshOverview: () => Promise<void>;
 }
 
-type ReviewModeTab = 'pre-code' | 'post-code' | 'full' | 'editor';
+type PlanViewTab = 'review' | 'spec' | 'full' | 'editor';
 
 interface CollapsibleCardProps {
 	id: string;
@@ -78,6 +81,7 @@ const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
 			<button
 				type="button"
 				onClick={() => onToggle(id)}
+				aria-expanded={isOpen}
 				className={`w-full px-5 py-4 flex items-center justify-between gap-4 text-left transition ${headerHover}`}
 			>
 				<div className="flex items-center gap-3 min-w-0">
@@ -116,30 +120,31 @@ const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
 export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 	plan,
 	isLight = false,
+	wideLayout = false,
 	onSelectIssue,
 	onSelectFileRef,
 	onSelectPlan,
 	onPlanUpdated,
 	onRefreshOverview,
 }) => {
+	const containerWidthClass = wideLayout ? 'max-w-6xl' : 'max-w-5xl';
 	const isDoneOrInProgress =
 		plan.status.toLowerCase().includes('done') ||
+		plan.status.toLowerCase().includes('in progress') ||
+		plan.status.toLowerCase().includes('review') ||
 		plan.hotspots.length > 0;
 
-	const [activeTab, setActiveTab] = useState<ReviewModeTab>(
-		plan.validation.status === 'legacy'
-			? 'full'
-			: isDoneOrInProgress
-				? 'post-code'
-				: 'pre-code'
+	const [activeTab, setActiveTab] = useState<PlanViewTab>(
+		plan.validation.status === 'legacy' ? 'full' : 'review'
 	);
-	const [selectedMilestoneFilter, setSelectedMilestoneFilter] = useState<string>('ALL');
+	const [selectedMilestoneFilter, setSelectedMilestoneFilter] =
+		useState<string>('ALL');
 	const [testMilestoneFilter, setTestMilestoneFilter] = useState<string>('ALL');
 	const [rawBuffer, setRawBuffer] = useState(plan.raw);
 	const [saving, setSaving] = useState(false);
 	const [newQuestion, setNewQuestion] = useState('');
 
-	// Progressive disclosure: ALL sections collapsed by default so user is never overwhelmed
+	// Progressive disclosure: ALL sections collapsed by default so user opens each card on demand
 	const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
 	// Per-milestone collapse inside §6
@@ -149,35 +154,18 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 
 	useEffect(() => {
 		setRawBuffer(plan.raw);
+	}, [plan.raw]);
+
+	useEffect(() => {
 		setSelectedMilestoneFilter('ALL');
 		setTestMilestoneFilter('ALL');
 		setOpenSections({});
-		if (plan.validation.status === 'legacy') {
-			setActiveTab('full');
-		}
-	}, [plan.slug, plan.raw, plan.validation.status]);
+		setCollapsedMilestones({});
+		setActiveTab(plan.validation.status === 'legacy' ? 'full' : 'review');
+	}, [plan.slug, plan.validation.status]);
 
 	const toggleSection = (id: string) => {
 		setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
-	};
-
-	const areAllOpen =
-		activeTab === 'pre-code'
-			? !!(openSections.sec2 && openSections.sec8 && openSections.sec5 && openSections.sec4 && openSections.sec1)
-			: !!(openSections.sec7 && openSections.sec6 && openSections.sec3);
-
-	const handleToggleAllSections = () => {
-		const nextState = !areAllOpen;
-		setOpenSections({
-			sec1: nextState,
-			sec2: nextState,
-			sec3: nextState,
-			sec4: nextState,
-			sec5: nextState,
-			sec6: nextState,
-			sec7: nextState,
-			sec8: nextState,
-		});
 	};
 
 	const todayShort = new Date().toISOString().slice(2, 10);
@@ -201,7 +189,10 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 		}
 	};
 
-	const handleToggleCheckbox = async (lineNumber: number, currentChecked: boolean) => {
+	const handleToggleCheckbox = async (
+		lineNumber: number,
+		currentChecked: boolean
+	) => {
 		setSaving(true);
 		try {
 			const updated = await docsDashboardApi.togglePlanCheckbox(
@@ -238,13 +229,13 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 		try {
 			await docsDashboardApi.saveFile(plan.filePath, rawBuffer);
 			await onRefreshOverview();
-			setActiveTab('pre-code');
+			setActiveTab('review');
 		} finally {
 			setSaving(false);
 		}
 	};
 
-	// Compute milestone completion stats
+	// Compute milestone & manual E2E completion stats
 	const totalCheckItems = plan.milestones.reduce(
 		(acc, m) => acc + m.items.length,
 		0
@@ -254,6 +245,7 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 		0
 	);
 	const doneMilestones = plan.milestones.filter((m) => m.checked).length;
+	const doneE2eItems = plan.manualE2eItems.filter((i) => i.checked).length;
 
 	const conflictBadgeColor = plan.conflictVerdict
 		.toUpperCase()
@@ -295,10 +287,27 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 		verify: isLight
 			? 'bg-teal-50 text-teal-700 border-teal-200'
 			: 'bg-teal-500/15 text-teal-300 border-teal-500/30',
+		e2e: isLight
+			? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+			: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
 	};
 
 	const findSectionContent = (prefix: string): string => {
 		for (const [k, v] of Object.entries(plan.sections)) {
+			if (prefix === '2.5') {
+				if (/^2\.5(?:\.|\s|$)/i.test(k)) {
+					return v;
+				}
+				continue;
+			}
+			const intMatch = prefix.match(/^(\d+)\.$/);
+			if (intMatch) {
+				const numRegex = new RegExp(`^${intMatch[1]}\\.(?!\\d)`);
+				if (numRegex.test(k)) {
+					return v;
+				}
+				continue;
+			}
 			if (k.startsWith(prefix)) {
 				return v;
 			}
@@ -313,6 +322,15 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 		(t) => testMilestoneFilter === 'ALL' || t.milestone === testMilestoneFilter
 	);
 
+	const showPostCodeCards =
+		plan.hotspots.length > 0 ||
+		plan.manualE2eItems.length > 0 ||
+		isDoneOrInProgress;
+	const showDesignCard =
+		Boolean(plan.designApproachMarkdown) ||
+		plan.validation.schemaVersion === 'v2';
+	const sec9Raw = findSectionContent('9.');
+
 	return (
 		<div className="flex flex-col h-full overflow-hidden">
 			{/* 1. Clean Top Plan Decision & Metadata Header */}
@@ -323,7 +341,7 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 						: 'bg-[#0f0f12] border-zinc-800/90'
 				}`}
 			>
-				<div className="max-w-5xl mx-auto space-y-3.5">
+				<div className={`${containerWidthClass} mx-auto space-y-3.5`}>
 					<div className="flex flex-wrap items-start justify-between gap-4">
 						<div className="space-y-2 min-w-0 flex-1">
 							<div className="flex flex-wrap items-center gap-2">
@@ -347,7 +365,9 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 										}`}
 									>
 										<ShieldCheck className="w-3.5 h-3.5" />
-										Chuẩn Template (§1–§8)
+										{plan.validation.schemaVersion === 'v1'
+											? 'Chuẩn v1 (§1–§8)'
+											: 'Chuẩn Template v2 (§1–§9)'}
 									</span>
 								)}
 								{plan.validation.status === 'warning' && (
@@ -407,7 +427,7 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 							</h1>
 						</div>
 
-						{/* Clear Status Dropdown + Action Button (Not a filter bar!) */}
+						{/* Clear Status Dropdown + Action Button */}
 						{plan.validation.status !== 'legacy' && (
 							<div className="flex items-center gap-2.5 shrink-0">
 								{plan.status.toLowerCase().startsWith('draft') && (
@@ -473,18 +493,18 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 						)}
 					</div>
 
-					{/* Review Mode Tabs & Milestone Progress */}
+					{/* Two Primary Plan Tabs + Secondary Read/Edit + Milestone Progress */}
 					<div
 						className={`flex flex-wrap items-center justify-between gap-4 pt-3 border-t ${
 							isLight ? 'border-zinc-200/80' : 'border-zinc-800/80'
 						}`}
 					>
-						<div className="flex items-center gap-2">
+						<div className="flex flex-wrap items-center gap-2">
 							<button
 								type="button"
-								onClick={() => setActiveTab('pre-code')}
+								onClick={() => setActiveTab('review')}
 								className={`px-3.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2 transition border ${
-									activeTab === 'pre-code'
+									activeTab === 'review'
 										? isLight
 											? 'bg-blue-50 text-blue-700 border-blue-200 font-semibold'
 											: 'bg-blue-500/15 text-blue-300 border-blue-500/30 font-semibold'
@@ -494,23 +514,36 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 								}`}
 							>
 								<Beaker className="w-3.5 h-3.5" />
-								<span>1. Duyệt Kế Hoạch</span>
+								<span>Review Mode</span>
 								{plan.acceptanceTests.length > 0 && (
 									<span
 										className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-											isLight ? 'bg-blue-100 text-blue-800' : 'bg-zinc-800 text-zinc-300'
+											isLight
+												? 'bg-blue-100 text-blue-800'
+												: 'bg-zinc-800 text-zinc-300'
 										}`}
 									>
 										{plan.acceptanceTests.length} tests
+									</span>
+								)}
+								{plan.mermaidBlocks.length > 0 && (
+									<span
+										className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+											isLight
+												? 'bg-emerald-100 text-emerald-800'
+												: 'bg-emerald-500/20 text-emerald-300'
+										}`}
+									>
+										{plan.mermaidBlocks.length} sơ đồ
 									</span>
 								)}
 							</button>
 
 							<button
 								type="button"
-								onClick={() => setActiveTab('post-code')}
+								onClick={() => setActiveTab('spec')}
 								className={`px-3.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2 transition border ${
-									activeTab === 'post-code'
+									activeTab === 'spec'
 										? isLight
 											? 'bg-blue-50 text-blue-700 border-blue-200 font-semibold'
 											: 'bg-blue-500/15 text-blue-300 border-blue-500/30 font-semibold'
@@ -519,40 +552,64 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 											: 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
 								}`}
 							>
-								<Flame className="w-3.5 h-3.5 text-orange-400" />
-								<span>2. Duyệt Nghiệm Thu</span>
-								{plan.hotspots.length > 0 && (
-									<span className="px-1.5 py-0.2 rounded-full bg-orange-500/20 text-orange-400 text-[10px] font-mono">
-										{plan.hotspots.length} hotspots
+								<Layers className="w-3.5 h-3.5" />
+								<span>Agent Spec</span>
+								{plan.filesTable.length > 0 ? (
+									<span
+										className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+											isLight
+												? 'bg-zinc-200 text-zinc-700'
+												: 'bg-zinc-800 text-zinc-300'
+										}`}
+									>
+										{plan.filesTable.length} files
 									</span>
+								) : (
+									plan.milestones.length > 0 && (
+										<span
+											className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+												isLight
+													? 'bg-zinc-200 text-zinc-700'
+													: 'bg-zinc-800 text-zinc-300'
+											}`}
+										>
+											{plan.milestones.length} M
+										</span>
+									)
 								)}
 							</button>
+
+							<div
+								className={`h-5 w-px mx-1 ${
+									isLight ? 'bg-zinc-200' : 'bg-zinc-800'
+								}`}
+							/>
 
 							<button
 								type="button"
 								onClick={() => setActiveTab('full')}
-								className={`px-3.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2 transition border ${
+								className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition border ${
 									activeTab === 'full'
 										? isLight
-											? 'bg-blue-50 text-blue-700 border-blue-200 font-semibold'
-											: 'bg-blue-500/15 text-blue-300 border-blue-500/30 font-semibold'
+											? 'bg-zinc-100 text-zinc-900 border-zinc-300 font-semibold'
+											: 'bg-zinc-800 text-zinc-100 border-zinc-700 font-semibold'
 										: isLight
 											? 'border-transparent text-zinc-600 hover:bg-zinc-100'
 											: 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
 								}`}
 							>
 								<FileText className="w-3.5 h-3.5" />
-								<span>3. Đọc toàn văn</span>
+								<span>Đọc toàn văn</span>
 							</button>
 
 							<button
 								type="button"
 								onClick={() => setActiveTab('editor')}
-								className={`px-3.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2 transition border ${
+								className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition border ${
 									activeTab === 'editor'
 										? isLight
-											? 'bg-blue-50 text-blue-700 border-blue-200 font-semibold'
-											: 'bg-blue-500/15 text-blue-300 border-blue-500/30 font-semibold'
+											? 'bg-zinc-100 text-zinc-900 border-zinc-300 font-semibold'
+											: 'bg-zinc-800 text-zinc-100 border-zinc-700 font-semibold'
 										: isLight
 											? 'border-transparent text-zinc-600 hover:bg-zinc-100'
 											: 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
@@ -563,63 +620,48 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 							</button>
 						</div>
 
-						<div className="flex items-center gap-4">
-							{(activeTab === 'pre-code' || activeTab === 'post-code') && (
-								<button
-									type="button"
-									onClick={handleToggleAllSections}
-									className={`px-2.5 py-1 rounded-lg border text-xs font-mono transition ${
-										isLight
-											? 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-600'
-											: 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-400'
-									}`}
-								>
-									{areAllOpen ? 'Đóng tất cả các mục' : 'Mở tất cả các mục'}
-								</button>
-							)}
-
-							{/* Milestone Progress Pill */}
-							{plan.milestones.length > 0 && (
+						{/* Milestone Progress Pill */}
+						{plan.milestones.length > 0 && (
+							<div
+								className={`flex items-center gap-3 text-xs font-mono ${
+									isLight ? 'text-zinc-600' : 'text-zinc-400'
+								}`}
+							>
+								<span>
+									Milestones: <strong>{doneMilestones}</strong>/
+									{plan.milestones.length}
+								</span>
+								<span>•</span>
+								<span>
+									Tasks: <strong>{doneCheckItems}</strong>/{totalCheckItems}
+								</span>
 								<div
-									className={`flex items-center gap-3 text-xs font-mono ${
-										isLight ? 'text-zinc-600' : 'text-zinc-400'
+									className={`w-24 h-2 rounded-full overflow-hidden border ${
+										isLight
+											? 'bg-zinc-100 border-zinc-200'
+											: 'bg-zinc-900 border-zinc-800'
 									}`}
 								>
-									<span>
-										Milestones: <strong>{doneMilestones}</strong>/{plan.milestones.length}
-									</span>
-									<span>•</span>
-									<span>
-										Tasks: <strong>{doneCheckItems}</strong>/{totalCheckItems}
-									</span>
 									<div
-										className={`w-24 h-2 rounded-full overflow-hidden border ${
-											isLight
-												? 'bg-zinc-100 border-zinc-200'
-												: 'bg-zinc-900 border-zinc-800'
-										}`}
-									>
-										<div
-											className="h-full bg-emerald-500 transition-all"
-											style={{
-												width: `${
-													totalCheckItems > 0
-														? Math.round((doneCheckItems / totalCheckItems) * 100)
-														: 0
-												}%`,
-											}}
-										/>
-									</div>
+										className="h-full bg-emerald-500 transition-all"
+										style={{
+											width: `${
+												totalCheckItems > 0
+													? Math.round((doneCheckItems / totalCheckItems) * 100)
+													: 0
+											}%`,
+										}}
+									/>
 								</div>
-							)}
-						</div>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
 
-			{/* 2. Centered, Breathable Main Viewport (max-w-5xl mx-auto) */}
+			{/* 2. Centered, Breathable Main Viewport (max-w-5xl / max-w-6xl mx-auto) */}
 			<div className="flex-1 overflow-y-auto px-8 py-8">
-				<div className="max-w-5xl mx-auto space-y-5">
+				<div className={`${containerWidthClass} mx-auto space-y-5`}>
 					{/* Schema Warnings Box if any */}
 					{plan.validation.status === 'warning' && (
 						<div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-1.5">
@@ -637,10 +679,10 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 						</div>
 					)}
 
-					{/* TAB 1: PRE-CODE REVIEW */}
-					{activeTab === 'pre-code' && (
+					{/* TAB 1: REVIEW MODE */}
+					{activeTab === 'review' && (
 						<div className="space-y-5">
-							{/* §2 Goal, Scope Verdict & Non-goals (Expanded by default) */}
+							{/* §2 Goal, Scope Verdict & Non-goals */}
 							<CollapsibleCard
 								id="sec2"
 								icon={<Target className="w-4 h-4 text-blue-400" />}
@@ -671,80 +713,51 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 								/>
 							</CollapsibleCard>
 
-							{/* §8 Open Questions (Collapsed into 1-line green card if 0 questions!) */}
-							<CollapsibleCard
-								id="sec8"
-								icon={<HelpCircle className="w-4 h-4 text-amber-400" />}
-								title="§8. Câu hỏi mở / Điểm cần chốt (Open Questions)"
-								isOpen={!!openSections.sec8}
-								isLight={isLight}
-								onToggle={toggleSection}
-								badge={
-									plan.openQuestions.length === 0 ? (
-										<span className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400">
-											<CheckCircle2 className="w-3.5 h-3.5" />
-											<span>0 câu hỏi tồn đọng</span>
-										</span>
-									) : (
-										<span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-amber-500/20 text-amber-400 font-semibold">
-											{plan.openQuestions.length} câu hỏi cần chốt
-										</span>
-									)
-								}
-							>
-								<div className="space-y-3 pt-2">
-									{plan.openQuestions.length === 0 ? (
-										<div className="text-xs text-emerald-400 flex items-center gap-1.5 font-mono">
-											<CheckCircle2 className="w-3.5 h-3.5" />
-											Không có câu hỏi mở tồn đọng.
-										</div>
-									) : (
-										<div className="space-y-2.5">
-											{plan.openQuestions.map((q, idx) => (
-												<div
-													key={idx}
-													className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs leading-7"
-												>
-													<InlineSmartText
-														text={q}
-														isLight={isLight}
-														onSelectIssue={onSelectIssue}
-														onSelectFileRef={onSelectFileRef}
-														onSelectPlan={onSelectPlan}
-													/>
-												</div>
-											))}
-										</div>
-									)}
+							{/* §2.5 Design & Approach (Mermaid + Key Decisions + Edge Cases) */}
+							{showDesignCard && (
+								<CollapsibleCard
+									id="sec2_5"
+									icon={<GitBranch className="w-4 h-4 text-emerald-400" />}
+									title="§2.5. Thiết kế & Hướng tiếp cận (Design & Approach)"
+									isOpen={!!openSections.sec2_5}
+									isLight={isLight}
+									onToggle={toggleSection}
+									badge={
+										plan.mermaidBlocks.length > 0 ? (
+											<span
+												className={`px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold border ${
+													isLight
+														? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+														: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+												}`}
+											>
+												{plan.mermaidBlocks.length} sơ đồ Mermaid
+											</span>
+										) : (
+											<span
+												className={`text-xs font-mono ${
+													isLight ? 'text-zinc-500' : 'text-zinc-400'
+												}`}
+											>
+												{!plan.designApproachMarkdown ||
+												plan.designApproachMarkdown.trim() === '—'
+													? '—'
+													: 'Không có sơ đồ'}
+											</span>
+										)
+									}
+								>
+									<RichDocRenderer
+										markdown={plan.designApproachMarkdown || '—'}
+										isLight={isLight}
+										onSelectIssue={onSelectIssue}
+										onSelectFileRef={onSelectFileRef}
+										onSelectPlan={onSelectPlan}
+									/>
+								</CollapsibleCard>
+							)}
 
-									<form
-										onSubmit={handleAddQuestion}
-										className="flex items-center gap-2.5 pt-2"
-									>
-										<input
-											type="text"
-											value={newQuestion}
-											onChange={(e) => setNewQuestion(e.target.value)}
-											placeholder="Ghi thêm câu hỏi hoặc quyết định review vào mục §8 của file .md..."
-											className={`flex-1 px-3.5 py-2 rounded-xl border text-xs focus:outline-none focus:border-blue-500 ${
-												isLight
-													? 'bg-zinc-50 border-zinc-200 text-zinc-900'
-													: 'bg-[#09090b] border-zinc-800 text-zinc-200'
-											}`}
-										/>
-										<button
-											type="submit"
-											disabled={saving || !newQuestion.trim()}
-											className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white flex items-center gap-1.5 transition disabled:opacity-40"
-										>
-											<Plus className="w-3.5 h-3.5" />
-											<span>Thêm vào §8</span>
-										</button>
-									</form>
-								</div>
-							</CollapsibleCard>
-
-							{/* §5 Acceptance Tests (Expanded + Milestone Filter Tabs so user isn't overwhelmed) */}
+							{/* §5 Acceptance Tests */}
 							<CollapsibleCard
 								id="sec5"
 								icon={<Beaker className="w-4 h-4 text-purple-400" />}
@@ -939,92 +952,266 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 								)}
 							</CollapsibleCard>
 
-							{/* §4 Conflict Matrix (Collapsed by default when PARALLEL-SAFE to reduce clutter) */}
+							{/* §8 Open Questions */}
 							<CollapsibleCard
-								id="sec4"
-								icon={<GitMerge className="w-4 h-4 text-emerald-400" />}
-								title="§4. Ma trận Phụ thuộc & Xung đột (D1–D2, C1–C5)"
-								isOpen={!!openSections.sec4}
+								id="sec8"
+								icon={<HelpCircle className="w-4 h-4 text-amber-400" />}
+								title="§8. Câu hỏi mở / Điểm cần chốt (Open Questions)"
+								isOpen={!!openSections.sec8}
 								isLight={isLight}
 								onToggle={toggleSection}
 								badge={
-									plan.conflictVerdict ? (
-										<span
-											className={`px-2.5 py-0.5 rounded-md text-xs font-mono border ${conflictBadgeColor}`}
-										>
-											{cleanMarkdownPlain(plan.conflictVerdict.split('(')[0])}
+									plan.openQuestions.length === 0 ? (
+										<span className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400">
+											<CheckCircle2 className="w-3.5 h-3.5" />
+											<span>0 câu hỏi tồn đọng</span>
 										</span>
-									) : null
+									) : (
+										<span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-amber-500/20 text-amber-400 font-semibold">
+											{plan.openQuestions.length} câu hỏi cần chốt
+										</span>
+									)
 								}
 							>
-								<div
-									className={`mt-2 overflow-x-auto rounded-xl border ${
-										isLight ? 'border-zinc-200' : 'border-zinc-800'
-									}`}
-								>
-									<table className="w-full text-left border-collapse text-xs">
-										<thead>
-											<tr
-												className={`border-b font-mono text-[11px] ${
-													isLight
-														? 'bg-zinc-50 border-zinc-200 text-zinc-500'
-														: 'bg-zinc-900/80 border-zinc-800 text-zinc-400'
-												}`}
-											>
-												<th className="px-4 py-3 w-14">#</th>
-												<th className="px-4 py-3 w-64">Tiêu chí</th>
-												<th className="px-4 py-3">Đánh giá</th>
-											</tr>
-										</thead>
-										<tbody
-											className={`divide-y ${
-												isLight ? 'divide-zinc-200' : 'divide-zinc-800/80'
+								<div className="space-y-3 pt-2">
+									{plan.openQuestions.length === 0 ? (
+										<div className="text-xs text-emerald-400 flex items-center gap-1.5 font-mono">
+											<CheckCircle2 className="w-3.5 h-3.5" />
+											Không có câu hỏi mở tồn đọng.
+										</div>
+									) : (
+										<div className="space-y-2.5">
+											{plan.openQuestions.map((q, idx) => (
+												<div
+													key={idx}
+													className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs leading-7"
+												>
+													<InlineSmartText
+														text={q}
+														isLight={isLight}
+														onSelectIssue={onSelectIssue}
+														onSelectFileRef={onSelectFileRef}
+														onSelectPlan={onSelectPlan}
+													/>
+												</div>
+											))}
+										</div>
+									)}
+
+									<form
+										onSubmit={handleAddQuestion}
+										className="flex items-center gap-2.5 pt-2"
+									>
+										<input
+											type="text"
+											value={newQuestion}
+											onChange={(e) => setNewQuestion(e.target.value)}
+											placeholder="Ghi thêm câu hỏi hoặc quyết định review vào mục §8 của file .md..."
+											className={`flex-1 px-3.5 py-2 rounded-xl border text-xs focus:outline-none focus:border-blue-500 ${
+												isLight
+													? 'bg-zinc-50 border-zinc-200 text-zinc-900'
+													: 'bg-[#09090b] border-zinc-800 text-zinc-200'
 											}`}
+										/>
+										<button
+											type="submit"
+											disabled={saving || !newQuestion.trim()}
+											className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white flex items-center gap-1.5 transition disabled:opacity-40"
 										>
-											{plan.conflictsTable.map((row) => {
-												const isNo =
-													row.answer.toLowerCase().startsWith('no') ||
-													row.answer === '—';
-												return (
-													<tr key={row.id}>
-														<td className="px-4 py-3 font-mono font-bold">
-															{row.id}
-														</td>
-														<td
-															className={`px-4 py-3 ${
-																isLight ? 'text-zinc-700' : 'text-zinc-300'
-															}`}
-														>
-															{row.check}
-														</td>
-														<td
-															className={`px-4 py-3 font-medium leading-7 ${
-																isNo
-																	? isLight
-																		? 'text-emerald-700'
-																		: 'text-emerald-400'
-																	: isLight
-																		? 'text-amber-800'
-																		: 'text-amber-300'
+											<Plus className="w-3.5 h-3.5" />
+											<span>Thêm vào §8</span>
+										</button>
+									</form>
+								</div>
+							</CollapsibleCard>
+
+							{/* Post-code review cards when applicable: §7 Hotspots & §9 Manual E2E */}
+							{showPostCodeCards && (
+								<>
+									<CollapsibleCard
+										id="sec7"
+										icon={<Flame className="w-4 h-4 text-orange-400" />}
+										title="§7. Điểm nóng cần Review (Review Hotspots)"
+										isOpen={!!openSections.sec7}
+										isLight={isLight}
+										accentBorder="border-orange-500/30"
+										onToggle={toggleSection}
+										badge={
+											<span className="px-2.5 py-0.5 rounded-md text-xs font-mono bg-orange-500/15 text-orange-400 border border-orange-500/30 font-semibold">
+												{plan.hotspots.length} điểm nóng
+											</span>
+										}
+									>
+										{plan.hotspots.length === 0 ? (
+											<div className="p-4 rounded-xl text-xs text-zinc-400 font-mono">
+												Chưa có Review Hotspots (Mục §7 được điền sau khi agent hoàn tất code).
+											</div>
+										) : (
+											<div className="space-y-3.5 pt-2">
+												{plan.hotspots.map((hs, idx) => (
+													<div
+														key={idx}
+														className={`p-4 rounded-xl border transition space-y-3 ${
+															isLight
+																? 'bg-zinc-50 border-zinc-200 hover:border-orange-300'
+																: 'bg-[#0c0c0f] border-zinc-800 hover:border-orange-500/40'
+														}`}
+													>
+														<div className="flex flex-wrap items-center gap-2">
+															<span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+																Hotspot #{idx + 1}{' '}
+																{hs.milestone ? `(${hs.milestone})` : ''}
+															</span>
+															{hs.codeRefs.map((ref) => {
+																const { shortLabel, pkgHint } =
+																	formatShortFileRef(ref);
+																return (
+																	<button
+																		key={ref}
+																		type="button"
+																		onClick={() => onSelectFileRef(ref)}
+																		title={ref}
+																		className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-semibold border transition ${
+																			isLight
+																				? 'bg-sky-50 text-sky-800 border-sky-200 hover:bg-sky-100'
+																				: 'bg-sky-500/15 text-sky-300 border-sky-500/30 hover:bg-sky-500/25'
+																		}`}
+																	>
+																		<FileCode2 className="w-3.5 h-3.5" />
+																		<span>
+																			Xem code:{' '}
+																			{pkgHint ? `${pkgHint}/` : ''}
+																			{shortLabel}
+																		</span>
+																	</button>
+																);
+															})}
+														</div>
+														<div
+															className={`text-[13px] leading-7 pl-1 ${
+																isLight ? 'text-zinc-700' : 'text-zinc-200'
 															}`}
 														>
 															<InlineSmartText
-																text={row.answer}
+																text={hs.description}
 																isLight={isLight}
 																onSelectIssue={onSelectIssue}
 																onSelectFileRef={onSelectFileRef}
 																onSelectPlan={onSelectPlan}
 															/>
-														</td>
-													</tr>
-												);
-											})}
-										</tbody>
-									</table>
-								</div>
-							</CollapsibleCard>
+														</div>
+													</div>
+												))}
+											</div>
+										)}
+									</CollapsibleCard>
 
-							{/* §1 Context / Facts (Collapsed by default so user only expands when wanting background) */}
+									<CollapsibleCard
+										id="sec9"
+										icon={<ClipboardCheck className="w-4 h-4 text-indigo-400" />}
+										title="§9. Kiểm thử E2E thủ công (Manual E2E Verification)"
+										isOpen={!!openSections.sec9}
+										isLight={isLight}
+										onToggle={toggleSection}
+										badge={
+											plan.manualE2eItems.length > 0 ? (
+												<span
+													className={`px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold border ${
+														isLight
+															? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+															: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
+													}`}
+												>
+													{doneE2eItems}/{plan.manualE2eItems.length} kịch bản E2E
+												</span>
+											) : (
+												<span
+													className={`text-xs font-mono ${
+														isLight ? 'text-zinc-500' : 'text-zinc-400'
+													}`}
+												>
+													—
+												</span>
+											)
+										}
+									>
+										{plan.manualE2eItems.length > 0 ? (
+											<div className="space-y-2 pt-2">
+												{plan.manualE2eItems.map((item) => (
+													<div
+														key={item.lineNumber}
+														className={`flex items-start gap-3 py-2 px-3 rounded-xl border transition ${
+															isLight
+																? 'bg-zinc-50/70 border-zinc-200 hover:bg-white'
+																: 'bg-[#0c0c0f] border-zinc-800/80 hover:bg-zinc-900/60'
+														}`}
+													>
+														<button
+															type="button"
+															disabled={saving}
+															aria-label={`Đánh dấu E2E dòng ${item.lineNumber}`}
+															onClick={() =>
+																handleToggleCheckbox(
+																	item.lineNumber,
+																	item.checked
+																)
+															}
+															className="mt-1 shrink-0"
+														>
+															{item.checked ? (
+																<CheckSquare className="w-4 h-4 text-emerald-400" />
+															) : (
+																<Square className="w-4 h-4 text-zinc-500 hover:text-zinc-300" />
+															)}
+														</button>
+														<span
+															className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase border shrink-0 mt-0.5 ${tagColorMap.e2e}`}
+														>
+															e2e
+														</span>
+														<div
+															className={`text-[13px] leading-6 flex-1 ${
+																item.checked
+																	? 'text-zinc-500 line-through'
+																	: isLight
+																		? 'text-zinc-800'
+																		: 'text-zinc-200'
+															}`}
+														>
+															<InlineSmartText
+																text={item.text}
+																isLight={isLight}
+																onSelectIssue={onSelectIssue}
+																onSelectFileRef={onSelectFileRef}
+																onSelectPlan={onSelectPlan}
+															/>
+														</div>
+													</div>
+												))}
+											</div>
+										) : sec9Raw && sec9Raw.trim() !== '—' ? (
+											<RichDocRenderer
+												markdown={sec9Raw}
+												isLight={isLight}
+												onSelectIssue={onSelectIssue}
+												onSelectFileRef={onSelectFileRef}
+												onSelectPlan={onSelectPlan}
+											/>
+										) : (
+											<div className="text-xs text-zinc-400 font-mono py-2">
+												Không yêu cầu kiểm thử E2E thủ công bổ sung (—).
+											</div>
+										)}
+									</CollapsibleCard>
+								</>
+							)}
+						</div>
+					)}
+
+					{/* TAB 2: AGENT SPEC (§1 CONTEXT, §3 FILES, §4 D1-C5, §6 MILESTONES) */}
+					{activeTab === 'spec' && (
+						<div className="space-y-5">
+							{/* §1 Context / Facts */}
 							<CollapsibleCard
 								id="sec1"
 								icon={<BookOpen className="w-4 h-4 text-sky-400" />}
@@ -1050,87 +1237,223 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 									onSelectPlan={onSelectPlan}
 								/>
 							</CollapsibleCard>
-						</div>
-					)}
 
-					{/* TAB 2: POST-CODE REVIEW (HOTSPOTS, MILESTONES CHECKLIST, FILES) */}
-					{activeTab === 'post-code' && (
-						<div className="space-y-5">
-							{/* §7 Review Hotspots */}
+							{/* §3 Files Table */}
 							<CollapsibleCard
-								id="sec7"
-								icon={<Flame className="w-4 h-4 text-orange-400" />}
-								title="§7. Điểm nóng cần Review (Review Hotspots)"
-								isOpen={!!openSections.sec7}
+								id="sec3"
+								icon={<FileCode2 className="w-4 h-4 text-sky-400" />}
+								title="§3. Danh sách Files tác động"
+								isOpen={!!openSections.sec3}
 								isLight={isLight}
-								accentBorder="border-orange-500/30"
 								onToggle={toggleSection}
 								badge={
-									<span className="px-2.5 py-0.5 rounded-md text-xs font-mono bg-orange-500/15 text-orange-400 border border-orange-500/30 font-semibold">
-										{plan.hotspots.length} điểm nóng
+									<span
+										className={`text-xs font-mono ${
+											isLight ? 'text-zinc-500' : 'text-zinc-400'
+										}`}
+									>
+										{plan.filesTable.length} files
 									</span>
 								}
 							>
-								{plan.hotspots.length === 0 ? (
-									<div className="p-4 rounded-xl text-xs text-zinc-400 font-mono">
-										Chưa có Review Hotspots (Mục §7 được điền sau khi agent hoàn tất code).
+								{plan.filesTable.length === 0 ? (
+									<div className="text-xs text-zinc-400 font-mono py-2">
+										Chưa có danh sách file tác động trong mục §3.
 									</div>
 								) : (
-									<div className="space-y-3.5 pt-2">
-										{plan.hotspots.map((hs, idx) => (
-											<div
-												key={idx}
-												className={`p-4 rounded-xl border transition space-y-3 ${
-													isLight
-														? 'bg-zinc-50 border-zinc-200 hover:border-orange-300'
-														: 'bg-[#0c0c0f] border-zinc-800 hover:border-orange-500/40'
-												}`}
-											>
-												<div className="flex flex-wrap items-center gap-2">
-													<span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
-														Hotspot #{idx + 1}{' '}
-														{hs.milestone ? `(${hs.milestone})` : ''}
-													</span>
-													{hs.codeRefs.map((ref) => {
-														const { shortLabel, pkgHint } =
-															formatShortFileRef(ref);
-														return (
-															<button
-																key={ref}
-																type="button"
-																onClick={() => onSelectFileRef(ref)}
-																title={ref}
-																className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-semibold border transition ${
-																	isLight
-																		? 'bg-sky-50 text-sky-800 border-sky-200 hover:bg-sky-100'
-																		: 'bg-sky-500/15 text-sky-300 border-sky-500/30 hover:bg-sky-500/25'
-																}`}
-															>
-																<FileCode2 className="w-3.5 h-3.5" />
-																<span>
-																	Xem code:{' '}
-																	{pkgHint ? `${pkgHint}/` : ''}
-																	{shortLabel}
-																</span>
-															</button>
-														);
-													})}
-												</div>
-												<div
-													className={`text-[13px] leading-7 pl-1 ${
-														isLight ? 'text-zinc-700' : 'text-zinc-200'
+									<div className="space-y-3 pt-2">
+										<div className="flex flex-wrap items-center gap-1.5">
+											{[
+												'ALL',
+												...Array.from(
+													new Set(
+														plan.filesTable
+															.map((f) => f.milestone)
+															.filter(Boolean)
+													)
+												),
+											].map((mFilter) => (
+												<button
+													key={mFilter}
+													type="button"
+													onClick={() => setSelectedMilestoneFilter(mFilter)}
+													className={`px-2.5 py-1 rounded-lg text-xs font-mono transition ${
+														selectedMilestoneFilter === mFilter
+															? 'bg-blue-600 text-white font-semibold'
+															: isLight
+																? 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+																: 'bg-zinc-900 text-zinc-400 hover:text-zinc-200'
 													}`}
 												>
-													<InlineSmartText
-														text={hs.description}
-														isLight={isLight}
-														onSelectIssue={onSelectIssue}
-														onSelectFileRef={onSelectFileRef}
-														onSelectPlan={onSelectPlan}
-													/>
-												</div>
-											</div>
-										))}
+													{mFilter}
+												</button>
+											))}
+										</div>
+
+										<div
+											className={`overflow-x-auto rounded-xl border ${
+												isLight ? 'border-zinc-200' : 'border-zinc-800'
+											}`}
+										>
+											<table className="w-full text-left border-collapse text-xs">
+												<thead>
+													<tr
+														className={`border-b font-mono text-[11px] ${
+															isLight
+																? 'bg-zinc-50 border-zinc-200 text-zinc-500'
+																: 'bg-zinc-900 border-zinc-800 text-zinc-400'
+														}`}
+													>
+														<th className="px-4 py-3 w-24">Action</th>
+														<th className="px-4 py-3">File (Click để xem)</th>
+														<th className="px-4 py-3 w-20">Milestone</th>
+														<th className="px-4 py-3">Ghi chú</th>
+													</tr>
+												</thead>
+												<tbody
+													className={`divide-y ${
+														isLight ? 'divide-zinc-200' : 'divide-zinc-800/80'
+													}`}
+												>
+													{plan.filesTable
+														.filter(
+															(f) =>
+																selectedMilestoneFilter === 'ALL' ||
+																f.milestone === selectedMilestoneFilter
+														)
+														.map((f, idx) => (
+															<tr key={idx}>
+																<td className="px-4 py-3 align-top">
+																	<span
+																		className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold border ${
+																			f.action === 'create'
+																				? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+																				: f.action === 'migration'
+																					? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+																					: 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+																		}`}
+																	>
+																		{f.action}
+																	</span>
+																</td>
+																<td className="px-4 py-3 font-mono align-top">
+																	<button
+																		type="button"
+																		onClick={() => onSelectFileRef(f.file)}
+																		className="text-sky-400 hover:underline text-left flex items-center gap-1.5"
+																	>
+																		<FileCode2 className="w-3.5 h-3.5 shrink-0" />
+																		<span>{f.file}</span>
+																	</button>
+																</td>
+																<td className="px-4 py-3 font-mono align-top">
+																	{f.milestone}
+																</td>
+																<td className="px-4 py-3 align-top leading-7">
+																	<InlineSmartText
+																		text={f.note}
+																		isLight={isLight}
+																		onSelectIssue={onSelectIssue}
+																		onSelectFileRef={onSelectFileRef}
+																		onSelectPlan={onSelectPlan}
+																	/>
+																</td>
+															</tr>
+														))}
+												</tbody>
+											</table>
+										</div>
+									</div>
+								)}
+							</CollapsibleCard>
+
+							{/* §4 Conflict Matrix */}
+							<CollapsibleCard
+								id="sec4"
+								icon={<GitMerge className="w-4 h-4 text-emerald-400" />}
+								title="§4. Ma trận Phụ thuộc & Xung đột (D1–D2, C1–C5)"
+								isOpen={!!openSections.sec4}
+								isLight={isLight}
+								onToggle={toggleSection}
+								badge={
+									plan.conflictVerdict ? (
+										<span
+											className={`px-2.5 py-0.5 rounded-md text-xs font-mono border ${conflictBadgeColor}`}
+										>
+											{cleanMarkdownPlain(plan.conflictVerdict.split('(')[0])}
+										</span>
+									) : null
+								}
+							>
+								{plan.conflictsTable.length === 0 ? (
+									<div className="text-xs text-zinc-400 font-mono py-2">
+										Chưa có bảng kiểm tra phụ thuộc trong mục §4.
+									</div>
+								) : (
+									<div
+										className={`mt-2 overflow-x-auto rounded-xl border ${
+											isLight ? 'border-zinc-200' : 'border-zinc-800'
+										}`}
+									>
+										<table className="w-full text-left border-collapse text-xs">
+											<thead>
+												<tr
+													className={`border-b font-mono text-[11px] ${
+														isLight
+															? 'bg-zinc-50 border-zinc-200 text-zinc-500'
+															: 'bg-zinc-900/80 border-zinc-800 text-zinc-400'
+													}`}
+												>
+													<th className="px-4 py-3 w-14">#</th>
+													<th className="px-4 py-3 w-64">Tiêu chí</th>
+													<th className="px-4 py-3">Đánh giá</th>
+												</tr>
+											</thead>
+											<tbody
+												className={`divide-y ${
+													isLight ? 'divide-zinc-200' : 'divide-zinc-800/80'
+												}`}
+											>
+												{plan.conflictsTable.map((row) => {
+													const isNo =
+														row.answer.toLowerCase().startsWith('no') ||
+														row.answer === '—';
+													return (
+														<tr key={row.id}>
+															<td className="px-4 py-3 font-mono font-bold">
+																{row.id}
+															</td>
+															<td
+																className={`px-4 py-3 ${
+																	isLight ? 'text-zinc-700' : 'text-zinc-300'
+																}`}
+															>
+																{row.check}
+															</td>
+															<td
+																className={`px-4 py-3 font-medium leading-7 ${
+																	isNo
+																		? isLight
+																			? 'text-emerald-700'
+																			: 'text-emerald-400'
+																		: isLight
+																			? 'text-amber-800'
+																			: 'text-amber-300'
+																}`}
+															>
+																<InlineSmartText
+																	text={row.answer}
+																	isLight={isLight}
+																	onSelectIssue={onSelectIssue}
+																	onSelectFileRef={onSelectFileRef}
+																	onSelectPlan={onSelectPlan}
+																/>
+															</td>
+														</tr>
+													);
+												})}
+											</tbody>
+										</table>
 									</div>
 								)}
 							</CollapsibleCard>
@@ -1323,131 +1646,6 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 									)}
 								</div>
 							</CollapsibleCard>
-
-							{/* §3 Files Table (Collapsed by default so it doesn't clutter) */}
-							{plan.filesTable.length > 0 && (
-								<CollapsibleCard
-									id="sec3"
-									icon={<FileCode2 className="w-4 h-4 text-sky-400" />}
-									title="§3. Danh sách Files tác động"
-									isOpen={!!openSections.sec3}
-									isLight={isLight}
-									onToggle={toggleSection}
-									badge={
-										<span
-											className={`text-xs font-mono ${
-												isLight ? 'text-zinc-500' : 'text-zinc-400'
-											}`}
-										>
-											{plan.filesTable.length} files (Bấm để mở rộng)
-										</span>
-									}
-								>
-									<div className="space-y-3 pt-2">
-										<div className="flex flex-wrap items-center gap-1.5">
-											{[
-												'ALL',
-												...Array.from(
-													new Set(
-														plan.filesTable
-															.map((f) => f.milestone)
-															.filter(Boolean)
-													)
-												),
-											].map((mFilter) => (
-												<button
-													key={mFilter}
-													type="button"
-													onClick={() => setSelectedMilestoneFilter(mFilter)}
-													className={`px-2.5 py-1 rounded-lg text-xs font-mono transition ${
-														selectedMilestoneFilter === mFilter
-															? 'bg-blue-600 text-white font-semibold'
-															: isLight
-																? 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-																: 'bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-													}`}
-												>
-													{mFilter}
-												</button>
-											))}
-										</div>
-
-										<div
-											className={`overflow-x-auto rounded-xl border ${
-												isLight ? 'border-zinc-200' : 'border-zinc-800'
-											}`}
-										>
-											<table className="w-full text-left border-collapse text-xs">
-												<thead>
-													<tr
-														className={`border-b font-mono text-[11px] ${
-															isLight
-																? 'bg-zinc-50 border-zinc-200 text-zinc-500'
-																: 'bg-zinc-900 border-zinc-800 text-zinc-400'
-														}`}
-													>
-														<th className="px-4 py-3 w-24">Action</th>
-														<th className="px-4 py-3">File (Click để xem)</th>
-														<th className="px-4 py-3 w-20">Milestone</th>
-														<th className="px-4 py-3">Ghi chú</th>
-													</tr>
-												</thead>
-												<tbody
-													className={`divide-y ${
-														isLight ? 'divide-zinc-200' : 'divide-zinc-800/80'
-													}`}
-												>
-													{plan.filesTable
-														.filter(
-															(f) =>
-																selectedMilestoneFilter === 'ALL' ||
-																f.milestone === selectedMilestoneFilter
-														)
-														.map((f, idx) => (
-															<tr key={idx}>
-																<td className="px-4 py-3 align-top">
-																	<span
-																		className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold border ${
-																			f.action === 'create'
-																				? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-																				: f.action === 'migration'
-																					? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
-																					: 'bg-blue-500/15 text-blue-400 border-blue-500/30'
-																		}`}
-																	>
-																		{f.action}
-																	</span>
-																</td>
-																<td className="px-4 py-3 font-mono align-top">
-																	<button
-																		type="button"
-																		onClick={() => onSelectFileRef(f.file)}
-																		className="text-sky-400 hover:underline text-left flex items-center gap-1.5"
-																	>
-																		<FileCode2 className="w-3.5 h-3.5 shrink-0" />
-																		<span>{f.file}</span>
-																	</button>
-																</td>
-																<td className="px-4 py-3 font-mono align-top">
-																	{f.milestone}
-																</td>
-																<td className="px-4 py-3 align-top leading-7">
-																	<InlineSmartText
-																		text={f.note}
-																		isLight={isLight}
-																		onSelectIssue={onSelectIssue}
-																		onSelectFileRef={onSelectFileRef}
-																		onSelectPlan={onSelectPlan}
-																	/>
-																</td>
-															</tr>
-														))}
-												</tbody>
-											</table>
-										</div>
-									</div>
-								</CollapsibleCard>
-							)}
 						</div>
 					)}
 

@@ -45,6 +45,7 @@ export interface ParsedHotspot {
 
 export interface SchemaValidationResult {
 	status: 'valid' | 'warning' | 'legacy';
+	schemaVersion: 'v2' | 'v1' | 'legacy';
 	missingSections: string[];
 	missingHeaderFields: string[];
 	messages: string[];
@@ -61,6 +62,8 @@ export interface ParsedPlan {
 	status: string;
 	scopeVerdict: string;
 	goal: string;
+	designApproachMarkdown: string;
+	mermaidBlocks: string[];
 	sections: Record<string, string>;
 	filesTable: ParsedPlanFileEntry[];
 	conflictsTable: ParsedConflictCheck[];
@@ -69,6 +72,7 @@ export interface ParsedPlan {
 	checkpointLogs: string[];
 	hotspots: ParsedHotspot[];
 	openQuestions: string[];
+	manualE2eItems: ParsedChecklistItem[];
 	validation: SchemaValidationResult;
 	updatedAt: string;
 	raw: string;

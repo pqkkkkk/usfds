@@ -21,7 +21,7 @@ description: How to write and run USFDS tests without Docker — SQLite-per-test
 |---|---|---|---|
 | Endpoint / feature with an API (default for acceptance tests) | API | `usfds-server/tests/test_<domain>_api.py` | `client`, `client_queue_mode`, `server_settings`, `server_session_factory` |
 | Repository, migration, SQL | Infra | `usfds-infra/tests/` | `db_engine`, `session_factory`, `db_session`, `local_storage`, `s3_storage` |
-| Worker handler | Worker | `usfds-worker/tests/` | `worker_context`, `inline_job_queue` + infra fixtures |
+| Worker handler | Worker | `usfds-worker/tests/test_handlers.py` | `worker_context`, `inline_job_queue` + infra fixtures |
 | Pure domain logic (no DB, no storage) | Core | `usfds-core/tests/` | none; never import `usfds_infra` from core tests |
 | UI component / hook | Web | next to the component: `*.test.tsx` | `renderWithProviders`, MSW `server`, `API` |
 
@@ -65,4 +65,4 @@ expect(await screen.findByText('...')).toBeInTheDocument();
 - Unhandled requests fail the test (`onUnhandledRequest: 'error'`). Add handlers for every call a component makes. `GET /v1/projects` has a default handler.
 - Tests always call `/api` (`VITE_API_BASE_URL` is forced empty in `vite.config.ts`).
 - Cover the loaded state **and** the error state (HTTP 4xx/5xx) for data-fetching components. Example: `src/components/modules/investigation/PoliciesView.test.tsx`.
-- `apiClient` currently returns `{success:false}` instead of throwing (ISS-028). Test what the component actually shows.
+- `apiClient` throws `ApiClientError` on HTTP 4xx/5xx or `{ success: false }` payloads (landed in `ISS-028`), so `react-query` enters the error state directly; assert the visible Vietnamese error message.

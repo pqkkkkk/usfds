@@ -50,6 +50,7 @@ export interface ParsedHotspot {
 
 export interface SchemaValidationResult {
 	status: 'valid' | 'warning' | 'legacy';
+	schemaVersion: 'v2' | 'v1' | 'legacy';
 	missingSections: string[];
 	missingHeaderFields: string[];
 	messages: string[];
@@ -66,6 +67,8 @@ export interface ParsedPlan {
 	status: string;
 	scopeVerdict: string;
 	goal: string;
+	designApproachMarkdown: string;
+	mermaidBlocks: string[];
 	sections: Record<string, string>;
 	filesTable: ParsedPlanFileEntry[];
 	conflictsTable: ParsedConflictCheck[];
@@ -74,6 +77,7 @@ export interface ParsedPlan {
 	checkpointLogs: string[];
 	hotspots: ParsedHotspot[];
 	openQuestions: string[];
+	manualE2eItems: ParsedChecklistItem[];
 	validation: SchemaValidationResult;
 	updatedAt: string;
 	raw: string;
@@ -147,11 +151,112 @@ function extractCodeRefs(text: string): string[] {
 	return Array.from(refs);
 }
 
-function parsePlanFile(repoRoot: string, absPath: string): ParsedPlan {
-	const raw = fs.readFileSync(absPath, 'utf-8');
-	const stat = fs.statSync(absPath);
-	const slug = path.basename(absPath, '.md');
-	const relPath = path.relative(repoRoot, absPath).replace(/\\/g, '/');
+function extractMermaidBlocks(markdown: string): string[] {
+	if (!markdown) {
+		return [];
+	}
+	const lines = markdown.split(/\r?\n/);
+	const blocks: string[] = [];
+	let i = 0;
+	while (i < lines.length) {
+		const trimmed = lines[i].trim();
+		if (/^```mermaid(?:\s|$)/i.test(trimmed)) {
+			const buf: string[] = [];
+			i++;
+			while (i < lines.length && !lines[i].trim().startsWith('```')) {
+				buf.push(lines[i]);
+				i++;
+			}
+			i++;
+			const code = buf.join('\n').trim();
+			if (code) {
+				blocks.push(code);
+			}
+			continue;
+		}
+		i++;
+	}
+	return blocks;
+}
+
+function matchesSectionKey(
+	heading: string,
+	numPrefix: string,
+	keyword: string
+): boolean {
+	if (numPrefix === '2.5') {
+		return (
+			/^2\.5(?:\.|\s|$)/i.test(heading) ||
+			heading.toLowerCase().includes(keyword.toLowerCase())
+		);
+	}
+	const intMatch = numPrefix.match(/^(\d+)\.$/);
+	if (intMatch) {
+		const numRegex = new RegExp(`^${intMatch[1]}\\.(?!\\d)`);
+		return (
+			numRegex.test(heading) ||
+			heading.toLowerCase().includes(keyword.toLowerCase())
+		);
+	}
+	return (
+		heading.startsWith(numPrefix) ||
+		heading.toLowerCase().includes(keyword.toLowerCase())
+	);
+}
+
+export function appendQuestionToPlanMarkdown(
+	content: string,
+	question: string
+): string {
+	const qLine = `- ${question.trim()}`;
+	const lines = content.split(/\r?\n/);
+	let sec8Start = -1;
+	let sec8End = lines.length;
+
+	for (let i = 0; i < lines.length; i++) {
+		const hMatch = lines[i].match(/^##\s+(.+)$/);
+		if (!hMatch) {
+			continue;
+		}
+		const hTitle = hMatch[1].trim();
+		if (sec8Start === -1) {
+			if (/^8\.(?!\d)/.test(hTitle) || hTitle.toLowerCase().includes('open questions')) {
+				sec8Start = i;
+			}
+		} else {
+			sec8End = i;
+			break;
+		}
+	}
+
+	if (sec8Start === -1) {
+		return `${content.trimEnd()}\n${qLine}\n`;
+	}
+
+	for (let i = sec8Start + 1; i < sec8End; i++) {
+		if (/^\s*-\s+—\s*$/.test(lines[i])) {
+			lines[i] = qLine;
+			return lines.join('\n');
+		}
+	}
+
+	let insertAfter = sec8Start;
+	for (let i = sec8End - 1; i > sec8Start; i--) {
+		if (lines[i].trim() !== '') {
+			insertAfter = i;
+			break;
+		}
+	}
+	lines.splice(insertAfter + 1, 0, qLine);
+	return lines.join('\n');
+}
+
+export function parsePlanMarkdown(
+	raw: string,
+	slug: string,
+	relPath: string,
+	updatedAt: string
+): ParsedPlan {
 	const lines = raw.split(/\r?\n/);
 
 	let title = slug;
@@ -167,7 +272,8 @@ function parsePlanFile(repoRoot: string, absPath: string): ParsedPlan {
 	const headerBlock = lines
 		.slice(0, 15)
 		.filter((l) => l.trim().startsWith('>'))
-		.join(' ');
+		.join(' ')
+		.replace(/<!--.*?-->/g, '');
 
 	const extractHeaderField = (label: string): string => {
 		const pattern = new RegExp(`\\*\\*${label}:\\*\\*\\s*([^·\\n>]+)`, 'i');
@@ -202,7 +308,7 @@ function parsePlanFile(repoRoot: string, absPath: string): ParsedPlan {
 
 	const findSection = (numPrefix: string, keyword: string): string => {
 		for (const [k, v] of Object.entries(sections)) {
-			if (k.startsWith(numPrefix) || k.toLowerCase().includes(keyword.toLowerCase())) {
+			if (matchesSectionKey(k, numPrefix, keyword)) {
 				return v;
 			}
 		}
@@ -214,6 +320,9 @@ function parsePlanFile(repoRoot: string, absPath: string): ParsedPlan {
 	const scopeMatch = sec2.match(/\*\*Scope:\*\*\s*(.+)/i);
 	const goal = goalMatch ? goalMatch[1].trim() : '';
 	const scopeVerdict = scopeMatch ? scopeMatch[1].trim() : '';
+
+	const designApproachMarkdown = findSection('2.5', 'Design & Approach');
+	const mermaidBlocks = extractMermaidBlocks(designApproachMarkdown);
 
 	// Parse §3 Files table
 	const sec3 = findSection('3.', 'Files');
@@ -255,10 +364,12 @@ function parsePlanFile(repoRoot: string, absPath: string): ParsedPlan {
 				}))
 			: [];
 
-	// Parse §6 Milestones & to-do with exact file line numbers for interactive checkbox toggling
+	// Parse §6 Milestones & §9 Manual E2E with exact file line numbers for interactive checkbox toggling
 	const milestones: ParsedMilestoneGroup[] = [];
 	const checkpointLogs: string[] = [];
+	const manualE2eItems: ParsedChecklistItem[] = [];
 	let inSec6 = false;
+	let inSec9 = false;
 	let inCheckpointLog = false;
 	let currentGroup: ParsedMilestoneGroup | null = null;
 
@@ -267,8 +378,29 @@ function parsePlanFile(repoRoot: string, absPath: string): ParsedPlan {
 		const hMatch = line.match(/^##\s+(.+)$/);
 		if (hMatch) {
 			const hTitle = hMatch[1].trim();
-			inSec6 = hTitle.startsWith('6.') || hTitle.toLowerCase().includes('milestones');
+			inSec6 =
+				/^6\.(?!\d)/.test(hTitle) ||
+				hTitle.toLowerCase().includes('milestones');
+			inSec9 =
+				/^9\.(?!\d)/.test(hTitle) ||
+				hTitle.toLowerCase().includes('manual e2e');
 			inCheckpointLog = false;
+			continue;
+		}
+		if (inSec9) {
+			const cbMatch = line.match(/^(\s*)-\s+\[([ xX])\]\s+(.+)$/);
+			if (cbMatch) {
+				const text = cbMatch[3].trim();
+				if (text !== '—') {
+					manualE2eItems.push({
+						lineNumber: idx + 1,
+						checked: cbMatch[2].toLowerCase() === 'x',
+						tag: 'e2e',
+						text,
+						indent: cbMatch[1].length,
+					});
+				}
+			}
 			continue;
 		}
 		if (!inSec6) {
@@ -353,24 +485,39 @@ function parsePlanFile(repoRoot: string, absPath: string): ParsedPlan {
 		}
 	}
 
-	// Schema Validation against template.md
-	const requiredSections = [
-		'1. Context',
-		'2. Goal',
-		'3. Files',
-		'4. Dependencies',
-		'5. Acceptance tests',
-		'6. Milestones',
-		'7. Review hotspots',
-		'8. Open questions',
+	// Schema Validation against v2 template (§1–§9) and backward-compatible v1 (§1–§8)
+	const v1Required = [
+		{ num: '1.', label: '1. Context', keyword: 'context' },
+		{ num: '2.', label: '2. Goal', keyword: 'goal' },
+		{ num: '3.', label: '3. Files', keyword: 'files' },
+		{ num: '4.', label: '4. Dependencies', keyword: 'dependencies' },
+		{ num: '5.', label: '5. Acceptance tests', keyword: 'acceptance tests' },
+		{ num: '6.', label: '6. Milestones', keyword: 'milestones' },
+		{ num: '7.', label: '7. Review hotspots', keyword: 'review hotspots' },
+		{ num: '8.', label: '8. Open questions', keyword: 'open questions' },
+	];
+	const v2Extra = [
+		{ num: '2.5', label: '2.5 Design & Approach', keyword: 'design & approach' },
+		{ num: '9.', label: '9. Manual E2E', keyword: 'manual e2e' },
 	];
 	const sectionKeys = Object.keys(sections);
-	const missingSections = requiredSections.filter(
-		(reqSec) =>
-			!sectionKeys.some((k) =>
-				k.toLowerCase().startsWith(reqSec.split(' ')[0].toLowerCase())
-			)
-	);
+	const missingV1 = v1Required
+		.filter(
+			(reqSec) =>
+				!sectionKeys.some((k) =>
+					matchesSectionKey(k, reqSec.num, reqSec.keyword)
+				)
+		)
+		.map((s) => s.label);
+	const missingV2Extra = v2Extra
+		.filter(
+			(reqSec) =>
+				!sectionKeys.some((k) =>
+					matchesSectionKey(k, reqSec.num, reqSec.keyword)
+				)
+		)
+		.map((s) => s.label);
+
 	const missingHeaderFields: string[] = [];
 	if (!extractHeaderField('Task ID')) {
 		missingHeaderFields.push('Task ID');
@@ -386,15 +533,37 @@ function parsePlanFile(repoRoot: string, absPath: string): ParsedPlan {
 	}
 
 	let validationStatus: 'valid' | 'warning' | 'legacy' = 'valid';
+	let schemaVersion: 'v2' | 'v1' | 'legacy' = 'v2';
+	let missingSections: string[] = [];
 	const messages: string[] = [];
+	const isDone = status.toLowerCase().startsWith('done');
 
 	if (slug === 'BOARD' || slug === 'parallel_agent_setup') {
 		validationStatus = 'valid';
-	} else if (missingSections.length >= 5 && missingHeaderFields.length >= 3) {
+		schemaVersion = 'v2';
+	} else if (missingV1.length >= 5 && missingHeaderFields.length >= 3) {
 		validationStatus = 'legacy';
+		schemaVersion = 'legacy';
+		missingSections = [...missingV1, ...missingV2Extra];
 		messages.push('Plan cũ (trước chuẩn template 26-11-14).');
-	} else if (missingSections.length > 0 || missingHeaderFields.length > 0) {
+	} else if (
+		missingV1.length === 0 &&
+		missingV2Extra.length === 0 &&
+		missingHeaderFields.length === 0
+	) {
+		validationStatus = 'valid';
+		schemaVersion = 'v2';
+	} else if (
+		isDone &&
+		missingV1.length === 0 &&
+		missingHeaderFields.length === 0
+	) {
+		validationStatus = 'valid';
+		schemaVersion = 'v1';
+	} else {
 		validationStatus = 'warning';
+		schemaVersion = 'v2';
+		missingSections = [...missingV1, ...missingV2Extra];
 		if (missingHeaderFields.length > 0) {
 			messages.push(`Thiếu trường header: ${missingHeaderFields.join(', ')}`);
 		}
@@ -414,6 +583,8 @@ function parsePlanFile(repoRoot: string, absPath: string): ParsedPlan {
 		status: status || (validationStatus === 'legacy' ? 'Legacy' : 'Draft'),
 		scopeVerdict: scopeVerdict || '—',
 		goal,
+		designApproachMarkdown,
+		mermaidBlocks,
 		sections,
 		filesTable,
 		conflictsTable,
@@ -422,15 +593,25 @@ function parsePlanFile(repoRoot: string, absPath: string): ParsedPlan {
 		checkpointLogs,
 		hotspots,
 		openQuestions,
+		manualE2eItems,
 		validation: {
 			status: validationStatus,
+			schemaVersion,
 			missingSections,
 			missingHeaderFields,
 			messages,
 		},
-		updatedAt: stat.mtime.toISOString(),
+		updatedAt,
 		raw,
 	};
+}
+
+function parsePlanFile(repoRoot: string, absPath: string): ParsedPlan {
+	const raw = fs.readFileSync(absPath, 'utf-8');
+	const stat = fs.statSync(absPath);
+	const slug = path.basename(absPath, '.md');
+	const relPath = path.relative(repoRoot, absPath).replace(/\\/g, '/');
+	return parsePlanMarkdown(raw, slug, relPath, stat.mtime.toISOString());
 }
 
 function parseIssues(repoRoot: string): {
@@ -871,15 +1052,7 @@ export function usfdsDocsDashboardPlugin(): Plugin {
 							);
 							fs.writeFileSync(planPath, content, 'utf-8');
 						} else if (body.action === 'append_question' && body.question) {
-							const qLine = `- ${body.question.trim()}`;
-							if (/##\s+8\.\s+Open questions[\s\S]*?\n-\s*—/.test(content)) {
-								content = content.replace(
-									/(##\s+8\.\s+Open questions\s*\r?\n)-\s*—/,
-									`$1${qLine}`
-								);
-							} else {
-								content = `${content.trimEnd()}\n${qLine}\n`;
-							}
+							content = appendQuestionToPlanMarkdown(content, body.question);
 							fs.writeFileSync(planPath, content, 'utf-8');
 						}
 

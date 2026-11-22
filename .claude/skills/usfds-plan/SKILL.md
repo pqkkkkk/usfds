@@ -1,11 +1,11 @@
 ---
 name: usfds-plan
-description: Writes the single plan file for a USFDS task (one task = one agent session = one plan file, covering the issues the user assigned), including scope sizing, dependency and parallel-conflict analysis against .plan/BOARD.md, milestones as checkpoints, and acceptance tests the user reviews before any code is written. Use when a session starts with one or more issues (ISS-NNN), when asked to "plan", "phân tích", "lên kế hoạch", or before implementing a task.
+description: Writes the single plan file for a USFDS task (one task = one agent session = one plan file, covering the issues the user assigned), including scope sizing, Design & Approach with Mermaid diagrams, dependency and parallel-conflict analysis against .plan/BOARD.md, milestones as checkpoints, and acceptance tests the user reviews before any code is written. Use when a session starts with one or more issues (ISS-NNN), when asked to "plan", "phân tích", "lên kế hoạch", or before implementing a task.
 ---
 
 # USFDS task planning
 
-A plan is the contract between the user and the agent. The user reviews **the plan and its acceptance tests**, not the code. Keep it short, factual, and complete enough that another agent could implement it without asking.
+A plan is the contract between the user and the agent. The user reviews **Design & Approach (§2.5) and Acceptance tests (§5)**, not every line of code. Keep it short, factual, and complete enough that another agent could implement it without asking.
 
 ## Task model <!-- [26-11-14] -->
 
@@ -32,11 +32,33 @@ After reading the sources, judge whether the given issues form a sensible single
    - `.plan/BOARD.md` (who is doing what, which files are owned).
    - The code you will touch. Never plan from memory: cite `path:line`.
 2. **Size the scope** (section above). If `TOO-BROAD` or `TOO-SMALL`, write only §1–§2 of the plan with the proposal and stop.
-3. **Analyze dependencies & conflicts** against other tasks on the board (checklist below). This decides whether the task can run while other sessions are open.
-4. **Define milestones and the to-do list** (§6). Order milestones so each one ends with all tests green, typically one per layer (core+infra → server → web). Give each milestone its own acceptance tests and a nested checklist of concrete items tagged `[tests] [core] [infra] [server] [worker] [web] [docs] [verify]`. The plan is the task's only to-do list.
-5. **Write acceptance tests** as Given/When/Then with the exact test function names. These are what the user approves.
-6. **Write the plan** to `.plan/<task_slug>.md` using [template.md](template.md). Do not add sections; write `—` for a section that does not apply.
-7. **Stop and ask for approval.** Output: plan path, scope verdict, conflict verdict (`PARALLEL-SAFE` / `NEEDS-SEQUENCING` / `BLOCKED`), the milestones with their acceptance tests, and open questions. Do not write code before approval.
+3. **Write Design & Approach (§2.5).** Summarize the architecture, API/RBAC/schema contracts, and edge cases/concurrency risks. Include 1–2 Mermaid diagrams when the task crosses layers or changes workflow/state (see Mermaid rules below).
+4. **Analyze dependencies & conflicts** against other tasks on the board (checklist below). This decides whether the task can run while other sessions are open.
+5. **Define milestones and the to-do list** (§6). Order milestones so each one ends with all tests green, typically one per layer (core+infra → server → web). Give each milestone its own acceptance tests and a nested checklist of concrete items tagged `[tests] [core] [infra] [server] [worker] [web] [docs] [verify]`. The plan is the task's only to-do list.
+6. **Write acceptance tests (§5)** as Given/When/Then with the exact test function names, plus **Manual E2E (§9)** for anything SQLite/mocks cannot cover.
+7. **Write the plan** to `.plan/<task_slug>.md` using [template.md](template.md). Do not add extra top-level sections; write `—` for a section that does not apply.
+8. **Stop and ask for approval with a concise Review Brief.** Output only what the user needs to decide quickly:
+   - Plan path, scope verdict, conflict verdict (`PARALLEL-SAFE` / `NEEDS-SEQUENCING` / `BLOCKED`).
+   - Goal + the Mermaid diagram(s) from §2.5.
+   - 3–5 key design decisions, contracts (API/RBAC/schema), and top risks.
+   - Milestone summary with acceptance test names (not the full file list).
+   - Open questions (§8).
+   Do not write code before approval.
+
+## Mermaid diagram rules (§2.5)
+
+- **When to draw vs. skip (`—`):**
+  - Skip (`—`) for small bug fixes, UI copy/style tweaks, or 1–2 file local changes that do not alter control/data flow.
+  - Draw 1–2 diagrams for tasks spanning 2+ layers (`core`/`infra`/`server`/`worker`/`web`), new decision/auth branches, state-machine changes, or schema changes.
+- **Pick the right diagram type:**
+  - Multi-component / API / Queue interactions → `sequenceDiagram`
+  - Decision branching / data pipelines → `flowchart LR`
+  - Entity lifecycle transitions → `stateDiagram-v2`
+  - New/modified table relations → `erDiagram`
+- **Keep diagrams readable and valid:**
+  - Cap at ~15 nodes per diagram; split into two small diagrams instead of cramming one large chart.
+  - Use real repo symbols, endpoints, and services; show only what changes or interacts with the change (never generic `FE -> BE -> DB` boxes).
+  - Always quote labels containing special characters (`/`, `(`, `)`, `:`, punctuation) as `["..."]` so Mermaid renders cleanly in IDEs, GitHub, and `DocsDashboardPage`.
 
 ## Dependency & conflict checklist
 
@@ -59,13 +81,14 @@ Verdict rules:
 
 ## Hot-spot files (edit = append only, never reformat)
 
-- **Backend:** `usfds-infra/src/usfds_infra/database/__init__.py`, ORM/repository package `__init__`s, `usfds-core/src/usfds_core/domain/entities/enums.py`, `usfds-core/src/usfds_core/*/__init__.py`, `usfds-server/src/usfds_server/api.py` (router registration), `usfds-server/src/usfds_server/dependencies*`, `usfds-server/src/usfds_server/config.py`, `usfds-worker/src/usfds_worker/main.py` (handler maps), `usfds-infra/src/usfds_infra/job_queue/bullmq_queue.py` (job constants), `deploy/.env.example`.
-- **Web:** `usfds-web/src/App.tsx`, `src/components/layout/Sidebar.tsx`, `src/types/navigation.ts`, `src/api/client.ts`, all barrel `index.ts` files.
-- **Process files:** `CHANGELOG.md`, `.plan/BOARD.md`, issue status in `docs/issues/`. Agents never edit these in a task branch; they are updated at merge time. `TODO.md` is frozen history (see below).
+- **Backend:** `usfds-core/src/usfds_core/domain/entities/enums.py`, `usfds-core/src/usfds_core/*/__init__.py`, `usfds-infra/src/usfds_infra/database/models.py`, `usfds-infra/src/usfds_infra/database/repositories.py`, `usfds-infra/src/usfds_infra/database/__init__.py`, `usfds-infra/src/usfds_infra/database/seed_rbac.py`, `usfds-infra/src/usfds_infra/job_queue/bullmq_queue.py` (job constants), `usfds-server/src/usfds_server/api.py` (router registration), `usfds-server/src/usfds_server/dependencies.py`, `usfds-server/src/usfds_server/providers/repos.py`, `usfds-server/src/usfds_server/config.py`, `usfds-worker/src/usfds_worker/main.py` (handler maps), `deploy/.env.example`.
+- **Web:** `usfds-web/src/App.tsx`, `usfds-web/src/components/layout/Sidebar.tsx`, `usfds-web/src/types/navigation.ts`, `usfds-web/src/api/client.ts`, `usfds-web/src/lib/feature-policy.ts`, all barrel `index.ts` files.
+- **Process files:** `CHANGELOG.md`, `.plan/BOARD.md`, issue status in `docs/issues/`. Agents never edit these inside a task branch during implementation; they are updated at PR/merge time (or on `main` when claiming a parallel task). `TODO.md` is frozen history.
 
 ## Plan quality bar
 
 - Every claim about current behavior cites `path:line`.
+- §2.5 makes the approach, API/RBAC/schema contracts, and edge cases clear without reading §3.
 - Scope lists files to **create** and files to **modify**; anything else is out of scope.
 - Each acceptance test maps to one requirement (SUC/BR ID or issue ID).
 - Bugs need a reproducing test that is red before the fix.

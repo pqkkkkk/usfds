@@ -17,6 +17,8 @@ import {
 	Moon,
 	FileText,
 	ArrowUpRight,
+	PanelLeftClose,
+	PanelLeftOpen,
 } from 'lucide-react';
 import {
 	docsDashboardApi,
@@ -66,6 +68,7 @@ export const DocsDashboardPage: React.FC = () => {
 
 	// Show legacy plans inside the Plans tab sidebar
 	const [showLegacyPlans, setShowLegacyPlans] = useState(false);
+	const [isPlanSidebarCollapsed, setIsPlanSidebarCollapsed] = useState(false);
 
 	const fetchOverview = useCallback(async () => {
 		setLoading(true);
@@ -816,128 +819,164 @@ export const DocsDashboardPage: React.FC = () => {
 					{activeSection === 'plan-detail' && (
 						<div className="flex-1 flex overflow-hidden">
 							{/* Dedicated Left Sidebar ONLY for Plans section */}
-							<aside
-								className={`w-68 shrink-0 border-r flex flex-col overflow-hidden ${sidebarBg}`}
-							>
+							{isPlanSidebarCollapsed ? (
 								<div
-									className={`px-4 py-3.5 border-b flex items-center justify-between ${
-										isLight ? 'border-zinc-200' : 'border-zinc-800/80'
-									}`}
+									className={`w-10 shrink-0 border-r flex flex-col items-center pt-3 ${sidebarBg}`}
 								>
-									<span
-										className={`text-[11px] font-mono uppercase font-semibold ${
-											isLight ? 'text-zinc-500' : 'text-zinc-400'
-										}`}
-									>
-										Danh sách Plans ({sidebarPlans.length})
-									</span>
 									<button
 										type="button"
-										onClick={() => setShowLegacyPlans(!showLegacyPlans)}
-										className="text-[11px] font-mono text-blue-500 hover:underline"
+										onClick={() => setIsPlanSidebarCollapsed(false)}
+										title="Mở danh sách Plan"
+										aria-label="Mở danh sách Plan"
+										className={`p-1.5 rounded-lg border transition ${
+											isLight
+												? 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-600'
+												: 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+										}`}
 									>
-										{showLegacyPlans ? 'Ẩn bản cũ' : '+Hiện bản cũ'}
+										<PanelLeftOpen className="w-4 h-4" />
 									</button>
 								</div>
-
-								<div
-									className={`flex-1 overflow-y-auto divide-y ${
-										isLight ? 'divide-zinc-100' : 'divide-zinc-800/50'
-									}`}
+							) : (
+								<aside
+									className={`w-64 shrink-0 border-r flex flex-col overflow-hidden ${sidebarBg}`}
 								>
-									{sidebarPlans.map((p) => {
-										const isSelected = p.slug === selectedPlanSlug;
-										const isDone = p.status.toLowerCase().includes('done');
-										const isApproved = p.status
-											.toLowerCase()
-											.includes('approved');
-										return (
+									<div
+										className={`px-4 py-3.5 border-b flex items-center justify-between gap-2 ${
+											isLight ? 'border-zinc-200' : 'border-zinc-800/80'
+										}`}
+									>
+										<span
+											className={`text-[11px] font-mono uppercase font-semibold truncate ${
+												isLight ? 'text-zinc-500' : 'text-zinc-400'
+											}`}
+										>
+											Danh sách Plans ({sidebarPlans.length})
+										</span>
+										<div className="flex items-center gap-1.5 shrink-0">
 											<button
-												key={p.slug}
 												type="button"
-												onClick={() => setSelectedPlanSlug(p.slug)}
-												className={`w-full text-left px-4 py-3.5 transition flex flex-col gap-1.5 ${
-													isSelected
-														? isLight
-															? 'bg-blue-50/80 border-l-2 border-blue-600'
-															: 'bg-zinc-900 border-l-2 border-blue-400'
-														: isLight
-															? 'hover:bg-zinc-50'
-															: 'hover:bg-zinc-900/50'
+												onClick={() => setShowLegacyPlans(!showLegacyPlans)}
+												className="text-[11px] font-mono text-blue-500 hover:underline whitespace-nowrap"
+											>
+												{showLegacyPlans ? 'Ẩn bản cũ' : '+Hiện bản cũ'}
+											</button>
+											<button
+												type="button"
+												onClick={() => setIsPlanSidebarCollapsed(true)}
+												title="Thu gọn danh sách Plan"
+												aria-label="Thu gọn danh sách Plan"
+												className={`p-1 rounded-lg border transition ${
+													isLight
+														? 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-600'
+														: 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-400 hover:text-zinc-200'
 												}`}
 											>
-												<div className="flex items-center justify-between gap-1.5">
-													<span
-														className={`font-mono text-xs font-bold truncate ${
-															isLight ? 'text-zinc-900' : 'text-zinc-100'
-														}`}
-													>
-														{p.slug}
-													</span>
-													{p.validation.status === 'warning' && (
-														<span
-															className="shrink-0"
-															title={p.validation.messages.join(', ')}
-														>
-															<AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-														</span>
-													)}
-												</div>
-												<div
-													className={`text-xs line-clamp-1 leading-snug ${
-														isLight ? 'text-zinc-500' : 'text-zinc-400'
+												<PanelLeftClose className="w-3.5 h-3.5" />
+											</button>
+										</div>
+									</div>
+
+									<div
+										className={`flex-1 overflow-y-auto divide-y ${
+											isLight ? 'divide-zinc-100' : 'divide-zinc-800/50'
+										}`}
+									>
+										{sidebarPlans.map((p) => {
+											const isSelected = p.slug === selectedPlanSlug;
+											const isDone = p.status.toLowerCase().includes('done');
+											const isApproved = p.status
+												.toLowerCase()
+												.includes('approved');
+											return (
+												<button
+													key={p.slug}
+													type="button"
+													onClick={() => setSelectedPlanSlug(p.slug)}
+													className={`w-full min-w-0 text-left px-4 py-3.5 transition flex flex-col gap-1.5 ${
+														isSelected
+															? isLight
+																? 'bg-blue-50/80 border-l-2 border-blue-600'
+																: 'bg-zinc-900 border-l-2 border-blue-400'
+															: isLight
+																? 'hover:bg-zinc-50'
+																: 'hover:bg-zinc-900/50'
 													}`}
 												>
-													{cleanMarkdownPlain(p.title)}
-												</div>
-												<div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-													<span
-														className={`px-2 py-0.5 rounded text-[10px] font-mono border ${
-															isDone
-																? isLight
-																	? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-																	: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-																: isApproved
-																	? isLight
-																		? 'bg-blue-50 text-blue-700 border-blue-200'
-																		: 'bg-blue-500/15 text-blue-300 border-blue-500/30'
-																	: isLight
-																		? 'bg-zinc-100 text-zinc-600 border-zinc-200'
-																		: 'bg-zinc-800/80 text-zinc-400 border-zinc-700'
-														}`}
-													>
-														{cleanMarkdownPlain(p.status.split('—')[0])}
-													</span>
-													{p.issues.slice(0, 3).map((iss) => (
+													<div className="flex items-center justify-between gap-1.5 w-full min-w-0">
 														<span
-															key={iss}
-															className={`px-2 py-0.5 rounded text-[10px] font-mono ${
-																isLight
-																	? 'bg-amber-50 text-amber-800 border border-amber-200'
-																	: 'bg-amber-500/15 text-amber-300'
+															className={`font-mono text-xs font-bold truncate ${
+																isLight ? 'text-zinc-900' : 'text-zinc-100'
 															}`}
 														>
-															{iss}
+															{p.slug}
 														</span>
-													))}
-													{p.issues.length > 3 && (
-														<span className="text-[10px] font-mono text-zinc-500">
-															+{p.issues.length - 3}
+														{p.validation.status === 'warning' && (
+															<span
+																className="shrink-0"
+																title={p.validation.messages.join(', ')}
+															>
+																<AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+															</span>
+														)}
+													</div>
+													<div
+														className={`text-xs line-clamp-1 leading-snug ${
+															isLight ? 'text-zinc-500' : 'text-zinc-400'
+														}`}
+													>
+														{cleanMarkdownPlain(p.title)}
+													</div>
+													<div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+														<span
+															className={`px-2 py-0.5 rounded text-[10px] font-mono border ${
+																isDone
+																	? isLight
+																		? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+																		: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+																	: isApproved
+																		? isLight
+																			? 'bg-blue-50 text-blue-700 border-blue-200'
+																			: 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+																		: isLight
+																			? 'bg-zinc-100 text-zinc-600 border-zinc-200'
+																			: 'bg-zinc-800/80 text-zinc-400 border-zinc-700'
+															}`}
+														>
+															{cleanMarkdownPlain(p.status.split('—')[0])}
 														</span>
-													)}
-												</div>
-											</button>
-										);
-									})}
-								</div>
-							</aside>
+														{p.issues.slice(0, 3).map((iss) => (
+															<span
+																key={iss}
+																className={`px-2 py-0.5 rounded text-[10px] font-mono ${
+																	isLight
+																		? 'bg-amber-50 text-amber-800 border border-amber-200'
+																		: 'bg-amber-500/15 text-amber-300'
+																}`}
+															>
+																{iss}
+															</span>
+														))}
+														{p.issues.length > 3 && (
+															<span className="text-[10px] font-mono text-zinc-500">
+																+{p.issues.length - 3}
+															</span>
+														)}
+													</div>
+												</button>
+											);
+										})}
+									</div>
+								</aside>
+							)}
 
 							{/* Plan Review Workbench */}
-							<div className="flex-1 overflow-hidden">
+							<div className="flex-1 min-w-0 overflow-hidden">
 								{selectedPlan && (
 									<PlanReviewView
 										plan={selectedPlan}
 										isLight={isLight}
+										wideLayout={isPlanSidebarCollapsed}
 										onSelectIssue={handleSelectIssue}
 										onSelectFileRef={handleSelectFileRef}
 										onSelectPlan={handleSelectPlan}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileCode2, Bug, FileText } from 'lucide-react';
+import { MermaidDiagram } from './MermaidDiagram';
 
 interface RichDocRendererProps {
 	markdown: string;
@@ -304,6 +305,16 @@ export const RichDocRenderer: React.FC<RichDocRendererProps> = ({
 				i++;
 			}
 			i++;
+			if (lang.toLowerCase() === 'mermaid') {
+				elements.push(
+					<MermaidDiagram
+						key={`mermaid-${i}`}
+						code={codeLines.join('\n')}
+						isLight={isLight}
+					/>
+				);
+				continue;
+			}
 			elements.push(
 				<div
 					key={`code-${i}`}

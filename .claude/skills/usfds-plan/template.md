@@ -13,6 +13,24 @@
 - **Non-goals / omitted:** <what is deliberately not done>
 - **Assumptions:** <explicit assumptions; open questions go to §8>
 
+## 2.5 Design & Approach (user reviews this section)
+### Diagram(s)
+<!-- Required (1–2 Mermaid diagrams) for multi-layer, workflow, state-machine, or schema tasks; write `—` for small/local fixes. -->
+```mermaid
+flowchart LR
+    A["Input"] --> B["Key decision / change"]
+```
+
+### Key decisions & contracts
+| Area | Decision / Contract | Rationale / Notes |
+|---|---|---|
+| API / RBAC | `<endpoint, payload, permission & PROJECT/OWN scope>` | |
+| Data / Schema | `<tables, columns, metadata JSON, or —>` | |
+| Config / Env | `<USFDS_* vars & defaults, or —>` | |
+
+### Edge cases, concurrency & failure handling
+- <timeout, idempotency, race condition, fallback, or backward-compatibility rule — or `—`>
+
 ## 3. Files
 | Action | File | Milestone | Note |
 |---|---|---|---|
@@ -57,3 +75,6 @@ Checkpoint log (the agent appends one line per finished milestone):
 
 ## 8. Open questions
 - <question for the user, or —>
+
+## 9. Manual E2E verification (post-merge)
+- [ ] <scenario the user verifies on real PostgreSQL / BullMQ / S3 / external provider, or `—`>

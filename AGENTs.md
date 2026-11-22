@@ -12,10 +12,10 @@ Identify the domain and read the corresponding documentation before implementing
 | --- | --- |
 | Architecture of codebase | `docs/arch/high-level-design.md`, `docs/arch/implementation-level-design.md` |
 | Design system | `docs/design-system.md` |
-| Use case specification | `docs/features/**/suc-spec.md`, and all sub items of Notion page [Đặc tả use case hệ thống](https://app.notion.com/p/c-t-use-case-h-th-ng-3f9b99c6a95080989f01e692219f6fe7)
+| Use case specification | `docs/features/**/suc-spec.md`, and all sub items of Notion page [Đặc tả use case hệ thống](https://app.notion.com/p/c-t-use-case-h-th-ng-3f9b99c6a95080989f01e692219f6fe7) |
 | Known issues / bugs | `docs/issues/README.md` (index, IDs `ISS-NNN`) |
-| Task status, dependencies, file ownership | `.plan/BOARD.md`, master plan `.plan/parallel_agent_setup.md`|
-| Writing / running tests | skill `usfds-testing` (`.claude/skills/usfds-testing/SKILL.md`)|
+| Task status, dependencies, file ownership | `.plan/BOARD.md`, master plan `.plan/parallel_agent_setup.md` |
+| Writing / running tests | skill `usfds-testing` (`.claude/skills/usfds-testing/SKILL.md`) |
 
 If a request does not clearly fall under any specific documentation row, ask me for document link in Notion or other relevant sources first.
 
@@ -23,18 +23,19 @@ If a request does not clearly fall under any specific documentation row, ask me 
 
 ## 0.1 Parallel Agent Work
 
-Several AI agents work on this repo at the same time. Follow these skills (in `.claude/skills/`):
+Several AI agents work on this repo at the same time. Follow these skills (in `.claude/skills/`, kept in sync with `.agents/skills/`):
 
 | Phase | Skill | Output |
 | --- | --- | --- |
-| Plan | `usfds-plan` | `.plan/<task>.md` from the template, with Dependencies & Conflicts verdict and acceptance tests. **Stop for user approval.** |
+| Plan | `usfds-plan` | `.plan/<task>.md` from the template, with `Design & Approach` (Mermaid + decisions/risks), Dependencies & Conflicts verdict, and acceptance tests. **Stop for user approval.** |
 | Implement | `usfds-task-workflow` | Tests first, then code, in your own git worktree/branch `task/<slug>` |
 | Backend | `usfds-backend-change` | Layer map, Alembic migrations, append-only hot spots |
 | Frontend | `usfds-frontend-change` | Design system, Vietnamese UI copy, react-query, MSW tests |
 | Tests | `usfds-testing` | `./scripts/test.sh` (no Docker), fixtures, PostgreSQL compatibility guard |
 
 - **Task model:** 1 task = 1 agent session = 1 plan file `.plan/<task_slug>.md`. The user decides which issues (`ISS-NNN`) form a task. The agent implements the whole task alone. Milestones are checkpoints inside the plan, not stop points. If the scope looks too broad or too small, propose splitting or merging **issues**; never split the task.
-- **Review model:** the user reviews acceptance tests and the **Review hotspots** listed in the final report, not every line of code.
+- **Review model:** the user reviews `Design & Approach`, acceptance tests, and the **Review hotspots** listed in the final report, not every line of code.
+- **Board claiming for parallel runs:** when running multiple agents concurrently, mark the task `In progress` on `main`'s `.plan/BOARD.md` right after plan approval so other sessions' `C1` conflict checks detect owned files.
 - **Single test entrypoint:** `./scripts/test.sh [core|infra|server|worker|cli|web]`. Python is pinned to 3.12.
 - **Hot-spot files** (shared registries) are append-only; see skill `usfds-plan` for the list.
 - **Schema changes** only through Alembic revisions (`python -m usfds_infra.database.migrate revision "..."`), one per task.
@@ -76,25 +77,24 @@ Stop at the first true statement:
 
 * **Iterate:** Implement step-by-step. Ban sweeping modifications. Touch the fewest files possible.
 * **Minimal Footprint:** Every modified line must trace directly to the task. The shortest working diff wins.
-* **Do not Fix Unbroken Things:** Never refactor adjacent code or reformat unrelated lines. Tag pre-existing issues with `TODO:`.
-* **Preserve Code (Deprecate):** Never delete unused code outright. Comment it out and tag as `DEPRECATED`.
+* **Do not Fix Unbroken Things:** Never refactor adjacent code or reformat unrelated lines. Tag pre-existing issues with `TODO: ISS-NNN`.
+* **Removing vs. Deprecating Code:** Delete obsolete code cleanly when a task explicitly removes a feature, endpoint, or column. Comment out with `DEPRECATED [YY-MM-DD]: reason` only when retaining temporary fallback or reference code.
 * **Debug:** Fix root causes, not symptoms. Grep every caller end-to-end before editing. Fix the routing bottleneck once.
-* **Testing:** Non-trivial logic requires exactly one runnable check (a tripwire). No bloated suites. Trivial one-liners require zero tests.
+* **Testing:** Follow `usfds-testing` — write the approved acceptance tests in plan §5 (one focused test per requirement/SUC/BR/ISS). Avoid bloated tests for trivial one-liners.
 
 ## 4. Formatting & Naming Conventions
 
-* **Strict Formatting:**
-* **Indentation:** Tabs only.
-* **Semicolons:** Mandatory.
-* **Braces:** One True Brace Style (1TBS).
-
+* **Formatting:**
+  * **TypeScript / React (`usfds-web`):** Tabs in new files (follow the file's existing style when editing), semicolons mandatory, One True Brace Style (1TBS).
+  * **Python (`usfds-core`, `usfds-infra`, `usfds-server`, `usfds-worker`, `usfds-cli`):** Tabs in new files (follow the file's existing indentation when editing); no semicolons. Never reformat untouched lines.
 * **Naming Conventions:**
-* `camelCase`: Variables and functions. Make them instantly readable for `usfds-web`
-* `snake_case`: Variables and functions. Make them instantly readable for `usfds-core` and `usfds-infra`
-* `UPPER_SNAKE_CASE`: Constants and globals.
-* `_prefix`: Internal or private functions.
+  * `camelCase`: Variables and functions in `usfds-web`.
+  * `snake_case`: Variables and functions in Python packages (`usfds-core`, `usfds-infra`, `usfds-server`, `usfds-worker`, `usfds-cli`).
+  * `UPPER_SNAKE_CASE`: Constants and globals.
+  * `_prefix`: Internal or private functions.
 
-## 6. HTML & CSS Design Philosophy
+## 5. HTML & CSS Design Philosophy
+
 Follow current design system guidelines for consistency in UI components, typography, spacing, and color schemes in `docs/design-system.md`.
 
 ---
@@ -119,5 +119,3 @@ Before modifying codebase logic, databases, routes, or assets:
 6. **Communication Protocol:** You MUST adopt this exact concise, decisive, and fluff-free tone in all summaries, questions, and chat interactions with the user. Stop guessing; state the facts.
 7. If request don't have corresponding documentation, always ask me for relevant Notion link before proceeding.
 8. If cannot connect to Notion, ask me download necessary documentation into `docs`.
-
----
