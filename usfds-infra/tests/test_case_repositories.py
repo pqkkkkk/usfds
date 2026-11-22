@@ -26,8 +26,8 @@ def test_case_unique_cas_and_transactional_audit(tmp_path):
 	with factory() as session:
 		service = CaseService(SqliteCaseRepository(session), SqliteAuditRepository(session), SqliteBlacklistRepository(session))
 		assert service.intake([case], "A")["accepted_count"] == 0
-		claimed, _ = service.update(project_id, case.case_id, 1, "claim", "A")
-		assert claimed.version == 2
+		updated = service.update(project_id, case.case_id, 1, "pending-customer", "A", summary="Contacted cardholder to verify payment")
+		assert updated.version == 2
 		session.commit()
 	with factory() as session:
 		repo = SqliteCaseRepository(session)
@@ -41,7 +41,7 @@ def test_case_unique_cas_and_transactional_audit(tmp_path):
 		session.rollback()
 	with factory() as session:
 		repo, audit = SqliteCaseRepository(session), SqliteAuditRepository(session)
-		assert repo.get_by_id(case.case_id).status == CaseStatus.IN_PROGRESS
+		assert repo.get_by_id(case.case_id).status == CaseStatus.PENDING_CUSTOMER
 		assert len(audit.list_for_entity(project_id, "CASE", str(case.case_id))) == 2
 		assert repo.search(project_id, {"q": "TX-1"}, "priority", 1, 10)[1] == 1
 	engine.dispose()
@@ -135,3 +135,24 @@ def test_case_repo_get_case_ids_by_events_is_pg_compatible(tmp_path):
 		assert repo.get_case_ids_by_events(project_id, ["EV-1", "EV-MISSING"]) == {"EV-1": str(mine.case_id)}
 		assert repo.get_case_ids_by_events(project_id, []) == {}
 	engine.dispose()
+
+
+def test_case_repo_works_without_assigned_to_under_pg_compat(db_session):
+	"""ISS-045: fraud_cases drops assigned_to and SqliteCaseRepository search/kpis remain PG-compatible."""
+	cols = {col["name"] for col in inspect(db_session.get_bind()).get_columns("fraud_cases")}
+	assert "assigned_to" not in cols
+
+	project_id = uuid4()
+	repo = SqliteCaseRepository(db_session)
+	case = Case(
+		project_id, "EV-PG", "U-PG", datetime.now(timezone.utc), 250.0, RuleAction.REJECT, None,
+		case_code="CASE-PG-1",
+	)
+	repo.save(case)
+	db_session.flush()
+
+	items, total = repo.search(project_id, {"q": "EV-PG"}, "priority", 1, 10)
+	assert total == 1 and len(items) == 1
+	assert not hasattr(items[0], "assigned_to")
+	kpis = repo.kpis(project_id)
+	assert kpis["open"] == 1

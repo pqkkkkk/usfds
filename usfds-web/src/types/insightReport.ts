@@ -268,7 +268,6 @@ export interface SarDossierData {
 		verified_label: number | null;
 		detected_at: string;
 		resolved_at: string | null;
-		assigned_to: string;
 		resolved_by: string;
 		detection_job_id: string | null;
 		model_version_id: string | null;

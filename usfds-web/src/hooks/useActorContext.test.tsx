@@ -37,7 +37,7 @@ describe('useActorContext', () => {
 								permissions: {
 									'project:read': ['PROJECT'],
 									'case:read': ['PROJECT'],
-									'case:claim': ['PROJECT'],
+									'case:manual_review': ['PROJECT'],
 									'rule:read': ['PROJECT'],
 								},
 							},

@@ -159,7 +159,6 @@ describe('M5 Domain Modules Feature Visibility', () => {
 			'detection:export': ['PROJECT'],
 			'case:create': ['PROJECT'],
 			'case:read': ['PROJECT'],
-			'case:claim': ['PROJECT'],
 			'case:manual_review': ['PROJECT'],
 			'blacklist:manage': ['PROJECT'],
 			'report:read': ['PROJECT'],
@@ -213,14 +212,13 @@ describe('M5 Domain Modules Feature Visibility', () => {
 		expect(screen.queryByText('Trung tâm tuân thủ & SAR')).not.toBeInTheDocument();
 		repRender.unmount();
 
-		// 3. project_admin: model read-only (no create/train), blacklist add hidden (case:read + case:assign only)
+		// 3. project_admin: model read-only (no create/train), blacklist add hidden (case:read only)
 		setupRole('project_admin', {
 			'project:read': ['PROJECT'],
 			'model:read': ['PROJECT'],
 			'training:read': ['PROJECT'],
 			'deployment:deploy': ['PROJECT'],
 			'case:read': ['PROJECT'],
-			'case:assign': ['PROJECT'],
 		});
 
 		const paModelRender = renderWithProviders(<ModelHubView />);

@@ -14,8 +14,13 @@ from usfds_core.domain.entities.case import Case, CaseStatus, EntityBlacklist
 from usfds_core.domain.entities.enums import RiskLevel, RuleAction
 from usfds_core.repositories.base_case_repo import CaseConflictError
 from usfds_core.services.auth.authz_service import AuthzService
-from usfds_core.services.investigation.behavior_profile import build_behavior_profile, build_rule_draft
+from usfds_core.services.investigation.behavior_profile import (
+	build_behavior_profile_from_storage_file,
+	build_behavior_profile_from_warehouse,
+	build_rule_draft,
+)
 from usfds_core.services.investigation.case_service import BlacklistService, CaseService, rule_feedback
+from usfds_core.services.warehouse.project_warehouse import ProjectWarehouse
 from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetRepository, SqliteDetectionJobRepository, SqliteProjectRepository
 from usfds_core.services.inference.executor import prepare_and_validate_input
 from usfds_infra.database.case_repositories import SqliteAuditRepository, SqliteBlacklistRepository, SqliteCaseRepository
@@ -139,7 +144,7 @@ def ingest_request(request: CaseIntakeRequest, session: Session, storage: LocalF
 
 @router.get("", response_model=ApiResponse[dict])
 def list_cases(project_id: UUID, status: CaseStatus | None = None, priority: RiskLevel | None = None,
-		q: str = "", user_id: str | None = None, assigned_to: str | None = None, unassigned: bool = False,
+		q: str = "", user_id: str | None = None,
 		rule_code: str | None = None, min_score: float | None = Query(None, ge=0, le=1), max_score: float | None = Query(None, ge=0, le=1),
 		min_amount: float | None = Query(None, ge=0), max_amount: float | None = Query(None, ge=0),
 		sort: Literal["priority", "amount", "created"] = "priority", page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200),
@@ -151,7 +156,7 @@ def list_cases(project_id: UUID, status: CaseStatus | None = None, priority: Ris
 	if min_score is not None and max_score is not None and min_score > max_score or min_amount is not None and max_amount is not None and min_amount > max_amount:
 		raise HTTPException(400, "Filter range is inverted")
 	items, total = SqliteCaseRepository(session).search(project_id, {"status": status, "priority": priority,
-		"q": q, "user_id": user_id, "assigned_to": assigned_to, "unassigned": unassigned, "rule_code": rule_code,
+		"q": q, "user_id": user_id, "rule_code": rule_code,
 		"min_score": min_score, "max_score": max_score, "min_amount": min_amount, "max_amount": max_amount}, sort, page, size)
 	return ApiResponse.ok({"items": [CaseResponse.model_validate(item).model_dump(mode="json") for item in items], "total": total, "page": page, "size": size})
 
@@ -179,15 +184,39 @@ def get_case(case_id: UUID, project_id: UUID, session: Session = Depends(get_db)
 		_error(error)
 
 
+def _workbench_profile(session: Session, storage: LocalFileStorage, project_id: UUID, case: Case, days: int) -> dict:
+	jobs = SqliteDetectionJobRepository(session).list_by_project(project_id)
+	completed_jobs = [
+		job for job in jobs
+		if (job.status.value if hasattr(job.status, "value") else str(job.status)) == "COMPLETED" and job.output_path
+	]
+	if completed_jobs and (case.detection_job_id is not None or case.dataset_artifact_id is None):
+		warehouse = ProjectWarehouse(storage)
+		warehouse.sync_missing_jobs(completed_jobs)
+		return build_behavior_profile_from_warehouse(warehouse, completed_jobs, case, days=days)
+	if case.dataset_artifact_id is not None:
+		artifact = SqliteDatasetArtifactRepository(session).get_by_id(case.dataset_artifact_id)
+		if artifact is None:
+			return {"available": False, "message": "Dataset artifact not found", "timeline": [], "comparison": []}
+		dataset = SqliteDatasetRepository(session).get_by_id(artifact.dataset_id)
+		if dataset is None or dataset.project_id != project_id:
+			return {"available": False, "message": "Dataset artifact does not belong to this project", "timeline": [], "comparison": []}
+		if artifact.pipeline_stage == "RAW":
+			return {"available": False, "message": "Intake needs an artifact with canonical mapped columns", "timeline": [], "comparison": []}
+		try:
+			return build_behavior_profile_from_storage_file(storage, artifact.storage_path, case, days=days)
+		except (FileNotFoundError, ValueError) as error:
+			detail = "Dataset artifact file is unavailable" if isinstance(error, FileNotFoundError) else str(error)
+			return {"available": False, "message": detail, "timeline": [], "comparison": []}
+	return {"available": False, "message": "No completed detection warehouse facts available", "timeline": [], "comparison": []}
+
+
 @router.get("/{case_id}/workbench", response_model=ApiResponse[dict])
 def workbench(case_id: UUID, project_id: UUID, days: Literal["30", "90"] = "30", session: Session = Depends(get_db), storage: LocalFileStorage = Depends(get_storage), actor: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
 	authz.require_project_permission(actor, "case:read", project_id)
 	try:
 		case = _service(session).get(project_id, case_id)
-		try:
-			profile = build_behavior_profile(_source_frame(session, storage, project_id, case.dataset_artifact_id, case.detection_job_id), case, int(days))
-		except HTTPException as error:
-			profile = {"available": False, "message": error.detail, "timeline": [], "comparison": []}
+		profile = _workbench_profile(session, storage, project_id, case, int(days))
 		related, related_total = SqliteCaseRepository(session).search(project_id, {"user_id": case.user_id}, "created", 1, 200)
 		blocked = any(entry.status == "ACTIVE" and entry.entity_type == "USER_ID" and entry.entity_value == case.user_id for entry in SqliteBlacklistRepository(session).list_by_project(project_id))
 		return ApiResponse.ok({"case": CaseResponse.model_validate(case).model_dump(mode="json"), "profile": profile,
@@ -222,19 +251,14 @@ def _mutate(case_id: UUID, project_id: UUID, request: CaseActionRequest, action:
 		reason: str = "", block_entities=None):
 	_project(session, project_id, True)
 	try:
-		case, warnings = _service(session).update(project_id, case_id, request.expected_version, action, actor,
-			reason=reason, summary=request.summary, assignee=request.assignee, block_entities=block_entities)
-		return ApiResponse.ok({"case": CaseResponse.model_validate(case).model_dump(mode="json"), "related_assignees": warnings})
+		case = _service(session).update(project_id, case_id, request.expected_version, action, actor,
+			reason=reason, summary=request.summary, block_entities=block_entities)
+		return ApiResponse.ok({"case": CaseResponse.model_validate(case).model_dump(mode="json")})
 	except (ValueError, LookupError) as error:
 		_error(error)
 
 
-@router.post("/{case_id}/claim", response_model=ApiResponse[dict])
-def claim(case_id: UUID, project_id: UUID, request: CaseActionRequest, session: Session = Depends(get_db), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
-	assignee = (request.assignee or "").strip()
-	perm = "case:assign" if (assignee and assignee != actor_ctx.username) else "case:claim"
-	authz.require_project_permission(actor_ctx, perm, project_id, action="mutate")
-	return _mutate(case_id, project_id, request, "claim", session, actor_ctx.username)
+# DEPRECATED [26-11-22] ISS-045: POST /{case_id}/claim (Assign/Claim flow) removed.
 
 
 @router.post("/{case_id}/pending-customer", response_model=ApiResponse[dict])

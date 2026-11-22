@@ -87,7 +87,8 @@ def test_schema_supports_multi_role_per_project_and_idempotent_seed(db_session):
 	assert set(proj_ctx.role_keys) == {"data_scientist", "fraud_analyst"}
 	# Permissions from both roles are merged
 	assert "model:create" in proj_ctx.permissions
-	assert "case:claim" in proj_ctx.permissions
+	assert "case:manual_review" in proj_ctx.permissions
+	assert "case:claim" not in proj_ctx.permissions
 
 
 def test_load_actor_context_and_load_project_actor_context(db_session):
@@ -163,7 +164,8 @@ def test_load_actor_context_and_load_project_actor_context(db_session):
 	assert {r.name for r in m_alice.roles} == {"data_scientist", "fraud_analyst"}
 	assert set(m_alice.role_keys) == {"data_scientist", "fraud_analyst"}
 	assert "model:create" in m_alice.permissions
-	assert "case:claim" in m_alice.permissions
+	assert "case:manual_review" in m_alice.permissions
+	assert "case:claim" not in m_alice.permissions
 	# System-only permissions never leak into project-level context
 	assert "project:create" not in m_alice.permissions
 
@@ -270,3 +272,49 @@ def test_user_repo_get_by_ids_returns_map_without_duplicates(db_session):
 	assert result[u1.user_id].full_name == "Batch User 1"
 	assert result[u2.user_id].username == "batch_u2"
 	assert user_repo.get_by_ids([]) == {}
+
+
+def test_seed_rbac_removes_case_assign_and_claim_permissions(db_session):
+	"""ISS-045 / SUC-17: seed_rbac removes obsolete case:assign and case:claim permissions idempotently."""
+	from usfds_core.domain.entities.auth import Permission
+	from usfds_infra.database.models import RolePermissionModel
+
+	seed_rbac(db_session, bootstrap_password_hash="hashed-pw")
+	perm_repo = SqlPermissionRepository(db_session)
+	role_repo = SqlRoleRepository(db_session)
+	pa_role = role_repo.get_by_scope_and_name(RoleScope.PROJECT, "project_admin")
+	fa_role = role_repo.get_by_scope_and_name(RoleScope.PROJECT, "fraud_analyst")
+	assert pa_role is not None and fa_role is not None
+
+	# Simulate legacy DB rows still having case:assign and case:claim
+	for code, action, role in (
+		("case:assign", "assign", pa_role),
+		("case:claim", "claim", fa_role),
+	):
+		perm = perm_repo.get_by_code(code)
+		if perm is None:
+			perm = perm_repo.save(
+				Permission(code=code, resource="case", action=action, scope=GrantScope.PROJECT, description=code)
+			)
+			db_session.merge(
+				RolePermissionModel(
+					role_id=str(role.role_id),
+					permission_id=str(perm.permission_id),
+					grant_scope=GrantScope.PROJECT.value,
+				)
+			)
+	db_session.flush()
+
+	seed_rbac(db_session, bootstrap_password_hash="hashed-pw")
+	db_session.flush()
+
+	assert perm_repo.get_by_code("case:assign") is None
+	assert perm_repo.get_by_code("case:claim") is None
+	remaining_codes = {p.code for p in perm_repo.list_all()}
+	assert "case:assign" not in remaining_codes
+	assert "case:claim" not in remaining_codes
+	pa_perm_ids = {rp.permission_id for rp in role_repo.get_role_permissions(pa_role.role_id)}
+	fa_perm_ids = {rp.permission_id for rp in role_repo.get_role_permissions(fa_role.role_id)}
+	perm_ids_by_code = {p.code: p.permission_id for p in perm_repo.list_all()}
+	assert "case:manual_review" in perm_ids_by_code and perm_ids_by_code["case:manual_review"] in fa_perm_ids
+	assert all(pid in perm_ids_by_code.values() for pid in pa_perm_ids)

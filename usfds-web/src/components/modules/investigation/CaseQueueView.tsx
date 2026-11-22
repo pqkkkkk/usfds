@@ -1,6 +1,6 @@
 import { useDeferredValue, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
 	AlertTriangle,
 	ArrowLeft,
@@ -12,11 +12,8 @@ import {
 	Filter,
 	RefreshCw,
 	RotateCcw,
-	UserCheck,
 } from 'lucide-react';
 import { investigationApi } from '../../../api/investigationApi';
-import { useActorContext } from '@/hooks/useActorContext';
-import type { Case } from '../../../types/investigation';
 import {
 	BUTTON_PRIMARY_CLASS,
 	BUTTON_SECONDARY_CLASS,
@@ -36,7 +33,6 @@ import {
 const INITIAL_FILTERS: Record<string, string> = {
 	status: '',
 	priority: '',
-	assigned_to: '',
 	rule_code: '',
 	min_score: '',
 	max_score: '',
@@ -48,15 +44,11 @@ const INITIAL_FILTERS: Record<string, string> = {
 
 export function CaseQueueView({
 	projectId,
-	readOnly,
 }: {
 	projectId: string;
 	readOnly: boolean;
 }) {
-	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { features } = useActorContext(projectId);
-	const canClaimCase = features.claimCase.allowed;
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [filters, setFilters] = useState<Record<string, string>>(INITIAL_FILTERS);
 	const [page, setPage] = useState(1);
@@ -73,10 +65,6 @@ export function CaseQueueView({
 				key.startsWith('min_') || key.startsWith('max_') ? Number(value) : value;
 		}
 	}
-	if (queryFilters.assigned_to === 'unassigned') {
-		delete queryFilters.assigned_to;
-		queryFilters.unassigned = true;
-	}
 
 	const casesQuery = useQuery({
 		queryKey: ['investigation', projectId, 'queue', queryFilters],
@@ -85,19 +73,6 @@ export function CaseQueueView({
 	const kpisQuery = useQuery({
 		queryKey: ['investigation', projectId, 'kpis'],
 		queryFn: () => investigationApi.kpis(projectId),
-	});
-	const claimMutation = useMutation({
-		mutationFn: (item: Case) =>
-			investigationApi.action(projectId, item.case_id, 'claim', {
-				expected_version: item.version,
-			}),
-		onSuccess: (result) => {
-			void queryClient.invalidateQueries({ queryKey: ['investigation', projectId] });
-			navigate(`/investigation/cases/${result.case.case_id}`);
-		},
-		onError: () => {
-			void casesQuery.refetch();
-		},
 	});
 
 	const handleFilterChange = (key: string, value: string) => {
@@ -172,7 +147,7 @@ export function CaseQueueView({
 				})}
 			</div>
 
-			<ErrorNotice error={casesQuery.error || kpisQuery.error || claimMutation.error} />
+			<ErrorNotice error={casesQuery.error || kpisQuery.error} />
 
 			<SectionCard
 				title="Bộ lọc hàng đợi đa chiều"
@@ -241,16 +216,6 @@ export function CaseQueueView({
 									{priority}
 								</option>
 							))}
-						</select>
-					</FormField>
-					<FormField name="Phân công">
-						<select
-							className={INPUT_CLASS}
-							value={filters.assigned_to}
-							onChange={(event) => handleFilterChange('assigned_to', event.target.value)}
-						>
-							<option value="">Tất cả chuyên viên</option>
-							<option value="unassigned">Chỉ hồ sơ chưa giao</option>
 						</select>
 					</FormField>
 					<FormField name="Mã luật đã kích hoạt">
@@ -344,7 +309,7 @@ export function CaseQueueView({
 								<th scope="col" className="px-3 py-3">Thao tác & luật đã kích hoạt</th>
 								<th scope="col" className="px-3 py-3">Mức ưu tiên</th>
 								<th scope="col" className="px-3 py-3">Trạng thái</th>
-								<th scope="col" className="px-3 py-3">Assignee</th>
+								<th scope="col" className="px-3 py-3">Thời gian tạo</th>
 								<th scope="col" className="px-4 py-3 text-right">Thao tác</th>
 							</tr>
 						</thead>
@@ -404,25 +369,11 @@ export function CaseQueueView({
 									</td>
 									<td className="px-3 py-3">
 										<span className="font-mono text-[11px] text-slate-300">
-											{item.assigned_to || 'Chưa giao'}
-										</span>
-										<span className="mt-0.5 block text-[10px] text-slate-500">
-											Created {formatDateTime(item.created_at)}
+											{formatDateTime(item.created_at)}
 										</span>
 									</td>
 									<td className="px-4 py-3 text-right">
 										<div className="inline-flex items-center justify-end gap-2">
-											{item.status === 'OPEN' && canClaimCase && (
-												<button
-													type="button"
-													className={BUTTON_SECONDARY_CLASS}
-													disabled={claimMutation.isPending || readOnly}
-													onClick={() => claimMutation.mutate(item)}
-												>
-													<UserCheck size={14} />
-													<span>Nhận xử lý</span>
-												</button>
-											)}
 											<Link
 												to={`/investigation/cases/${item.case_id}`}
 												className={BUTTON_PRIMARY_CLASS}

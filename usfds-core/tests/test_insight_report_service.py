@@ -308,3 +308,43 @@ def test_insight_report_filters_by_tx_timestamp_on_warehouse_without_pandas(monk
 
 	assert service.get_executive_overview(project_id)["kpis"]["gross_scanned_volume"] == 750.0
 	assert any(k.startswith(f"warehouse/{project_id}/fact_transactions/") for k in storage.files)
+
+
+def test_sar_dossier_omits_assigned_to_and_uses_resolved_by():
+	"""ISS-045: SAR dossier identification omits assigned_to and reports resolved_by."""
+	from usfds_core.services.insight_report.report_builder import ComplianceReportBuilder
+
+	project_id = uuid4()
+	case = Case(
+		project_id=project_id,
+		event_id="EV-SAR-1",
+		user_id="U-SAR-1",
+		tx_timestamp=datetime(2026, 11, 20, 14, 0, tzinfo=timezone.utc),
+		amount=500.0,
+		final_action=RuleAction.REJECT,
+		dataset_artifact_id=None,
+		case_code="CASE-2026-SAR1",
+		model_score=0.92,
+		status=CaseStatus.RESOLVED_FRAUD,
+		priority=RiskLevel.CRITICAL,
+		priority_score=90.0,
+		resolution_reason="OTHER_FRAUD",
+		resolution_summary="Confirmed fraudulent activity by investigation",
+		resolved_at=datetime(2026, 11, 20, 15, 0, tzinfo=timezone.utc),
+		resolved_by="analyst1",
+	)
+	dossier = ComplianceReportBuilder.build_sar_dossier(
+		project_id=str(project_id),
+		project_name="SAR Test",
+		case=case,
+		related_cases=[],
+		audit_logs=[],
+		blacklist_entries=[],
+	)
+	s1 = dossier["section_1_identification"]
+	assert "assigned_to" not in s1
+	assert s1["resolved_by"] == "analyst1"
+
+	md = ComplianceReportBuilder.format_sar_markdown(dossier)
+	assert "Assigned / Resolved" not in md
+	assert "Resolved Analyst:" in md and "analyst1" in md

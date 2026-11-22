@@ -76,11 +76,9 @@ class SqliteCaseRepository(ICaseRepository):
 
 	def _search_query(self, project_id: UUID, filters: dict, dialect_name: str):
 		query = select(CaseModel).where(CaseModel.project_id == str(project_id))
-		for key in ("status", "priority", "user_id", "assigned_to"):
+		for key in ("status", "priority", "user_id"):
 			if filters.get(key):
 				query = query.where(getattr(CaseModel, key) == filters[key])
-		if filters.get("unassigned"):
-			query = query.where(CaseModel.assigned_to.is_(None))
 		if filters.get("rule_code"):
 			if dialect_name == "postgresql":
 				rules = func.json_array_elements_text(CaseModel.triggered_rule_codes).table_valued("value")

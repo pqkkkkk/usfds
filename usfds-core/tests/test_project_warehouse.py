@@ -128,3 +128,76 @@ def test_warehouse_load_filters_by_tx_timestamp_not_job_date(no_pandas_parquet_r
 		date_from=datetime(2026, 11, 1, tzinfo=timezone.utc), date_to=datetime(2026, 11, 30, tzinfo=timezone.utc),
 	)
 	assert [r[0] for r in conn.execute("SELECT event_id FROM facts").fetchall()] == ["TX-B"]
+
+
+def test_warehouse_fact_includes_optional_entity_columns_and_reads_legacy_files(no_pandas_parquet_read):
+	"""ISS-045 / SUC-18: Warehouse preserves 5 secondary entity columns and stays compatible with legacy 20-col fact files."""
+	import io
+
+	storage = _MemoryStorage()
+	project_id = uuid4()
+	warehouse = ProjectWarehouse(storage)
+	t0 = datetime(2026, 11, 1, tzinfo=timezone.utc)
+
+	new_row = {
+		**_row("TX-NEW", 0.85),
+		"device_id": "DEV-1",
+		"ip_address": "10.0.0.5",
+		"card_id": "CARD-9",
+		"merchant_id": "MERCH-7",
+		"merchant_category": "ELECTRONICS",
+	}
+	new_job = _job(project_id, storage, [new_row], t0 + timedelta(days=1), "new-with-entities")
+	assert warehouse.write_job_facts(new_job) == warehouse.fact_key(new_job)
+
+	# Legacy fact file missing the 5 optional entity columns
+	legacy_job_id = uuid4()
+	legacy_job = DetectionJob(
+		job_id=legacy_job_id,
+		project_id=project_id,
+		job_name="legacy-fact",
+		output_path=f"datasets/{project_id}/inferences/{legacy_job_id}/predictions.parquet",
+		status=DetectionJobStatus.COMPLETED,
+		score_threshold=0.5,
+		created_at=t0,
+	)
+	legacy_df = pd.DataFrame([{
+		"job_id": str(legacy_job_id),
+		"job_name": "legacy-fact",
+		"job_created_at": t0.isoformat(),
+		"scanned_at": t0.replace(tzinfo=None),
+		"model_version_id": "",
+		"score_threshold": 0.5,
+		"event_id": "TX-OLD",
+		"user_id": "U-OLD",
+		"tx_timestamp": datetime(2026, 10, 31, 12, 0, 0),
+		"hour_utc": 12,
+		"amount": 50.0,
+		"model_score": 0.2,
+		"rule_action": "ALLOW",
+		"final_action": "ALLOW",
+		"is_flagged": 0,
+		"has_rule_hit": 0,
+		"has_ai_hit": 0,
+		"rule_codes": [],
+		"dataset_label": -1,
+		"has_label_col": False,
+	}])
+	buf = io.BytesIO()
+	legacy_df.to_parquet(buf, index=False)
+	storage.save_bytes(warehouse.fact_key(legacy_job), buf.getvalue())
+
+	conn_mixed = _load_facts(storage, [new_job, legacy_job])
+	by_id = {
+		r[0]: r[1:]
+		for r in conn_mixed.execute(
+			"SELECT event_id, device_id, ip_address, card_id, merchant_id, merchant_category FROM facts"
+		).fetchall()
+	}
+	assert by_id["TX-NEW"] == ("DEV-1", "10.0.0.5", "CARD-9", "MERCH-7", "ELECTRONICS")
+	assert by_id["TX-OLD"] == (None, None, None, None, None)
+
+	conn_legacy_only = _load_facts(storage, [legacy_job])
+	assert conn_legacy_only.execute(
+		"SELECT event_id, device_id, ip_address, card_id, merchant_id, merchant_category FROM facts"
+	).fetchall() == [("TX-OLD", None, None, None, None, None)]

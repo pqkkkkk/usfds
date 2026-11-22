@@ -82,12 +82,6 @@ export function SubjectAndBaselineColumn({
 							{formatDateTime(item.tx_timestamp)}
 						</dd>
 					</div>
-					<div className="col-span-2 rounded-lg border border-dark-800 bg-dark-950/50 p-2.5">
-						<dt className="text-[11px] text-slate-400">Chuyên viên được giao</dt>
-						<dd className="mt-0.5 font-mono text-slate-200">
-							{item.assigned_to || 'Chưa giao'}
-						</dd>
-					</div>
 				</dl>
 			</SectionCard>
 
@@ -203,7 +197,6 @@ export function SubjectAndBaselineColumn({
 								<span className="font-mono tabular-nums">
 									{formatCurrencyAmount(entry.amount)}
 								</span>
-								<span>{entry.assigned_to || 'Chưa giao'}</span>
 							</div>
 						</div>
 					))}

@@ -54,7 +54,7 @@ class Case:
 	status: CaseStatus = CaseStatus.OPEN
 	priority: RiskLevel = RiskLevel.MEDIUM
 	priority_score: float = 0.0
-	assigned_to: str | None = None
+	# DEPRECATED [26-11-22] ISS-045: assigned_to removed (no Fraud Manager / Assign flow).
 	resolution_reason: str | None = None
 	resolution_summary: str | None = None
 	resolved_at: datetime | None = None

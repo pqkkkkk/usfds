@@ -31,7 +31,6 @@ const MULTI_ROLE_ACTOR: ActorContextLike = {
 				'detection:export': ['PROJECT'],
 				'case:create': ['PROJECT'],
 				'case:read': ['PROJECT'],
-				'case:claim': ['PROJECT'],
 				'case:manual_review': ['PROJECT'],
 				'blacklist:manage': ['PROJECT'],
 				'report:read': ['PROJECT'],
@@ -64,13 +63,14 @@ const MULTI_ROLE_ACTOR: ActorContextLike = {
 
 describe('feature-policy', () => {
 	it('test_feature_policy_prefix_exact_and_visible_projects', () => {
-		// Prefix matching: "case" matches "case:read", "case:claim", etc.
+		// Prefix matching: "case" matches "case:create", "case:read", "case:manual_review"
 		expect(scopesOn(MULTI_ROLE_ACTOR.projects[0].permissions, 'case')).toEqual([
 			'PROJECT',
 			'PROJECT',
 			'PROJECT',
-			'PROJECT',
 		]);
+		expect('claimCase' in ACTOR_FEATURE).toBe(false);
+		expect('assignCase' in ACTOR_FEATURE).toBe(false);
 		// Exact action matching: "rule:create" must not match "rule:read"
 		expect(scopesOn(MULTI_ROLE_ACTOR.projects[0].permissions, 'rule:create')).toEqual([]);
 		expect(ACTOR_FEATURE.createRule.permission).toBe('rule:create');

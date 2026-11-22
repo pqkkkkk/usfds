@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+import json
 from uuid import uuid4
 
 import pandas as pd
@@ -7,9 +9,16 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
-from usfds_core.domain.entities.enums import PipelineStage
+from usfds_core.domain.entities.detection import DetectionJob
+from usfds_core.domain.entities.enums import DetectionJobStatus, PipelineStage
 from usfds_core.domain.entities.system import Project
-from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetRepository, SqliteProjectRepository
+from usfds_infra.database import (
+	SqliteDatasetArtifactRepository,
+	SqliteDatasetRepository,
+	SqliteDetectionJobRepository,
+	SqliteProjectRepository,
+	SqlUserRepository,
+)
 from usfds_server.api import app
 from usfds_server.config import settings
 from usfds_server.dependencies import get_db, get_storage
@@ -79,12 +88,20 @@ def test_investigation_contract_and_independent_resolution(tmp_path):
 			assert "/api/v1/cases/intake" not in app.openapi()["paths"]
 			url = f"/api/v1/cases/{ids[0]}"
 			params = {"project_id": str(project_id)}
-			first = client.post(url + "/claim", params=params, json={"expected_version": 1})
-			assert first.status_code == 200, first.text
-			assert first.json()["data"]["case"]["assigned_to"] == "admin"
-			assert client.post(url + "/claim", params=params, json={"expected_version": 1}).status_code == 409
-			second = client.post(f"/api/v1/cases/{ids[1]}/claim", params=params, json={"expected_version": 1})
-			assert second.json()["data"]["related_assignees"] == []
+			pending = client.post(
+				url + "/pending-customer",
+				params=params,
+				json={"expected_version": 1, "summary": "Contacted cardholder to confirm transaction"},
+			)
+			assert pending.status_code == 200, pending.text
+			assert pending.json()["data"]["case"]["status"] == "PENDING_CUSTOMER"
+			assert "assigned_to" not in pending.json()["data"]["case"]
+			assert "related_assignees" not in pending.json()["data"]
+			assert client.post(
+				url + "/pending-customer",
+				params=params,
+				json={"expected_version": 1, "summary": "Stale version retry should conflict"},
+			).status_code == 409
 			decision = {"expected_version": 2, "verdict": "FRAUD", "reason": "OTHER_FRAUD", "summary": "Verified unauthorized transaction by customer",
 				"block_entities": [{"entity_type": "USER_ID", "entity_value": "NOT_THIS_USER"}]}
 			assert client.post(url + "/resolve", params=params, json=decision).status_code == 400
@@ -94,7 +111,7 @@ def test_investigation_contract_and_independent_resolution(tmp_path):
 			assert resolved.status_code == 200, resolved.text
 			assert resolved.json()["data"]["case"]["verified_label"] == 1
 			assert resolved.json()["data"]["case"]["resolved_by"] == "admin"
-			assert client.get(f"/api/v1/cases/{ids[1]}", params=params).json()["data"]["status"] == "IN_PROGRESS"
+			assert client.get(f"/api/v1/cases/{ids[1]}", params=params).json()["data"]["status"] == "OPEN"
 			for window in (None, 30, 90):
 				window_params = params if window is None else {**params, "days": window}
 				workbench = client.get(url + "/workbench", params=window_params)
@@ -126,3 +143,123 @@ def test_investigation_contract_and_independent_resolution(tmp_path):
 			assert client.get("/api/v1/cases", params=params).json()["data"]["total"] == 2
 	finally:
 		settings.db_path, settings.storage_dir = old_db, old_storage
+
+
+def test_investigation_api_removes_claim_and_escalates_without_assignee(client, server_session_factory):
+	"""ISS-045 / SUC-17 / SUC-18: /claim route and assigned_to/assignee fields are removed; /escalate requires only summary."""
+	assert "/api/v1/cases/{case_id}/claim" not in app.openapi()["paths"]
+	list_params = app.openapi()["paths"]["/api/v1/cases"]["get"]["parameters"]
+	param_names = {p["name"] for p in list_params}
+	assert "assigned_to" not in param_names
+	assert "unassigned" not in param_names
+
+	project_id, job_id = uuid4(), uuid4()
+	with server_session_factory() as session:
+		actor_id = SqlUserRepository(session).get_by_username("admin").user_id
+		SqliteProjectRepository(session).save(Project(project_id=project_id, user_id=actor_id, project_name="Escalate Test"))
+		pred_df = pd.DataFrame([
+			{"event_id": "EV-ESC", "user_id": "U-ESC", "timestamp": "2026-11-10T03:00:00Z", "amount": 900.0, "final_action": "REVIEW", "model_score": 0.72},
+		])
+		output_path = get_storage().save_bytes(f"datasets/{project_id}/inferences/{job_id}/predictions.parquet", pred_df.to_parquet(index=False))
+		SqliteDetectionJobRepository(session).save(DetectionJob(
+			job_id=job_id, project_id=project_id, user_id=actor_id, job_name="Escalate Scan",
+			output_path=output_path, score_threshold=0.5, status=DetectionJobStatus.COMPLETED,
+		))
+		session.commit()
+
+		intake = ingest_request(
+			CaseIntakeRequest.model_validate({
+				"project_id": str(project_id),
+				"detection_job_id": str(job_id),
+				"transactions": [{
+					"event_id": "EV-ESC", "user_id": "U-ESC", "timestamp": "2026-11-10T03:00:00Z",
+					"amount": 900.0, "model_score": 0.72, "final_action": "REVIEW",
+				}],
+			}),
+			session,
+			get_storage(),
+			"admin",
+		)
+		case_id = intake["created_case_ids"][0]
+		session.commit()
+
+	params = {"project_id": str(project_id)}
+	assert client.post(f"/api/v1/cases/{case_id}/claim", params=params, json={"expected_version": 1}).status_code in (404, 405)
+
+	# Extra `assignee` field must be rejected by CaseActionRequest (extra="forbid")
+	assert client.post(
+		f"/api/v1/cases/{case_id}/escalate",
+		params=params,
+		json={"expected_version": 1, "summary": "High risk anomaly requires urgent check", "assignee": "someone"},
+	).status_code == 422
+
+	escalated = client.post(
+		f"/api/v1/cases/{case_id}/escalate",
+		params=params,
+		json={"expected_version": 1, "summary": "High risk anomaly requires urgent check"},
+	)
+	assert escalated.status_code == 200, escalated.text
+	body = escalated.json()["data"]
+	assert "related_assignees" not in body
+	assert body["case"]["priority"] == "CRITICAL"
+	assert "assigned_to" not in body["case"]
+
+
+def test_workbench_queries_warehouse_via_duckdb_without_pandas_full_load(client, server_session_factory, monkeypatch):
+	"""ISS-045 / SUC-18: Workbench loads behavior profile and timeline from ProjectWarehouse via DuckDB without pandas file reads."""
+	project_id, job_id = uuid4(), uuid4()
+	with server_session_factory() as session:
+		actor_id = SqlUserRepository(session).get_by_username("admin").user_id
+		SqliteProjectRepository(session).save(Project(project_id=project_id, user_id=actor_id, project_name="WB Warehouse Test"))
+		pred_df = pd.DataFrame([
+			{"event_id": "EV-H1", "user_id": "U-WB", "timestamp": "2026-11-05T02:00:00Z", "amount": 100.0, "final_action": "ALLOW",
+			 "model_score": 0.10, "device_id": "DEV-HOME", "ip_address": "1.1.1.1", "card_id": "C-1", "merchant_id": "M-1", "merchant_category": "FOOD"},
+			{"event_id": "EV-H2", "user_id": "U-WB", "timestamp": "2026-11-08T02:30:00Z", "amount": 300.0, "final_action": "ALLOW",
+			 "model_score": 0.15, "device_id": "DEV-HOME", "ip_address": "1.1.1.1", "card_id": "C-1", "merchant_id": "M-1", "merchant_category": "FOOD"},
+			{"event_id": "EV-CURR", "user_id": "U-WB", "timestamp": "2026-11-10T15:00:00Z", "amount": 1200.0, "final_action": "REJECT",
+			 "model_score": 0.91, "device_id": "DEV-EVIL", "ip_address": "1.1.1.1", "card_id": "C-1", "merchant_id": "M-1", "merchant_category": "CRYPTO"},
+		])
+		output_path = get_storage().save_bytes(f"datasets/{project_id}/inferences/{job_id}/predictions.parquet", pred_df.to_parquet(index=False))
+		SqliteDetectionJobRepository(session).save(DetectionJob(
+			job_id=job_id, project_id=project_id, user_id=actor_id, job_name="WB Scan",
+			output_path=output_path, score_threshold=0.5, status=DetectionJobStatus.COMPLETED,
+			created_at=datetime(2026, 11, 10, 16, 0, tzinfo=timezone.utc),
+		))
+		session.commit()
+
+		intake = ingest_request(
+			CaseIntakeRequest.model_validate({
+				"project_id": str(project_id),
+				"detection_job_id": str(job_id),
+				"transactions": [{
+					"event_id": "EV-CURR", "user_id": "U-WB", "timestamp": "2026-11-10T15:00:00Z",
+					"amount": 1200.0, "model_score": 0.91, "final_action": "REJECT",
+				}],
+			}),
+			session,
+			get_storage(),
+			"admin",
+		)
+		case_id = intake["created_case_ids"][0]
+		session.commit()
+
+	def _blocked(*args, **kwargs):
+		raise AssertionError("pandas file read must not be used in workbench (ISS-045)")
+
+	monkeypatch.setattr(pd, "read_parquet", _blocked)
+	monkeypatch.setattr(pd, "read_csv", _blocked)
+
+	res = client.get(f"/api/v1/cases/{case_id}/workbench", params={"project_id": str(project_id), "days": 30})
+	assert res.status_code == 200, res.text
+	data = res.json()["data"]
+	assert "assigned_to" not in data["case"]
+	profile = data["profile"]
+	assert profile["available"] is True
+	assert profile["avg_amount"] == 200.0
+	assert profile["max_amount"] == 300.0
+	comp = {item["field"]: item for item in profile["comparison"]}
+	assert comp["device_id"]["current"] == "DEV-EVIL"
+	assert comp["device_id"]["is_anomalous"] is True
+	assert comp["merchant_category"]["current"] == "CRYPTO"
+	assert [item["event_id"] for item in profile["timeline"]] == ["EV-H1", "EV-H2", "EV-CURR"]
+	assert get_storage().exists(f"warehouse/{project_id}/fact_transactions/job_{job_id}.parquet")

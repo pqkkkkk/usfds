@@ -68,18 +68,11 @@ function CaseWorkbench({
 			}
 			return investigationApi.action(projectId, caseId, action, payload);
 		},
-		onSuccess: async (res, variables) => {
+		onSuccess: async (_res, variables) => {
 			await queryClient.invalidateQueries({
 				queryKey: ['investigation', projectId],
 			});
-			const relatedWarning =
-				typeof res === 'object' &&
-				res !== null &&
-				'related_assignees' in res &&
-				res.related_assignees.length > 0
-					? ` (Các hồ sơ mở khác của người dùng này được giao cho: ${res.related_assignees.join(', ')})`
-					: '';
-			setNotice(`Cập nhật hồ sơ thành công.${relatedWarning}`);
+			setNotice('Cập nhật hồ sơ thành công.');
 
 			if (variables.action === 'resolve' && autoAdvance) {
 				try {

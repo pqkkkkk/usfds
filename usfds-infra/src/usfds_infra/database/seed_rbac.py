@@ -63,8 +63,6 @@ PERMISSION_CATALOG: List[Tuple[str, str, str, GrantScope, str]] = [
 	("detection:export", "detection", "export", GrantScope.PROJECT, "Export detection job results"),
 	("case:create", "case", "create", GrantScope.PROJECT, "Create investigation cases from detection"),
 	("case:read", "case", "read", GrantScope.PROJECT, "View investigation cases"),
-	("case:assign", "case", "assign", GrantScope.PROJECT, "Assign investigation cases"),
-	("case:claim", "case", "claim", GrantScope.PROJECT, "Claim unassigned cases"),
 	("case:manual_review", "case", "manual_review", GrantScope.PROJECT, "Perform manual case review"),
 	("case:escalate", "case", "escalate", GrantScope.PROJECT, "Escalate cases"),
 	("case:reopen", "case", "reopen", GrantScope.PROJECT, "Reopen closed cases"),
@@ -117,7 +115,6 @@ ROLE_GRANTS: Dict[str, List[Tuple[str, GrantScope]]] = {
 		("detection:export", GrantScope.PROJECT),
 		("case:create", GrantScope.PROJECT),
 		("case:read", GrantScope.PROJECT),
-		("case:assign", GrantScope.PROJECT),
 		("report:read", GrantScope.PROJECT),
 		("report:create", GrantScope.PROJECT),
 		("report:export", GrantScope.PROJECT),
@@ -158,7 +155,6 @@ ROLE_GRANTS: Dict[str, List[Tuple[str, GrantScope]]] = {
 		("detection:export", GrantScope.PROJECT),
 		("case:create", GrantScope.PROJECT),
 		("case:read", GrantScope.PROJECT),
-		("case:claim", GrantScope.PROJECT),
 		("case:manual_review", GrantScope.PROJECT),
 		("case:escalate", GrantScope.PROJECT),
 		("case:reopen", GrantScope.PROJECT),
@@ -184,16 +180,17 @@ def seed_rbac(
 	user_repo = SqlUserRepository(session)
 	member_repo = SqlProjectMemberRepository(session)
 
-	# Remove obsolete permissions (e.g. rule:propose removed in ISS-037) idempotently
-	obsolete_perm = perm_repo.get_by_code("rule:propose")
-	if obsolete_perm is not None:
-		session.execute(
-			delete(RolePermissionModel).where(RolePermissionModel.permission_id == str(obsolete_perm.permission_id))
-		)
-		session.execute(
-			delete(PermissionModel).where(PermissionModel.permission_id == str(obsolete_perm.permission_id))
-		)
-		session.flush()
+	# Remove obsolete permissions (rule:propose in ISS-037; case:assign/case:claim in ISS-045) idempotently
+	for obsolete_code in ("rule:propose", "case:assign", "case:claim"):
+		obsolete_perm = perm_repo.get_by_code(obsolete_code)
+		if obsolete_perm is not None:
+			session.execute(
+				delete(RolePermissionModel).where(RolePermissionModel.permission_id == str(obsolete_perm.permission_id))
+			)
+			session.execute(
+				delete(PermissionModel).where(PermissionModel.permission_id == str(obsolete_perm.permission_id))
+			)
+			session.flush()
 
 	perm_by_code: Dict[str, Permission] = {}
 	for code, resource, action, scope, desc in PERMISSION_CATALOG:

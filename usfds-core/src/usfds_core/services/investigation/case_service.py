@@ -99,42 +99,32 @@ class CaseService:
 		return {"created_case_ids": created, "accepted_count": len(created), "skipped_event_ids": skipped}
 
 	def update(self, project_id: UUID, case_id: UUID, expected_version: int, action: str, actor: str,
-			 reason: str = "", summary: str = "", assignee: str | None = None,
-			 block_entities: list[tuple[BlacklistEntityType, str]] | None = None) -> tuple[Case, list[str]]:
+			 reason: str = "", summary: str = "",
+			 block_entities: list[tuple[BlacklistEntityType, str]] | None = None) -> Case:
 		case = self.get(project_id, case_id)
 		if block_entities and action != "resolve-fraud":
 			raise ValueError("Blacklisting is only allowed with fraud resolution")
 		if case.version != expected_version:
 			raise CaseConflictError("Case changed; refresh before submitting again")
-		previous = {"status": case.status.value, "reason": case.resolution_reason, "summary": case.resolution_summary, "assigned_to": case.assigned_to}
+		previous = {"status": case.status.value, "reason": case.resolution_reason, "summary": case.resolution_summary}
 		case = replace(case)
-		warnings = []
 		if action == "reopen":
 			if case.status in OPEN_STATUSES or len(summary.strip()) < 10:
 				raise ValueError("Only resolved cases can reopen; a reason of at least 10 characters is required")
 			case.status = CaseStatus.IN_PROGRESS
-			case.assigned_to = actor
 			case.resolution_reason = case.resolution_summary = None
 			case.resolved_at = case.resolved_by = None
 		elif case.status not in OPEN_STATUSES:
 			raise CaseConflictError("Case is already resolved")
-		elif action == "claim":
-			if case.assigned_to and case.assigned_to != actor:
-				raise CaseConflictError(f"Case is assigned to {case.assigned_to}")
-			warnings = sorted({
-				item.assigned_to for item in self.repository.list_by_project(project_id)
-				if item.user_id == case.user_id and item.case_id != case_id and item.status in OPEN_STATUSES
-				and item.assigned_to and item.assigned_to != actor
-			})
-			case.status, case.assigned_to = CaseStatus.IN_PROGRESS, actor
+		# DEPRECATED [26-11-22] ISS-045: Assign/Claim flow removed; cases are worked directly from the queue.
 		elif action == "pending-customer":
 			if len(summary.strip()) < 10:
 				raise ValueError("A customer contact note of at least 10 characters is required")
 			case.status = CaseStatus.PENDING_CUSTOMER
 		elif action == "escalate":
-			if not assignee or not assignee.strip() or len(summary.strip()) < 10:
-				raise ValueError("Escalation requires an assignee and a note of at least 10 characters")
-			case.priority, case.assigned_to = RiskLevel.CRITICAL, assignee.strip()
+			if len(summary.strip()) < 10:
+				raise ValueError("Escalation requires a note of at least 10 characters")
+			case.priority = RiskLevel.CRITICAL
 		elif action in {"resolve-fraud", "resolve-legitimate"}:
 			allowed = FRAUD_REASONS if action == "resolve-fraud" else LEGITIMATE_REASONS
 			if reason not in allowed or len(summary.strip()) < 10:
@@ -157,8 +147,8 @@ class CaseService:
 			if existing is None:
 				BlacklistService(self.blacklist, self.audit).add(EntityBlacklist(project_id, entity_type, value, summary.strip(), actor, source_case_id=case_id))
 		self.audit.append(AuditLog(project_id, "CASE", str(case_id), action.upper().replace("-", "_"), actor,
-			summary.strip() or None, {"before": previous, "after": {"status": saved.status.value, "assigned_to": saved.assigned_to}, "blacklisted_entities": [{"type": kind.value, "value": value} for kind, value in block_entities or []]}))
-		return saved, warnings
+			summary.strip() or None, {"before": previous, "after": {"status": saved.status.value, "priority": saved.priority.value}, "blacklisted_entities": [{"type": kind.value, "value": value} for kind, value in block_entities or []]}))
+		return saved
 
 	def add_note(self, project_id: UUID, case_id: UUID, actor: str, note: str) -> None:
 		self.get(project_id, case_id)

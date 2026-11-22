@@ -273,10 +273,8 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 									<div className="text-amber-300">
 										{s1.priority} ({s1.priority_score})
 									</div>
-									<div className="text-slate-400">Assigned / Resolved By:</div>
-									<div className="text-slate-200">
-										{s1.assigned_to} / {s1.resolved_by}
-									</div>
+									<div className="text-slate-400">Chuyên viên xử lý:</div>
+									<div className="text-slate-200">{s1.resolved_by}</div>
 									<div className="text-slate-400">Trạng thái danh sách đen:</div>
 									<div className="text-rose-400 font-bold">
 										{s5.is_subject_blacklisted ? 'Đang trong danh sách đen' : 'Không có trong danh sách'}

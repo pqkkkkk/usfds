@@ -28,7 +28,7 @@ class CaseModel(Base, TimestampMixin):
 	status: Mapped[str] = mapped_column(String(30), nullable=False)
 	priority: Mapped[str] = mapped_column(String(20), nullable=False)
 	priority_score: Mapped[float] = mapped_column(Float, nullable=False)
-	assigned_to: Mapped[str | None] = mapped_column(String(100))
+	# DEPRECATED [26-11-22] ISS-045: assigned_to dropped via Alembic migration.
 	resolution_reason: Mapped[str | None] = mapped_column(String(50))
 	resolution_summary: Mapped[str | None] = mapped_column(Text)
 	resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

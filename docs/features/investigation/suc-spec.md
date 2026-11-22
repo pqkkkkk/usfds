@@ -29,7 +29,7 @@ Dưới đây là danh mục Use Case hệ thống (SUC) cho phân hệ **Invest
 
 | **Mã SUC** | **Tên Use Case** | **Primary Actor** | **Mô tả tóm tắt** |
 | --- | --- | --- | --- |
-| **SUC-17** | **Manage cases** | Fraud Analyst | Quản lý hàng đợi hồ sơ điều tra (Case Queue), lọc/sắp xếp theo mức độ ưu tiên, phân công xử lý, gộp hồ sơ cùng chủ thể hoặc xử lý hàng loạt. |
+| **SUC-17** | **Manage cases** | Fraud Analyst | Quản lý hàng đợi hồ sơ điều tra (Case Queue), lọc/sắp xếp theo mức độ ưu tiên, gộp hồ sơ cùng chủ thể hoặc xử lý hàng loạt. <!-- [26-11-22] --> |
 | **SUC-18** | **Review case manually** | Fraud Analyst | Điều tra chi tiết hồ sơ trên giao diện Workbench 3 cột (xem bằng chứng AI/Rule, đối chiếu chuỗi thời gian & hành vi lịch sử), gắn nhãn phán quyết (`Fraud` / `Legitimate`) và thực hiện hành động khóa tài khoản/thẻ. |
 | **SUC-19** | **Investigate network** | Fraud Analyst | Khám phá đồ thị mạng lưới liên kết đa thực thể (User, Card, Device, IP, Merchant) theo các bậc liên kết (1-hop, 2-hop) để phát hiện và xử lý các đường dây gian lận có tổ chức (Fraud Rings). |
 | **SUC-20** | **Manage rules & watchlists from investigation** | Fraud Analyst, Data Scientist | Trích xuất nhanh quy tắc phát hiện mới từ mẫu gian lận vừa điều tra, báo cáo quy tắc gây báo động giả (Noisy Rule) để tinh chỉnh ngưỡng, và quản lý danh sách chặn/miễn trừ thực thể (`Blacklist` / `Whitelist`). |
@@ -47,12 +47,12 @@ Phần này đặc tả chi tiết các Use Case thuộc phân hệ **Investigat
 - **Tên Use Case:** Manage cases (Quản lý danh sách hồ sơ điều tra / Case Queue)
 - **Tác nhân chính (Primary Actor):** Fraud Analyst
 - **Tác nhân phụ (Secondary Actor):** Hệ thống cơ sở dữ liệu (`ICaseRepository`)
-- **Mô tả:** Cho phép Fraud Analyst theo dõi toàn bộ danh sách các hồ sơ nghi vấn gian lận (`Cases`) được sinh ra từ các tác vụ phát hiện (`SUC-16`), tìm kiếm, lọc và sắp xếp theo độ ưu tiên rủi ro, nhận xử lý hồ sơ (`Assign`), gộp các hồ sơ có cùng chủ thể (`Merge Cases`) hoặc đóng hàng loạt các hồ sơ có mẫu rõ ràng.
+- **Mô tả:** Cho phép Fraud Analyst theo dõi toàn bộ danh sách các hồ sơ nghi vấn gian lận (`Cases`) được sinh ra từ các tác vụ phát hiện (`SUC-16`), tìm kiếm, lọc và sắp xếp theo độ ưu tiên rủi ro, gộp các hồ sơ có cùng chủ thể (`Merge Cases`) hoặc đóng hàng loạt các hồ sơ có mẫu rõ ràng. <!-- [26-11-22] ISS-045: bỏ Assign/Claim và cột assigned_to -->
 - **Tiền điều kiện:**
     1. Người dùng đã đăng nhập hệ thống với vai trò `Fraud Analyst` và chọn một Dự án (Project) cụ thể.
     2. Đã có các giao dịch nghi vấn được chuyển tiếp từ `SUC-16 (View detection result)` sang phân hệ Investigation để khởi tạo bản ghi trong bảng `fraud_cases`.
 - **Hậu điều kiện:**
-    - *Thành công:* Danh sách hồ sơ điều tra hiển thị đầy đủ kèm các chỉ số rủi ro tổng hợp; trạng thái phân công (`assigned_to`) hoặc trạng thái hồ sơ (`status`) được cập nhật chính xác và ghi vết vào `case_audit_logs`.
+    - *Thành công:* Danh sách hồ sơ điều tra hiển thị đầy đủ kèm các chỉ số rủi ro tổng hợp; trạng thái hồ sơ (`status`) được cập nhật chính xác và ghi vết vào `case_audit_logs`.
     - *Thất bại:* Giữ nguyên trạng thái hồ sơ hiện tại.
 - **Sự kiện kích hoạt (Trigger):** Fraud Analyst truy cập vào mục **Investigation -> Case Queue** trên thanh điều hướng chính hoặc chuyển hướng trực tiếp sau khi nhấn “Send to Investigation” tại `SUC-16`.
 
@@ -71,13 +71,12 @@ Phần này đặc tả chi tiết các Use Case thuộc phân hệ **Investigat
     - Điểm xác suất AI cao nhất (`max_model_score` từ `0.00` đến `1.00`) và Điểm tập luật cao nhất (`max_rule_score` từ `0.0` đến `100.0`).
     - Danh sách các mã quy tắc vi phạm nổi bật (`triggered_rule_codes`).
     - Mức độ ưu tiên (`priority`: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`) và Trạng thái hồ sơ (`OPEN`, `IN_PROGRESS`, `RESOLVED_FRAUD`, `RESOLVED_LEGITIMATE`).
-    - Chuyên viên phụ trách (`assigned_to`) và Thời gian khởi tạo (`created_at`).
+    - Thời gian khởi tạo (`created_at`).
 4. Fraud Analyst sử dụng bộ lọc đa chiều (Filter Bar) để thu hẹp phạm vi xử lý:
-    - Lọc theo trạng thái (`Status`), mức độ ưu tiên (`Priority`), chuyên viên phụ trách (`Assigned to me` / `Unassigned`).
+    - Lọc theo trạng thái (`Status`), mức độ ưu tiên (`Priority`).
     - Lọc theo mã quy tắc bị kích hoạt (`rule_code`), khoảng điểm `max_model_score` hoặc khoảng tiền giao dịch.
     - Tìm kiếm trực tiếp theo `case_code`, `user_id`, `event_id` (mã giao dịch), `device_id`, hoặc `ip_address`.
-5. Fraud Analyst chọn một hồ sơ trong hàng đợi và nhấn **Claim / Assign to Me** để nhận trách nhiệm điều tra; hệ thống cập nhật `status = 'IN_PROGRESS'`, `assigned_to = current_user` và ghi nhận vào `case_audit_logs`.
-6. Fraud Analyst nhấp vào hồ sơ để mở không gian điều tra chi tiết (**Case Investigation Workbench** — chuyển sang `SUC-18`).
+5. Fraud Analyst nhấp trực tiếp vào hồ sơ để mở không gian điều tra chi tiết (**Case Investigation Workbench** — chuyển sang `SUC-18`).
 
 ### Luồng rẽ nhánh (Alternative Flows)
 
@@ -89,8 +88,8 @@ Phần này đặc tả chi tiết các Use Case thuộc phân hệ **Investigat
 
 ### Luồng ngoại lệ (Exception Flows)
 
-- **5c. Xung đột nhận hồ sơ (Concurrent Claim Conflict):**
-    - Tại bước 5, nếu hai Fraud Analyst cùng nhấn “Claim” một hồ sơ tại cùng một thời điểm, hệ thống áp dụng cơ chế khóa lạc quan (Optimistic Locking) ưu tiên yêu cầu đến trước và hiển thị thông báo cho người thứ hai: *“Hồ sơ này vừa được chuyên viên [Tên] nhận xử lý. Vui lòng làm mới danh sách.”*
+- **5c. Xung đột cập nhật hồ sơ đồng thời (Concurrent Update Conflict):** <!-- [26-11-22] -->
+    - Khi hai người dùng cùng cập nhật hoặc gửi phán quyết cho một hồ sơ tại cùng một thời điểm, hệ thống áp dụng cơ chế khóa lạc quan (Optimistic Locking) theo trường `version`: yêu cầu đến trước được chấp nhận và yêu cầu sau nhận lỗi xung đột (`409`) kèm thông báo tải lại trạng thái mới nhất của hồ sơ.
 
 ### Quy tắc nghiệp vụ (Business Rules)
 
@@ -106,7 +105,7 @@ Phần này đặc tả chi tiết các Use Case thuộc phân hệ **Investigat
 - **Mã Use Case:** SUC-18
 - **Tên Use Case:** Review case manually (Điều tra chi tiết hồ sơ & Ra phán quyết)
 - **Tác nhân chính (Primary Actor):** Fraud Analyst
-- **Tác nhân phụ (Secondary Actor):** Hệ thống lưu trữ dữ liệu (`DatasetArtifact` / `ICaseRepository`), Dịch vụ quản lý danh sách chặn (`IWatchlistService`)
+- **Tác nhân phụ (Secondary Actor):** Hệ thống lưu trữ dữ liệu (`Project Fact Warehouse (DuckDB)` / `ICaseRepository`), Dịch vụ quản lý danh sách chặn (`IWatchlistService`) <!-- [26-11-22] -->
 - **Mô tả:** Cung cấp không gian làm việc trực quan 3 cột (Investigation Workbench) giúp Fraud Analyst mổ xẻ bằng chứng từ động cơ AI và Rule Engine, đối chiếu giao dịch nghi vấn với chuỗi thời gian và hồ sơ hành vi lịch sử (Baseline) của chính chủ thẻ, ghi nhận kết quả xác minh, đưa ra phán quyết cuối cùng (`Mark as Fraud` / `Mark as Legitimate`), kích hoạt khóa tài khoản/thẻ khẩn cấp (`Block Account/Card`) và đóng vòng lặp phản hồi nhãn dữ liệu (`Ground Truth Feedback Loop`).
 - **Tiền điều kiện:** Hồ sơ điều tra (`fraud_cases`) đã tồn tại trong hệ thống; người dùng có quyền `case: review`.
 - **Hậu điều kiện:**
@@ -116,16 +115,16 @@ Phần này đặc tả chi tiết các Use Case thuộc phân hệ **Investigat
 
 ### Luồng sự kiện chính (Basic Flow)
 
-1. Fraud Analyst mở một hồ sơ điều tra từ hàng đợi; hệ thống tải dữ liệu chi tiết và hiển thị giao diện **Case Investigation Workbench (Bố cục 3 cột phối hợp)**:
+1. Fraud Analyst mở một hồ sơ điều tra từ hàng đợi; hệ thống truy vấn `Project Fact Warehouse` (`warehouse/{project_id}/fact_transactions/job_*.parquet`, khử trùng lặp `event_id` theo lần quét mới nhất) bằng DuckDB và hiển thị giao diện **Case Investigation Workbench (Bố cục 3 cột phối hợp)**: <!-- [26-11-22] -->
     - **Cột Trái — Hồ sơ Chủ thể & Chuẩn hành vi cơ sở (Subject Profile & Historical Baseline):**
         - Thông tin định danh chủ thể (`subject_user_id`), trạng thái hiện tại (`ACTIVE` / `BLOCKED`) và danh sách các giao dịch bị gắn cờ nằm trong Case.
-        - **Chỉ số Baseline lịch sử của khách hàng (30–90 ngày trước):** Số tiền giao dịch trung bình (`avg_amount_30d`), số tiền lớn nhất từng chi tiêu (`max_amount_30d`), tần suất giao dịch trung bình/ngày, khung giờ hoạt động phổ biến nhất, danh mục ngành hàng (`merchant_category`) và thiết bị/IP quen thuộc.
+        - **Chỉ số Baseline lịch sử của khách hàng (30–90 ngày trước):** Truy vấn qua DuckDB từ `Project Fact Warehouse` gồm số tiền giao dịch trung bình (`avg_amount`), số tiền lớn nhất từng chi tiêu (`max_amount`), tần suất giao dịch trung bình/ngày, khung giờ hoạt động phổ biến nhất (`hour_utc`), cùng lịch sử 5 chiều thực thể phụ (`device_id`, `ip_address`, `card_id`, `merchant_id`, `merchant_category`). <!-- [26-11-22] -->
     - **Cột Giữa — Bằng chứng Phát hiện & Phân tích Hành vi Trực quan (Evidence & Behavioral Visual Analytics):**
         - **Khối 1 — Bằng chứng Kích hoạt (Why Flagged / Trigger Evidence):**
             - Hiển thị điểm **AI Model Fraud Score** (bao gồm điểm tổng hợp `ensemble_score` và bảng phân rã điểm của từng mô hình thành phần `model_scores_breakdown` khi chạy đa mô hình) kèm biểu đồ thanh ngang **Top-K Feature Contributions (SHAP / Local Explainability)** chỉ rõ các đặc trưng đẩy điểm rủi ro của giao dịch này lên cao nhất (ví dụ: `feature.velocity_1h = 8` đóng góp `+0.34`, `feature.ratio_to_avg_amount_30d = 9.2` đóng góp `+0.29`).
             - Hiển thị danh sách **Triggered Rules** (cả quy tắc `ACTIVE` lẫn quy tắc chạy thử nghiệm `SHADOW`) trích xuất từ kết quả chấm điểm: nêu rõ mã quy tắc (`rule_code`), mức hành động (`REJECT`/`REVIEW`), trọng số (`risk_weight`), và **Snapshot giá trị thực tế (`condition_snapshot`)** tại thời điểm vi phạm (ví dụ: `mapped.amount = 25,000,000 > 10,000,000 AND feature.velocity_1h = 8 > 5`).
         - **Khối 2 — Đối chiếu Chuỗi thời gian & Độ lệch Hành vi (Behavioral Timeline & Deviation View):**
-            - **Biểu đồ Trục thời gian Giao dịch (Interactive Transaction Timeline):** Biểu diễn toàn bộ chuỗi giao dịch gần đây của `user_id` theo thời gian (trục hoành: `timestamp`, trục tung: `amount`, màu sắc: giao dịch bình thường màu xám, giao dịch nghi vấn trong Case màu đỏ/cam). Giúp điều tra viên phát hiện trực quan mẫu hình *thử thẻ bằng nhiều giao dịch nhỏ liên tiếp trước khi rút khoản tiền lớn (Card Testing / Micro-fraud -> Cash-out)* hoặc *tấn công tốc độ cao (Velocity Attack)*.
+            - **Biểu đồ Trục thời gian Giao dịch (Interactive Transaction Timeline):** Biểu diễn toàn bộ chuỗi giao dịch gần đây của `user_id` trong cửa sổ 30/90 ngày truy vấn từ `Project Fact Warehouse` bằng DuckDB (trục hoành: `timestamp`, trục tung: `amount`, màu sắc: giao dịch bình thường màu xám, giao dịch nghi vấn trong Case màu đỏ/cam). Giúp điều tra viên phát hiện trực quan mẫu hình *thử thẻ bằng nhiều giao dịch nhỏ liên tiếp trước khi rút khoản tiền lớn (Card Testing / Micro-fraud -> Cash-out)* hoặc *tấn công tốc độ cao (Velocity Attack)*. <!-- [26-11-22] -->
             - **Bảng Đối chiếu Độ lệch (Current vs. Baseline Comparison Table):** Đặt song song giá trị của giao dịch nghi vấn bên cạnh giá trị Baseline lịch sử của chủ thẻ và tô đỏ các thuộc tính vượt ngưỡng bất thường (ví dụ: lệch múi giờ/khung giờ 02:30 sáng, đổi `device_id` mới lần đầu xuất hiện, khoảng cách địa lý dịch chuyển bất khả thi).
     - **Cột Phải — Bảng Phán quyết, Hành động Ngăn chặn & Nhật ký (Resolution & Mitigation Panel):**
         - Khung nhập **Ghi chú điều tra & Xác minh (`Investigation Notes`)**, nút phán quyết và các tùy chọn ngăn chặn.
@@ -154,13 +153,13 @@ Phần này đặc tả chi tiết các Use Case thuộc phân hệ **Investigat
 
 - **4a. Tách giao dịch hợp lệ ra khỏi hồ sơ đa giao dịch (Partial Case Resolution):**
     - Khi một Case gom nhiều giao dịch của cùng một `user_id` (ví dụ 5 giao dịch), nếu Fraud Analyst phát hiện chỉ có 3 giao dịch cuối là gian lận còn 2 giao dịch đầu là hợp lệ của chính chủ thẻ, chuyên viên có thể gắn nhãn riêng từng giao dịch (`verified_label = 0` hoặc `1`) trước khi chốt trạng thái tổng thể của Case là `RESOLVED_FRAUD`.
-- **4b. Chuyển cấp điều tra chuyên sâu (Escalate Case to Senior Analyst):**
-    - Nếu hồ sơ có dấu hiệu phức tạp hoặc giá trị quá lớn vượt thẩm quyền, Fraud Analyst chọn **Escalate Case**, nâng `priority = 'CRITICAL'`, đính kèm ghi chú phân tích ban đầu và gán cho Senior Analyst / Risk Manager.
+- **4b. Leo thang mức độ ưu tiên hồ sơ (Escalate Case):** <!-- [26-11-22] -->
+    - Nếu hồ sơ có dấu hiệu phức tạp hoặc rủi ro cao cần chú ý ngay, Fraud Analyst chọn **Escalate Case**, nâng `priority = 'CRITICAL'` và đính kèm ghi chú lý do bắt buộc (tối thiểu 10 ký tự) ghi vào `case_audit_logs` (không gán cho người phụ trách khác).
 
 ### Luồng ngoại lệ (Exception Flows)
 
 - **1a. Chủ thể mới chưa có lịch sử giao dịch (Cold-start User):**
-    - Tại bước 1, nếu `subject_user_id` là khách hàng mới phát sinh giao dịch lần đầu tiên (không có dữ liệu lịch sử 30 ngày trong `DatasetArtifact`), hệ thống hiển thị nhãn cảnh báo **`New / Cold-Start Account`** tại Cột Trái và tự động chuyển bảng đối chiếu sang so sánh với **Mức trung bình của toàn bộ tập khách hàng cùng phân khúc / cùng nhóm ngành hàng (`Population / Peer Group Baseline`)**.
+    - Tại bước 1, nếu `subject_user_id` là khách hàng mới phát sinh giao dịch lần đầu tiên (không có dữ liệu lịch sử 30/90 ngày trong `Project Fact Warehouse`), hệ thống hiển thị nhãn cảnh báo **`New / Cold-Start Account`** tại Cột Trái và tự động chuyển bảng đối chiếu sang so sánh với **Mức trung bình của toàn bộ tập khách hàng cùng phân khúc / cùng nhóm ngành hàng (`Population / Peer Group Baseline`)**. <!-- [26-11-22] -->
 - **5a. Chưa nhập lý do phán quyết bắt buộc:**
     - Tại bước 5, nếu Fraud Analyst nhấn “Submit Decision” nhưng chưa chọn `resolution_reason` hoặc để trống `resolution_summary`, hệ thống chặn lưu và hiển thị thông báo: *“Vui lòng chọn mã lý do kết luận và nhập tóm tắt bằng chứng điều tra để đảm bảo tuân thủ kiểm toán.”*
 
@@ -340,7 +339,7 @@ CREATE TABLE fraud_cases (
     max_rule_score NUMERIC(5, 2),                     -- Điểm rủi ro Rule cao nhất trong Case (0.0 -> 100.0)
     triggered_rule_codes JSONB DEFAULT '[]'::jsonb,   -- Danh sách mã rule vi phạm nổi bật
 
-    assigned_to TEXT,                                 -- Username chuyên viên đang thụ lý
+    -- [26-11-22] ISS-045: dropped assigned_to
     resolution_verdict TEXT
         CHECK (resolution_verdict IN ('CONFIRMED_FRAUD', 'FALSE_POSITIVE')),
     resolution_reason TEXT,                           -- Mã lý do (VD: 'CARD_TESTING', 'ATO', 'NOISY_RULE')

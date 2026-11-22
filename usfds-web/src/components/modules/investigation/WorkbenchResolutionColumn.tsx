@@ -8,7 +8,6 @@ import {
 	Save,
 	ShieldAlert,
 	Unlock,
-	UserCheck,
 } from 'lucide-react';
 import type { CaseAction, EntityType, Workbench } from '../../../types/investigation';
 import { useActorContext } from '@/hooks/useActorContext';
@@ -43,8 +42,6 @@ export function DecisionAndAuditColumn({
 	onCreateRuleDraft: () => void;
 }) {
 	const { features } = useActorContext(projectId);
-	const canClaim = features.claimCase.allowed;
-	const canAssign = features.assignCase.allowed;
 	const canReview = features.reviewCase.allowed;
 	const canEscalate = features.escalateCase.allowed;
 	const canReopen = features.reopenCase.allowed;
@@ -53,7 +50,6 @@ export function DecisionAndAuditColumn({
 
 	const { case: item, audit_logs: logs } = data;
 	const isResolved = item.status.startsWith('RESOLVED');
-	const [assignTo, setAssignTo] = useState('');
 
 	const [verdict, setVerdict] = useState<'FRAUD' | 'LEGITIMATE'>('FRAUD');
 	const [reason, setReason] = useState('');
@@ -61,7 +57,6 @@ export function DecisionAndAuditColumn({
 	const [blocked, setBlocked] = useState<EntityType[]>(['USER_ID']);
 
 	const [workflowNote, setWorkflowNote] = useState('');
-	const [assignee, setAssignee] = useState('');
 	const [investigationNote, setInvestigationNote] = useState('');
 
 	const entities = ENTITY_TYPES.map((entityType) => ({
@@ -107,7 +102,6 @@ export function DecisionAndAuditColumn({
 		onMutate('escalate', {
 			expected_version: item.version,
 			summary: workflowNote,
-			assignee,
 		});
 		setWorkflowNote('');
 	};
@@ -216,53 +210,6 @@ export function DecisionAndAuditColumn({
 					</div>
 				) : (
 					<div className="space-y-3.5">
-						{!item.assigned_to && canClaim && (
-							<button
-								type="button"
-								className={`${BUTTON_SECONDARY_CLASS} w-full`}
-								disabled={disabled}
-								onClick={() =>
-									onMutate('claim', { expected_version: item.version })
-								}
-							>
-								<UserCheck size={14} />
-								<span>Nhận / giao cho tôi</span>
-							</button>
-						)}
-
-						{canAssign && (
-							<form
-								className="flex gap-2"
-								onSubmit={(event) => {
-									event.preventDefault();
-									if (!assignTo.trim()) {
-										return;
-									}
-									onMutate('claim', {
-										expected_version: item.version,
-										assignee: assignTo.trim(),
-									});
-									setAssignTo('');
-								}}
-							>
-								<input
-									aria-label="Phân công cho chuyên viên"
-									className={INPUT_CLASS}
-									placeholder="Tên đăng nhập chuyên viên..."
-									value={assignTo}
-									onChange={(event) => setAssignTo(event.target.value)}
-								/>
-								<button
-									type="submit"
-									className={`${BUTTON_SECONDARY_CLASS} shrink-0`}
-									disabled={disabled || !assignTo.trim()}
-								>
-									<UserCheck size={14} />
-									<span>Phân công</span>
-								</button>
-							</form>
-						)}
-
 						{canReview && (
 							<form className="space-y-3" onSubmit={handleResolveSubmit}>
 							<div
@@ -414,7 +361,7 @@ export function DecisionAndAuditColumn({
 			{!isResolved && (canReview || canEscalate) && (
 				<SectionCard
 					title="Xác minh khách hàng & leo thang"
-					subtitle="Ghi trạng thái liên hệ khách hàng (BUC-06) hoặc chuyển cho chuyên viên cấp cao"
+					subtitle="Ghi trạng thái liên hệ khách hàng (BUC-06) hoặc nâng mức ưu tiên nghiêm trọng"
 				>
 					<FormField name="Ghi chú xác minh / leo thang" hint="Tối thiểu 10 ký tự">
 						<textarea
@@ -438,24 +385,11 @@ export function DecisionAndAuditColumn({
 					)}
 
 					{canEscalate && (
-						<div className="space-y-2 border-t border-dark-800 pt-2.5">
-							<FormField name="Người được giao leo thang">
-								<input
-									className={INPUT_CLASS}
-									maxLength={100}
-									placeholder="e.g. senior-risk-manager"
-									value={assignee}
-									onChange={(event) => setAssignee(event.target.value)}
-								/>
-							</FormField>
+						<div className="border-t border-dark-800 pt-2.5">
 							<button
 								type="button"
 								className={`${BUTTON_SECONDARY_CLASS} w-full`}
-								disabled={
-									disabled ||
-									!assignee.trim() ||
-									workflowNote.trim().length < 10
-								}
+								disabled={disabled || workflowNote.trim().length < 10}
 								onClick={handleEscalate}
 							>
 								<ShieldAlert size={14} />

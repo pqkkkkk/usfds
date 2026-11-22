@@ -84,8 +84,7 @@ export const ACTOR_FEATURE = {
 	sendToInvestigation: { permission: 'case:create', path: '/detection', scope: 'project' },
 
 	// Investigation actions
-	claimCase: { permission: 'case:claim', path: '/investigation', scope: 'project' },
-	assignCase: { permission: 'case:assign', path: '/investigation', scope: 'project' },
+	// DEPRECATED [26-11-22] ISS-045: claimCase and assignCase removed.
 	reviewCase: { permission: 'case:manual_review', path: '/investigation', scope: 'project' },
 	escalateCase: { permission: 'case:escalate', path: '/investigation', scope: 'project' },
 	reopenCase: { permission: 'case:reopen', path: '/investigation', scope: 'project' },

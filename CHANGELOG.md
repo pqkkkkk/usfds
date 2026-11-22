@@ -2,6 +2,13 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-22 — ISS-045: Investigation Redesign (Drop Assign/Claim) & DuckDB Workbench on Project Warehouse
+Plan: `.plan/investigation_redesign.md` · Board: `.plan/BOARD.md`
+
+- Core & Infra (`domain/entities/case.py`, `services/investigation/{case_service,behavior_profile}.py`, `services/warehouse/project_warehouse.py`, `services/insight_report/report_builder.py`, `database/{case_models,case_repositories,seed_rbac}.py`, Alembic `40b0ea924c41`): dropped `assigned_to`, `case:assign`, `case:claim` (removed idempotently in `seed_rbac`), and `claim` / `assignee` from `CaseService.update`; updated `escalate` to promote `priority = CRITICAL` with mandatory note only; omitted `assigned_to` from SAR dossiers/markdown; extended `ProjectWarehouse` with 5 nullable entity columns (`device_id`, `ip_address`, `card_id`, `merchant_id`, `merchant_category`) with backward-compatible reading for legacy 20-col fact files; added bounded DuckDB behavior profile queries (`build_behavior_profile_from_warehouse`, `build_behavior_profile_from_storage_file`).
+- Server & Web (`schemas/investigation_api_schemas.py`, `routers/investigation_router.py`, `usfds-web/src/{lib/feature-policy.ts,types/*,api/investigationApi.ts,components/modules/{investigation/*,reports/ComplianceReportCenterTab.tsx}}`): removed `POST /api/v1/cases/{case_id}/claim`, `assigned_to`/`unassigned` filters, and `related_assignees`; switched `GET /api/v1/cases/{case_id}/workbench` to DuckDB queries on `ProjectWarehouse` (with artifact fallback, no full-file pandas reads); removed Assign/Claim/Assignee UI controls and SAR `assigned_to` display.
+- Docs & Tests (`docs/features/investigation/suc-spec.md`): updated `SUC-17`, `SUC-18`, and `fraud_cases` schema; `./scripts/test.sh core infra worker cli server web` passed (`core` `171 passed, 15 skipped`, `infra` `51 passed`, `worker` `10 passed`, `cli` `5 passed`, `server` `49 passed`, `web` `22 files / 41 passed` + `npm run build` & `npm run lint` 0 errors).
+
 ## 2026-11-22 — ISS-012 & ISS-021: Project Fact Warehouse (DuckDB), Worker Analytics Queue & Queue Timeout/Retry
 Plan: `.plan/large_data_analytics_duckdb.md` · Board: `.plan/BOARD.md`
 

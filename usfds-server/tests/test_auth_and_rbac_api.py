@@ -279,7 +279,9 @@ def test_admin_user_and_rbac_endpoints(server_settings, monkeypatch):
 		assert len(proj_user_rows) == 1
 		assert len(proj_user_rows[0]["roles"]) == 2
 		assert "model:create" in proj_user_rows[0]["permissions"]
-		assert "case:claim" in proj_user_rows[0]["permissions"]
+		assert "case:manual_review" in proj_user_rows[0]["permissions"]
+		assert "case:claim" not in proj_user_rows[0]["permissions"]
+		assert "case:assign" not in proj_user_rows[0]["permissions"]
 
 		assert test_client.put(
 			f"/api/v1/projects/{project_id}/members/{proj_user_id}/roles",

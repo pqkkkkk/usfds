@@ -22,7 +22,6 @@ export interface Case {
 	status: CaseStatus;
 	priority: CasePriority;
 	priority_score: number;
-	assigned_to: string | null;
 	resolution_reason: string | null;
 	resolution_summary: string | null;
 	resolved_by: string | null;
@@ -106,7 +105,6 @@ export interface RuleDraft {
 export interface CaseAction {
 	expected_version: number;
 	summary?: string;
-	assignee?: string;
 	verdict?: 'FRAUD' | 'LEGITIMATE';
 	reason?: string;
 	block_entities?: { entity_type: EntityType; entity_value: string }[];

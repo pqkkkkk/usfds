@@ -97,7 +97,7 @@ class CaseResponse(BaseModel):
 	status: CaseStatus
 	priority: RiskLevel
 	priority_score: float
-	assigned_to: str | None
+	# DEPRECATED [26-11-22] ISS-045: assigned_to removed.
 	resolution_reason: str | None
 	resolution_summary: str | None
 	resolved_at: AwareDatetime | None
@@ -112,7 +112,6 @@ class CaseActionRequest(BaseModel):
 	model_config = ConfigDict(extra="forbid")
 	expected_version: int = Field(ge=1)
 	summary: str = Field(default="", max_length=10000)
-	assignee: str | None = Field(default=None, max_length=100)
 
 
 class BlockEntityRequest(BaseModel):

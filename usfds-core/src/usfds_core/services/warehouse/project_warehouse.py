@@ -32,12 +32,21 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 20_000
 
+OPTIONAL_ENTITY_COLUMNS: tuple[str, ...] = (
+	"device_id",
+	"ip_address",
+	"card_id",
+	"merchant_id",
+	"merchant_category",
+)
+
 FACT_COLUMNS_DDL = """
 	job_id VARCHAR, job_name VARCHAR, job_created_at VARCHAR, scanned_at TIMESTAMP,
 	model_version_id VARCHAR, score_threshold DOUBLE, event_id VARCHAR, user_id VARCHAR,
 	tx_timestamp TIMESTAMP, hour_utc INTEGER, amount DOUBLE, model_score DOUBLE,
 	rule_action VARCHAR, final_action VARCHAR, is_flagged INTEGER, has_rule_hit INTEGER,
-	has_ai_hit INTEGER, rule_codes VARCHAR[], dataset_label INTEGER, has_label_col BOOLEAN
+	has_ai_hit INTEGER, rule_codes VARCHAR[], dataset_label INTEGER, has_label_col BOOLEAN,
+	device_id VARCHAR, ip_address VARCHAR, card_id VARCHAR, merchant_id VARCHAR, merchant_category VARCHAR
 """
 
 # Pandas batch -> typed fact columns (rule codes travel as JSON text, timestamps as ISO text).
@@ -46,7 +55,9 @@ _INSERT_SELECT = """
 		model_version_id, score_threshold, event_id, user_id,
 		CAST(tx_timestamp AS TIMESTAMP), hour_utc, amount, model_score,
 		rule_action, final_action, is_flagged, has_rule_hit,
-		has_ai_hit, CAST(from_json(rule_codes_json, '["VARCHAR"]') AS VARCHAR[]), dataset_label, has_label_col
+		has_ai_hit, CAST(from_json(rule_codes_json, '["VARCHAR"]') AS VARCHAR[]), dataset_label, has_label_col,
+		CAST(device_id AS VARCHAR), CAST(ip_address AS VARCHAR), CAST(card_id AS VARCHAR),
+		CAST(merchant_id AS VARCHAR), CAST(merchant_category AS VARCHAR)
 	FROM batch_df
 """
 
@@ -54,6 +65,7 @@ _BATCH_COLUMNS = [
 	"job_id", "job_name", "job_created_at", "scanned_at", "model_version_id", "score_threshold", "event_id",
 	"user_id", "tx_timestamp", "hour_utc", "amount", "model_score", "rule_action", "final_action", "is_flagged",
 	"has_rule_hit", "has_ai_hit", "rule_codes_json", "dataset_label", "has_label_col",
+	*OPTIONAL_ENTITY_COLUMNS,
 ]
 
 
@@ -154,6 +166,22 @@ class ProjectWarehouse:
 				""",
 				[paths, dt_from, dt_from, dt_to, dt_to],
 			)
+			existing_cols = {row[0] for row in conn.execute(f"DESCRIBE {table}").fetchall()}
+			for col in OPTIONAL_ENTITY_COLUMNS:
+				if col not in existing_cols:
+					conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} VARCHAR")
+
+	@staticmethod
+	def _clean_optional_str(value: Any) -> Optional[str]:
+		if value is None:
+			return None
+		try:
+			if pd.isna(value):
+				return None
+		except (TypeError, ValueError):
+			pass
+		text = str(value).strip()
+		return text or None
 
 	def _copy_normalized(self, conn: duckdb.DuckDBPyConnection, result: Any, columns: list[str], job: DetectionJob) -> None:
 		id_col = resolve_canonical_column(columns, SystemColumn.EVENT_ID)
@@ -161,6 +189,7 @@ class ProjectWarehouse:
 		ts_col = resolve_canonical_column(columns, SystemColumn.TIMESTAMP)
 		amt_col = resolve_canonical_column(columns, SystemColumn.AMOUNT)
 		lbl_col = resolve_canonical_column(columns, SystemColumn.LABEL)
+		entity_cols = {col: resolve_canonical_column(columns, col) for col in OPTIONAL_ENTITY_COLUMNS}
 
 		threshold = safe_float(job.score_threshold, 0.5)
 		has_model = bool(job.model_version_id is not None or (job.summary_metrics or {}).get("has_model", True))
@@ -199,7 +228,7 @@ class ProjectWarehouse:
 						ds_label = lbl_val if lbl_val in (0, 1) else -1
 					except (ValueError, TypeError):
 						ds_label = -1
-				rows.append({
+				row = {
 					**common,
 					"event_id": str(ev_raw),
 					"user_id": str(rec.get(user_col) if user_col and rec.get(user_col) is not None else "unknown"),
@@ -214,7 +243,10 @@ class ProjectWarehouse:
 					"has_ai_hit": 1 if (has_model and m_score >= common["score_threshold"]) else 0,
 					"rule_codes_json": json.dumps(rule_codes),
 					"dataset_label": ds_label,
-				})
+				}
+				for col, src_col in entity_cols.items():
+					row[col] = self._clean_optional_str(rec.get(src_col)) if src_col else None
+				rows.append(row)
 			batch_df = pd.DataFrame(rows, columns=_BATCH_COLUMNS)  # noqa: F841  (referenced by name in the SQL below)
 			conn.register("batch_df", batch_df)
 			try:
