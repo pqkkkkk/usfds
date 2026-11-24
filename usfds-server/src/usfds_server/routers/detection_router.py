@@ -334,6 +334,50 @@ def export_detection_job_results(
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
+def build_case_intake_from_job(
+	session: Session,
+	storage: LocalFileStorage,
+	project,
+	job: DetectionJob,
+	event_ids: List[str],
+) -> tuple[CaseIntakeRequest, pd.DataFrame]:
+	"""Build a CaseIntakeRequest from selected flagged events of a completed DetectionJob."""
+	frame = _source_frame(session, storage, job.project_id, None, job.job_id, event_ids=list(event_ids))
+	frame["event_id"] = frame["event_id"].astype(str)
+	counts = frame["event_id"].value_counts()
+	indexed = frame.set_index("event_id", drop=False)
+	transactions = []
+	for event_id in dict.fromkeys(event_ids):
+		if counts.get(event_id, 0) != 1:
+			raise HTTPException(400, f"Event {event_id} must exist exactly once in the job output")
+		row = indexed.loc[event_id]
+		if row.get("final_action") not in {"REVIEW", "REJECT"}:
+			raise HTTPException(400, f"Event {event_id} is not flagged")
+		details = row.get("triggered_rule_details", "[]")
+		details = json.loads(details) if isinstance(details, str) else list(details)
+		rules = []
+		for detail in details:
+			if detail["action"] not in {"REVIEW", "REJECT"}:
+				continue
+			copied = dict(detail)
+			copied.setdefault("trigger_reason", " AND ".join(copied.get("matched_clauses", [])) or f"{copied['rule_code']} matched at detection time")
+			rules.append(copied)
+		attributes = row.get("raw_attributes")
+		if isinstance(attributes, str):
+			attributes = json.loads(attributes)
+		if not isinstance(attributes, dict):
+			attributes = {name: _snapshot_value(row[name]) for name in (project.raw_schema or {}).get("columns", {}) if name in row}
+		contributions = row.get("feature_contributions", "[]")
+		contributions = json.loads(contributions) if isinstance(contributions, str) else list(contributions)
+		transactions.append(TransactionSnapshot.model_validate({
+			"event_id": event_id, "user_id": str(row["user_id"]), "timestamp": pd.to_datetime(row["timestamp"], utc=True).isoformat(),
+			"amount": float(row["amount"]), "model_score": float(row["model_score"]) if job.model_version_id else None,
+			"final_action": row["final_action"], "triggered_rules": rules, "feature_contributions": contributions, "attributes": attributes,
+		}))
+	payload = CaseIntakeRequest(project_id=job.project_id, detection_job_id=job.job_id, model_version_id=job.model_version_id, transactions=transactions)
+	return payload, frame
+
+
 @router.post(
 	"/jobs/{job_id}/send-to-investigation",
 	response_model=ApiResponse[dict],
@@ -353,39 +397,7 @@ def send_to_investigation(
 		job = service.get_detection_job(job_id)
 		authz.require_project_permission(actor_ctx, "case:create", job.project_id, action="create")
 		project = _project(session, job.project_id, True)
-		frame = _source_frame(session, storage, job.project_id, None, job_id, event_ids=request.event_ids)
-		frame["event_id"] = frame["event_id"].astype(str)
-		counts = frame["event_id"].value_counts()
-		indexed = frame.set_index("event_id", drop=False)
-		transactions = []
-		for event_id in dict.fromkeys(request.event_ids):
-			if counts.get(event_id, 0) != 1:
-				raise HTTPException(400, f"Event {event_id} must exist exactly once in the job output")
-			row = indexed.loc[event_id]
-			if row.get("final_action") not in {"REVIEW", "REJECT"}:
-				raise HTTPException(400, f"Event {event_id} is not flagged")
-			details = row.get("triggered_rule_details", "[]")
-			details = json.loads(details) if isinstance(details, str) else list(details)
-			rules = []
-			for detail in details:
-				if detail["action"] not in {"REVIEW", "REJECT"}:
-					continue
-				copied = dict(detail)
-				copied.setdefault("trigger_reason", " AND ".join(copied.get("matched_clauses", [])) or f"{copied['rule_code']} matched at detection time")
-				rules.append(copied)
-			attributes = row.get("raw_attributes")
-			if isinstance(attributes, str):
-				attributes = json.loads(attributes)
-			if not isinstance(attributes, dict):
-				attributes = {name: _snapshot_value(row[name]) for name in (project.raw_schema or {}).get("columns", {}) if name in row}
-			contributions = row.get("feature_contributions", "[]")
-			contributions = json.loads(contributions) if isinstance(contributions, str) else list(contributions)
-			transactions.append(TransactionSnapshot.model_validate({
-				"event_id": event_id, "user_id": str(row["user_id"]), "timestamp": pd.to_datetime(row["timestamp"], utc=True).isoformat(),
-				"amount": float(row["amount"]), "model_score": float(row["model_score"]) if job.model_version_id else None,
-				"final_action": row["final_action"], "triggered_rules": rules, "feature_contributions": contributions, "attributes": attributes,
-			}))
-		payload = CaseIntakeRequest(project_id=job.project_id, detection_job_id=job_id, model_version_id=job.model_version_id, transactions=transactions)
+		payload, frame = build_case_intake_from_job(session, storage, project, job, request.event_ids)
 		result = ingest_request(payload, session, storage, actor_ctx.username, request.analyst_notes, source_rows=frame)
 		return ApiResponse.ok(
 			data=result,

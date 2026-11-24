@@ -2,6 +2,13 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-24 — ISS-041: Graph Exploration & Fraud Ring Link Analysis (LadybugDB + Cytoscape, SUC-19)
+Plan: `.plan/graph_exploration.md` · Board: `.plan/BOARD.md`
+
+- Core (`pyproject.toml`, `services/warehouse/project_warehouse.py`, `services/investigation/{__init__,network_graph}.py`): added `ladybug>=0.22.0` (`python_version < '3.15'`) and updated Poetry locks across `core`, `infra`, `server`, `worker`, `cli`; added `OPTIONAL_ENTITY_ALIASES` & `resolve_optional_entity_column` in `ProjectWarehouse`; implemented `INetworkGraphService` and `LadybugNetworkGraphService` (`:memory:` bipartite 5-node / 4-rel openCypher graph built from DuckDB `ProjectWarehouse` with thread-safe LRU cache & TTL, 1/2-hop traversal, Top 50 expand cap, 200-node canvas cap, `hide_super_nodes`, `DEVICE_IP_CARD_HUB` & `MERCHANT_RING` detection, bounded DuckDB edge transactions, and `DatasetArtifact` fallback).
+- Server & Deploy (`api.py`, `config.py`, `schemas/{network_graph_schemas,investigation_api_schemas}.py`, `routers/{network_graph_router,investigation_router,detection_router}.py`, `deploy/.env.example`): added 4 read-only `/api/v1/network/{hubs,subgraph,expand,edge-transactions}` endpoints with live `Case`/`Blacklist` risk overlay, extracted shared `build_case_intake_from_job` helper in `detection_router.py`, added idempotent `POST /api/v1/blacklist/bulk` & `POST /api/v1/cases/bulk-intake` in `investigation_router.py` with RBAC/project isolation/archived guards, and added `USFDS_GRAPH_*` configuration defaults.
+- Web, Docs & Tests (`usfds-web/src/{types/investigation.ts,api/investigationApi.ts,hooks/useNetworkGraph.ts,components/modules/{InvestigationModule,investigation/{CytoscapeCanvas,NetworkGraphExplorer,CaseWorkbenchView,InvestigationViews}}.tsx}`, `docs/features/investigation/suc-spec.md`): added `cytoscape` UI (`CytoscapeCanvas`, `NetworkGraphExplorer`, `useNetworkGraph`), `/investigation/network` tab & `CaseWorkbenchView` graph tab, and synced `SUC-19`; `./scripts/test.sh core infra worker cli server web` passed (`core` `176 passed, 15 skipped`, `infra` `51 passed`, `worker` `10 passed`, `cli` `5 passed`, `server` `53 passed`, `web` `24 files / 55 passed` + `npm run build` & `npm run lint` 0 errors).
+
 ## 2026-11-22 — ISS-045: Investigation Redesign (Drop Assign/Claim) & DuckDB Workbench on Project Warehouse
 Plan: `.plan/investigation_redesign.md` · Board: `.plan/BOARD.md`
 

@@ -32,7 +32,7 @@ After reading the sources, judge whether the given issues form a sensible single
    - `.plan/BOARD.md` (who is doing what, which files are owned).
    - The code you will touch. Never plan from memory: cite `path:line`.
 2. **Size the scope** (section above). If `TOO-BROAD` or `TOO-SMALL`, write only §1–§2 of the plan with the proposal and stop.
-3. **Write Design & Approach (§2.5).** Summarize the architecture, API/RBAC/schema contracts, and edge cases/concurrency risks. Include 1–2 Mermaid diagrams when the task crosses layers or changes workflow/state (see Mermaid rules below).
+3. **Write Design & Approach (§2.5).** Summarize the architecture, API/RBAC/schema contracts, and edge cases/concurrency risks. Include as many Mermaid diagrams as needed when the task crosses layers or changes workflow/state/schema (see Mermaid rules below).
 4. **Analyze dependencies & conflicts** against other tasks on the board (checklist below). This decides whether the task can run while other sessions are open.
 5. **Define milestones and the to-do list** (§6). Order milestones so each one ends with all tests green, typically one per layer (core+infra → server → web). Give each milestone its own acceptance tests and a nested checklist of concrete items tagged `[tests] [core] [infra] [server] [worker] [web] [docs] [verify]`. The plan is the task's only to-do list.
 6. **Write acceptance tests (§5)** as Given/When/Then with the exact test function names, plus **Manual E2E (§9)** for anything SQLite/mocks cannot cover.
@@ -49,14 +49,14 @@ After reading the sources, judge whether the given issues form a sensible single
 
 - **When to draw vs. skip (`—`):**
   - Skip (`—`) for small bug fixes, UI copy/style tweaks, or 1–2 file local changes that do not alter control/data flow.
-  - Draw 1–2 diagrams for tasks spanning 2+ layers (`core`/`infra`/`server`/`worker`/`web`), new decision/auth branches, state-machine changes, or schema changes.
+  - Draw as many diagrams as the task warrants (no fixed cap) for tasks spanning 2+ layers (`core`/`infra`/`server`/`worker`/`web`), new decision/auth branches, state-machine changes, or schema/graph model changes.
 - **Pick the right diagram type:**
   - Multi-component / API / Queue interactions → `sequenceDiagram`
   - Decision branching / data pipelines → `flowchart LR`
   - Entity lifecycle transitions → `stateDiagram-v2`
   - New/modified table relations → `erDiagram`
 - **Keep diagrams readable and valid:**
-  - Cap at ~15 nodes per diagram; split into two small diagrams instead of cramming one large chart.
+  - Cap at ~15 nodes per diagram; split into separate focused diagrams instead of cramming one large chart.
   - Use real repo symbols, endpoints, and services; show only what changes or interacts with the change (never generic `FE -> BE -> DB` boxes).
   - Always quote labels containing special characters (`/`, `(`, `)`, `:`, punctuation) as `["..."]` so Mermaid renders cleanly in IDEs, GitHub, and `DocsDashboardPage`.
 

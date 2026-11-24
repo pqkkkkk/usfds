@@ -108,6 +108,22 @@ class Settings(BaseModel):
         default_factory=lambda: int(os.getenv("USFDS_MAX_PLUGIN_UPLOAD_MB", "10")),
         description="Maximum allowed plugin archive upload size in MB",
     )
+    graph_cache_max_entries: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_GRAPH_CACHE_MAX_ENTRIES", "4")),
+        description="Maximum number of in-memory LadybugDB graph entries cached",
+    )
+    graph_cache_ttl_seconds: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_GRAPH_CACHE_TTL_SECONDS", "600")),
+        description="TTL in seconds for cached in-memory LadybugDB graph entries",
+    )
+    graph_buffer_pool_mb: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_GRAPH_BUFFER_POOL_MB", "256")),
+        description="Buffer pool limit in MB per LadybugDB in-memory graph database",
+    )
+    graph_super_node_degree: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_GRAPH_SUPER_NODE_DEGREE", "50")),
+        description="Distinct user degree threshold above which a secondary entity is flagged as a super-node",
+    )
 
 
 settings = Settings()

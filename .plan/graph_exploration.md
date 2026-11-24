@@ -1,7 +1,7 @@
 # Plan: Graph Exploration & Fraud Ring Link Analysis (SUC-19)
 
 > **Task ID:** `graph_exploration` · **Issues:** ISS-041 (chosen by the user) · **Spec:** `docs/features/investigation/suc-spec.md` (SUC-19 — cập nhật sang LadybugDB khi triển khai)
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Draft
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Done (26-11-24)
 
 ## 1. Context (facts)
 - `.plan/graph_exploration.md:1-4` và `docs/issues/11-17-2026.md:32-39`: `ISS-041` chưa có đặc tả triển khai, chưa có service, API hay UI khám phá đồ thị.
@@ -13,7 +13,7 @@
 - `deploy/docker-compose.yml:28-31` & `deploy/initdb/10-usfds-graph.sql`: Docker chạy PostgreSQL 17 + Apache AGE, nhưng chế độ Desktop dùng SQLite và bộ test `./scripts/test.sh` chạy không cần Docker. Qua trao đổi thiết kế, người dùng chọn chuyển sang in-memory Graph DB **LadybugDB (`ladybug>=0.22`)** chạy đồng nhất cả Desktop lẫn Server.
 
 ## 2. Goal, scope verdict & non-goals
-- **Goal:** Xây dựng hoàn chỉnh chức năng Khám phá đồ thị mạng lưới gian lận (`SUC-19`) gồm: động cơ đồ thị nhúng **LadybugDB (`:memory:`)** chạy openCypher nạp on-demand từ `ProjectWarehouse` qua DuckDB có LRU cache trong `usfds-server`, bộ REST API `/api/v1/network/*` (khám phá, mở rộng, gợi ý cụm rủi ro, soi giao dịch cạnh, chặn hàng loạt thực thể, tạo Case cho giao dịch gắn cờ liên đới), và giao diện `cytoscape` dùng chung tại tab `/investigation/network` lẫn tab trong `CaseWorkbenchView`.
+- **Goal:** Xây dựng hoàn chỉnh chức năng Khám phá đồ thị mạng lưới gian lận (`SUC-19`) gồm: động cơ đồ thị nhúng **LadybugDB (`:memory:`)** chạy openCypher nạp on-demand từ `ProjectWarehouse` qua DuckDB có LRU cache trong `usfds-server`, 4 endpoint đọc đồ thị `/api/v1/network/*` (`hubs`, `subgraph`, `expand`, `edge-transactions`) và 2 endpoint ghi hàng loạt đặt đúng ranh giới tài nguyên tại `investigation_router.py` (`POST /api/v1/blacklist/bulk` và `POST /api/v1/cases/bulk-intake`), cùng giao diện `cytoscape` dùng chung tại tab `/investigation/network` lẫn tab trong `CaseWorkbenchView`.
 - **Scope:** OK
 - **Non-goals / omitted:**
   - Không đồng bộ hay truy vấn Apache AGE (`usfds_graph`); giữ nguyên `deploy/docker-compose.yml` và `deploy/initdb/10-usfds-graph.sql`.
@@ -43,38 +43,100 @@ flowchart LR
 ```
 
 ```mermaid
+erDiagram
+    USER {
+        STRING id PK "user_id"
+        INT64 tx_count
+        INT64 flagged_tx_count
+        DOUBLE total_amount
+        DOUBLE max_model_score
+        STRING first_tx_at
+        STRING last_tx_at
+    }
+    DEVICE {
+        STRING id PK "device_id"
+        INT64 tx_count
+        INT64 flagged_tx_count
+        INT64 distinct_users
+    }
+    IP_ADDRESS {
+        STRING id PK "ip_address"
+        INT64 tx_count
+        INT64 flagged_tx_count
+        INT64 distinct_users
+    }
+    CARD {
+        STRING id PK "card_id"
+        INT64 tx_count
+        INT64 flagged_tx_count
+        INT64 distinct_users
+    }
+    MERCHANT {
+        STRING id PK "merchant_id"
+        STRING merchant_category
+        INT64 tx_count
+        INT64 flagged_tx_count
+        INT64 distinct_users
+    }
+
+    USER ||--o{ DEVICE : "USED_DEVICE (tx_count, flagged_tx_count, total_amount, max_model_score, first_tx_at, last_tx_at)"
+    USER ||--o{ IP_ADDRESS : "USED_IP (tx_count, flagged_tx_count, total_amount, max_model_score, first_tx_at, last_tx_at)"
+    USER ||--o{ CARD : "USED_CARD (tx_count, flagged_tx_count, total_amount, max_model_score, first_tx_at, last_tx_at)"
+    USER ||--o{ MERCHANT : "TRANSACTED_AT (tx_count, flagged_tx_count, total_amount, max_model_score, first_tx_at, last_tx_at)"
+```
+
+```mermaid
 sequenceDiagram
     participant Analyst as "Fraud Analyst (Web)"
-    participant API as "network_router (/api/v1/network)"
+    participant NetAPI as "network_graph_router (/api/v1/network)"
+    participant InvAPI as "investigation_router (/api/v1/blacklist & /cases)"
     participant Graph as "LadybugNetworkGraphService"
     participant Duck as "DuckDB (ProjectWarehouse)"
-    participant CaseBL as "CaseService / BlacklistService"
+    participant CaseBL as "BlacklistService / CaseService"
 
-    Analyst->>API: "GET /subgraph (seed, hops=2, days=90)"
-    API->>Graph: "get_subgraph (openCypher + live overlay)"
-    Graph-->>API: "nodes, edges, patterns, stats"
-    API-->>Analyst: "Render Cytoscape canvas + Hub/Ring highlights"
+    Analyst->>NetAPI: "GET /subgraph (seed, hops=2, days=90)"
+    NetAPI->>Graph: "get_subgraph (openCypher + live overlay)"
+    Graph-->>NetAPI: "nodes, edges, patterns, stats"
+    NetAPI-->>Analyst: "Render Cytoscape canvas + Hub/Ring highlights"
 
-    Analyst->>API: "POST /expand (node, existing_node_ids)"
-    API->>Graph: "expand_node (Top 50 risk neighbors, cap 200)"
-    Graph-->>API: "added_nodes, added_edges, truncated_notice"
+    Analyst->>NetAPI: "POST /expand (node, existing_node_ids)"
+    NetAPI->>Graph: "expand_node (Top 50 risk neighbors, cap 200)"
+    Graph-->>NetAPI: "added_nodes, added_edges, truncated_notice"
 
-    Analyst->>API: "GET /edge-transactions (user_id, entity)"
-    API->>Duck: "Query bounded transactions + case_ids"
+    Analyst->>NetAPI: "GET /edge-transactions (user_id, entity)"
+    NetAPI->>Duck: "Query bounded transactions + case_ids"
     Duck-->>Analyst: "Edge Inspector transaction list"
 
-    Analyst->>API: "POST /bulk-blacklist & POST /create-cases"
-    API->>CaseBL: "Idempotent blacklist.add & case intake"
+    Analyst->>InvAPI: "POST /api/v1/blacklist/bulk & POST /api/v1/cases/bulk-intake"
+    InvAPI->>CaseBL: "Idempotent blacklist.add & multi-job ingest_request"
     CaseBL-->>Analyst: "added/skipped counts & created_case_ids"
 ```
+
+### Graph Data Model & Overlay Design
+1. **Cấu trúc lưỡng phân & quy tắc ánh xạ từ `fact_transactions`:**
+   - Mọi cạnh có hướng `User -> {Device, IpAddress, Card, Merchant}` (đồ thị lưỡng phân tránh bùng nổ cạnh $O(k^2)$ giữa các `User`).
+   - Trước khi aggregate bằng DuckDB, khử trùng lặp `event_id` theo `scanned_at DESC, job_id DESC` trong cửa sổ `days` (mặc định `90` ngày tính theo `tx_timestamp` so với mốc mới nhất).
+   - Bỏ qua giá trị thực thể phụ `NULL` hoặc chuỗi rỗng sau `TRIM`, không tạo node giả.
+   - Nhiều giao dịch giữa cùng cặp `(user_id, entity_id)` gộp thành **1 cạnh tổng hợp** mang `tx_count`, `flagged_tx_count`, `total_amount`, `max_model_score`, `first_tx_at`, `last_tx_at`.
+   - Node `Merchant` lưu thêm `merchant_category` (giá trị non-null phổ biến nhất); 4 node thực thể phụ lưu sẵn `distinct_users` (bậc kết nối) để lọc Super-node và phát hiện Hub không cần quét lại toàn đồ thị.
+   - Định danh nút trả về API/UI dùng namespace `"{entity_type}:{entity_value}"` (ví dụ `USER_ID:u_123`, `DEVICE_ID:dev_9`) để tránh trùng ID giữa các loại thực thể.
+2. **Phân tách dữ liệu tĩnh (Cached in LadybugDB) vs động (Live SQL Overlay):**
+   - **Cached in LadybugDB (`:memory:`):** 5 bảng node + 4 bảng cạnh tổng hợp, lưu theo khóa LRU `(project_id, source_fingerprint, window_days)`.
+   - **Live SQL Overlay (ghép trên mỗi truy vấn từ `SqliteCaseRepository` & `SqliteBlacklistRepository`):** `is_blacklisted` (`ACTIVE` khớp `(entity_type, entity_value)`), `open_case_count`, `resolved_fraud_count`, `case_ids` (cho `User`).
+   - **Quy tắc trạng thái / màu nút (`risk_status`):** `CRITICAL` (đỏ) khi `is_blacklisted=True` hoặc `resolved_fraud_count > 0`; `WARNING` (cam) khi `open_case_count > 0` hoặc `flagged_tx_count > 0`; `NORMAL` (xám/xanh) các trường hợp còn lại.
+3. **Quy tắc duyệt (Traversal), xếp hạng cắt ngưỡng & phát hiện mẫu hình:**
+   - `1-hop`: từ `User` lấy các thực thể liên kết; từ thực thể phụ lấy tối đa 50 `User` rủi ro nhất. `2-hop`: từ `User` đi qua thực thể dùng chung sang các `User` đồng phạm khác.
+   - Thứ tự xếp hạng ưu tiên khi cắt Top 50 (`MAX_EXPAND_NEIGHBORS=50`, `SUC-19 4a`) hoặc chạm trần 200 nút (`MAX_CANVAS_NODES=200`, `BR-IV-05`): `(risk_status == CRITICAL DESC, open_case_count > 0 DESC, flagged_tx_count DESC, max_model_score DESC, tx_count DESC, id ASC)`.
+   - Super-node: nút thực thể phụ có `distinct_users > SUPER_NODE_DEGREE_THRESHOLD` (mặc định `50`) gắn `is_super_node=True`; khi `hide_super_nodes=True`, bỏ qua khi duyệt 2-hop và ẩn khỏi kết quả (trừ khi chính nó là `seed`).
+   - Mẫu hình cảnh báo: `DEVICE_IP_CARD_HUB` (`distinct_users >= 2` và `flagged_users >= 1`, hoặc `distinct_users >= 3` và `max_model_score >= 0.7`); `MERCHANT_RING` (`flagged_users >= 3`, hoặc `flagged_tx_count >= 3` và `flagged_tx_count / tx_count >= 0.30`).
 
 ### Key decisions & contracts
 | Area | Decision / Contract | Rationale / Notes |
 |---|---|---|
-| API / RBAC | `GET /api/v1/network/hubs` (`case:read`), `GET /api/v1/network/subgraph` (`case:read`), `POST /api/v1/network/expand` (`case:read`), `GET /api/v1/network/edge-transactions` (`case:read`), `POST /api/v1/network/bulk-blacklist` (`blacklist:manage`, writable project), `POST /api/v1/network/create-cases` (`case:create`, writable project) | Tái dùng trọn bộ quyền RBAC cấp `PROJECT` hiện có; không đổi `seed_rbac.py` hay `feature-policy.ts`. |
-| Graph Engine & Schema | Port `INetworkGraphService` + `LadybugNetworkGraphService` dùng `ladybug.Database(":memory:", buffer_pool_size=...)`. 5 node tables (`User`, `Device`, `IpAddress`, `Card`, `Merchant` kèm `merchant_category`) và 4 rel tables (`USED_DEVICE`, `USED_IP`, `USED_CARD`, `TRANSACTED_AT`) mang `tx_count`, `flagged_tx_count`, `total_amount`, `max_model_score`, `first_tx_at`, `last_tx_at`. | Đồ thị lưỡng phân tránh bùng nổ cạnh $O(k^2)$; 1-hop thấy thực thể của User, 2-hop vạch trần ngay User đồng phạm dùng chung Device/IP/Card/Merchant. Giao dịch chi tiết của cạnh đọc on-demand bằng DuckDB. |
+| API / RBAC | **Network (chỉ đọc, `network_graph_router.py`):** `GET /api/v1/network/hubs`, `GET /api/v1/network/subgraph`, `POST /api/v1/network/expand`, `GET /api/v1/network/edge-transactions` (`case:read`, scope `PROJECT`).<br>**Blacklist (`investigation_router.py` → `blacklist_router`):** `POST /api/v1/blacklist/bulk` (`blacklist:manage`, writable project, payload `{project_id, entities: [{entity_type, entity_value}], reason (>=10 chars), source_case_id?}`, idempotent).<br>**Investigation (`investigation_router.py` → `router`):** `POST /api/v1/cases/bulk-intake` (`case:create`, writable project, payload `{project_id, items: [{detection_job_id, event_id}], analyst_notes?}`, nhóm theo `detection_job_id`, tái dùng helper snapshot chung với `detection_router.send_to_investigation` + `ingest_request`, idempotent). | Đặt hành động ghi đúng ranh giới tài nguyên `blacklist` & `cases` để dùng chung được ngoài màn hình đồ thị; `/api/v1/network/*` thuần đọc; tái dùng trọn bộ RBAC cấp `PROJECT` hiện có, không đổi `seed_rbac.py` hay `feature-policy.ts`. |
+| Graph Engine & Schema | Port `INetworkGraphService` + `LadybugNetworkGraphService` dùng `ladybug.Database(":memory:", buffer_pool_size=...)` với 5 node tables (`User`, `Device`, `IpAddress`, `Card`, `Merchant`) và 4 rel tables (`USED_DEVICE`, `USED_IP`, `USED_CARD`, `TRANSACTED_AT`) như mục **Graph Data Model & Overlay Design**. | 1-hop thấy thực thể của User, 2-hop vạch trần ngay User đồng phạm dùng chung Device/IP/Card/Merchant; giao dịch chi tiết của cạnh đọc on-demand bằng DuckDB. |
 | Warehouse Aliases | Bổ sung `OPTIONAL_ENTITY_ALIASES` trong `project_warehouse.py` (`device_id`, `ip_address`, `card_id`, `merchant_id`, `merchant_category`) và tái dùng ở artifact fallback. | Đảm bảo dataset có cột `merchant`, `ip`, `device`, `cc_num`... được chuẩn hóa vào warehouse. |
-| Patterns & Limits | `MAX_EXPAND_NEIGHBORS = 50` (`SUC-19 4a`), `MAX_CANVAS_NODES = 200` (`BR-IV-05`), `SUPER_NODE_DEGREE_THRESHOLD = 50`. Mẫu hình: `DEVICE_IP_CARD_HUB` (`distinct_users >= 2` và `flagged_users >= 1`, hoặc `>= 3` user có rủi ro); `MERCHANT_RING` (`flagged_users >= 3`, hoặc `flagged_tx_count >= 3` và `flagged_rate >= 0.30`). | Khớp trực tiếp `SUC-19` và `BR-IV-05`; ưu tiên giữ các láng giềng có trạng thái `BLOCKED`/`RESOLVED_FRAUD` → `OPEN Case` → `flagged_tx_count DESC` → `max_model_score DESC`. |
+| Patterns & Limits | `MAX_EXPAND_NEIGHBORS = 50` (`SUC-19 4a`), `MAX_CANVAS_NODES = 200` (`BR-IV-05`), `SUPER_NODE_DEGREE_THRESHOLD = 50` cùng quy tắc xếp hạng & ngưỡng phát hiện `DEVICE_IP_CARD_HUB` / `MERCHANT_RING` ở mục **Graph Data Model & Overlay Design**. | Khớp trực tiếp `SUC-19` và `BR-IV-05`. |
 | Config / Env | Append vào `usfds-server/src/usfds_server/config.py` & `deploy/.env.example`: `USFDS_GRAPH_CACHE_MAX_ENTRIES=4`, `USFDS_GRAPH_CACHE_TTL_SECONDS=600`, `USFDS_GRAPH_BUFFER_POOL_MB=256`, `USFDS_GRAPH_SUPER_NODE_DEGREE=50`. | Khóa trần RAM cho LadybugDB trong `usfds-server` tương tự trần DuckDB 512MB. |
 | Frontend UI | `cytoscape` + `@types/cytoscape` với wrapper mỏng `CytoscapeCanvas.tsx` + `NetworkGraphExplorer.tsx` dùng chung ở `/investigation/network` và tab cột giữa `CaseWorkbenchView.tsx`. | Không xung đột React 19; hỗ trợ layout `cose`, box-select nhiều nút, pan/zoom, double-click expand, dark/light theme qua `useTheme`, fallback headless + danh sách truy cập (accessibility) khi chạy Vitest/jsdom. |
 
@@ -82,8 +144,8 @@ sequenceDiagram
 - **Thread-safety & eviction của LRU cache:** Cache dùng `OrderedDict` bọc `threading.RLock`; mỗi truy vấn tạo `ladybug.Connection(entry.db)` cục bộ và đóng connection trong `finally`. Entry lưu `source_fingerprint` gồm danh sách `(job_id, output_path, updated_at)` để tự vô hiệu hóa ngay khi có `DetectionJob` mới hoàn tất hoặc quá TTL.
 - **Thiếu cột thực thể phụ (`SUC-19 2a`):** Khi warehouse/artifact không có giá trị non-null nào ở 4 cột `device_id`, `ip_address`, `card_id`, `merchant_id`, API trả `200` với `available: false` và thông báo hướng dẫn tiếng Việt (không trả 500).
 - **Super-node explosion (`SUC-19 4a`) & giới hạn Canvas (`BR-IV-05`):** Nếu một nút có `N > 50` láng giềng hoặc tổng số nút vượt `200`, backend cắt theo thứ tự rủi ro giảm dần và trả `truncated_neighbors`, `total_neighbors`, `canvas_limit_reached`, `notice` để UI hiện cảnh báo rõ ràng.
-- **Idempotency cho hành động hàng loạt:** `POST /bulk-blacklist` duyệt từng thực thể qua `BlacklistService.add`, bỏ qua thực thể đã `ACTIVE` trong blacklist thay vì hủy cả batch; `POST /create-cases` nhóm `event_id` theo `job_id`, trích snapshot qua helper dùng chung với `detection_router.send_to_investigation`, bỏ qua `event_id` đã có Case.
-- **Project `ARCHIVED` & cô lập project:** Mọi endpoint kiểm tra `project_id` qua `_project` + `authz.require_project_permission`; các endpoint ghi (`bulk-blacklist`, `create-cases`) chặn `400` khi project ở trạng thái `ARCHIVED` và từ chối nếu `job_id` hoặc `source_case_id` thuộc project khác.
+- **Idempotency cho hành động hàng loạt:** `POST /api/v1/blacklist/bulk` duyệt từng thực thể qua `BlacklistService.add`, bỏ qua thực thể đã `ACTIVE` trong blacklist thay vì hủy cả batch; `POST /api/v1/cases/bulk-intake` nhóm `(detection_job_id, event_id)` theo `detection_job_id`, trích snapshot qua helper dùng chung với `detection_router.send_to_investigation`, bỏ qua `event_id` đã có Case.
+- **Project `ARCHIVED` & cô lập project:** Mọi endpoint kiểm tra `project_id` qua `_project` + `authz.require_project_permission`; các endpoint ghi (`POST /api/v1/blacklist/bulk`, `POST /api/v1/cases/bulk-intake`) chặn `400` khi project ở trạng thái `ARCHIVED` và từ chối nếu `detection_job_id` hoặc `source_case_id` thuộc project khác.
 - **Tương thích ngược `predictions.parquet` & artifact cũ:** Nếu `ProjectWarehouse` chưa có file fact của job `COMPLETED`, tự gọi `sync_missing_jobs(completed_jobs)`; nếu project chưa có job `COMPLETED` nhưng có `case_id` gắn `dataset_artifact_id`, fallback đọc file artifact bằng DuckDB bounded.
 
 ## 3. Files
@@ -95,16 +157,19 @@ sequenceDiagram
 | modify | `usfds-core/src/usfds_core/services/investigation/__init__.py` | M1 | Append-only export `INetworkGraphService`, `LadybugNetworkGraphService` |
 | modify | `usfds-core/tests/test_project_warehouse.py` | M1 | Test alias nhận diện cột thực thể phụ |
 | create | `usfds-core/tests/test_network_graph.py` | M1 | Unit/integration tests M1 cho LadybugDB, pattern detection, caps 50/200, super-node, LRU cache, edge transactions & artifact fallback |
-| create | `usfds-server/src/usfds_server/schemas/network_graph_schemas.py` | M2 | Pydantic schemas cho `/api/v1/network/*` |
-| create | `usfds-server/src/usfds_server/routers/network_graph_router.py` | M2 | 6 endpoint `/api/v1/network/*` + live Case/Blacklist overlay + shared snapshot intake |
-| modify | `usfds-server/src/usfds_server/routers/detection_router.py` | M2 | Tách helper xây `CaseIntakeRequest` từ `job_id` + `event_ids` để dùng chung với `network_graph_router.py` (không đổi hành vi `send_to_investigation`) |
+| create | `usfds-server/src/usfds_server/schemas/network_graph_schemas.py` | M2 | Pydantic schemas cho 4 endpoint đọc `/api/v1/network/*` |
+| create | `usfds-server/src/usfds_server/routers/network_graph_router.py` | M2 | 4 endpoint đọc `/api/v1/network/*` + live Case/Blacklist overlay |
+| modify | `usfds-server/src/usfds_server/schemas/investigation_api_schemas.py` | M2 | Thêm `BulkBlacklistRequest`, `BulkCaseIntakeItem`, `BulkCaseIntakeRequest` |
+| modify | `usfds-server/src/usfds_server/routers/investigation_router.py` | M2 | Thêm `POST /api/v1/blacklist/bulk` (trên `blacklist_router`) và `POST /api/v1/cases/bulk-intake` (trên `router`) |
+| modify | `usfds-server/src/usfds_server/routers/detection_router.py` | M2 | Tách helper xây `CaseIntakeRequest` từ `job_id` + `event_ids` để dùng chung với `investigation_router.py` (không đổi hành vi `send_to_investigation`) |
 | modify | `usfds-server/src/usfds_server/api.py` | M2 | Append-only đăng ký `network_graph_router` |
 | modify | `usfds-server/src/usfds_server/config.py` | M2 | Append-only 4 biến cấu hình `graph_cache_*` / `graph_buffer_pool_mb` / `graph_super_node_degree` |
 | modify | `deploy/.env.example` | M2 | Append-only 4 biến `USFDS_GRAPH_*` |
-| create | `usfds-server/tests/test_network_graph_api.py` | M2 | API tests M2 (hubs, subgraph, expand, edge-transactions, bulk-blacklist, create-cases, RBAC, project isolation, archived guard) |
+| create | `usfds-server/tests/test_network_graph_api.py` | M2 | API tests M2 cho 4 endpoint `/api/v1/network/*` (`hubs`, `subgraph`, `expand`, `edge-transactions`, live overlay, RBAC, project isolation) |
+| modify | `usfds-server/tests/test_investigation_api.py` | M2 | API tests M2 cho `POST /api/v1/blacklist/bulk` và `POST /api/v1/cases/bulk-intake` (idempotent, multi-job intake, RBAC, archived guard, project isolation) |
 | modify | `usfds-web/package.json` | M3 | Thêm `cytoscape` và `@types/cytoscape` |
 | modify | `usfds-web/src/types/investigation.ts` | M3 | Thêm types cho Network Graph (nodes, edges, patterns, hubs, edge transactions, bulk actions) |
-| modify | `usfds-web/src/api/investigationApi.ts` | M3 | Thêm các hàm gọi `/v1/network/*` |
+| modify | `usfds-web/src/api/investigationApi.ts` | M3 | Thêm các hàm gọi `/v1/network/*`, `POST /v1/blacklist/bulk`, `POST /v1/cases/bulk-intake` |
 | create | `usfds-web/src/components/modules/investigation/CytoscapeCanvas.tsx` | M3 | Wrapper React mỏng cho `cytoscape` (`cose`, box-select, pan/zoom, double-click expand, dark/light theme, jsdom headless fallback) |
 | create | `usfds-web/src/components/modules/investigation/NetworkGraphExplorer.tsx` | M3 | Thành phần dùng chung (thanh lọc, Top hubs, canvas, Edge/Node Inspector, Bulk Blacklist & Create Cases) |
 | modify | `usfds-web/src/components/modules/investigation/InvestigationViews.tsx` | M3 | Export `NetworkGraphExplorer` |
@@ -122,7 +187,7 @@ sequenceDiagram
 | C1 | Modified files owned by in-progress task? | No — `.plan/BOARD.md` không có task `In progress` |
 | C2 | Hot-spot files touched | `usfds-core/src/usfds_core/services/investigation/__init__.py`, `usfds-server/src/usfds_server/api.py`, `usfds-server/src/usfds_server/config.py`, `deploy/.env.example` (append-only) |
 | C3 | Schema change | No |
-| C4 | Public contract change | Yes (chỉ mở rộng tương thích ngược — thêm nhóm endpoint `/api/v1/network/*`, không sửa hợp đồng endpoint hiện có) → consumers: `usfds-web` (cập nhật trong M3) |
+| C4 | Public contract change | Yes (chỉ mở rộng tương thích ngược — thêm 4 endpoint đọc `/api/v1/network/*`, `POST /api/v1/blacklist/bulk` và `POST /api/v1/cases/bulk-intake`, không sửa hợp đồng endpoint hiện có) → consumers: `usfds-web` (cập nhật trong M3) |
 | C5 | Shared UI shell change | No (chỉ thêm route con nội bộ `/investigation/network` trong `InvestigationModule.tsx`) |
 
 ## 5. Acceptance tests (user reviews this section)
@@ -134,37 +199,43 @@ sequenceDiagram
 | M1 | `test_ladybug_graph_handles_missing_entity_columns_and_lru_cache_invalidation` (`usfds-core/tests/test_network_graph.py`) | (a) Warehouse chỉ có 4 cột lõi, không có thực thể phụ; (b) Warehouse có dữ liệu rồi xuất hiện `DetectionJob` mới | Gọi `get_subgraph` lần 1, lần 2 cùng fingerprint, rồi sau khi thêm job mới | (a) Trả `available=False` với thông điệp hướng dẫn (`2a`); (b) Lần 2 hit LRU cache (không rebuild LadybugDB), sau khi có job mới fingerprint đổi và cache tự rebuild chứa nút mới | ISS-041, SUC-19 2a |
 | M1 | `test_ladybug_graph_edge_transactions_and_artifact_fallback` (`usfds-core/tests/test_network_graph.py`) | (a) Cạnh `(user_id, device_id)` có nhiều giao dịch trong warehouse; (b) Case cũ chỉ có `dataset_artifact_id` chưa có `DetectionJob` | Gọi `get_edge_transactions` và `get_subgraph` với `artifact_path` fallback | Trả danh sách giao dịch chi tiết chính xác theo khung thời gian (đã dedupe `event_id`), kèm `job_id`; fallback đọc trực tiếp file artifact bằng DuckDB và dựng đồ thị LadybugDB thành công | ISS-041, SUC-19 |
 | M2 | `test_network_api_hubs_subgraph_expand_and_edge_transactions_with_live_overlay` (`usfds-server/tests/test_network_graph_api.py`) | Project có `DetectionJob` `COMPLETED`, 1 user bị `BLACKLIST`, 1 user có Case `OPEN` | Gọi `GET /api/v1/network/hubs`, `GET /subgraph`, `POST /expand`, `GET /edge-transactions` | Các nút nhận đúng màu/trạng thái sống (`CRITICAL`/`WARNING`/`NORMAL`) từ Case & Blacklist hiện tại ngay cả khi cache hit; `edge-transactions` gắn đúng `case_id` cho giao dịch đã có Case | ISS-041, SUC-19 |
-| M2 | `test_network_api_bulk_blacklist_and_create_cases_idempotent_with_rbac` (`usfds-server/tests/test_network_graph_api.py`) | Cụm gồm 1 thực thể đã bị blacklist + 2 thực thể mới; 1 giao dịch flagged đã có Case + 1 giao dịch flagged chưa có Case | Gọi `POST /api/v1/network/bulk-blacklist` và `POST /api/v1/network/create-cases` bằng `fraud_analyst` và thử bằng user thiếu quyền | `fraud_analyst`: chặn 2 mới / bỏ qua 1 trùng (ghi `AuditLog`), tạo 1 Case mới / bỏ qua 1 trùng; user thiếu `blacklist:manage` hoặc `case:create` nhận `403` | ISS-041, SUC-19 |
-| M2 | `test_network_api_project_isolation_and_archived_project_guard` (`usfds-server/tests/test_network_graph_api.py`) | 2 project A & B và 1 project `ARCHIVED` | Truy vấn/ghi chéo project hoặc gọi `bulk-blacklist`/`create-cases` trên project `ARCHIVED` | Từ chối `403`/`404` khi truy cập chéo project; trả `400` cho thao tác ghi trên project `ARCHIVED` trong khi đọc đồ thị vẫn trả `200` | ISS-041 |
-| M3 | `NetworkGraphExplorer: renders subgraph, expands node, inspects edge transactions, and runs bulk actions` (`usfds-web/src/components/modules/investigation/NetworkGraphExplorer.test.tsx`) | MSW trả hubs, subgraph (có pattern Hub), expand (có cảnh báo truncated), edge transactions, bulk-blacklist và create-cases | Mở `NetworkGraphExplorer`, tìm hạt giống, bấm mở rộng nút, chọn cạnh xem giao dịch, chọn nhiều nút rồi bấm Chặn hàng loạt & Tạo Case | Hiển thị đúng nút/cạnh, badge cảnh báo mẫu hình, thông báo cắt Top 50, bảng giao dịch cạnh, gửi đúng payload `POST /bulk-blacklist` (yêu cầu lý do >= 10 ký tự) và `POST /create-cases`, ẩn nút hành động khi thiếu quyền RBAC | ISS-041, SUC-19, BR-IV-05 |
+| M2 | `test_bulk_blacklist_and_bulk_case_intake_idempotent_with_rbac` (`usfds-server/tests/test_investigation_api.py`) | Cụm gồm 1 thực thể đã bị blacklist + 2 thực thể mới; 2 giao dịch flagged thuộc 2 `DetectionJob` khác nhau (1 đã có Case, 1 chưa có Case) | Gọi `POST /api/v1/blacklist/bulk` và `POST /api/v1/cases/bulk-intake` bằng `fraud_analyst` và thử bằng user thiếu quyền | `fraud_analyst`: chặn 2 mới / bỏ qua 1 trùng (ghi `AuditLog`), tạo 1 Case mới / bỏ qua 1 trùng; user thiếu `blacklist:manage` hoặc `case:create` nhận `403` | ISS-041, SUC-19 |
+| M2 | `test_network_and_bulk_api_project_isolation_and_archived_guard` (`usfds-server/tests/test_network_graph_api.py`, `usfds-server/tests/test_investigation_api.py`) | 2 project A & B và 1 project `ARCHIVED` | Truy vấn/ghi chéo project trên `/api/v1/network/*` hoặc gọi `POST /api/v1/blacklist/bulk` / `POST /api/v1/cases/bulk-intake` trên project `ARCHIVED` | Từ chối `403`/`404` khi truy cập chéo project; trả `400` cho thao tác ghi trên project `ARCHIVED` trong khi đọc đồ thị vẫn trả `200` | ISS-041 |
+| M3 | `NetworkGraphExplorer: renders subgraph, expands node, inspects edge transactions, and runs bulk actions` (`usfds-web/src/components/modules/investigation/NetworkGraphExplorer.test.tsx`) | MSW trả hubs, subgraph (có pattern Hub), expand (có cảnh báo truncated), edge transactions, `/api/v1/blacklist/bulk` và `/api/v1/cases/bulk-intake` | Mở `NetworkGraphExplorer`, tìm hạt giống, bấm mở rộng nút, chọn cạnh xem giao dịch, chọn nhiều nút rồi bấm Chặn hàng loạt & Tạo Case | Hiển thị đúng nút/cạnh, badge cảnh báo mẫu hình, thông báo cắt Top 50, bảng giao dịch cạnh, gửi đúng payload `POST /api/v1/blacklist/bulk` (yêu cầu lý do >= 10 ký tự) và `POST /api/v1/cases/bulk-intake`, ẩn nút hành động khi thiếu quyền RBAC | ISS-041, SUC-19, BR-IV-05 |
 | M3 | `CaseWorkbenchView & InvestigationModule: integrates Network Graph tab and standalone /investigation/network route` (`usfds-web/src/components/modules/investigation/NetworkGraphExplorer.test.tsx`) | MSW trả dữ liệu Workbench của Case và Network subgraph | (1) Chuyển tab "Đồ thị mạng lưới" trong `CaseWorkbenchView`; (2) Điều hướng sang tab "Khám phá mạng lưới" (`/investigation/network`) | Workbench nạp đồ thị theo `case.user_id` + hiển thị liên kết mở toàn màn hình; `/investigation/network` hiển thị thanh tìm kiếm hạt giống & danh sách Top hubs | ISS-041, SUC-19 |
 
 ## 6. Milestones & to-do (checkpoints, not stop points: all tests green at each)
 The agent ticks items as it works. This is the task's only to-do list (`TODO.md` is no longer used for new work).
 
-- [ ] **M1 — LadybugDB Embedded Graph Engine & Warehouse Aliases** (`usfds-core`): cài đặt `ladybug>=0.22.0`, bổ sung alias cột thực thể cho `ProjectWarehouse`, xây dựng `INetworkGraphService` + `LadybugNetworkGraphService` (`:memory:`, LRU cache, openCypher 1/2-hop, expand Top 50 / cap 200, phát hiện Hub & Merchant Ring, soi giao dịch cạnh qua DuckDB, artifact fallback).
-  - [ ] [core] Thêm `ladybug>=0.22.0` vào `usfds-core/pyproject.toml` và cập nhật môi trường Poetry
-  - [ ] [tests] Viết các test M1 trong §5 (`test_project_warehouse.py`, `test_network_graph.py`); xác nhận fail đúng lý do
-  - [ ] [core] Cập nhật `project_warehouse.py` (`OPTIONAL_ENTITY_ALIASES`)
-  - [ ] [core] Tạo `usfds-core/src/usfds_core/services/investigation/network_graph.py` và export append-only trong `__init__.py`
-  - [ ] [verify] `./scripts/test.sh core`
-- [ ] **M2 — Network Graph REST API, Live Overlay & Bulk Actions** (`usfds-server`, `deploy`): phơi bày 6 endpoint `/api/v1/network/*`, live Case/Blacklist overlay, tái dùng helper tạo Case từ `predictions.parquet`, cấu hình giới hạn cache/RAM.
-  - [ ] [tests] Viết các test M2 trong §5 (`test_network_graph_api.py`); xác nhận fail đúng lý do
-  - [ ] [server] Thêm `network_graph_schemas.py`, `network_graph_router.py`, tách helper intake dùng chung ở `detection_router.py`
-  - [ ] [server] Append-only `api.py`, `config.py`, `deploy/.env.example`
-  - [ ] [verify] `./scripts/test.sh core infra server`
-- [ ] **M3 — Cytoscape Interactive Graph UI, Workbench Integration & Spec Sync** (`usfds-web`, `docs`): cài `cytoscape`, dựng `CytoscapeCanvas` & `NetworkGraphExplorer`, tích hợp vào `/investigation/network` và `CaseWorkbenchView`, cập nhật `SUC-19` trong `docs/features/investigation/suc-spec.md`.
-  - [ ] [web] Thêm `cytoscape` + `@types/cytoscape` vào `usfds-web/package.json`
-  - [ ] [tests] Viết các test M3 trong §5 (`NetworkGraphExplorer.test.tsx`); xác nhận fail đúng lý do
-  - [ ] [web] Cập nhật `types/investigation.ts`, `api/investigationApi.ts`, tạo `CytoscapeCanvas.tsx`, `NetworkGraphExplorer.tsx`, tích hợp vào `InvestigationViews.tsx`, `InvestigationModule.tsx`, `CaseWorkbenchView.tsx`
-  - [ ] [docs] Cập nhật mục `SUC-19` trong `docs/features/investigation/suc-spec.md` (gắn comment `[26-11-23]`)
-  - [ ] [verify] `./scripts/test.sh core infra worker cli server web`
+- [x] **M1 — LadybugDB Embedded Graph Engine & Warehouse Aliases** (`usfds-core`): cài đặt `ladybug>=0.22.0`, bổ sung alias cột thực thể cho `ProjectWarehouse`, xây dựng `INetworkGraphService` + `LadybugNetworkGraphService` (`:memory:`, LRU cache, openCypher 1/2-hop, expand Top 50 / cap 200, phát hiện Hub & Merchant Ring, soi giao dịch cạnh qua DuckDB, artifact fallback).
+  - [x] [core] Thêm `ladybug>=0.22.0` vào `usfds-core/pyproject.toml` và cập nhật môi trường Poetry
+  - [x] [tests] Viết các test M1 trong §5 (`test_project_warehouse.py`, `test_network_graph.py`); xác nhận fail đúng lý do
+  - [x] [core] Cập nhật `project_warehouse.py` (`OPTIONAL_ENTITY_ALIASES`)
+  - [x] [core] Tạo `usfds-core/src/usfds_core/services/investigation/network_graph.py` và export append-only trong `__init__.py`
+  - [x] [verify] `./scripts/test.sh core`
+- [x] **M2 — Network Graph Read API, Live Overlay & Investigation Bulk Actions** (`usfds-server`, `deploy`): phơi bày 4 endpoint đọc `/api/v1/network/*`, live Case/Blacklist overlay, bổ sung `POST /api/v1/blacklist/bulk` & `POST /api/v1/cases/bulk-intake` vào `investigation_router.py` tái dùng helper tạo Case từ `predictions.parquet`, cấu hình giới hạn cache/RAM.
+  - [x] [tests] Viết các test M2 trong §5 (`test_network_graph_api.py`, `test_investigation_api.py`); xác nhận fail đúng lý do
+  - [x] [server] Thêm `network_graph_schemas.py`, `network_graph_router.py`; bổ sung schemas & endpoint bulk vào `investigation_api_schemas.py`, `investigation_router.py`; tách helper intake dùng chung ở `detection_router.py`
+  - [x] [server] Append-only `api.py`, `config.py`, `deploy/.env.example`
+  - [x] [verify] `./scripts/test.sh core infra server`
+- [x] **M3 — Cytoscape Interactive Graph UI, Workbench Integration & Spec Sync** (`usfds-web`, `docs`): cài `cytoscape`, dựng `CytoscapeCanvas` & `NetworkGraphExplorer`, tích hợp vào `/investigation/network` và `CaseWorkbenchView`, cập nhật `SUC-19` trong `docs/features/investigation/suc-spec.md`.
+  - [x] [web] Thêm `cytoscape` + `@types/cytoscape` vào `usfds-web/package.json`
+  - [x] [tests] Viết các test M3 trong §5 (`NetworkGraphExplorer.test.tsx`); xác nhận fail đúng lý do
+  - [x] [web] Cập nhật `types/investigation.ts`, `api/investigationApi.ts`, tạo `CytoscapeCanvas.tsx`, `NetworkGraphExplorer.tsx`, tích hợp vào `InvestigationViews.tsx`, `InvestigationModule.tsx`, `CaseWorkbenchView.tsx`
+  - [x] [docs] Cập nhật mục `SUC-19` trong `docs/features/investigation/suc-spec.md` (gắn comment `[26-11-23]`)
+  - [x] [verify] `./scripts/test.sh core infra worker cli server web`
 
 Checkpoint log (the agent appends one line per finished milestone):
-- —
+- 26-11-24 M1 done: `176 passed, 15 skipped` (`./scripts/test.sh core`); notes: thêm marker `python_version < '3.15'` cho `ladybug>=0.22.0` để Poetry 2.5.1 lock tương thích các package `>=3.12`.
+- 26-11-24 M2 done: `176 passed, 15 skipped` (`core`), `51 passed` (`infra`), `53 passed` (`server`); notes: tham số query `hops` dùng `int = Query(2, ge=1, le=2)` để FastAPI ép kiểu query string.
+- 26-11-24 M3 done: `176 passed, 15 skipped` (`core`), `51 passed` (`infra`), `10 passed` (`worker`), `5 passed` (`cli`), `53 passed` (`server`), `24 test files / 55 passed` (`web`); notes: `cytoscape@3.35.0` đã kèm sẵn `index.d.ts` nên không cần `@types/cytoscape`; tách state & fetch sang hook `useNetworkGraph.ts` theo `usfds-frontend-change`.
 
 ## 7. Review hotspots (filled in after implementation)
-- —
+- `usfds-core/src/usfds_core/services/investigation/network_graph.py:259-586` (M1): Xây dựng đồ thị `LadybugDB (:memory:)` bằng DuckDB bounded, khử trùng lặp `event_id`, bỏ qua giá trị rỗng/null, quản lý LRU cache + TTL theo `(project_id, source_fingerprint, days)` dưới `threading.RLock`, và fallback đọc `DatasetArtifact` khi chưa có job `COMPLETED` (`test_ladybug_graph_handles_missing_entity_columns_and_lru_cache_invalidation`, `test_ladybug_graph_edge_transactions_and_artifact_fallback`).
+- `usfds-core/src/usfds_core/services/investigation/network_graph.py:720-1155` (M1): Phát hiện mẫu hình `DEVICE_IP_CARD_HUB` / `MERCHANT_RING`, quy tắc xếp hạng ưu tiên khi cắt Top 50 mở rộng (`SUC-19 4a`) và trần 200 nút trên Canvas (`BR-IV-05`) kèm bộ lọc `hide_super_nodes` (`test_ladybug_graph_builds_1hop_2hop_and_detects_hub_and_merchant_ring`, `test_ladybug_graph_enforces_top50_expand_cap_200_canvas_limit_and_super_node_filter`).
+- `usfds-server/src/usfds_server/routers/network_graph_router.py:41-130` (M2): Khóa LRU cache theo cấu hình storage + settings và ghép live `Case` / `Blacklist` overlay trên từng truy vấn để đảm bảo trạng thái `CRITICAL`/`WARNING` luôn tức thời khi cache hit (`test_network_api_hubs_subgraph_expand_and_edge_transactions_with_live_overlay`).
+- `usfds-server/src/usfds_server/routers/investigation_router.py:321-388` (M2): Hai endpoint ghi hàng loạt `POST /api/v1/blacklist/bulk` và `POST /api/v1/cases/bulk-intake` kiểm tra RBAC (`blacklist:manage`, `case:create`), chặn project `ARCHIVED`, kiểm tra `detection_job_id`/`source_case_id` thuộc project và xử lý idempotent (`test_bulk_blacklist_and_bulk_case_intake_idempotent_with_rbac`, `test_bulk_blacklist_and_bulk_case_intake_project_isolation_and_archived_guard`).
+- `usfds-web/src/components/modules/investigation/NetworkGraphExplorer.tsx:100-380` (M3): Kiểm soát quyền hiển thị hành động ghi theo `useActorContext`, ràng buộc lý do chặn `>= 10` ký tự và gom payload `(detection_job_id, event_id)` từ Edge Inspector (`NetworkGraphExplorer.test.tsx`).
 
 ## 8. Open questions
 - —

@@ -1,22 +1,52 @@
-import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { Briefcase, ShieldAlert } from 'lucide-react';
+import { NavLink, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
+import { Briefcase, Network, ShieldAlert } from 'lucide-react';
 import { PageHeader } from '../layout/PageHeader';
 import { useProject } from '../../hooks/useProjects';
-import { CaseQueueView, CaseWorkbenchView, PoliciesView } from './investigation/InvestigationViews';
+import type { EntityType } from '../../types/investigation';
+import {
+	CaseQueueView,
+	CaseWorkbenchView,
+	NetworkGraphExplorer,
+	PoliciesView,
+} from './investigation/InvestigationViews';
+
+const VALID_ENTITY_TYPES: EntityType[] = ['USER_ID', 'CARD_ID', 'DEVICE_ID', 'IP_ADDRESS', 'MERCHANT_ID'];
+
+function NetworkRouteView({ projectId, readOnly }: { projectId: string; readOnly: boolean }) {
+	const [searchParams] = useSearchParams();
+	const rawSeedType = (searchParams.get('seed_type') || 'USER_ID').toUpperCase() as EntityType;
+	const seedType = VALID_ENTITY_TYPES.includes(rawSeedType) ? rawSeedType : 'USER_ID';
+	const seedValue = searchParams.get('seed_value') || '';
+	const caseId = searchParams.get('case_id');
+
+	return (
+		<NetworkGraphExplorer
+			key={`${projectId}:${seedType}:${seedValue}:${caseId ?? ''}`}
+			projectId={projectId}
+			readOnly={readOnly}
+			initialSeedType={seedType}
+			initialSeedValue={seedValue}
+			caseId={caseId}
+		/>
+	);
+}
 
 export const InvestigationModule = () => {
 	const { currentProjectId, currentProject, isLoading } = useProject();
 	const location = useLocation();
 	const isPoliciesView = location.pathname.startsWith('/investigation/policies');
+	const isNetworkView = location.pathname.startsWith('/investigation/network');
 	const isWorkbenchView = location.pathname.includes('/investigation/cases/');
 
 	const breadcrumbs = [
 		{ label: 'Điều tra', href: '/investigation' },
 		...(isPoliciesView
 			? [{ label: 'Chính sách & danh sách theo dõi' }]
-			: isWorkbenchView
-				? [{ label: 'Không gian làm việc hồ sơ' }]
-				: [{ label: 'Hàng đợi hồ sơ' }]),
+			: isNetworkView
+				? [{ label: 'Khám phá mạng lưới' }]
+				: isWorkbenchView
+					? [{ label: 'Không gian làm việc hồ sơ' }]
+					: [{ label: 'Hàng đợi hồ sơ' }]),
 	];
 
 	return (
@@ -46,6 +76,18 @@ export const InvestigationModule = () => {
 						>
 							<Briefcase size={14} aria-hidden="true" />
 							<span>Hàng đợi hồ sơ</span>
+						</NavLink>
+						<NavLink
+							to="/investigation/network"
+							className={({ isActive }) =>
+								`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors ${isActive
+									? 'bg-brand-600 text-white shadow-sm'
+									: 'text-slate-300 hover:text-slate-100'
+								}`
+							}
+						>
+							<Network size={14} aria-hidden="true" />
+							<span>Khám phá mạng lưới</span>
 						</NavLink>
 						<NavLink
 							to="/investigation/policies"
@@ -87,6 +129,15 @@ export const InvestigationModule = () => {
 							path="cases/:caseId"
 							element={
 								<CaseWorkbenchView
+									projectId={currentProjectId}
+									readOnly={currentProject?.status === 'ARCHIVED'}
+								/>
+							}
+						/>
+						<Route
+							path="network"
+							element={
+								<NetworkRouteView
 									projectId={currentProjectId}
 									readOnly={currentProject?.status === 'ARCHIVED'}
 								/>

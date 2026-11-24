@@ -905,6 +905,61 @@ docs = ["distributed", "lz4", "matplotlib", "numpy", "numpydoc", "pandas", "psut
 test = ["distributed", "lz4", "memory_profiler", "numpy", "pytest", "pytest-asyncio", "pytest-cov", "pytest-run-parallel", "pytest-timeout", "threadpoolctl"]
 
 [[package]]
+name = "ladybug"
+version = "0.22.3"
+description = "Highly scalable, extremely fast, easy-to-use embeddable graph database"
+optional = false
+python-versions = "<3.15,>=3.10"
+groups = ["main", "dev"]
+markers = "python_version <= \"3.14\""
+files = [
+    {file = "ladybug-0.22.3-cp310-cp310-macosx_15_0_arm64.whl", hash = "sha256:59addb62b962fa86a1d05aca7778cf42b2f703b0d82be04d5913f102803d0bdb"},
+    {file = "ladybug-0.22.3-cp310-cp310-macosx_15_0_x86_64.whl", hash = "sha256:32b6f592593432b5112d976a0ed92e5171f34c6db279a0a3b6d9beab527ace04"},
+    {file = "ladybug-0.22.3-cp310-cp310-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:38458ac0a7e3b04076769b4083a5590ca936bfd32f7e06f8cd8ff7477c274ddf"},
+    {file = "ladybug-0.22.3-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9e840aebd23ce49603441069cd6ef01bc50f83115470f4cacd021d981afd3ef1"},
+    {file = "ladybug-0.22.3-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:66880d931ed7379b0a3166d98e47b050ba88fb672db0396b32a4e337d7e82b00"},
+    {file = "ladybug-0.22.3-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:57a9c001f2435e46d4c2af7c54a5496aeb631fcee3754ddcd1677a8d61564995"},
+    {file = "ladybug-0.22.3-cp310-cp310-win_amd64.whl", hash = "sha256:9399e983c85b30ee8781cfc8152872aac383874fcea8848d3fa3e50eb4a3b8c2"},
+    {file = "ladybug-0.22.3-cp310-cp310-win_arm64.whl", hash = "sha256:98d92ac8a129af89a2389dd09f604569c003d265179b721d7acfc2fe01a407fb"},
+    {file = "ladybug-0.22.3-cp311-cp311-macosx_15_0_arm64.whl", hash = "sha256:8e27d3a4d51bf60f2c04d3ee2890cf02d61de2149767e5d557ac23bfef03296f"},
+    {file = "ladybug-0.22.3-cp311-cp311-macosx_15_0_x86_64.whl", hash = "sha256:da6b84e1d50acbea4dece6dc7bc2cb1bd37f610ac3a4bfb38227b51235b7ae62"},
+    {file = "ladybug-0.22.3-cp311-cp311-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:c1952f76b0844b6ef611ce0cfd5521440249a22de0fb24338ce6430e096fa390"},
+    {file = "ladybug-0.22.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:154c7397ed5250907f5d5b19dc4605480518904446ac4c933d74383f5f906f64"},
+    {file = "ladybug-0.22.3-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:b8290204504e683eb9141eae16557b28e3cc56d75a3a620eafa8754e6aa06f14"},
+    {file = "ladybug-0.22.3-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:ce3c4d3faabeeed671f2aa6812c4961121bb6e5daf23e310601e354889da00ef"},
+    {file = "ladybug-0.22.3-cp311-cp311-win_amd64.whl", hash = "sha256:cd0022ac248055c6dda7e220c3ce01fd362ae42c1e6358ca4a933de93885d7b3"},
+    {file = "ladybug-0.22.3-cp311-cp311-win_arm64.whl", hash = "sha256:be479951ea19b535832a0ee97001c4c73322aceb4ff0a7f08cc223162b3f1ac5"},
+    {file = "ladybug-0.22.3-cp312-cp312-macosx_15_0_arm64.whl", hash = "sha256:8bc2bdba13b3f04014ecf1f28ca95d8287975c6ad3dbe379d1d9ed687b8544fd"},
+    {file = "ladybug-0.22.3-cp312-cp312-macosx_15_0_x86_64.whl", hash = "sha256:178147edc3eaa52b8fdbb6d61bb076914bc7b046f0f56af5b69d23d95f322d97"},
+    {file = "ladybug-0.22.3-cp312-cp312-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:c1f1fab06bcab3df2a73423f91951652d314031dcdc5ead321922ba982bffeb0"},
+    {file = "ladybug-0.22.3-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d58f4457ce6fd0bc36656426cd663972429b94c8a9e49e153dd37d04f256b9c4"},
+    {file = "ladybug-0.22.3-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:32c52f89752c6c5c9a43196f62c48378dc55fc5d0b7c3bc6c260ffcb7c8f5e51"},
+    {file = "ladybug-0.22.3-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:9651bd94cc954faee4d480d6007d532cfcb8c97e505165ea2f3030c22f1c6430"},
+    {file = "ladybug-0.22.3-cp312-cp312-win_amd64.whl", hash = "sha256:7e26350ff887471d797e57ee859ffe83f2ebeb8c2824700ccbb9fba94c3be5c6"},
+    {file = "ladybug-0.22.3-cp312-cp312-win_arm64.whl", hash = "sha256:089cd36fb657c60a3a0c23a1e0aa2a356dd4ac6149d91f64606d5a2b80bf66f8"},
+    {file = "ladybug-0.22.3-cp313-cp313-macosx_15_0_arm64.whl", hash = "sha256:314e16a2ed406724910660f6e40bf26785952ea1b6b4c94add802875ee925f2b"},
+    {file = "ladybug-0.22.3-cp313-cp313-macosx_15_0_x86_64.whl", hash = "sha256:a784cf4adfcf2a364a9d4e407f5aa5bdff8afc73fb15fad9c08388985f2771d8"},
+    {file = "ladybug-0.22.3-cp313-cp313-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:2230398bc844512f9e319f15580cb9b1fcf0bfd37c4ab95689bc9541a806efee"},
+    {file = "ladybug-0.22.3-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0cdc1490263589171f3534b346b639c41e4173a62552ebc828677008857b9d13"},
+    {file = "ladybug-0.22.3-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:d6b7411486cd29eb8a43e2007c5fdadfd462a3df43855eb32f6d02b5370c16e7"},
+    {file = "ladybug-0.22.3-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:dfd688454211084df6d992617f161986658eae12defe4718379b4c19421aaedb"},
+    {file = "ladybug-0.22.3-cp313-cp313-win_amd64.whl", hash = "sha256:a9ba625c4dadcc5e8c5455ece20d100a938ba914b22d0d597d54c87f12f5910b"},
+    {file = "ladybug-0.22.3-cp313-cp313-win_arm64.whl", hash = "sha256:67058acb1d8bd99f5eccb46774cd46ef945e70019106d16a9fa918f95500999f"},
+    {file = "ladybug-0.22.3-cp314-cp314-macosx_15_0_arm64.whl", hash = "sha256:3a440e5d0c4758f77ae479926fc7b0715c496236d5e923bd5af9fed02f359367"},
+    {file = "ladybug-0.22.3-cp314-cp314-macosx_15_0_x86_64.whl", hash = "sha256:486788c65b6d56199434a116c9d8a03c7bca18aa2c93448555f6b4855b3c6d57"},
+    {file = "ladybug-0.22.3-cp314-cp314-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:bea8536eba2220d7647b8d0c5841550309e720925ec0ceb22040ab7f1e2ed261"},
+    {file = "ladybug-0.22.3-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b6a7c1565fbf0d19d04aff77e0bd15a1a953e467c8156ab1d3b8c61ded4f4a2f"},
+    {file = "ladybug-0.22.3-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:2fda41057effdec30a047d231dd17124b84fe6b79430a8ea1f8c220112630914"},
+    {file = "ladybug-0.22.3-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:48440e74b2fa8b426fa4862ec5d451cbdea6cee3de378f5eac1988c9e48a1a78"},
+    {file = "ladybug-0.22.3-cp314-cp314-win_amd64.whl", hash = "sha256:7ea22135b559ee9f94176b008ef3968ceb3cd34cdab496c76228bf9c7e05754f"},
+    {file = "ladybug-0.22.3-cp314-cp314-win_arm64.whl", hash = "sha256:5a62ffb6c36f8617832a8df8caa78505517b9ebeb9764def6637bec67bd16d3f"},
+    {file = "ladybug-0.22.3.tar.gz", hash = "sha256:c5b1939cf2af38f141b9021d66c3212e3c2473e87dfc225513a599e1c8646ba6"},
+]
+
+[package.extras]
+dev = ["black (>=26.3.1)", "mypy (==1.16.0)", "networkx (>=3.0,<4.0)", "numpy (>=2.0,<3.0)", "pandas (>=2.2,<3.0)", "polars (>=1.30,<2.0)", "pre-commit (>=4.6.0)", "pyarrow (>=25)", "pybind11 (>=2.13,<3.0)", "pytest", "pytest-asyncio (>=1.0,<2.0)", "pytest-xdist (>=3.0,<4.0)", "ruff (==0.15.19)", "setuptools (>=80.9)", "torch (>=2.5.0)", "torch-geometric (>=2.5.0)"]
+
+[[package]]
 name = "mako"
 version = "1.4.3"
 description = "A super-fast templating language that borrows the best ideas from the existing templating languages."
@@ -1914,7 +1969,7 @@ version = "1.2.4"
 description = "Read key-value pairs from a .env file and set them as environment variables"
 optional = false
 python-versions = ">=3.10"
-groups = ["main"]
+groups = ["main", "dev"]
 files = [
     {file = "python_dotenv-1.2.4-py3-none-any.whl", hash = "sha256:42269a8a5b3fd54ffa6f3d84b18abed50064717576b4ecf03dc4a55d8aa04fdc"},
     {file = "python_dotenv-1.2.4.tar.gz", hash = "sha256:f0d53e69935a851c0dcc78f3ab7aaccd8cabef0b92382b576b824212902873c0"},
@@ -2662,6 +2717,7 @@ category-encoders = ">=2.6.0"
 duckdb = ">=0.10.0"
 imbalanced-learn = ">=0.12.0"
 joblib = ">=1.3.0"
+ladybug = {version = ">=0.22.0", markers = "python_version < \"3.15\""}
 numpy = ">=2.0.0"
 pandas = ">=2.2.0"
 pyarrow = ">=26.0.0"
@@ -2709,6 +2765,7 @@ files = []
 develop = true
 
 [package.dependencies]
+python-dotenv = ">=1.0.0"
 usfds-core = {path = "../usfds-core", develop = true}
 usfds-infra = {path = "../usfds-infra", develop = true}
 

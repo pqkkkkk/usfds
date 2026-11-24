@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ExternalLink, Network } from 'lucide-react';
 import { investigationApi } from '../../../api/investigationApi';
 import type { CaseAction } from '../../../types/investigation';
 import {
@@ -9,6 +9,7 @@ import {
 	ErrorNotice,
 	StatusBadge,
 } from './investigationShared';
+import { NetworkGraphExplorer } from './NetworkGraphExplorer';
 import {
 	EvidenceAndTimelineColumn,
 	SubjectAndBaselineColumn,
@@ -45,6 +46,7 @@ function CaseWorkbench({
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [days, setDays] = useState<30 | 90>(30);
+	const [middleTab, setMiddleTab] = useState<'evidence' | 'network'>('evidence');
 	const [autoAdvance, setAutoAdvance] = useState<boolean>(false);
 	const [notice, setNotice] = useState<string>('');
 
@@ -185,7 +187,55 @@ function CaseWorkbench({
 					days={days}
 					onChangeDays={setDays}
 				/>
-				<EvidenceAndTimelineColumn data={workbenchQuery.data} />
+				<div className="min-w-0 space-y-4">
+					<div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dark-700/80 bg-dark-900 px-3 py-2">
+						<div className="inline-flex items-center gap-1 rounded-lg border border-dark-700 bg-dark-950 p-1 text-xs">
+							<button
+								type="button"
+								onClick={() => setMiddleTab('evidence')}
+								className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+									middleTab === 'evidence'
+										? 'bg-brand-600 text-white shadow-sm'
+										: 'text-slate-300 hover:text-slate-100'
+								}`}
+							>
+								Bằng chứng &amp; dòng thời gian
+							</button>
+							<button
+								type="button"
+								onClick={() => setMiddleTab('network')}
+								className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors ${
+									middleTab === 'network'
+										? 'bg-brand-600 text-white shadow-sm'
+										: 'text-slate-300 hover:text-slate-100'
+								}`}
+							>
+								<Network size={13} aria-hidden="true" />
+								<span>Đồ thị mạng lưới</span>
+							</button>
+						</div>
+						<Link
+							to={`/investigation/network?seed_type=USER_ID&seed_value=${encodeURIComponent(item.user_id)}&case_id=${item.case_id}`}
+							className={BUTTON_SECONDARY_CLASS}
+						>
+							<ExternalLink size={13} aria-hidden="true" />
+							<span>Mở toàn màn hình</span>
+						</Link>
+					</div>
+
+					{middleTab === 'evidence' ? (
+						<EvidenceAndTimelineColumn data={workbenchQuery.data} />
+					) : (
+						<NetworkGraphExplorer
+							projectId={projectId}
+							readOnly={readOnly}
+							initialSeedType="USER_ID"
+							initialSeedValue={item.user_id}
+							caseId={item.case_id}
+							compact
+						/>
+					)}
+				</div>
 				<DecisionAndAuditColumn
 					projectId={projectId}
 					data={workbenchQuery.data}

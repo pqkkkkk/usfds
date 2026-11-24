@@ -25,6 +25,7 @@ from usfds_server.dependencies import (
 )
 
 from usfds_server.routers.investigation_router import blacklist_router, router as investigation_router
+from usfds_server.routers import network_graph_router
 from usfds_server.routers import (
 	auth_router,
 	dataset_router,
@@ -155,6 +156,7 @@ app.include_router(rule_router)
 app.include_router(training_router)
 app.include_router(investigation_router)
 app.include_router(blacklist_router)
+app.include_router(network_graph_router.router)
 app.include_router(detection_router)
 app.include_router(insight_report_router)
 app.include_router(storage_router)

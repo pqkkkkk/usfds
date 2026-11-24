@@ -28,7 +28,8 @@ from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_server.dependencies import get_actor_context, get_authz_service, get_db, get_storage
 from usfds_server.schemas.base_response import ApiResponse
 from usfds_server.schemas.investigation_api_schemas import (
-	AddBlacklistRequest, CaseActionRequest, CaseIntakeRequest, CaseResponse,
+	AddBlacklistRequest, BulkBlacklistRequest, BulkCaseIntakeRequest,
+	CaseActionRequest, CaseIntakeRequest, CaseResponse,
 	NoteRequest, RemoveBlacklistRequest, ResolveCaseRequest,
 )
 
@@ -316,3 +317,79 @@ def remove_blacklist(blacklist_id: UUID, project_id: UUID, request: RemoveBlackl
 		return ApiResponse.ok(jsonable_encoder(asdict(entry)))
 	except (ValueError, LookupError) as error:
 		_error(error)
+
+
+@blacklist_router.post("/bulk", status_code=201, response_model=ApiResponse[dict])
+def bulk_add_blacklist(request: BulkBlacklistRequest, session: Session = Depends(get_db), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	authz.require_project_permission(actor_ctx, "blacklist:manage", request.project_id, action="mutate")
+	_project(session, request.project_id, True)
+	try:
+		if request.source_case_id:
+			_service(session).get(request.project_id, request.source_case_id)
+		service = BlacklistService(SqliteBlacklistRepository(session), SqliteAuditRepository(session))
+		added, skipped = [], []
+		seen: set[tuple[str, str]] = set()
+		for item in request.entities:
+			value = item.entity_value.strip()
+			key = (item.entity_type.value, value)
+			if not value or key in seen:
+				continue
+			seen.add(key)
+			try:
+				entry = service.add(EntityBlacklist(
+					request.project_id, item.entity_type, value, request.reason,
+					actor_ctx.username, source_case_id=request.source_case_id,
+				))
+				added.append(jsonable_encoder(asdict(entry)))
+			except CaseConflictError:
+				skipped.append({"entity_type": item.entity_type.value, "entity_value": value, "reason": "already_blacklisted"})
+		return ApiResponse.ok(
+			{"added": added, "skipped": skipped, "added_count": len(added), "skipped_count": len(skipped)},
+			status_code=201,
+		)
+	except (ValueError, LookupError) as error:
+		_error(error)
+
+
+@router.post("/bulk-intake", status_code=201, response_model=ApiResponse[dict])
+def bulk_intake_cases(request: BulkCaseIntakeRequest, session: Session = Depends(get_db), storage: LocalFileStorage = Depends(get_storage), actor_ctx: ActorContext = Depends(get_actor_context), authz: AuthzService = Depends(get_authz_service)):
+	from usfds_server.routers.detection_router import build_case_intake_from_job
+
+	authz.require_project_permission(actor_ctx, "case:create", request.project_id, action="create")
+	project = _project(session, request.project_id, True)
+
+	grouped: dict[UUID, list[str]] = {}
+	seen: set[tuple[UUID, str]] = set()
+	for item in request.items:
+		ev_id = item.event_id.strip()
+		if not ev_id or (item.detection_job_id, ev_id) in seen:
+			continue
+		seen.add((item.detection_job_id, ev_id))
+		grouped.setdefault(item.detection_job_id, []).append(ev_id)
+
+	if not grouped:
+		raise HTTPException(400, "At least one valid detection event is required")
+
+	job_repo = SqliteDetectionJobRepository(session)
+	created_case_ids: list[str] = []
+	skipped_event_ids: list[str] = []
+	for job_id, event_ids in grouped.items():
+		job = job_repo.get_by_id(job_id)
+		if job is None or job.project_id != request.project_id:
+			raise HTTPException(404, "Detection job not found in this project")
+		status_val = job.status.value if hasattr(job.status, "value") else str(job.status)
+		if status_val != "COMPLETED" or not job.output_path:
+			raise HTTPException(400, "Detection job must be completed before investigation")
+		payload, frame = build_case_intake_from_job(session, storage, project, job, event_ids)
+		res = ingest_request(payload, session, storage, actor_ctx.username, request.analyst_notes, source_rows=frame)
+		created_case_ids.extend(res["created_case_ids"])
+		skipped_event_ids.extend(res["skipped_event_ids"])
+
+	return ApiResponse.ok(
+		{
+			"created_case_ids": created_case_ids,
+			"accepted_count": len(created_case_ids),
+			"skipped_event_ids": skipped_event_ids,
+		},
+		status_code=201,
+	)

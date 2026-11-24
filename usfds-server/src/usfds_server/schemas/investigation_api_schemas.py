@@ -140,3 +140,24 @@ class AddBlacklistRequest(BlockEntityRequest):
 class RemoveBlacklistRequest(BaseModel):
 	model_config = ConfigDict(extra="forbid")
 	reason: str = Field(min_length=10, max_length=10000)
+
+
+class BulkBlacklistRequest(BaseModel):
+	model_config = ConfigDict(extra="forbid")
+	project_id: UUID
+	entities: list[BlockEntityRequest] = Field(min_length=1, max_length=200)
+	reason: str = Field(min_length=10, max_length=10000)
+	source_case_id: UUID | None = None
+
+
+class BulkCaseIntakeItem(BaseModel):
+	model_config = ConfigDict(extra="forbid")
+	detection_job_id: UUID
+	event_id: NonemptyId
+
+
+class BulkCaseIntakeRequest(BaseModel):
+	model_config = ConfigDict(extra="forbid")
+	project_id: UUID
+	items: list[BulkCaseIntakeItem] = Field(min_length=1, max_length=500)
+	analyst_notes: str | None = Field(default=None, max_length=10000)

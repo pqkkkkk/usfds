@@ -15,7 +15,7 @@
 
 ## 2.5 Design & Approach (user reviews this section)
 ### Diagram(s)
-<!-- Required (1–2 Mermaid diagrams) for multi-layer, workflow, state-machine, or schema tasks; write `—` for small/local fixes. -->
+<!-- Required for multi-layer, workflow, state-machine, or schema tasks (include as many Mermaid diagrams as needed to make the design clear); write `—` for small/local fixes. -->
 ```mermaid
 flowchart LR
     A["Input"] --> B["Key decision / change"]

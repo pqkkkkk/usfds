@@ -170,54 +170,44 @@ Phần này đặc tả chi tiết các Use Case thuộc phân hệ **Investigat
 
 ---
 
-## SUC-19: Investigate network (Điều tra đồ thị mạng lưới liên kết)
+## SUC-19: Investigate network (Điều tra đồ thị mạng lưới liên kết) <!-- [26-11-24] -->
 
 ### Thông tin chung
 
 - **Mã Use Case:** SUC-19
 - **Tên Use Case:** Investigate network (Điều tra đồ thị mạng lưới liên kết)
 - **Tác nhân chính (Primary Actor):** Fraud Analyst
-- **Tác nhân phụ (Secondary Actor):** Graph Query / Link Analysis Service (`INetworkGraphService` sử dụng **Apache AGE — openCypher trên PostgreSQL**)
-- **Mô tả:** Cung cấp công cụ trực quan hóa và khám phá đồ thị liên kết đa thực thể (Entity Link Graph) trên nền **Apache AGE** xoay quanh chủ thể hoặc giao dịch đang điều tra, giúp Fraud Analyst phát hiện các đường dây gian lận có tổ chức như chia sẻ thiết bị/IP (*Device-sharing Fraud*) hoặc điểm chấp nhận thanh toán thông đồng (*Merchant Ring / Clustered Terminal Exploitation*).
+- **Tác nhân phụ (Secondary Actor):** Graph Query / Link Analysis Service (`INetworkGraphService` / `LadybugNetworkGraphService` dùng **LadybugDB `:memory:` openCypher** nạp on-demand từ `ProjectWarehouse` qua DuckDB có LRU cache) <!-- [26-11-24] -->
+- **Mô tả:** Cung cấp công cụ trực quan hóa và khám phá đồ thị liên kết đa thực thể (Entity Link Graph) trên nền **LadybugDB (`:memory:`)** chạy đồng nhất cả Desktop (SQLite) lẫn Client-Server (PostgreSQL) xoay quanh chủ thể hoặc giao dịch đang điều tra, giúp Fraud Analyst phát hiện các đường dây gian lận có tổ chức như chia sẻ thiết bị/IP/thẻ (*Device/IP/Card Hub*) hoặc điểm chấp nhận thanh toán thông đồng (*Merchant Ring*). <!-- [26-11-24] -->
 - **Tiền điều kiện:**
-    1. Người dùng đang mở một hồ sơ điều tra (`SUC-18`) hoặc truy cập trực tiếp công cụ **Network Explorer** trong phân hệ Investigation.
-    2. Tập dữ liệu dự án có ánh xạ các trường định danh thực thể liên kết (như `user_id`, `device_id`, `ip_address`, `merchant_id`, `card_id` hoặc `recipient_id`).
+    1. Người dùng đang mở một hồ sơ điều tra (`SUC-18`) hoặc truy cập trực tiếp công cụ **Khám phá mạng lưới** (`/investigation/network`) trong phân hệ Điều tra.
+    2. Dự án có dữ liệu `ProjectWarehouse` (`fact_transactions/*.parquet` từ `DetectionJob` `COMPLETED`) hoặc `DatasetArtifact` dự phòng có ánh xạ ít nhất một trường thực thể liên kết (`device_id`, `ip_address`, `card_id`, `merchant_id`). <!-- [26-11-24] -->
 - **Hậu điều kiện:**
-    - *Thành công:* Đồ thị mạng lưới liên kết được hiển thị trực quan kèm các chỉ số trung tâm/cụm rủi ro; chuyên viên có thể gom các tài khoản đồng phạm vào Case hiện tại, tạo Case đường dây mới (`Fraud Ring Case`) hoặc khóa hàng loạt thực thể trong cụm gian lận.
-    - *Thất bại:* Không làm thay đổi dữ liệu hồ sơ hiện tại.
-- **Sự kiện kích hoạt (Trigger):** Fraud Analyst nhấn tab **Investigate Network (Link Analysis)** bên trong màn hình chi tiết Case (`SUC-18`) hoặc chọn mục **Network Investigation** trên thanh điều hướng.
+    - *Thành công:* Đồ thị mạng lưới liên kết được hiển thị trực quan kèm cảnh báo mẫu hình (`DEVICE_IP_CARD_HUB`, `MERCHANT_RING`) và lớp phủ trạng thái rủi ro sống từ `Case`/`Blacklist`; chuyên viên có thể tạo `Case` mới cho các giao dịch gắn cờ liên đới (`POST /api/v1/cases/bulk-intake`) hoặc khóa hàng loạt thực thể trong cụm gian lận (`POST /api/v1/blacklist/bulk`). <!-- [26-11-24] -->
+    - *Thất bại:* Không làm thay đổi dữ liệu hồ sơ hoặc danh sách chặn hiện tại.
+- **Sự kiện kích hoạt (Trigger):** Fraud Analyst nhấn tab **Đồ thị mạng lưới** bên trong màn hình chi tiết Case (`SUC-18`) hoặc chọn mục **Khám phá mạng lưới** trên thanh điều hướng Điều tra.
 
 ### Luồng sự kiện chính (Basic Flow)
 
-1. Fraud Analyst mở công cụ **Investigate Network** từ một hồ sơ đang điều tra (hoặc nhập một định danh hạt giống `seed_entity_id` như `user_id`, `device_id`, `ip_address`, `merchant_id`).
-2. Hệ thống truy vấn dữ liệu giao dịch và xây dựng đồ thị con (Subgraph) xung quanh nút hạt giống với độ sâu mặc định **1-hop** hoặc **2-hop**:
-    - **Các loại Nút thực thể (Entity Nodes):**
-        - `User / Account Node` (`user_id`)
-        - `Device Node` (`device_id`)
-        - `IP Address Node` (`ip_address`)
-        - `Merchant Node` (`merchant_id`)
-        - `(Tùy chọn) Card / Recipient Node`
-    - **Các Cạnh liên kết (Relationship Edges):** Thể hiện các giao dịch hoặc sự kiện dùng chung thực thể, kèm trọng số cạnh là **Số lượng giao dịch (`tx_count`)** và **Tổng số tiền (`total_amount`)**.
-3. Hệ thống hiển thị **Khung Đồ thị Tương tác (Interactive Graph Canvas)** cùng bảng thống kê cụm (Cluster Inspector):
+1. Fraud Analyst mở công cụ **Khám phá mạng lưới** từ một hồ sơ đang điều tra (hạt giống mặc định `USER_ID = case.user_id`) hoặc nhập định danh hạt giống `seed_entity_id` (`USER_ID`, `DEVICE_ID`, `IP_ADDRESS`, `CARD_ID`, `MERCHANT_ID`) hay chọn từ danh sách **Cụm rủi ro nổi bật** (`GET /api/v1/network/hubs`).
+2. Hệ thống nạp đồ thị lưỡng phân 5 loại đỉnh (`User`, `Device`, `IpAddress`, `Card`, `Merchant`) và 4 loại cạnh tổng hợp có hướng (`USED_DEVICE`, `USED_IP`, `USED_CARD`, `TRANSACTED_AT`) vào **LadybugDB (`:memory:`)**, phủ trạng thái sống từ `fraud_cases` / `entity_blacklist` và truy vấn đồ thị con (`GET /api/v1/network/subgraph`) với độ sâu **1-hop** hoặc **2-hop** (mặc định cửa sổ 90 ngày).
+3. Hệ thống hiển thị **Khung Đồ thị Tương tác (`cytoscape`)** cùng thống kê cụm & cảnh báo mẫu hình:
     - **Mã màu trạng thái Nút:**
-        - *Màu Đỏ:* Thực thể đã bị xác nhận gian lận (`CONFIRMED_FRAUD` / `BLOCKED`).
-        - *Màu Cam:* Thực thể đang có Case nghi vấn chờ xử lý (`OPEN` / `HIGH RISK`).
-        - *Màu Xanh/Xám:* Thực thể bình thường chưa có cảnh báo.
-    - **Cảnh báo Mẫu hình Đồ thị Tự động (Graph Pattern Highlights):** Hệ thống tự động tô sáng các cấu trúc bất thường:
-        - *Star / Hub Pattern trên Device hoặc IP:* Một `device_id` hoặc `ip_address` kết nối tới nhiều `user_id` khác nhau trong cửa sổ thời gian ngắn (dấu hiệu *Device-sharing Fraud Ring*).
-        - *Dense Fan-in trên Merchant:* Hàng loạt thẻ/tài khoản bị cảnh báo cùng quẹt tiền dồn dập vào một `merchant_id` trong thời gian ngắn (dấu hiệu *Merchant Ring Fraud*).
+        - *Màu Đỏ (`CRITICAL`):* Thực thể đang bị chặn (`ACTIVE` trong `entity_blacklist`) hoặc `User` có hồ sơ `RESOLVED_FRAUD`.
+        - *Màu Cam (`WARNING`):* Thực thể đang có hồ sơ mở (`OPEN`/`IN_PROGRESS`/`PENDING_CUSTOMER`) hoặc có giao dịch bị gắn cờ.
+        - *Màu Xám (`NORMAL`):* Thực thể bình thường chưa có cảnh báo.
+    - **Cảnh báo Mẫu hình Đồ thị Tự động (`DEVICE_IP_CARD_HUB`, `MERCHANT_RING`):** Tự động tô sáng các thực thể chia sẻ đa tài khoản có dấu hiệu rủi ro hoặc các `Merchant` có mật độ giao dịch gắn cờ cao.
 4. Fraud Analyst tương tác trên đồ thị để mở rộng điều tra:
-    - Nhấp đúp vào một nút trung gian (ví dụ: một `device_id` khả nghi) để **Mở rộng nhánh liên kết (Expand Neighbors +1 hop)** và xem tất cả các `user_id` khác từng dùng thiết bị đó.
-    - Sử dụng thanh bộ lọc đồ thị (Graph Filter Bar): lọc theo loại nút thực thể, lọc theo khung thời gian phát sinh liên kết (Time Window Slider), hoặc ẩn các nút điểm bán hàng lớn phổ biến (Super-nodes) để tránh nhiễu.
-    - Nhấp vào một nút hoặc một cạnh bất kỳ để xem danh sách các giao dịch chi tiết tạo nên liên kết đó ở ngăn **Edge Transaction Inspector** bên phải.
-5. Khi phát hiện một cụm tài khoản/thiết bị đồng phạm (Fraud Ring), Fraud Analyst quét chọn (Multi-select / Lasso select) các nút trong cụm và chọn một trong các hành động:
-    - **Add Linked Transactions to Current Case:** Gom toàn bộ giao dịch nghi vấn của các tài khoản liên đới vào hồ sơ đang điều tra để xử lý chung một lần.
-    - **Block / Blacklist Selected Entities:** Đưa toàn bộ `device_id`, `ip_address` và các `user_id` đồng phạm vào danh sách khóa (`entity_watchlists`) và đánh dấu `RESOLVED_FRAUD`.
+    - Nhấp đúp nút hoặc nhấn **+1 hop** (`POST /api/v1/network/expand`) để mở rộng nhánh liên kết lân cận (tối đa Top 50 nút rủi ro cao nhất mỗi lần mở rộng).
+    - Sử dụng bộ lọc theo loại thực thể, khung thời gian (`30`/`90`/`365` ngày), hoặc bật **Ẩn nút siêu lớn (Super-nodes)** (`distinct_users > 50`).
+    - Chọn một cạnh liên kết (`GET /api/v1/network/edge-transactions`) để xem danh sách giao dịch chi tiết kèm `job_id` và liên kết `case_id` nếu đã có hồ sơ.
+5. Khi phát hiện cụm đồng phạm (Fraud Ring), Fraud Analyst chọn các nút hoặc giao dịch gắn cờ và thực hiện hành động hàng loạt (idempotent):
+    - **Tạo hồ sơ điều tra (`POST /api/v1/cases/bulk-intake`):** Tạo hồ sơ độc lập cho các giao dịch bị gắn cờ chưa có `Case` trên cạnh đang soi (bỏ qua giao dịch đã có `Case`).
+    - **Chặn hàng loạt thực thể (`POST /api/v1/blacklist/bulk`):** Đưa danh sách `user_id`, `device_id`, `ip_address`, `card_id`, `merchant_id` đã chọn vào `entity_blacklist` (bắt buộc lý do tối thiểu 10 ký tự theo `BR-IV-03`, bỏ qua thực thể đã `ACTIVE`). <!-- [26-11-24] -->
 
 ### Luồng rẽ nhánh (Alternative Flows)
 
-- **3a. Xem điểm bất thường đồ thị từ mô hình GNN (GNN Node/Subgraph Risk Overlay):**
-    - Nếu đợt phát hiện (`SUC-15`) sử dụng mô hình họ đồ thị (`GNN`), hệ thống hiển thị thêm kích thước nút tỷ lệ thuận với `gnn_risk_prob` và làm nổi bật các cạnh có trọng số chú ý cao (Graph Attention / Edge Importance).
+- *(Không áp dụng trong phạm vi hiện tại — GNN Node/Subgraph Risk Overlay để lại cho giai đoạn sau khi hệ thống có mô hình GNN.)* <!-- [26-11-24] -->
 
 ### Luồng ngoại lệ (Exception Flows)
 

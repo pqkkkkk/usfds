@@ -40,6 +40,26 @@ OPTIONAL_ENTITY_COLUMNS: tuple[str, ...] = (
 	"merchant_category",
 )
 
+OPTIONAL_ENTITY_ALIASES: dict[str, tuple[str, ...]] = {
+	"device_id": ("device_id", "device", "device_fingerprint", "device_hash", "terminal_id"),
+	"ip_address": ("ip_address", "ip", "ip_addr", "client_ip", "remote_ip"),
+	"card_id": ("card_id", "cc_num", "card_number", "card_num", "pan", "card_hash", "card"),
+	"merchant_id": ("merchant_id", "merchant", "merchant_name", "store_id", "vendor_id"),
+	"merchant_category": ("merchant_category", "category", "mcc", "merchant_cat"),
+}
+
+
+def resolve_optional_entity_column(columns: Sequence[str], target: str) -> Optional[str]:
+	"""Resolve an optional secondary entity column via canonical aliases and common dataset column names."""
+	resolved = resolve_canonical_column(columns, target)
+	if resolved is not None:
+		return resolved
+	by_lower = {col.strip().lower(): col for col in columns}
+	for alias in OPTIONAL_ENTITY_ALIASES.get(target, ()):
+		if alias.lower() in by_lower:
+			return by_lower[alias.lower()]
+	return None
+
 FACT_COLUMNS_DDL = """
 	job_id VARCHAR, job_name VARCHAR, job_created_at VARCHAR, scanned_at TIMESTAMP,
 	model_version_id VARCHAR, score_threshold DOUBLE, event_id VARCHAR, user_id VARCHAR,
@@ -189,7 +209,7 @@ class ProjectWarehouse:
 		ts_col = resolve_canonical_column(columns, SystemColumn.TIMESTAMP)
 		amt_col = resolve_canonical_column(columns, SystemColumn.AMOUNT)
 		lbl_col = resolve_canonical_column(columns, SystemColumn.LABEL)
-		entity_cols = {col: resolve_canonical_column(columns, col) for col in OPTIONAL_ENTITY_COLUMNS}
+		entity_cols = {col: resolve_optional_entity_column(columns, col) for col in OPTIONAL_ENTITY_COLUMNS}
 
 		threshold = safe_float(job.score_threshold, 0.5)
 		has_model = bool(job.model_version_id is not None or (job.summary_metrics or {}).get("has_model", True))

@@ -201,3 +201,27 @@ def test_warehouse_fact_includes_optional_entity_columns_and_reads_legacy_files(
 	assert conn_legacy_only.execute(
 		"SELECT event_id, device_id, ip_address, card_id, merchant_id, merchant_category FROM facts"
 	).fetchall() == [("TX-OLD", None, None, None, None, None)]
+
+
+def test_warehouse_resolves_optional_entity_column_aliases(no_pandas_parquet_read):
+	"""ISS-041: ProjectWarehouse maps common aliases (merchant, ip, device, cc_num, category) into canonical entity columns."""
+	storage = _MemoryStorage()
+	project_id = uuid4()
+	warehouse = ProjectWarehouse(storage)
+	t0 = datetime(2026, 11, 5, tzinfo=timezone.utc)
+
+	alias_row = {
+		**_row("TX-ALIAS", 0.77),
+		"device": "DEV-ALIAS-1",
+		"ip": "192.168.1.50",
+		"cc_num": "CARD-4111",
+		"merchant": "MERCH-ALIAS-9",
+		"category": "GROCERY",
+	}
+	job = _job(project_id, storage, [alias_row], t0, "alias-scan")
+	assert warehouse.write_job_facts(job) == warehouse.fact_key(job)
+
+	conn = _load_facts(storage, [job])
+	assert conn.execute(
+		"SELECT event_id, device_id, ip_address, card_id, merchant_id, merchant_category FROM facts"
+	).fetchall() == [("TX-ALIAS", "DEV-ALIAS-1", "192.168.1.50", "CARD-4111", "MERCH-ALIAS-9", "GROCERY")]

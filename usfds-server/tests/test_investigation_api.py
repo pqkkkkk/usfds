@@ -263,3 +263,151 @@ def test_workbench_queries_warehouse_via_duckdb_without_pandas_full_load(client,
 	assert comp["merchant_category"]["current"] == "CRYPTO"
 	assert [item["event_id"] for item in profile["timeline"]] == ["EV-H1", "EV-H2", "EV-CURR"]
 	assert get_storage().exists(f"warehouse/{project_id}/fact_transactions/job_{job_id}.parquet")
+
+
+def test_bulk_blacklist_and_bulk_case_intake_idempotent_with_rbac(server_settings, monkeypatch):
+	"""ISS-041 / SUC-19: POST /api/v1/blacklist/bulk & POST /api/v1/cases/bulk-intake are idempotent, multi-job, audited, and enforce RBAC."""
+	monkeypatch.setattr(server_settings, "auth_mode", "required")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_username", "admin")
+	monkeypatch.setattr(server_settings, "bootstrap_admin_password", "AdminPass123!")
+
+	with TestClient(app) as test_client:
+		admin_token = test_client.post(
+			"/api/v1/auth/login",
+			json={"username": "admin", "password": "AdminPass123!"},
+		).json()["data"]["access_token"]
+		admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+		proj_res = test_client.post("/api/v1/projects", json={"project_name": "Bulk Actions Proj"}, headers=admin_headers)
+		assert proj_res.status_code in (200, 201)
+		project_id_str = proj_res.json()["data"]["project_id"]
+		project_id = __import__("uuid").UUID(project_id_str)
+
+		# Create fraud_analyst and a data_scientist (lacks blacklist:manage & case:create)
+		analyst_id = test_client.post(
+			"/api/v1/users",
+			json={"username": "bulk_analyst", "email": "bulk_analyst@usfds.local", "password": "UserPass123!"},
+			headers=admin_headers,
+		).json()["data"]["user_id"]
+		ds_id = test_client.post(
+			"/api/v1/users",
+			json={"username": "bulk_ds", "email": "bulk_ds@usfds.local", "password": "UserPass123!"},
+			headers=admin_headers,
+		).json()["data"]["user_id"]
+		roles = test_client.get("/api/v1/rbac/roles", headers=admin_headers).json()["data"]
+		analyst_role = next(r for r in roles if r["name"] == "fraud_analyst")
+		ds_role = next(r for r in roles if r["name"] == "data_scientist")
+		test_client.post(f"/api/v1/projects/{project_id_str}/members/{analyst_id}/roles", json={"role_id": analyst_role["role_id"]}, headers=admin_headers)
+		test_client.post(f"/api/v1/projects/{project_id_str}/members/{ds_id}/roles", json={"role_id": ds_role["role_id"]}, headers=admin_headers)
+
+		analyst_token = test_client.post("/api/v1/auth/login", json={"username": "bulk_analyst", "password": "UserPass123!"}).json()["data"]["access_token"]
+		ds_token = test_client.post("/api/v1/auth/login", json={"username": "bulk_ds", "password": "UserPass123!"}).json()["data"]["access_token"]
+		analyst_headers = {"Authorization": f"Bearer {analyst_token}"}
+		ds_headers = {"Authorization": f"Bearer {ds_token}"}
+
+		from usfds_server import dependencies
+		from usfds_infra.database.case_repositories import SqliteBlacklistRepository, SqliteCaseRepository
+		from usfds_core.domain.entities.case import BlacklistEntityType, Case, EntityBlacklist
+		from usfds_core.domain.entities.enums import RuleAction
+
+		job1_id, job2_id = uuid4(), uuid4()
+		with dependencies._session_factory() as session:
+			admin_uid = SqlUserRepository(session).get_by_username("admin").user_id
+			df1 = pd.DataFrame([
+				{"event_id": "EV-B1", "user_id": "U-1", "timestamp": "2026-11-10T01:00:00Z", "amount": 500.0, "final_action": "REJECT", "model_score": 0.92},
+			])
+			df2 = pd.DataFrame([
+				{"event_id": "EV-B2", "user_id": "U-2", "timestamp": "2026-11-10T02:00:00Z", "amount": 800.0, "final_action": "REVIEW", "model_score": 0.81},
+			])
+			p1 = get_storage().save_bytes(f"datasets/{project_id}/inferences/{job1_id}/predictions.parquet", df1.to_parquet(index=False))
+			p2 = get_storage().save_bytes(f"datasets/{project_id}/inferences/{job2_id}/predictions.parquet", df2.to_parquet(index=False))
+			SqliteDetectionJobRepository(session).save(DetectionJob(
+				job_id=job1_id, project_id=project_id, user_id=admin_uid, job_name="Job 1",
+				output_path=p1, score_threshold=0.5, status=DetectionJobStatus.COMPLETED,
+			))
+			SqliteDetectionJobRepository(session).save(DetectionJob(
+				job_id=job2_id, project_id=project_id, user_id=admin_uid, job_name="Job 2",
+				output_path=p2, score_threshold=0.5, status=DetectionJobStatus.COMPLETED,
+			))
+			SqliteBlacklistRepository(session).save(EntityBlacklist(
+				project_id=project_id, entity_type=BlacklistEntityType.USER_ID, entity_value="U-EXISTING",
+				reason="Already blacklisted earlier", created_by="admin",
+			))
+			SqliteCaseRepository(session).save(Case(
+				project_id=project_id, event_id="EV-B1", user_id="U-1",
+				tx_timestamp=datetime(2026, 11, 10, 1, 0, tzinfo=timezone.utc),
+				amount=500.0, final_action=RuleAction.REJECT, dataset_artifact_id=None, detection_job_id=job1_id, model_score=0.92,
+			))
+			session.commit()
+
+		# Unauthorized role (data_scientist) gets 403
+		bl_payload = {
+			"project_id": project_id_str,
+			"entities": [
+				{"entity_type": "USER_ID", "entity_value": "U-EXISTING"},
+				{"entity_type": "DEVICE_ID", "entity_value": "DEV-RING-1"},
+				{"entity_type": "IP_ADDRESS", "entity_value": "10.9.9.9"},
+			],
+			"reason": "Device sharing fraud ring detected from graph",
+		}
+		assert test_client.post("/api/v1/blacklist/bulk", json=bl_payload, headers=ds_headers).status_code == 403
+
+		intake_payload = {
+			"project_id": project_id_str,
+			"items": [
+				{"detection_job_id": str(job1_id), "event_id": "EV-B1"},
+				{"detection_job_id": str(job2_id), "event_id": "EV-B2"},
+			],
+			"analyst_notes": "Created from network ring",
+		}
+		assert test_client.post("/api/v1/cases/bulk-intake", json=intake_payload, headers=ds_headers).status_code == 403
+
+		# Authorized fraud_analyst succeeds idempotently
+		bl_res = test_client.post("/api/v1/blacklist/bulk", json=bl_payload, headers=analyst_headers)
+		assert bl_res.status_code == 201, bl_res.text
+		bl_data = bl_res.json()["data"]
+		assert bl_data["added_count"] == 2
+		assert bl_data["skipped_count"] == 1
+		assert bl_data["skipped"][0]["entity_value"] == "U-EXISTING"
+
+		intake_res = test_client.post("/api/v1/cases/bulk-intake", json=intake_payload, headers=analyst_headers)
+		assert intake_res.status_code == 201, intake_res.text
+		intake_data = intake_res.json()["data"]
+		assert intake_data["accepted_count"] == 1
+		assert intake_data["skipped_event_ids"] == ["EV-B1"]
+		assert len(intake_data["created_case_ids"]) == 1
+
+
+def test_bulk_blacklist_and_bulk_case_intake_project_isolation_and_archived_guard(client, server_session_factory):
+	"""ISS-041: Bulk blacklist and bulk case intake reject ARCHIVED projects (400) and cross-project jobs/cases."""
+	from usfds_core.domain.entities.enums import ProjectStatus
+
+	p_active, p_other, p_archived = uuid4(), uuid4(), uuid4()
+	other_job_id = uuid4()
+	with server_session_factory() as session:
+		actor_id = SqlUserRepository(session).get_by_username("admin").user_id
+		SqliteProjectRepository(session).save(Project(project_id=p_active, user_id=actor_id, project_name="Active"))
+		SqliteProjectRepository(session).save(Project(project_id=p_other, user_id=actor_id, project_name="Other"))
+		SqliteProjectRepository(session).save(Project(project_id=p_archived, user_id=actor_id, project_name="Archived", status=ProjectStatus.ARCHIVED))
+		pred_df = pd.DataFrame([
+			{"event_id": "EV-OTHER", "user_id": "U-O", "timestamp": "2026-11-10T03:00:00Z", "amount": 100.0, "final_action": "REJECT", "model_score": 0.9},
+		])
+		out = get_storage().save_bytes(f"datasets/{p_other}/inferences/{other_job_id}/predictions.parquet", pred_df.to_parquet(index=False))
+		SqliteDetectionJobRepository(session).save(DetectionJob(
+			job_id=other_job_id, project_id=p_other, user_id=actor_id, job_name="Other Job",
+			output_path=out, score_threshold=0.5, status=DetectionJobStatus.COMPLETED,
+		))
+		session.commit()
+
+	assert client.post(
+		"/api/v1/blacklist/bulk",
+		json={"project_id": str(p_archived), "entities": [{"entity_type": "USER_ID", "entity_value": "U1"}], "reason": "Archived project mutation check"},
+	).status_code == 400
+	assert client.post(
+		"/api/v1/cases/bulk-intake",
+		json={"project_id": str(p_archived), "items": [{"detection_job_id": str(other_job_id), "event_id": "EV-OTHER"}]},
+	).status_code == 400
+	assert client.post(
+		"/api/v1/cases/bulk-intake",
+		json={"project_id": str(p_active), "items": [{"detection_job_id": str(other_job_id), "event_id": "EV-OTHER"}]},
+	).status_code == 404

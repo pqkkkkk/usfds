@@ -109,3 +109,153 @@ export interface CaseAction {
 	reason?: string;
 	block_entities?: { entity_type: EntityType; entity_value: string }[];
 }
+
+export type NetworkRiskStatus = 'CRITICAL' | 'WARNING' | 'NORMAL';
+export type NetworkPatternType = 'DEVICE_IP_CARD_HUB' | 'MERCHANT_RING';
+
+export interface NetworkNode {
+	id: string;
+	entity_type: EntityType;
+	entity_value: string;
+	label: string;
+	tx_count: number;
+	flagged_tx_count: number;
+	total_amount: number;
+	max_model_score: number;
+	distinct_users: number;
+	merchant_category: string | null;
+	risk_status: NetworkRiskStatus;
+	is_blacklisted: boolean;
+	open_case_count: number;
+	resolved_fraud_count: number;
+	case_ids: string[];
+	is_super_node: boolean;
+	is_seed: boolean;
+	pattern_tags: string[];
+}
+
+export interface NetworkEdge {
+	id: string;
+	source: string;
+	target: string;
+	rel_type: string;
+	entity_type: EntityType;
+	entity_value: string;
+	user_id: string;
+	tx_count: number;
+	flagged_tx_count: number;
+	total_amount: number;
+	max_model_score: number;
+	first_tx_at: string;
+	last_tx_at: string;
+}
+
+export interface NetworkPattern {
+	pattern_type: NetworkPatternType;
+	node_id: string;
+	entity_type: EntityType;
+	entity_value: string;
+	distinct_users: number;
+	flagged_users: number;
+	tx_count: number;
+	flagged_tx_count: number;
+	flagged_rate: number;
+	summary: string;
+	involved_node_ids: string[];
+}
+
+export interface NetworkHub {
+	id: string;
+	entity_type: EntityType;
+	entity_value: string;
+	label: string;
+	distinct_users: number;
+	tx_count: number;
+	flagged_tx_count: number;
+	flagged_users: number;
+	max_model_score: number;
+	risk_status: NetworkRiskStatus;
+	is_blacklisted: boolean;
+	is_super_node: boolean;
+	pattern_type: NetworkPatternType | null;
+	merchant_category: string | null;
+}
+
+export interface NetworkHubsResult {
+	available: boolean;
+	message: string | null;
+	days: number;
+	hubs: NetworkHub[];
+	total_nodes: number;
+	total_edges: number;
+}
+
+export interface NetworkSubgraph {
+	available: boolean;
+	message: string | null;
+	seed_node_id: string;
+	hops: number;
+	days: number;
+	nodes: NetworkNode[];
+	edges: NetworkEdge[];
+	patterns: NetworkPattern[];
+	stats: {
+		node_count: number;
+		edge_count: number;
+		pattern_count: number;
+		flagged_node_count: number;
+	};
+	truncated_neighbors: boolean;
+	total_neighbors: number;
+	canvas_limit_reached: boolean;
+	notice: string | null;
+}
+
+export interface NetworkExpandResult {
+	available: boolean;
+	message: string | null;
+	center_node_id: string;
+	added_nodes: NetworkNode[];
+	added_edges: NetworkEdge[];
+	patterns: NetworkPattern[];
+	truncated_neighbors: boolean;
+	total_neighbors: number;
+	canvas_limit_reached: boolean;
+	notice: string | null;
+}
+
+export interface EdgeTransaction {
+	event_id: string;
+	job_id: string;
+	user_id: string;
+	tx_timestamp: string;
+	amount: number;
+	model_score: number;
+	final_action: string;
+	is_flagged: boolean;
+	rule_codes: string[];
+	case_id: string | null;
+}
+
+export interface EdgeTransactionsResult {
+	available: boolean;
+	message: string | null;
+	user_id: string;
+	entity_type: EntityType;
+	entity_value: string;
+	total: number;
+	transactions: EdgeTransaction[];
+}
+
+export interface BulkBlacklistResult {
+	added: BlacklistEntry[];
+	skipped: { entity_type: EntityType; entity_value: string; reason: string }[];
+	added_count: number;
+	skipped_count: number;
+}
+
+export interface BulkCaseIntakeResult {
+	created_case_ids: string[];
+	accepted_count: number;
+	skipped_event_ids: string[];
+}

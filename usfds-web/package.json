@@ -20,6 +20,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.104.1",
     "axios": "^1.20.0",
+    "cytoscape": "^3.35.0",
     "json-logic-js": "^2.0.5",
     "lucide-react": "^1.45.0",
     "mermaid": "^12.3.0",
