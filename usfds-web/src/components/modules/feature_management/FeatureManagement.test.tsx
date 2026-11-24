@@ -133,13 +133,50 @@ describe('FeatureManagement Module (M3)', () => {
 			'feature:delete': ['OWN'],
 		});
 
+		const extraFeaturePage2: FeatureResponse = {
+			feature_id: 'f-003',
+			project_id: null,
+			user_id: null,
+			is_builtin: true,
+			feature_key: 'geo_distance_km',
+			display_name: 'Khoảng cách địa lý',
+			description: 'Khoảng cách Haversine giữa chủ thẻ và điểm bán',
+			megafamily: 'LOCATIONS',
+			compute_kind: 'PYTHON_CODE',
+			output_type: 'NUMERIC',
+			is_stateful: false,
+			requires_label: false,
+			config_json: {},
+			source_code: 'def compute(df, params):\n\treturn df["lat"]\n',
+			required_inputs: ['lat', 'long', 'merch_lat', 'merch_long'],
+			depends_on_feature_ids: [],
+			status: 'ACTIVE',
+			created_at: '2026-11-24T00:00:00Z',
+			updated_at: '2026-11-24T00:00:00Z',
+		};
+		const observedFeatureCursors: Array<string | null> = [];
+
 		server.use(
 			http.get(`${API}/v1/datasets`, () =>
 				HttpResponse.json({ success: true, statusCode: 200, data: { items: [], nextCursor: null } })
 			),
-			http.get(`${API}/v1/features`, () =>
-				HttpResponse.json({ success: true, statusCode: 200, data: featuresState })
-			),
+			http.get(`${API}/v1/features`, ({ request }) => {
+				const url = new URL(request.url);
+				const cursor = url.searchParams.get('cursor');
+				observedFeatureCursors.push(cursor);
+				if (cursor === 'cursor-p2') {
+					return HttpResponse.json({
+						success: true,
+						statusCode: 200,
+						data: { items: [extraFeaturePage2], nextCursor: null },
+					});
+				}
+				return HttpResponse.json({
+					success: true,
+					statusCode: 200,
+					data: { items: featuresState, nextCursor: 'cursor-p2' },
+				});
+			}),
 			http.get(`${API}/v1/features/compatibility`, () =>
 				HttpResponse.json({
 					success: true,
@@ -182,7 +219,11 @@ describe('FeatureManagement Module (M3)', () => {
 				})
 			),
 			http.get(`${API}/v1/feature-sets`, () =>
-				HttpResponse.json({ success: true, statusCode: 200, data: setsState })
+				HttpResponse.json({
+					success: true,
+					statusCode: 200,
+					data: { items: setsState, nextCursor: null },
+				})
 			),
 			http.post(`${API}/v1/features`, async ({ request }) => {
 				const body = (await request.json()) as Record<string, unknown>;
@@ -251,6 +292,13 @@ describe('FeatureManagement Module (M3)', () => {
 		// Compatibility badges displayed
 		expect(await screen.findByText('Khả dụng')).toBeInTheDocument();
 		expect(await screen.findByText(/Thiếu cột/i)).toBeInTheDocument();
+
+		// Load next cursor page via "Tải thêm" button
+		const loadMoreBtn = await screen.findByRole('button', { name: 'Tải thêm' });
+		fireEvent.click(loadMoreBtn);
+		expect(await screen.findByText('geo_distance_km')).toBeInTheDocument();
+		expect(observedFeatureCursors).toContain('cursor-p2');
+		expect(screen.queryByRole('button', { name: 'Tải thêm' })).not.toBeInTheDocument();
 
 		// Inspect source_code of PYTHON_CODE built-in
 		fireEvent.click(screen.getByText('is_free_email'));

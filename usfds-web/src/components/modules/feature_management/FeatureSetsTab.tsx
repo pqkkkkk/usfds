@@ -11,6 +11,12 @@ interface FeatureSetsTabProps {
 	featureSets: FeatureSetResponse[];
 	features: FeatureResponse[];
 	isLoading: boolean;
+	hasNextPage?: boolean;
+	isFetchingNextPage?: boolean;
+	onLoadMore?: () => void;
+	hasMoreFeatures?: boolean;
+	isFetchingMoreFeatures?: boolean;
+	onLoadMoreFeatures?: () => void;
 	canCreate: boolean;
 	canDeleteSet: (fs: FeatureSetResponse) => boolean;
 	onCreateSet: (payload: CreateFeatureSetRequest) => Promise<void>;
@@ -22,6 +28,12 @@ export function FeatureSetsTab({
 	featureSets,
 	features,
 	isLoading,
+	hasNextPage = false,
+	isFetchingNextPage = false,
+	onLoadMore,
+	hasMoreFeatures = false,
+	isFetchingMoreFeatures = false,
+	onLoadMoreFeatures,
 	canCreate,
 	canDeleteSet,
 	onCreateSet,
@@ -133,6 +145,18 @@ export function FeatureSetsTab({
 								className="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-100"
 							/>
 						</div>
+						{hasMoreFeatures && onLoadMoreFeatures && (
+							<div className="mt-1.5 flex justify-end">
+								<button
+									type="button"
+									disabled={isFetchingMoreFeatures}
+									onClick={onLoadMoreFeatures}
+									className="px-3 py-1 rounded bg-dark-800 hover:bg-dark-700 border border-dark-700 text-[11px] text-slate-300 disabled:opacity-50"
+								>
+									{isFetchingMoreFeatures ? 'Đang tải...' : 'Tải thêm đặc trưng'}
+								</button>
+							</div>
+						)}
 					</div>
 
 					<div>
@@ -154,6 +178,18 @@ export function FeatureSetsTab({
 								</label>
 							))}
 						</div>
+						{hasMoreFeatures && onLoadMoreFeatures && (
+							<div className="mt-1.5 flex justify-end">
+								<button
+									type="button"
+									disabled={isFetchingMoreFeatures}
+									onClick={onLoadMoreFeatures}
+									className="px-3 py-1 rounded bg-dark-800 hover:bg-dark-700 border border-dark-700 text-[11px] text-slate-300 disabled:opacity-50"
+								>
+									{isFetchingMoreFeatures ? 'Đang tải...' : 'Tải thêm đặc trưng'}
+								</button>
+							</div>
+						)}
 					</div>
 
 					{errorMsg && (
@@ -237,6 +273,18 @@ export function FeatureSetsTab({
 							</div>
 						</div>
 					))}
+				</div>
+			)}
+			{!isLoading && hasNextPage && onLoadMore && (
+				<div className="flex justify-center pt-1">
+					<button
+						type="button"
+						disabled={isFetchingNextPage}
+						onClick={onLoadMore}
+						className="px-4 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs text-slate-200 font-medium disabled:opacity-50"
+					>
+						{isFetchingNextPage ? 'Đang tải...' : 'Tải thêm'}
+					</button>
 				</div>
 			)}
 		</div>

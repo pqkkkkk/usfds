@@ -168,7 +168,10 @@ export function DetectionJobWizardView() {
 		return activeRulesRes?.data?.items || [];
 	}, [activeRulesRes]);
 
-	const { data: projectFeatures = [] } = useFeatureCatalog(projectId, { include_builtin: true });
+	const { data: projectFeatures = [] } = useFeatureCatalog(projectId, {
+		include_builtin: true,
+		limit: 200,
+	});
 
 	const ruleOnlyLabelWarnings = useMemo(() => {
 		if (selectedModelVersionId !== 'RULE_ONLY' || !useRules) {

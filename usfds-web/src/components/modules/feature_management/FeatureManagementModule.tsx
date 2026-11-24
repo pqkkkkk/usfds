@@ -4,13 +4,14 @@ import {
 	useActorContext,
 	useDatasetDetail,
 	useDatasetList,
+	useDebounce,
 	useFeatureCatalog,
 	useFeatureCompatibility,
 	useFeatureMutations,
 	useFeatureSets,
 	useProject,
 } from '@/hooks';
-import type { FeatureResponse } from '@/types/feature';
+import type { FeatureMegafamily, FeatureResponse } from '@/types/feature';
 import { FeatureBuilderTab } from './FeatureBuilderTab';
 import { FeatureCatalogTab } from './FeatureCatalogTab';
 import { FeatureSetsTab } from './FeatureSetsTab';
@@ -26,6 +27,10 @@ export function FeatureManagementModule() {
 	const [editingFeature, setEditingFeature] = useState<FeatureResponse | null>(null);
 	const [selectedDatasetId, setSelectedDatasetId] = useState<string>('');
 	const [selectedArtifactId, setSelectedArtifactId] = useState<string>('');
+	const [catalogSearch, setCatalogSearch] = useState<string>('');
+	const [catalogMegafamily, setCatalogMegafamily] = useState<'ALL' | FeatureMegafamily>('ALL');
+	const [catalogOrigin, setCatalogOrigin] = useState<'ALL' | 'BUILTIN' | 'CUSTOM'>('ALL');
+	const debouncedCatalogSearch = useDebounce(catalogSearch, 200);
 
 	const { datasets } = useDatasetList(currentProjectId || undefined);
 	const { datasetDetail } = useDatasetDetail(
@@ -46,19 +51,31 @@ export function FeatureManagementModule() {
 	const effectiveArtifactId =
 		selectedArtifactId || (mappedArtifacts.length > 0 ? mappedArtifacts[0].artifact_id : undefined);
 
-	const { data: featureCatalog = [], isLoading: isLoadingFeatures } = useFeatureCatalog(
-		currentProjectId,
-		{ include_builtin: true }
-	);
+	const {
+		data: featureCatalog = [],
+		isLoading: isLoadingFeatures,
+		hasNextPage: hasMoreFeatures,
+		isFetchingNextPage: isFetchingMoreFeatures,
+		fetchNextPage: fetchNextFeaturesPage,
+	} = useFeatureCatalog(currentProjectId, {
+		include_builtin: true,
+		megafamily: catalogMegafamily === 'ALL' ? undefined : catalogMegafamily,
+		origin: catalogOrigin === 'ALL' ? undefined : catalogOrigin,
+		search: debouncedCatalogSearch.trim() || undefined,
+		limit: 20,
+	});
 	const { data: compatibilityReport } = useFeatureCompatibility(
 		currentProjectId,
 		selectedDatasetId || undefined,
 		effectiveArtifactId
 	);
-	const { data: featureSets = [], isLoading: isLoadingSets } = useFeatureSets(
-		currentProjectId,
-		true
-	);
+	const {
+		data: featureSets = [],
+		isLoading: isLoadingSets,
+		hasNextPage: hasMoreSets,
+		isFetchingNextPage: isFetchingMoreSets,
+		fetchNextPage: fetchNextSetsPage,
+	} = useFeatureSets(currentProjectId, { include_builtin: true, limit: 20 });
 
 	const {
 		createFeature,
@@ -193,6 +210,15 @@ export function FeatureManagementModule() {
 					features={featureCatalog}
 					compatibilityItems={compatibilityReport?.items || []}
 					isLoading={isLoadingFeatures}
+					search={catalogSearch}
+					onSearchChange={setCatalogSearch}
+					megafamily={catalogMegafamily}
+					onMegafamilyChange={setCatalogMegafamily}
+					originFilter={catalogOrigin}
+					onOriginFilterChange={setCatalogOrigin}
+					hasNextPage={hasMoreFeatures}
+					isFetchingNextPage={isFetchingMoreFeatures}
+					onLoadMore={() => void fetchNextFeaturesPage()}
 					canCreate={canCreate}
 					canUpdateFeature={(f) => canAccessRecord('updateFeature', f.user_id)}
 					canDeleteFeature={(f) => canAccessRecord('deleteFeature', f.user_id)}
@@ -245,6 +271,12 @@ export function FeatureManagementModule() {
 					featureSets={featureSets}
 					features={featureCatalog}
 					isLoading={isLoadingSets}
+					hasNextPage={hasMoreSets}
+					isFetchingNextPage={isFetchingMoreSets}
+					onLoadMore={() => void fetchNextSetsPage()}
+					hasMoreFeatures={hasMoreFeatures}
+					isFetchingMoreFeatures={isFetchingMoreFeatures}
+					onLoadMoreFeatures={() => void fetchNextFeaturesPage()}
 					canCreate={canCreate}
 					canDeleteSet={(fs) => canAccessRecord('deleteFeature', fs.user_id)}
 					onCreateSet={async (payload) => {

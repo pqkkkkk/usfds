@@ -32,6 +32,15 @@ interface FeatureCatalogTabProps {
 	features: FeatureResponse[];
 	compatibilityItems: FeatureCompatibilityItem[];
 	isLoading: boolean;
+	search?: string;
+	onSearchChange?: (val: string) => void;
+	megafamily?: 'ALL' | FeatureMegafamily;
+	onMegafamilyChange?: (val: 'ALL' | FeatureMegafamily) => void;
+	originFilter?: 'ALL' | 'BUILTIN' | 'CUSTOM';
+	onOriginFilterChange?: (val: 'ALL' | 'BUILTIN' | 'CUSTOM') => void;
+	hasNextPage?: boolean;
+	isFetchingNextPage?: boolean;
+	onLoadMore?: () => void;
 	canCreate: boolean;
 	canUpdateFeature: (f: FeatureResponse) => boolean;
 	canDeleteFeature: (f: FeatureResponse) => boolean;
@@ -46,6 +55,15 @@ export function FeatureCatalogTab({
 	features,
 	compatibilityItems,
 	isLoading,
+	search: controlledSearch,
+	onSearchChange,
+	megafamily: controlledMegafamily,
+	onMegafamilyChange,
+	originFilter: controlledOriginFilter,
+	onOriginFilterChange,
+	hasNextPage = false,
+	isFetchingNextPage = false,
+	onLoadMore,
 	canCreate,
 	canUpdateFeature,
 	canDeleteFeature,
@@ -55,9 +73,15 @@ export function FeatureCatalogTab({
 	onDelete,
 	onPreview,
 }: FeatureCatalogTabProps) {
-	const [search, setSearch] = useState('');
-	const [megafamily, setMegafamily] = useState<'ALL' | FeatureMegafamily>('ALL');
-	const [originFilter, setOriginFilter] = useState<'ALL' | 'BUILTIN' | 'CUSTOM'>('ALL');
+	const [internalSearch, setInternalSearch] = useState('');
+	const [internalMegafamily, setInternalMegafamily] = useState<'ALL' | FeatureMegafamily>('ALL');
+	const [internalOriginFilter, setInternalOriginFilter] = useState<'ALL' | 'BUILTIN' | 'CUSTOM'>('ALL');
+	const search = controlledSearch ?? internalSearch;
+	const megafamily = controlledMegafamily ?? internalMegafamily;
+	const originFilter = controlledOriginFilter ?? internalOriginFilter;
+	const setSearch = onSearchChange ?? setInternalSearch;
+	const setMegafamily = onMegafamilyChange ?? setInternalMegafamily;
+	const setOriginFilter = onOriginFilterChange ?? setInternalOriginFilter;
 	const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
 	const [previewResult, setPreviewResult] = useState<FeaturePreviewResponse | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
@@ -264,6 +288,18 @@ export function FeatureCatalogTab({
 									})}
 								</tbody>
 							</table>
+						</div>
+					)}
+					{hasNextPage && onLoadMore && (
+						<div className="p-3 border-t border-dark-800 flex justify-center bg-dark-950/40">
+							<button
+								type="button"
+								disabled={isFetchingNextPage}
+								onClick={onLoadMore}
+								className="px-4 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs text-slate-200 font-medium disabled:opacity-50"
+							>
+								{isFetchingNextPage ? 'Đang tải...' : 'Tải thêm'}
+							</button>
 						</div>
 					)}
 				</div>

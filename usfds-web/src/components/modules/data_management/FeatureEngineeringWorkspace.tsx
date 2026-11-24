@@ -36,8 +36,18 @@ export const FeatureEngineeringWorkspace = ({
   const [selectedFeatureSetIds, setSelectedFeatureSetIds] = useState<string[]>([]);
   const [selectedFeatureIds, setSelectedFeatureIds] = useState<string[]>([]);
 
-  const { data: featureSets = [] } = useFeatureSets(projectId, true);
-  const { data: featureCatalog = [] } = useFeatureCatalog(projectId, { include_builtin: true });
+  const {
+    data: featureSets = [],
+    hasNextPage: hasMoreSets,
+    isFetchingNextPage: isFetchingMoreSets,
+    fetchNextPage: fetchNextSetsPage,
+  } = useFeatureSets(projectId, { include_builtin: true, limit: 20 });
+  const {
+    data: featureCatalog = [],
+    hasNextPage: hasMoreFeatures,
+    isFetchingNextPage: isFetchingMoreFeatures,
+    fetchNextPage: fetchNextFeaturesPage,
+  } = useFeatureCatalog(projectId, { include_builtin: true, limit: 20 });
   const { data: compatibilityReport } = useFeatureCompatibility(
     projectId,
     datasetId,
@@ -196,6 +206,18 @@ export const FeatureEngineeringWorkspace = ({
                     );
                   })}
                 </div>
+                {hasMoreSets && (
+                  <div className="flex justify-center pt-1">
+                    <button
+                      type="button"
+                      disabled={isFetchingMoreSets}
+                      onClick={() => void fetchNextSetsPage()}
+                      className="px-3.5 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs text-slate-200 disabled:opacity-50"
+                    >
+                      {isFetchingMoreSets ? 'Đang tải...' : 'Tải thêm gói'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -249,6 +271,18 @@ export const FeatureEngineeringWorkspace = ({
                     );
                   })}
                 </div>
+                {hasMoreFeatures && (
+                  <div className="flex justify-center pt-1">
+                    <button
+                      type="button"
+                      disabled={isFetchingMoreFeatures}
+                      onClick={() => void fetchNextFeaturesPage()}
+                      className="px-3.5 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs text-slate-200 disabled:opacity-50"
+                    >
+                      {isFetchingMoreFeatures ? 'Đang tải...' : 'Tải thêm đặc trưng'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

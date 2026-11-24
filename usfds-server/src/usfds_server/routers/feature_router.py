@@ -16,7 +16,7 @@ from usfds_server.dependencies import (
 	get_feature_management_service,
 )
 from usfds_server.providers.auth import get_user_repo
-from usfds_server.schemas.base_response import ApiResponse, ResourceOwnerDto
+from usfds_server.schemas.base_response import ApiResponse, CursorPage, ResourceOwnerDto
 from usfds_server.schemas.feature_api_schemas import (
 	CloneFeatureRequest,
 	CreateFeatureRequest,
@@ -30,7 +30,12 @@ from usfds_server.schemas.feature_api_schemas import (
 	UpdateFeatureRequest,
 	UpdateFeatureSetRequest,
 )
-from usfds_server.schemas.pagination import resolve_owners
+from usfds_server.schemas.pagination import (
+	DEFAULT_PAGE_LIMIT,
+	MAX_PAGE_LIMIT,
+	paginate_cursor,
+	resolve_owners,
+)
 
 
 router = APIRouter(prefix="/api/v1/features", tags=["Feature Management"])
@@ -89,17 +94,21 @@ def _to_feature_set_response(fs: FeatureSet, owner: Optional[ResourceOwnerDto] =
 	)
 
 
-@router.get("", response_model=ApiResponse[List[FeatureResponse]])
+@router.get("", response_model=ApiResponse[CursorPage[FeatureResponse]])
 def list_features(
 	project_id: UUID = Query(..., description="Project ID"),
 	megafamily: Optional[str] = Query(default=None),
 	include_builtin: bool = Query(default=True),
 	status_filter: Optional[str] = Query(default=None, alias="status"),
+	origin: Optional[str] = Query(default=None, description="Filter by BUILTIN or CUSTOM"),
+	search: Optional[str] = Query(default=None, description="Search by key, display name, or description"),
+	limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+	cursor: Optional[str] = Query(default=None, description="Opaque pagination cursor"),
 	actor: ActorContext = Depends(get_actor_context),
 	authz: AuthzService = Depends(get_authz_service),
 	service: FeatureManagementService = Depends(get_feature_management_service),
 	user_repo: IUserRepository = Depends(get_user_repo),
-) -> ApiResponse[List[FeatureResponse]]:
+) -> ApiResponse[CursorPage[FeatureResponse]]:
 	authz.require_project_scope(actor, "feature:read", project_id)
 	items = service.list_features(
 		project_id=project_id,
@@ -107,9 +116,33 @@ def list_features(
 		megafamily=megafamily,
 		status=status_filter,
 	)
-	owners = resolve_owners(user_repo, (f.user_id for f in items if f.user_id is not None))
-	data = [_to_feature_response(f, owner=owners.get(f.user_id) if f.user_id else None) for f in items]
-	return ApiResponse.ok(data=data, message=f"Đã tải {len(data)} đặc trưng")
+	if origin:
+		origin_upper = origin.strip().upper()
+		if origin_upper == "BUILTIN":
+			items = [f for f in items if f.is_builtin]
+		elif origin_upper == "CUSTOM":
+			items = [f for f in items if not f.is_builtin]
+	if search and search.strip():
+		q = search.strip().lower()
+		items = [
+			f
+			for f in items
+			if q in f.feature_key.lower()
+			or q in f.display_name.lower()
+			or q in (f.description or "").lower()
+		]
+	page_items, next_cursor = paginate_cursor(
+		items,
+		limit=limit,
+		cursor=cursor,
+		key_fn=lambda f: f.feature_id,
+	)
+	owners = resolve_owners(user_repo, (f.user_id for f in page_items if f.user_id is not None))
+	data = [_to_feature_response(f, owner=owners.get(f.user_id) if f.user_id else None) for f in page_items]
+	return ApiResponse.ok(
+		data=CursorPage(items=data, nextCursor=next_cursor),
+		message=f"Đã tải {len(data)} đặc trưng",
+	)
 
 
 @router.get("/compatibility", response_model=ApiResponse[FeatureCompatibilityReportResponse])
@@ -324,20 +357,39 @@ def clone_feature(
 # Feature Sets (/api/v1/feature-sets)
 # =====================================================================
 
-@feature_set_router.get("", response_model=ApiResponse[List[FeatureSetResponse]])
+@feature_set_router.get("", response_model=ApiResponse[CursorPage[FeatureSetResponse]])
 def list_feature_sets(
 	project_id: UUID = Query(..., description="Project ID"),
 	include_builtin: bool = Query(default=True),
+	search: Optional[str] = Query(default=None, description="Search by set_key, name, or domain_tag"),
+	limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+	cursor: Optional[str] = Query(default=None, description="Opaque pagination cursor"),
 	actor: ActorContext = Depends(get_actor_context),
 	authz: AuthzService = Depends(get_authz_service),
 	service: FeatureManagementService = Depends(get_feature_management_service),
 	user_repo: IUserRepository = Depends(get_user_repo),
-) -> ApiResponse[List[FeatureSetResponse]]:
+) -> ApiResponse[CursorPage[FeatureSetResponse]]:
 	authz.require_project_scope(actor, "feature:read", project_id)
 	sets = service.list_feature_sets(project_id=project_id, include_builtin=include_builtin)
-	owners = resolve_owners(user_repo, (s.user_id for s in sets if s.user_id is not None))
-	data = [_to_feature_set_response(s, owner=owners.get(s.user_id) if s.user_id else None) for s in sets]
-	return ApiResponse.ok(data=data)
+	if search and search.strip():
+		q = search.strip().lower()
+		sets = [
+			s
+			for s in sets
+			if q in s.set_key.lower()
+			or q in s.name.lower()
+			or q in (s.domain_tag or "").lower()
+			or q in (s.description or "").lower()
+		]
+	page_items, next_cursor = paginate_cursor(
+		sets,
+		limit=limit,
+		cursor=cursor,
+		key_fn=lambda s: s.feature_set_id,
+	)
+	owners = resolve_owners(user_repo, (s.user_id for s in page_items if s.user_id is not None))
+	data = [_to_feature_set_response(s, owner=owners.get(s.user_id) if s.user_id else None) for s in page_items]
+	return ApiResponse.ok(data=CursorPage(items=data, nextCursor=next_cursor))
 
 
 @feature_set_router.post("", response_model=ApiResponse[FeatureSetResponse], status_code=status.HTTP_201_CREATED)

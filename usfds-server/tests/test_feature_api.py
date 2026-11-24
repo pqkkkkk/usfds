@@ -63,9 +63,9 @@ def test_feature_api_crud_rbac_own_scope_and_project_isolation(server_settings, 
 		_assign_project_role(test_client, admin_headers, p1_id, fa_id, "fraud_analyst")
 
 		# 1. Built-in features & sets readable by fraud_analyst (200), but mutation rejected (403)
-		list_res = test_client.get(f"/api/v1/features?project_id={p1_id}", headers=fa_headers)
+		list_res = test_client.get(f"/api/v1/features?project_id={p1_id}&limit=200", headers=fa_headers)
 		assert list_res.status_code == 200
-		builtin_items = list_res.json()["data"]
+		builtin_items = list_res.json()["data"]["items"]
 		assert len(builtin_items) >= 28
 		free_email_feat = next(f for f in builtin_items if f["feature_key"] == "is_free_email")
 
@@ -307,7 +307,7 @@ def test_dataset_fe_and_rule_backtest_end_to_end_via_api(client, server_settings
 		},
 	).json()["data"]
 
-	sets = client.get(f"/api/v1/feature-sets?project_id={project_id}").json()["data"]
+	sets = client.get(f"/api/v1/feature-sets?project_id={project_id}&limit=50").json()["data"]["items"]
 	geo_set = next(s for s in sets if s["set_key"] == "pkg_geo_behavioral")
 	ccfd_set = next(s for s in sets if s["set_key"] == "pkg_ccfd_standard")
 
@@ -362,3 +362,82 @@ def test_dataset_fe_and_rule_backtest_end_to_end_via_api(client, server_settings
 	assert bt_res.status_code == 200, bt_res.text
 	assert bt_res.json()["data"]["total_hits"] == 3
 	assert bt_res.json()["data"]["tp"] == 3
+
+
+def test_feature_and_feature_set_list_cursor_pagination(client):
+	"""GET /api/v1/features and /api/v1/feature-sets support CursorPage (limit, cursor, search, origin)."""
+	project_id = client.post("/api/v1/projects", json={"project_name": "Pagination Proj"}).json()["data"]["project_id"]
+
+	# Create 1 custom feature so CUSTOM filter has distinct item
+	custom_res = client.post(
+		"/api/v1/features",
+		json={
+			"project_id": project_id,
+			"feature_key": "custom_paginated_expr",
+			"display_name": "Custom Paginated Expr",
+			"megafamily": "MONETARY",
+			"compute_kind": "EXPRESSION",
+			"output_type": "NUMERIC",
+			"config_json": {"expr": "amount * 2"},
+			"required_inputs": ["amount"],
+		},
+	)
+	assert custom_res.status_code == 201
+
+	# 1. Walk pages of features with limit=10
+	collected_ids = []
+	cursor = None
+	pages = 0
+	while True:
+		url = f"/api/v1/features?project_id={project_id}&limit=10"
+		if cursor:
+			url += f"&cursor={cursor}"
+		res = client.get(url)
+		assert res.status_code == 200
+		payload = res.json()["data"]
+		page_items = payload["items"]
+		assert len(page_items) <= 10
+		collected_ids.extend(item["feature_id"] for item in page_items)
+		pages += 1
+		cursor = payload["nextCursor"]
+		if cursor is None:
+			break
+		assert len(page_items) == 10
+
+	assert pages >= 5
+	assert len(collected_ids) == len(set(collected_ids))
+	assert len(collected_ids) >= 53
+
+	# 2. Filter by origin & search
+	custom_only = client.get(f"/api/v1/features?project_id={project_id}&origin=CUSTOM").json()["data"]
+	assert [f["feature_key"] for f in custom_only["items"]] == ["custom_paginated_expr"]
+	assert custom_only["nextCursor"] is None
+
+	searched = client.get(f"/api/v1/features?project_id={project_id}&search=free_email").json()["data"]
+	assert any(f["feature_key"] == "is_free_email" for f in searched["items"])
+
+	# 3. Invalid cursor -> 400
+	bad_cursor_res = client.get(f"/api/v1/features?project_id={project_id}&cursor=invalid-cursor")
+	assert bad_cursor_res.status_code == 400
+
+	# 4. Walk pages of feature-sets with limit=2 (5 built-in sets -> 3 pages: 2 + 2 + 1)
+	set_ids = []
+	fs_cursor = None
+	fs_pages = 0
+	while True:
+		url = f"/api/v1/feature-sets?project_id={project_id}&limit=2"
+		if fs_cursor:
+			url += f"&cursor={fs_cursor}"
+		res = client.get(url)
+		assert res.status_code == 200
+		payload = res.json()["data"]
+		set_ids.extend(item["feature_set_id"] for item in payload["items"])
+		fs_pages += 1
+		fs_cursor = payload["nextCursor"]
+		if fs_cursor is None:
+			break
+		assert len(payload["items"]) == 2
+
+	assert fs_pages == 3
+	assert len(set_ids) == len(set(set_ids)) == 5
+	assert client.get(f"/api/v1/feature-sets?project_id={project_id}&cursor=bad").status_code == 400

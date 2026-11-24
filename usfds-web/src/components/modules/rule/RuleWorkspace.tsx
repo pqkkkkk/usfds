@@ -49,7 +49,10 @@ export const RuleWorkspace: React.FC = () => {
 	const { features, canAccessRecord } = useActorContext(currentProjectId);
 	const isNew = !ruleId || ruleId === 'new';
 	const isSchemaLocked = Boolean(currentProject?.is_schema_locked);
-	const { data: projectFeatures = [] } = useFeatureCatalog(effectiveProjectId, { include_builtin: true });
+	const { data: projectFeatures = [] } = useFeatureCatalog(effectiveProjectId, {
+		include_builtin: true,
+		limit: 200,
+	});
 	const availableFields = useMemo(
 		() => buildAvailableFieldsWithEnrichedFeatures(currentProject?.raw_schema, projectFeatures),
 		[currentProject?.raw_schema, projectFeatures]

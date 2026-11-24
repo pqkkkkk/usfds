@@ -120,10 +120,16 @@ describe('Cross-Module Feature Integration (M4)', () => {
 				})
 			),
 			http.get(`${API}/v1/features`, () =>
-				HttpResponse.json({ success: true, data: MOCK_FEATURES })
+				HttpResponse.json({
+					success: true,
+					data: { items: MOCK_FEATURES, nextCursor: null },
+				})
 			),
 			http.get(`${API}/v1/feature-sets`, () =>
-				HttpResponse.json({ success: true, data: MOCK_SETS })
+				HttpResponse.json({
+					success: true,
+					data: { items: MOCK_SETS, nextCursor: null },
+				})
 			),
 			http.get(`${API}/v1/features/compatibility`, () =>
 				HttpResponse.json({

@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { ApiResponse } from '@/types/api';
+import type { ApiResponse, CursorPage } from '@/types/api';
 import type {
 	CloneFeatureRequest,
 	CreateFeatureRequest,
@@ -13,12 +13,29 @@ import type {
 	UpdateFeatureSetRequest,
 } from '@/types/feature';
 
+export interface ListFeaturesParams {
+	megafamily?: string;
+	include_builtin?: boolean;
+	status?: string;
+	origin?: 'BUILTIN' | 'CUSTOM';
+	search?: string;
+	limit?: number;
+	cursor?: string;
+}
+
+export interface ListFeatureSetsParams {
+	include_builtin?: boolean;
+	search?: string;
+	limit?: number;
+	cursor?: string;
+}
+
 export const featureApi = {
 	listFeatures: async (
 		projectId: string,
-		params?: { megafamily?: string; include_builtin?: boolean; status?: string }
-	): Promise<ApiResponse<FeatureResponse[]>> => {
-		return apiClient.get<FeatureResponse[]>('/v1/features', {
+		params?: ListFeaturesParams
+	): Promise<ApiResponse<CursorPage<FeatureResponse>>> => {
+		return apiClient.get<CursorPage<FeatureResponse>>('/v1/features', {
 			project_id: projectId,
 			...params,
 		});
@@ -76,11 +93,11 @@ export const featureApi = {
 
 	listFeatureSets: async (
 		projectId: string,
-		includeBuiltin = true
-	): Promise<ApiResponse<FeatureSetResponse[]>> => {
-		return apiClient.get<FeatureSetResponse[]>('/v1/feature-sets', {
+		params?: ListFeatureSetsParams
+	): Promise<ApiResponse<CursorPage<FeatureSetResponse>>> => {
+		return apiClient.get<CursorPage<FeatureSetResponse>>('/v1/feature-sets', {
 			project_id: projectId,
-			include_builtin: includeBuiltin,
+			...params,
 		});
 	},
 

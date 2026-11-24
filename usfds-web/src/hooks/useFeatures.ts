@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { featureApi } from '@/api/featureApi';
+import { useMemo } from 'react';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { featureApi, type ListFeatureSetsParams, type ListFeaturesParams } from '@/api/featureApi';
 import type {
 	CloneFeatureRequest,
 	CreateFeatureRequest,
@@ -10,30 +11,75 @@ import type {
 } from '@/types/feature';
 
 export const featureKeys = {
-	catalog: (projectId: string | null | undefined, megafamily?: string) =>
-		['features', 'catalog', projectId || '', megafamily || 'ALL'] as const,
+	catalog: (
+		projectId: string | null | undefined,
+		params?: Omit<ListFeaturesParams, 'cursor'>
+	) =>
+		[
+			'features',
+			'catalog',
+			projectId || '',
+			params?.megafamily || 'ALL',
+			params?.origin || 'ALL',
+			params?.search || '',
+			params?.include_builtin ?? true,
+			params?.status || 'ALL',
+			params?.limit ?? 50,
+		] as const,
 	compatibility: (projectId: string | null | undefined, datasetId?: string, artifactId?: string) =>
 		['features', 'compatibility', projectId || '', datasetId || '', artifactId || ''] as const,
-	sets: (projectId: string | null | undefined) =>
-		['features', 'sets', projectId || ''] as const,
+	sets: (
+		projectId: string | null | undefined,
+		params?: Omit<ListFeatureSetsParams, 'cursor'>
+	) =>
+		[
+			'features',
+			'sets',
+			projectId || '',
+			params?.include_builtin ?? true,
+			params?.search || '',
+			params?.limit ?? 50,
+		] as const,
 };
 
 export function useFeatureCatalog(
 	projectId: string | null | undefined,
-	params?: { megafamily?: string; include_builtin?: boolean; status?: string }
+	params?: Omit<ListFeaturesParams, 'cursor'>
 ) {
-	return useQuery({
-		queryKey: featureKeys.catalog(projectId, params?.megafamily),
-		queryFn: async () => {
-			if (!projectId) return [];
-			const res = await featureApi.listFeatures(projectId, params);
+	const query = useInfiniteQuery({
+		queryKey: featureKeys.catalog(projectId, params),
+		enabled: Boolean(projectId),
+		initialPageParam: undefined as string | undefined,
+		queryFn: async ({ pageParam }) => {
+			if (!projectId) return { items: [], nextCursor: null };
+			const res = await featureApi.listFeatures(projectId, {
+				...params,
+				cursor: pageParam,
+			});
 			if (!res.success) {
 				throw new Error(res.error || 'Không thể tải danh mục đặc trưng.');
 			}
-			return res.data || [];
+			return res.data ?? { items: [], nextCursor: null };
 		},
-		enabled: Boolean(projectId),
+		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
 	});
+
+	const features = useMemo(
+		() => query.data?.pages.flatMap((page) => page.items) ?? [],
+		[query.data]
+	);
+
+	return {
+		data: features,
+		features,
+		isLoading: query.isLoading,
+		isFetching: query.isFetching,
+		error: query.error,
+		refetch: query.refetch,
+		hasNextPage: Boolean(query.hasNextPage),
+		isFetchingNextPage: query.isFetchingNextPage,
+		fetchNextPage: query.fetchNextPage,
+	};
 }
 
 export function useFeatureCompatibility(
@@ -58,19 +104,49 @@ export function useFeatureCompatibility(
 	});
 }
 
-export function useFeatureSets(projectId: string | null | undefined, includeBuiltin = true) {
-	return useQuery({
-		queryKey: featureKeys.sets(projectId),
-		queryFn: async () => {
-			if (!projectId) return [];
-			const res = await featureApi.listFeatureSets(projectId, includeBuiltin);
+export function useFeatureSets(
+	projectId: string | null | undefined,
+	paramsOrIncludeBuiltin: Omit<ListFeatureSetsParams, 'cursor'> | boolean = true
+) {
+	const params: Omit<ListFeatureSetsParams, 'cursor'> =
+		typeof paramsOrIncludeBuiltin === 'boolean'
+			? { include_builtin: paramsOrIncludeBuiltin }
+			: paramsOrIncludeBuiltin;
+
+	const query = useInfiniteQuery({
+		queryKey: featureKeys.sets(projectId, params),
+		enabled: Boolean(projectId),
+		initialPageParam: undefined as string | undefined,
+		queryFn: async ({ pageParam }) => {
+			if (!projectId) return { items: [], nextCursor: null };
+			const res = await featureApi.listFeatureSets(projectId, {
+				...params,
+				cursor: pageParam,
+			});
 			if (!res.success) {
 				throw new Error(res.error || 'Không thể tải danh sách gói đặc trưng.');
 			}
-			return res.data || [];
+			return res.data ?? { items: [], nextCursor: null };
 		},
-		enabled: Boolean(projectId),
+		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
 	});
+
+	const featureSets = useMemo(
+		() => query.data?.pages.flatMap((page) => page.items) ?? [],
+		[query.data]
+	);
+
+	return {
+		data: featureSets,
+		featureSets,
+		isLoading: query.isLoading,
+		isFetching: query.isFetching,
+		error: query.error,
+		refetch: query.refetch,
+		hasNextPage: Boolean(query.hasNextPage),
+		isFetchingNextPage: query.isFetchingNextPage,
+		fetchNextPage: query.fetchNextPage,
+	};
 }
 
 export function useFeatureMutations(projectId: string | null | undefined) {
