@@ -115,6 +115,7 @@ def setup_infrastructure() -> tuple[Engine, IFileStorage]:
     _session_factory = create_session_factory(_engine)
     init_db(_engine)
     seed_builtin_models(_session_factory)
+    from usfds_infra.database.seed_features import seed_feature_catalog
     from usfds_infra.database.seed_rbac import seed_rbac
     from usfds_infra.database.seed_system_metadata import seed_system_metadata
     from usfds_infra.security import PasswordHasher
@@ -125,6 +126,7 @@ def setup_infrastructure() -> tuple[Engine, IFileStorage]:
             bootstrap_password_hash=PasswordHasher().hash(settings.bootstrap_admin_password),
         )
         seed_system_metadata(session)
+        seed_feature_catalog(session)
         session.commit()
 
     # 2. Setup file storage (local filesystem or S3-compatible)
@@ -182,6 +184,8 @@ from usfds_server.providers.repos import (  # noqa: E402
 	get_case_repo,
 	get_dataset_repo,
 	get_detection_job_repo,
+	get_feature_repo,
+	get_feature_set_repo,
 	get_model_repo,
 	get_model_version_repo,
 	get_project_repo,
@@ -191,6 +195,7 @@ from usfds_server.providers.repos import (  # noqa: E402
 	get_training_run_repo,
 )
 from usfds_server.providers.project import get_project_management_service  # noqa: E402
+from usfds_server.providers.feature import get_feature_management_service  # noqa: E402
 from usfds_server.providers.data import get_data_management_service, get_system_metadata_service  # noqa: E402
 from usfds_server.providers.rule import get_rule_executor, get_rule_manager  # noqa: E402
 from usfds_server.providers.training import get_training_service  # noqa: E402

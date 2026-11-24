@@ -71,6 +71,10 @@ PERMISSION_CATALOG: List[Tuple[str, str, str, GrantScope, str]] = [
 	("report:create", "report", "create", GrantScope.PROJECT, "Generate insight reports"),
 	("report:export", "report", "export", GrantScope.PROJECT, "Export insight reports"),
 	("audit:read", "audit", "read", GrantScope.PROJECT, "Read project/case audit logs"),
+	("feature:read", "feature", "read", GrantScope.PROJECT, "View built-in and project features and feature sets"),
+	("feature:create", "feature", "create", GrantScope.PROJECT, "Create custom features, clone templates, and create feature sets"),
+	("feature:update", "feature", "update", GrantScope.PROJECT, "Update custom features and feature sets"),
+	("feature:delete", "feature", "delete", GrantScope.PROJECT, "Delete custom features and feature sets"),
 ]
 
 BUILTIN_ROLES: List[Tuple[str, str, RoleScope, str]] = [
@@ -119,6 +123,8 @@ ROLE_GRANTS: Dict[str, List[Tuple[str, GrantScope]]] = {
 		("report:create", GrantScope.PROJECT),
 		("report:export", GrantScope.PROJECT),
 		("audit:read", GrantScope.PROJECT),
+		("feature:read", GrantScope.PROJECT),
+		("feature:delete", GrantScope.PROJECT),
 	],
 	"data_scientist": [
 		("project:read", GrantScope.PROJECT),
@@ -145,6 +151,10 @@ ROLE_GRANTS: Dict[str, List[Tuple[str, GrantScope]]] = {
 		("detection:read", GrantScope.PROJECT),
 		("detection:export", GrantScope.PROJECT),
 		("report:read", GrantScope.PROJECT),
+		("feature:read", GrantScope.PROJECT),
+		("feature:create", GrantScope.OWN),
+		("feature:update", GrantScope.OWN),
+		("feature:delete", GrantScope.OWN),
 	],
 	"fraud_analyst": [
 		("project:read", GrantScope.PROJECT),
@@ -163,6 +173,7 @@ ROLE_GRANTS: Dict[str, List[Tuple[str, GrantScope]]] = {
 		("report:create", GrantScope.PROJECT),
 		("report:export", GrantScope.PROJECT),
 		("audit:read", GrantScope.PROJECT),
+		("feature:read", GrantScope.PROJECT),
 	],
 }
 

@@ -2,8 +2,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID, uuid4
 
-from usfds_core.domain.entities.enums import ProjectStatus, RuleAction, RuleStatus
+from usfds_core.domain.entities.enums import FeatureStatus, ProjectStatus, RuleAction, RuleStatus
 from usfds_core.domain.entities.rule import Rule, RuleVersion
+from usfds_core.repositories.base_feature_repo import IFeatureRepository
 from usfds_core.repositories.base_project_repo import IProjectRepository
 from usfds_core.repositories.base_rule_repo import IRuleRepository, IRuleVersionRepository
 from usfds_core.repositories.in_memory_repos import InMemoryRuleRepository, InMemoryRuleVersionRepository
@@ -22,10 +23,12 @@ class RuleManager:
         rule_repo: Optional[IRuleRepository] = None,
         version_repo: Optional[IRuleVersionRepository] = None,
         project_repo: Optional[IProjectRepository] = None,
+        feature_repo: Optional[IFeatureRepository] = None,
     ):
         self._rule_repo = rule_repo or InMemoryRuleRepository()
         self._version_repo = version_repo or InMemoryRuleVersionRepository()
         self._project_repo = project_repo
+        self._feature_repo = feature_repo
 
     def _validate_against_project_schema(
         self,
@@ -63,11 +66,32 @@ class RuleManager:
                 )
         else:
             if condition is not None:
+                active_feats = (
+                    self._feature_repo.list_by_project(
+                        project_id, include_builtin=True, status=FeatureStatus.ACTIVE.value
+                    )
+                    if self._feature_repo is not None
+                    else None
+                )
                 errors = ProjectSchemaValidator.validate_rule_condition(
-                    condition, project.raw_schema
+                    condition, project.raw_schema, active_features=active_feats
                 )
                 if errors:
                     raise ValueError(" ".join(errors))
+
+    def list_active_rules_referencing_feature(
+        self,
+        project_id: Union[UUID, str],
+        feature_key: str,
+    ) -> List[Rule]:
+        """Returns ACTIVE rules in `project_id` whose current condition uses `enriched.<feature_key>`."""
+        target = str(feature_key).strip()
+        referencing: List[Rule] = []
+        for rule, ver in self.get_active_rules_with_versions(project_id):
+            keys = ProjectSchemaValidator.extract_enriched_feature_keys(ver.condition or {})
+            if target in keys:
+                referencing.append(rule)
+        return referencing
 
     def create_rule(
         self,

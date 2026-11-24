@@ -23,6 +23,7 @@ import { WorkspaceStepper } from '../../layout/WorkspaceStepper';
 import type { PipelineStep } from '../../layout/WorkspaceStepper';
 import { datasetApi, trainingApi, ruleApi, detectionApi, storageApi } from '@/api';
 import { useProject } from '@/hooks';
+import { useFeatureCatalog } from '@/hooks/useFeatures';
 import { formatModelVersion } from '@/utils/formatters';
 import type {
 	DatasetArtifactResponse,
@@ -166,6 +167,29 @@ export function DetectionJobWizardView() {
 	const activeRules: RuleResponse[] = useMemo(() => {
 		return activeRulesRes?.data?.items || [];
 	}, [activeRulesRes]);
+
+	const { data: projectFeatures = [] } = useFeatureCatalog(projectId, { include_builtin: true });
+
+	const ruleOnlyLabelWarnings = useMemo(() => {
+		if (selectedModelVersionId !== 'RULE_ONLY' || !useRules) {
+			return [] as string[];
+		}
+		const labelFeatureKeys = projectFeatures
+			.filter((f) => f.requires_label)
+			.map((f) => f.feature_key);
+		if (labelFeatureKeys.length === 0) return [] as string[];
+
+		const warnings: string[] = [];
+		for (const rule of activeRules) {
+			const serialized = JSON.stringify(rule.current_version?.condition || {});
+			for (const fk of labelFeatureKeys) {
+				if (serialized.includes(`enriched.${fk}`)) {
+					warnings.push(`${rule.rule_code} → enriched.${fk}`);
+				}
+			}
+		}
+		return warnings;
+	}, [selectedModelVersionId, useRules, activeRules, projectFeatures]);
 
 	const selectedApprovedModel = useMemo(() => {
 		if (selectedModelVersionId === 'RULE_ONLY') {
@@ -848,6 +872,21 @@ export function DetectionJobWizardView() {
 									</div>
 								)}
 							</div>
+
+							{ruleOnlyLabelWarnings.length > 0 && (
+								<div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/40 text-xs text-amber-200 space-y-1">
+									<div className="flex items-center gap-2 font-semibold text-amber-300">
+										<AlertTriangle className="w-4 h-4 shrink-0" />
+										<span>
+											Chế độ chỉ dùng luật có đặc trưng phụ thuộc nhãn (requires_label)
+										</span>
+									</div>
+									<p className="text-[11px] text-amber-200/90">
+										Các quy tắc sau tham chiếu đặc trưng cần cột nhãn nên sẽ nhận giá trị null khi phát hiện không có model:{' '}
+										<span className="font-mono">{ruleOnlyLabelWarnings.join(', ')}</span>.
+									</p>
+								</div>
+							)}
 
 							{!canProceedFromEngine && (
 								<div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">

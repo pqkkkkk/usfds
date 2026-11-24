@@ -352,6 +352,8 @@ class DataMappingService:
         # 10.1 Enrich validation report with column_mapping, retained_columns, and metadata snapshot
         report_dict = quality_report.to_dict()
         report_dict["column_mapping"] = mapping_config.get_full_column_mapping()
+        if mapping_config.column_semantic_types:
+            report_dict["column_semantic_types"] = dict(mapping_config.column_semantic_types)
         report_dict["retained_columns"] = list(mapped_df.columns)
         report_dict["non_ml_columns"] = sorted(build_non_ml_columns(active_metadata))
         if active_metadata:

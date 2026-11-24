@@ -19,6 +19,7 @@ from usfds_infra.database.repos.auth import (
 	SqlUserSessionRepository,
 )
 from usfds_infra.database.repos.system_metadata import SqlSystemColumnMetadataRepository
+from usfds_infra.database.repos.feature import SqlFeatureRepository, SqlFeatureSetRepository
 
 __all__ = [
 	"SqliteProjectRepository",
@@ -36,4 +37,6 @@ __all__ = [
 	"SqlPermissionRepository",
 	"SqlProjectMemberRepository",
 	"SqlSystemColumnMetadataRepository",
+	"SqlFeatureRepository",
+	"SqlFeatureSetRepository",
 ]

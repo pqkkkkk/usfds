@@ -113,6 +113,7 @@ export interface DataMappingConfig {
   user_id_column?: string;
   target_column?: string;
   optional_columns: Record<string, string>;
+  column_semantic_types?: Record<string, string>;
   time_format?: 'auto' | 'iso' | 'epoch_s' | 'epoch_ms' | string;
   max_invalid_ratio_allowed?: number;
 }
@@ -145,6 +146,9 @@ export interface FeatureEngineeringConfig {
   enable_hour_of_day: boolean;
   enable_velocity_features: boolean;
   velocity_windows: number[];
+  feature_set_ids?: string[];
+  feature_set_id?: string | null;
+  feature_ids?: string[];
 }
 
 export interface ExportDatasetRequest {

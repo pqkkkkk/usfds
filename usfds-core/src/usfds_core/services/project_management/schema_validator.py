@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 from uuid import UUID
 import pandas as pd
 
@@ -191,12 +191,28 @@ class ProjectSchemaValidator:
         return found
 
     @classmethod
+    def extract_enriched_feature_keys(cls, condition: Any) -> Set[str]:
+        """Extracts referenced `enriched.<key>` / `enriched_features.<key>` names from JsonLogic."""
+        keys: Set[str] = set()
+        for var_path, _, _ in cls.extract_jsonlogic_vars(condition):
+            if var_path.startswith("enriched."):
+                k = var_path[len("enriched."):].strip()
+                if k:
+                    keys.add(k)
+            elif var_path.startswith("enriched_features."):
+                k = var_path[len("enriched_features."):].strip()
+                if k:
+                    keys.add(k)
+        return keys
+
+    @classmethod
     def validate_rule_condition(
         cls,
         condition: Dict[str, Any],
         raw_schema: Union[ProjectRawSchema, Dict[str, Any]],
+        active_features: Optional[Sequence[Any]] = None,
     ) -> List[str]:
-        """Validates a Rule's JsonLogic condition against the Project's RAW schema.
+        """Validates a Rule's JsonLogic condition against the Project's RAW schema and active Features.
 
         Returns a list of human-readable validation error messages (empty list if valid).
         """
@@ -211,11 +227,38 @@ class ProjectSchemaValidator:
         if not schema.columns:
             return []
 
+        active_by_key: Optional[Dict[str, Any]] = None
+        if active_features is not None:
+            active_by_key = {str(getattr(f, "feature_key")): f for f in active_features if getattr(f, "feature_key", None)}
+
         errors: List[str] = []
         var_usages = cls.extract_jsonlogic_vars(condition)
 
         for var_path, parent_op, siblings in var_usages:
             if var_path.startswith(("enriched.", "enriched_features.")):
+                if active_by_key is None:
+                    continue
+                prefix = "enriched." if var_path.startswith("enriched.") else "enriched_features."
+                feat_key = var_path[len(prefix):].strip()
+                feat = active_by_key.get(feat_key)
+                if feat is None:
+                    errors.append(
+                        f"Đặc trưng làm giàu '{var_path}' ('{feat_key}') không tồn tại trong Kho đặc trưng hoạt động của dự án."
+                    )
+                    continue
+                if parent_op in cls.NUMERIC_COMPARISON_OPERATORS:
+                    out_type = feat.output_type.value if hasattr(feat.output_type, "value") else str(feat.output_type)
+                    has_numeric_literal = any(
+                        isinstance(sib, (int, float)) and not isinstance(sib, bool)
+                        for sib in siblings
+                    )
+                    if has_numeric_literal and out_type in (
+                        LogicalDataType.STRING.value,
+                        LogicalDataType.BOOLEAN.value,
+                    ):
+                        errors.append(
+                            f"Không thể áp dụng toán tử so sánh số học '{parent_op}' cho đặc trưng '{feat_key}' có kiểu '{out_type}'."
+                        )
                 continue
 
             if var_path.startswith("raw."):

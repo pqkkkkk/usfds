@@ -539,6 +539,19 @@ def backtest_rule_on_dataset(
             detail="A valid JsonLogic condition (or saved rule_id with a condition) is required for backtesting",
         )
 
+    feature_definitions: List[Dict[str, Any]] = []
+    if getattr(manager, "_feature_repo", None) is not None:
+        from usfds_core.services.features.compiler import DAGResolver
+        from usfds_core.services.project_management.schema_validator import ProjectSchemaValidator
+
+        ref_keys = ProjectSchemaValidator.extract_enriched_feature_keys(condition)
+        if ref_keys:
+            catalog = manager._feature_repo.list_by_project(request.project_id, include_builtin=True)
+            matched = [f for f in catalog if f.feature_key in ref_keys]
+            if matched:
+                closure = DAGResolver.collect_transitive_closure(matched, catalog)
+                feature_definitions = [f.to_dict() for f in closure]
+
     if settings.dispatch_backend == "queue":
         try:
             res = get_job_queue().enqueue_and_wait(
@@ -556,6 +569,7 @@ def backtest_rule_on_dataset(
                     "target_column": request.target_column,
                     "amount_column": request.amount_column,
                     "max_samples": request.max_samples,
+                    "feature_definitions": feature_definitions,
                 },
                 job_id=f"backtest-{uuid4()}",
                 timeout_seconds=settings.queue_wait_timeout_seconds,
@@ -613,6 +627,7 @@ def backtest_rule_on_dataset(
         target_column=request.target_column,
         amount_column=request.amount_column,
         max_samples=request.max_samples,
+        feature_definitions=feature_definitions,
     )
 
     resp = RuleBacktestResultResponse(
@@ -650,6 +665,7 @@ def backtest_rule_on_dataset(
             )
             for s in bt_result.sample_hits
         ],
+        feature_warnings=list(getattr(bt_result, "feature_warnings", None) or []),
     )
     return ApiResponse.ok(data=resp, message="Rule backtest simulation completed")
 

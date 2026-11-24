@@ -557,3 +557,125 @@ class InMemoryInvestigationRepository(IInvestigationRepository):
         self, criteria: Dict[str, Any], limit: int = 10
     ) -> List[Dict[str, Any]]:
         return []
+
+
+class InMemoryFeatureRepository:
+    """In-memory Feature repository for pure core unit/integration tests."""
+
+    def __init__(self) -> None:
+        self._features: Dict[UUID, Any] = {}
+        self._artifact_features: Dict[UUID, List[Any]] = {}
+
+    def save(self, feature: Any) -> Any:
+        self._features[feature.feature_id] = feature
+        return feature
+
+    def get_by_id(self, feature_id: UUID) -> Optional[Any]:
+        return self._features.get(feature_id)
+
+    def get_by_key(self, project_id: Optional[UUID], feature_key: str) -> Optional[Any]:
+        for f in self._features.values():
+            if f.project_id == project_id and f.feature_key == feature_key:
+                return f
+        return None
+
+    def list_by_project(
+        self,
+        project_id: Optional[UUID],
+        include_builtin: bool = True,
+        megafamily: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> List[Any]:
+        out = []
+        for f in self._features.values():
+            if project_id is None:
+                if f.project_id is not None:
+                    continue
+            else:
+                if f.project_id != project_id and not (include_builtin and f.project_id is None):
+                    continue
+            if megafamily:
+                mf = f.megafamily.value if hasattr(f.megafamily, "value") else str(f.megafamily)
+                if mf != str(megafamily):
+                    continue
+            if status:
+                st = f.status.value if hasattr(f.status, "value") else str(f.status)
+                if st != str(status):
+                    continue
+            out.append(f)
+        return sorted(out, key=lambda x: (0 if x.project_id is None else 1, x.feature_key))
+
+    def list_by_ids(self, feature_ids: List[UUID]) -> List[Any]:
+        id_set = set(feature_ids)
+        return [f for f in self._features.values() if f.feature_id in id_set]
+
+    def list_dependents(self, feature_id: UUID) -> List[Any]:
+        return [
+            f for f in self._features.values()
+            if feature_id in (getattr(f, "depends_on_feature_ids", None) or [])
+        ]
+
+    def delete(self, feature_id: UUID) -> bool:
+        return self._features.pop(feature_id, None) is not None
+
+    def record_artifact_features(self, artifact_id: UUID, links: List[Any]) -> None:
+        self._artifact_features[artifact_id] = list(links)
+
+    def list_artifact_features(self, artifact_id: UUID) -> List[Any]:
+        return list(self._artifact_features.get(artifact_id, []))
+
+
+class InMemoryFeatureSetRepository:
+    """In-memory FeatureSet repository for pure core unit/integration tests."""
+
+    def __init__(self) -> None:
+        self._sets: Dict[UUID, Any] = {}
+        self._artifact_sets: Dict[UUID, List[UUID]] = {}
+
+    def save(self, feature_set: Any) -> Any:
+        self._sets[feature_set.feature_set_id] = feature_set
+        return feature_set
+
+    def get_by_id(self, feature_set_id: UUID) -> Optional[Any]:
+        return self._sets.get(feature_set_id)
+
+    def get_by_key(self, project_id: Optional[UUID], set_key: str) -> Optional[Any]:
+        for fs in self._sets.values():
+            if fs.project_id == project_id and fs.set_key == set_key:
+                return fs
+        return None
+
+    def list_by_project(
+        self,
+        project_id: Optional[UUID],
+        include_builtin: bool = True,
+    ) -> List[Any]:
+        out = []
+        for fs in self._sets.values():
+            if project_id is None:
+                if fs.project_id is not None:
+                    continue
+            else:
+                if fs.project_id != project_id and not (include_builtin and fs.project_id is None):
+                    continue
+            out.append(fs)
+        return sorted(out, key=lambda x: (0 if x.project_id is None else 1, x.set_key))
+
+    def list_by_ids(self, feature_set_ids: List[UUID]) -> List[Any]:
+        id_set = set(feature_set_ids)
+        return [fs for fs in self._sets.values() if fs.feature_set_id in id_set]
+
+    def list_sets_containing_feature(self, feature_id: UUID) -> List[Any]:
+        return [
+            fs for fs in self._sets.values()
+            if feature_id in (getattr(fs, "feature_ids", None) or [])
+        ]
+
+    def delete(self, feature_set_id: UUID) -> bool:
+        return self._sets.pop(feature_set_id, None) is not None
+
+    def record_artifact_feature_sets(self, artifact_id: UUID, feature_set_ids: List[UUID]) -> None:
+        self._artifact_sets[artifact_id] = list(feature_set_ids)
+
+    def list_artifact_feature_sets(self, artifact_id: UUID) -> List[UUID]:
+        return list(self._artifact_sets.get(artifact_id, []))

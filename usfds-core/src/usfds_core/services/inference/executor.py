@@ -91,10 +91,25 @@ def apply_domain_feature_engineers(
     fitted_engineers: Optional[Any],
 ) -> pd.DataFrame:
     """Applies stateful cleansing and domain feature engineering to produce a FEATURE_ENGINEERED DataFrame."""
+    from usfds_core.services.features.compiler import CompiledFeaturePipeline
+
     curr_df = df.copy()
-    if not fitted_engineers or not isinstance(fitted_engineers, dict):
+    if fitted_engineers is None:
         return curr_df
 
+    if isinstance(fitted_engineers, CompiledFeaturePipeline):
+        if fitted_engineers.cleanser is not None:
+            curr_df = fitted_engineers.cleanser.clean(
+                curr_df,
+                time_col=fitted_engineers.time_col or "timestamp",
+                amount_col="amount",
+            )
+        return fitted_engineers.transform(curr_df)
+
+    if not isinstance(fitted_engineers, dict):
+        return curr_df
+
+    # Legacy dict format backward compatibility
     # Step 1: Stateful Cleansing
     if "cleanser" in fitted_engineers:
         cleanser = fitted_engineers["cleanser"]
@@ -578,6 +593,24 @@ class BatchInferenceExecutor:
             # Apply domain feature engineers if available so rules can reference enriched features too
             fe_df = apply_domain_feature_engineers(prepared_df, fitted_engineers)
 
+            # 3.1 Auto-compile any missing enriched.* features referenced by ACTIVE rules (Rule-only or cross-set parity)
+            feature_warnings: list[str] = []
+            if payload.use_rules and payload.active_rules and payload.rule_feature_definitions:
+                from usfds_core.services.features.compiler import materialize_rule_enriched_features
+                from usfds_core.services.project_management.schema_validator import ProjectSchemaValidator
+
+                referenced_keys: set[str] = set()
+                for rule_snap in payload.active_rules:
+                    referenced_keys.update(
+                        ProjectSchemaValidator.extract_enriched_feature_keys(rule_snap.condition or {})
+                    )
+                if referenced_keys:
+                    fe_df, feature_warnings = materialize_rule_enriched_features(
+                        fe_df,
+                        referenced_keys,
+                        payload.rule_feature_definitions,
+                    )
+
             # 4. Branch between AI Model Scoring (.zip plugin / .joblib builtin) and Rule-Only Mode
             if has_model and payload.model_artifact_uri:
                 logger.info(f"Downloading model artifact from {payload.model_artifact_uri}...")
@@ -625,6 +658,8 @@ class BatchInferenceExecutor:
                 use_rules=payload.use_rules,
                 active_rules=payload.active_rules or [],
             )
+            if feature_warnings:
+                summary_metrics["feature_warnings"] = feature_warnings
 
             # 6. Write predictions to workspace
             result_df.to_parquet(workspace.output_predictions_path, index=False)

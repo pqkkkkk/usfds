@@ -386,6 +386,21 @@ export const RuleDryRunWorkspace: React.FC<RuleDryRunWorkspaceProps> = ({
 						</div>
 					</div>
 
+					{/* Feature Warnings Banner (requires_label=True / missing dependencies) */}
+					{(backtestResult?.feature_warnings?.length ?? 0) > 0 && (
+						<div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/40 text-amber-200 text-xs space-y-1">
+							<div className="flex items-center gap-2 font-semibold text-amber-300">
+								<AlertTriangle className="w-4 h-4 shrink-0" />
+								<span>Cảnh báo đặc trưng trong Backtest</span>
+							</div>
+							<ul className="list-disc list-inside text-[11px] space-y-0.5">
+								{backtestResult?.feature_warnings?.map((w, idx) => (
+									<li key={idx}>{w}</li>
+								))}
+							</ul>
+						</div>
+					)}
+
 					{/* 2. Telemetry KPI Cards (6-card Grid theo SUC-12) */}
 					<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
 						{/* Card 1: Total Rule Hits */}

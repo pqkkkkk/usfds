@@ -1,4 +1,5 @@
 export * from './DataManagementPage';
+export * from './FeatureManagementPage';
 export * from './ModelTrainingPage';
 export * from './RuleEnginePage';
 export * from './DetectionJobPage';

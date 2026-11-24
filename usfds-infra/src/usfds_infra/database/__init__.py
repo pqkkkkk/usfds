@@ -3,9 +3,15 @@ from usfds_infra.database.case_models import AuditLogModel, CaseModel, EntityBla
 from usfds_infra.database.case_repositories import SqliteAuditRepository, SqliteBlacklistRepository, SqliteCaseRepository
 from usfds_infra.database.engine import create_postgres_engine, create_sqlite_engine, to_psycopg_conninfo
 from usfds_infra.database.models import (
+	DatasetArtifactFeatureModel,
+	DatasetArtifactFeatureSetModel,
 	DatasetArtifactModel,
 	DatasetModel,
 	DetectionJobModel,
+	FeatureDependencyModel,
+	FeatureModel,
+	FeatureSetItemModel,
+	FeatureSetModel,
 	MLModel,
 	ModelVersionModel,
 	PermissionModel,
@@ -23,6 +29,8 @@ from usfds_infra.database.models import (
 	UserSessionModel,
 )
 from usfds_infra.database.repositories import (
+	SqlFeatureRepository,
+	SqlFeatureSetRepository,
 	SqlPermissionRepository,
 	SqlProjectMemberRepository,
 	SqlRoleRepository,
@@ -91,4 +99,12 @@ __all__ = [
 	"SqlProjectMemberRepository",
 	"SystemColumnMetadataModel",
 	"SqlSystemColumnMetadataRepository",
+	"FeatureModel",
+	"FeatureDependencyModel",
+	"FeatureSetModel",
+	"FeatureSetItemModel",
+	"DatasetArtifactFeatureSetModel",
+	"DatasetArtifactFeatureModel",
+	"SqlFeatureRepository",
+	"SqlFeatureSetRepository",
 ]

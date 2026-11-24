@@ -324,21 +324,37 @@ class RuleExecutor:
         timestamp_column: Optional[str] = None,
         user_column: Optional[str] = None,
         max_samples: int = 50,
+        feature_definitions: Optional[List[Dict[str, Any]]] = None,
     ) -> RuleBacktestResult:
         """Evaluates a JsonLogic condition across a historical DataFrame (SUC-12 Dry-Run / Backtest)."""
         start_time = time.perf_counter()
-        cols = [str(c) for c in df.columns]
+        feature_warnings: List[str] = []
+        work_df = df
+
+        if feature_definitions:
+            from usfds_core.services.features.compiler import materialize_rule_enriched_features
+            from usfds_core.services.project_management.schema_validator import ProjectSchemaValidator
+
+            enriched_keys = ProjectSchemaValidator.extract_enriched_feature_keys(condition)
+            if enriched_keys:
+                work_df, feature_warnings = materialize_rule_enriched_features(
+                    df,
+                    enriched_keys,
+                    feature_definitions,
+                )
+
+        cols = [str(c) for c in work_df.columns]
         col_set = set(cols)
 
         # Auto-resolve canonical column names from unified alias registry
-        resolved_target = resolve_canonical_column(df, SystemColumn.LABEL, requested_col=target_column)
-        resolved_amount = resolve_canonical_column(df, SystemColumn.AMOUNT, requested_col=amount_column)
-        resolved_id = resolve_canonical_column(df, SystemColumn.EVENT_ID, requested_col=id_column)
-        resolved_ts = resolve_canonical_column(df, SystemColumn.TIMESTAMP, requested_col=timestamp_column)
-        resolved_user = resolve_canonical_column(df, SystemColumn.USER_ID, requested_col=user_column)
+        resolved_target = resolve_canonical_column(work_df, SystemColumn.LABEL, requested_col=target_column)
+        resolved_amount = resolve_canonical_column(work_df, SystemColumn.AMOUNT, requested_col=amount_column)
+        resolved_id = resolve_canonical_column(work_df, SystemColumn.EVENT_ID, requested_col=id_column)
+        resolved_ts = resolve_canonical_column(work_df, SystemColumn.TIMESTAMP, requested_col=timestamp_column)
+        resolved_user = resolve_canonical_column(work_df, SystemColumn.USER_ID, requested_col=user_column)
 
         has_ground_truth = resolved_target is not None
-        total_transactions = len(df)
+        total_transactions = len(work_df)
         total_hits = 0
         tp = 0
         fp = 0
@@ -347,7 +363,7 @@ class RuleExecutor:
         fraud_amount_caught = 0.0
         sample_hits: List[RuleBacktestSampleHit] = []
 
-        records = df.to_dict(orient="records")
+        records = work_df.to_dict(orient="records")
         for idx, row in enumerate(records):
             # Sanitize NaN values to None for clean JSON serialization and evaluation
             clean_row: Dict[str, Any] = {}
@@ -456,4 +472,5 @@ class RuleExecutor:
             execution_time_ms=execution_time_ms,
             avg_execution_time_ms=avg_execution_time_ms,
             sample_hits=sample_hits,
+            feature_warnings=feature_warnings,
         )

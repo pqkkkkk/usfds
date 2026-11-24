@@ -200,8 +200,8 @@ def test_mapping_adapts_to_dynamic_domain_columns_and_identifier_role():
 	repo = _InMemorySystemMetadataRepository()
 	meta_service = SystemMetadataService(repo)
 	meta_service.create_column(
-		column_key="device_id",
-		display_name="Mã thiết bị",
+		column_key="terminal_id",
+		display_name="Mã thiết bị đầu cuối",
 		logical_type=LogicalDataType.STRING,
 		is_required=True,
 		ml_role=ColumnMlRole.IDENTIFIER,
@@ -239,7 +239,7 @@ def test_mapping_adapts_to_dynamic_domain_columns_and_identifier_role():
 	raw_art = _save_raw_artifact(storage, dataset_id, raw_df)
 	mapping_service = DataMappingService(file_storage=storage, metadata_repo=repo)
 
-	# Missing required DOMAIN column 'device_id' must fail
+	# Missing required DOMAIN column 'terminal_id' must fail
 	incomplete_cfg = DataMappingConfig(
 		event_id_column="tx_id",
 		time_column="tx_time",
@@ -248,10 +248,10 @@ def test_mapping_adapts_to_dynamic_domain_columns_and_identifier_role():
 		target_column="is_fraud",
 		optional_columns={"risk_score_raw": "risk_hint"},
 	)
-	with pytest.raises(ValueError, match="device_id"):
+	with pytest.raises(ValueError, match="terminal_id"):
 		mapping_service.map_dataset(dataset_id, raw_art, incomplete_cfg)
 
-	# Complete mapping succeeds, casts risk_hint -> float64, records device_id in non_ml_columns
+	# Complete mapping succeeds, casts risk_hint -> float64, records terminal_id in non_ml_columns
 	complete_cfg = DataMappingConfig(
 		event_id_column="tx_id",
 		time_column="tx_time",
@@ -259,7 +259,7 @@ def test_mapping_adapts_to_dynamic_domain_columns_and_identifier_role():
 		user_id_column="acct",
 		target_column="is_fraud",
 		optional_columns={
-			"dev_hash": "device_id",
+			"dev_hash": "terminal_id",
 			"risk_score_raw": "risk_hint",
 			"category": "category",
 		},
@@ -268,9 +268,9 @@ def test_mapping_adapts_to_dynamic_domain_columns_and_identifier_role():
 
 	mapped_df = pd.read_parquet(io.BytesIO(storage.read_bytes(mapped_art.output_paths["mapped"])))
 	assert pd.api.types.is_float_dtype(mapped_df["risk_hint"])
-	assert "device_id" in (mapped_art.validation_report or {}).get("non_ml_columns", [])
+	assert "terminal_id" in (mapped_art.validation_report or {}).get("non_ml_columns", [])
 
-	# PreprocessingPipelineBuilder must exclude device_id from categorical OneHotEncoder
+	# PreprocessingPipelineBuilder must exclude terminal_id from categorical OneHotEncoder
 	pipeline = PreprocessingPipelineBuilder.build(
 		PreprocessingConfig(),
 		sample_df=mapped_df.drop(columns=["label"]),
@@ -281,7 +281,7 @@ def test_mapping_adapts_to_dynamic_domain_columns_and_identifier_role():
 	for name, _, cols in col_transformer.transformers:
 		if name == "cat_encoder":
 			cat_cols_used.extend(cols)
-	assert "device_id" not in cat_cols_used
+	assert "terminal_id" not in cat_cols_used
 	assert "category" in cat_cols_used
 
 
@@ -290,8 +290,8 @@ def test_existing_mapped_artifact_remains_valid_after_metadata_change():
 	repo = _InMemorySystemMetadataRepository()
 	meta_service = SystemMetadataService(repo)
 	device_col = meta_service.create_column(
-		column_key="device_id",
-		display_name="Mã thiết bị",
+		column_key="terminal_id",
+		display_name="Mã thiết bị đầu cuối",
 		logical_type=LogicalDataType.STRING,
 		is_required=True,
 		ml_role=ColumnMlRole.IDENTIFIER,
@@ -323,15 +323,15 @@ def test_existing_mapped_artifact_remains_valid_after_metadata_change():
 			amount_column="amt",
 			user_id_column="acct",
 			target_column="is_fraud",
-			optional_columns={"dev_hash": "device_id"},
+			optional_columns={"dev_hash": "terminal_id"},
 		),
 	)
 	old_mapped_path = old_mapped_art.output_paths["mapped"]
 	old_mapped_bytes = storage.read_bytes(old_mapped_path)
 
-	# Admin now adds required 'channel' and deactivates 'device_id'
+	# Admin now adds required 'acquisition_channel' and deactivates 'terminal_id'
 	meta_service.create_column(
-		column_key="channel",
+		column_key="acquisition_channel",
 		display_name="Kênh giao dịch",
 		logical_type=LogicalDataType.STRING,
 		is_required=True,
@@ -347,14 +347,14 @@ def test_existing_mapped_artifact_remains_valid_after_metadata_change():
 		config=FeatureEngineeringConfig(split=SplitConfig(test_size=0.2)),
 	)
 	assert fe_art.validation_status == ValidationStatus.PASSED
-	assert "device_id" in (fe_art.validation_report or {}).get("non_ml_columns", [])
+	assert "terminal_id" in (fe_art.validation_report or {}).get("non_ml_columns", [])
 
 	prep_service = PreprocessingExecutionService(file_storage=storage)
 	prep_art = prep_service.execute(parent_artifact=fe_art, config=PreprocessingConfig())
 	assert prep_art.validation_status == ValidationStatus.PASSED
-	assert "device_id" in (prep_art.validation_report or {}).get("dropped_identifier_columns", [])
+	assert "terminal_id" in (prep_art.validation_report or {}).get("dropped_identifier_columns", [])
 
-	# Re-mapping creates a new immutable path with 'channel' and does NOT overwrite old mapped.parquet
+	# Re-mapping creates a new immutable path with 'acquisition_channel' and does NOT overwrite old mapped.parquet
 	new_mapped_art = mapping_service.map_dataset(
 		dataset_id,
 		raw_art,
@@ -364,7 +364,7 @@ def test_existing_mapped_artifact_remains_valid_after_metadata_change():
 			amount_column="amt",
 			user_id_column="acct",
 			target_column="is_fraud",
-			optional_columns={"channel_raw": "channel"},
+			optional_columns={"channel_raw": "acquisition_channel"},
 		),
 	)
 	assert new_mapped_art.output_paths["mapped"] != old_mapped_path

@@ -180,3 +180,55 @@ class ColumnMlRole(StrEnum):
     IDENTIFIER = "IDENTIFIER"
     TIMESTAMP = "TIMESTAMP"
     LABEL = "LABEL"
+
+
+class FeatureMegafamily(StrEnum):
+    """Fraud domain megafamilies organizing all built-in and custom features."""
+    ORDERS = "ORDERS"
+    MONETARY = "MONETARY"
+    IDENTITY = "IDENTITY"
+    PAYMENT = "PAYMENT"
+    LOCATIONS = "LOCATIONS"
+    NETWORK = "NETWORK"
+
+
+class FeatureComputeKind(StrEnum):
+    """Execution tier/engine for a feature definition stored in DB."""
+    VELOCITY = "VELOCITY"
+    EXPRESSION = "EXPRESSION"
+    TARGET_RATE = "TARGET_RATE"
+    PYTHON_CODE = "PYTHON_CODE"
+
+
+class FeatureStatus(StrEnum):
+    """Lifecycle status of a feature definition."""
+    ACTIVE = "ACTIVE"
+    DRAFT = "DRAFT"
+    ARCHIVED = "ARCHIVED"
+
+
+class SemanticColumnType(StrEnum):
+    """Optional semantic column types used to bind raw/optional columns to Domain features."""
+    EVENT_ID = "EVENT_ID"
+    TIMESTAMP = "TIMESTAMP"
+    AMOUNT = "AMOUNT"
+    USER_ID = "USER_ID"
+    LABEL = "LABEL"
+    MERCHANT = "MERCHANT"
+    CATEGORY = "CATEGORY"
+    DEVICE_ID = "DEVICE_ID"
+    IP_ADDRESS = "IP_ADDRESS"
+    EMAIL = "EMAIL"
+    PHONE_NUMBER = "PHONE_NUMBER"
+    CARD_ID = "CARD_ID"
+    CARD_BIN = "CARD_BIN"
+    COUNTRY = "COUNTRY"
+    BIN_COUNTRY = "BIN_COUNTRY"
+    CURRENCY = "CURRENCY"
+    CHANNEL = "CHANNEL"
+    LAT = "LAT"
+    LONG = "LONG"
+    MERCH_LAT = "MERCH_LAT"
+    MERCH_LONG = "MERCH_LONG"
+    BILLING_ZIP = "BILLING_ZIP"
+    USER_AGENT = "USER_AGENT"

@@ -22,13 +22,15 @@ import type {
 	RuleVersionResponse,
 } from '../../../types/rule';
 import {
-	buildAvailableFieldsFromRawSchema,
+	buildAvailableFieldsWithEnrichedFeatures,
 	createDefaultRuleGroupForSchema,
 	groupToJsonLogic,
+	isRuleGroup,
 	jsonLogicToGroup,
 } from '../../../utils/jsonLogicParser';
 import { ruleApi } from '../../../api/ruleApi';
 import { useProject } from '../../../hooks/useProjects';
+import { useFeatureCatalog } from '@/hooks/useFeatures';
 import { useActorContext } from '@/hooks/useActorContext';
 import type { RuleDraft } from '../../../types/investigation';
 
@@ -47,9 +49,10 @@ export const RuleWorkspace: React.FC = () => {
 	const { features, canAccessRecord } = useActorContext(currentProjectId);
 	const isNew = !ruleId || ruleId === 'new';
 	const isSchemaLocked = Boolean(currentProject?.is_schema_locked);
+	const { data: projectFeatures = [] } = useFeatureCatalog(effectiveProjectId, { include_builtin: true });
 	const availableFields = useMemo(
-		() => buildAvailableFieldsFromRawSchema(currentProject?.raw_schema),
-		[currentProject?.raw_schema]
+		() => buildAvailableFieldsWithEnrichedFeatures(currentProject?.raw_schema, projectFeatures),
+		[currentProject?.raw_schema, projectFeatures]
 	);
 
 	const [currentRule, setCurrentRule] = useState<RuleResponse | null>(null);
@@ -65,6 +68,24 @@ export const RuleWorkspace: React.FC = () => {
 	const [conditionGroup, setConditionGroup] = useState<RuleGroup>(() =>
 		createDefaultRuleGroupForSchema(currentProject?.raw_schema)
 	);
+
+	const labelRequiredFieldsInRule = useMemo(() => {
+		const labelKeys = new Set(
+			availableFields.filter((f) => f.requiresLabel).map((f) => f.key)
+		);
+		const used = new Set<string>();
+		const walk = (group: RuleGroup) => {
+			for (const item of group.clauses) {
+				if (isRuleGroup(item)) {
+					walk(item);
+				} else if (labelKeys.has(item.field)) {
+					used.add(item.field);
+				}
+			}
+		};
+		walk(conditionGroup);
+		return Array.from(used);
+	}, [availableFields, conditionGroup]);
 
 	const [loading, setLoading] = useState<boolean>(false);
 	const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -389,6 +410,13 @@ export const RuleWorkspace: React.FC = () => {
 
 			{/* 3. Workspace Body */}
 			<div className="flex-1 flex flex-col overflow-hidden">
+				{stepId === 'step-builder' && labelRequiredFieldsInRule.length > 0 && (
+					<div className="mx-6 mt-4 rounded-xl border border-amber-500/40 bg-amber-950/30 px-4 py-2.5 text-xs text-amber-200">
+						Cảnh báo: Quy tắc đang tham chiếu đặc trưng phụ thuộc nhãn (
+						<span className="font-mono">{labelRequiredFieldsInRule.join(', ')}</span>
+						). Khi chạy chế độ chỉ dùng luật (Rule-only) trên dữ liệu chưa có nhãn, các đặc trưng này sẽ trả về null.
+					</div>
+				)}
 				{loading ? (
 					<div className="flex-1 flex items-center justify-center text-slate-400 text-xs gap-2 font-mono">
 						<Loader2 className="w-4 h-4 animate-spin text-brand-400" />

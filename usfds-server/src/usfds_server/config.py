@@ -124,6 +124,33 @@ class Settings(BaseModel):
         default_factory=lambda: int(os.getenv("USFDS_GRAPH_SUPER_NODE_DEGREE", "50")),
         description="Distinct user degree threshold above which a secondary entity is flagged as a super-node",
     )
+    feature_duckdb_memory_mb: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_FEATURE_DUCKDB_MEMORY_MB", "512")),
+        description="Memory cap in MB for DuckDB feature compiler execution",
+    )
+    feature_history_tail_rows: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_FEATURE_HISTORY_TAIL_ROWS", "200000")),
+        description="Max historical rows retained in CompiledFeaturePipeline for causal rolling parity",
+    )
+    feature_preview_max_rows: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_FEATURE_PREVIEW_MAX_ROWS", "200")),
+        description="Max rows sampled when previewing a feature",
+    )
+    feature_script_timeout_seconds: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_FEATURE_SCRIPT_TIMEOUT_SECONDS", "60")),
+        description="Subprocess timeout in seconds for batched PYTHON_CODE features",
+    )
+    feature_script_max_bytes: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_FEATURE_SCRIPT_MAX_BYTES", "65536")),
+        description="Maximum UTF-8 byte length for PYTHON_CODE feature source_code",
+    )
+    feature_allowed_imports: str = Field(
+        default_factory=lambda: os.getenv(
+            "USFDS_FEATURE_ALLOWED_IMPORTS",
+            "math,re,ipaddress,hashlib,datetime,collections,itertools,functools,statistics,json,numpy,pandas",
+        ),
+        description="Comma-separated Python module allowlist for PYTHON_CODE features",
+    )
 
 
 settings = Settings()

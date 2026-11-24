@@ -30,6 +30,7 @@ from usfds_server.routers import (
 	auth_router,
 	dataset_router,
 	detection_router,
+	feature_router,
 	insight_report_router,
 	project_router,
 	rbac_router,
@@ -161,6 +162,8 @@ app.include_router(detection_router)
 app.include_router(insight_report_router)
 app.include_router(storage_router)
 app.include_router(system_metadata_router.router)
+app.include_router(feature_router.router)
+app.include_router(feature_router.feature_set_router)
 
 
 @app.get("/health", tags=["System"])

@@ -1,6 +1,7 @@
 import type { ElementType } from 'react';
 import {
   Database,
+  Sparkles,
   BrainCircuit,
   ShieldCheck,
   Terminal,
@@ -44,6 +45,12 @@ export const Sidebar = ({
       label: 'Quản lý dữ liệu',
       subLabel: 'Tập dữ liệu & nguồn gốc',
       icon: Database,
+    },
+    {
+      id: 'feature-management',
+      label: 'Quản lý đặc trưng',
+      subLabel: 'Kho & trình tạo đặc trưng',
+      icon: Sparkles,
     },
     {
       id: 'model-management',

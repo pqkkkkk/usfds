@@ -276,6 +276,8 @@ export const DataPipelineWorkspace = () => {
             {/* Step 4: Feature Engineering */}
             {stepId === 'step-feature-eng' && (
               <FeatureEngineeringWorkspace
+                projectId={currentProjectId || ''}
+                datasetId={datasetId}
                 mappedArtifact={activeMappedArtifact}
                 feArtifact={activeFeArtifact}
                 onConfigChange={setFeConfig}

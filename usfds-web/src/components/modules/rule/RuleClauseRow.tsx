@@ -20,6 +20,8 @@ export const RuleClauseRow: React.FC<RuleClauseRowProps> = ({
 }) => {
   const [customTagInput, setCustomTagInput] = useState('');
   const fieldsList = availableFields.length > 0 ? availableFields : AVAILABLE_FEATURE_FIELDS;
+  const rawFields = fieldsList.filter((f) => f.sourceKind !== 'enriched');
+  const enrichedFields = fieldsList.filter((f) => f.sourceKind === 'enriched');
   const currentFieldMeta = fieldsList.find((f) => f.key === clause.field);
   const hasCurrentFieldInList = Boolean(currentFieldMeta);
 
@@ -72,13 +74,40 @@ export const RuleClauseRow: React.FC<RuleClauseRowProps> = ({
             {!hasCurrentFieldInList && clause.field && (
               <option value={clause.field}>{clause.field} (custom)</option>
             )}
-            {fieldsList.map((f) => (
-              <option key={f.key} value={f.key}>
-                {f.label}
-              </option>
-            ))}
+            {enrichedFields.length > 0 ? (
+              <>
+                <optgroup label="Cột dữ liệu nguồn">
+                  {rawFields.map((f) => (
+                    <option key={f.key} value={f.key}>
+                      {f.label}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Đặc trưng làm giàu (enriched.*)">
+                  {enrichedFields.map((f) => (
+                    <option key={f.key} value={f.key}>
+                      {f.label}
+                    </option>
+                  ))}
+                </optgroup>
+              </>
+            ) : (
+              fieldsList.map((f) => (
+                <option key={f.key} value={f.key}>
+                  {f.label}
+                </option>
+              ))
+            )}
           </select>
         </div>
+        {currentFieldMeta?.requiresLabel && (
+          <span
+            className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-[10px] text-amber-300 font-mono shrink-0"
+            title="Đặc trưng này cần cột nhãn khi fit nên chỉ có giá trị khi đi kèm model hoặc tập dữ liệu có nhãn."
+          >
+            Cần nhãn
+          </span>
+        )}
 
         {/* Operator selector */}
         <div className="relative w-24 shrink-0">

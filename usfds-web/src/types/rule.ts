@@ -164,6 +164,7 @@ export interface RuleBacktestResultResponse {
 	execution_time_ms: number;
 	avg_execution_time_ms: number;
 	sample_hits: RuleBacktestSampleHit[];
+	feature_warnings?: string[];
 }
 
 export interface AvailableFeatureField {
@@ -174,4 +175,6 @@ export interface AvailableFeatureField {
   unit?: string;
   defaultOperator: ComparisonOperator;
   sampleValues?: any[];
+  sourceKind?: 'raw' | 'enriched';
+  requiresLabel?: boolean;
 }

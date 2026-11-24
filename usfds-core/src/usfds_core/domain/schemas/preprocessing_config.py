@@ -164,6 +164,10 @@ class DataMappingConfig(BaseModel):
         default_factory=dict,
         description="Mapping of optional domain columns {raw_col_name: target_col_name}. Unmapped columns are dropped."
     )
+    column_semantic_types: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional semantic type hints {mapped_column_name: SemanticColumnType} for Feature Management compatibility."
+    )
     time_format: Union[SupportedTimeFormat, str] = Field(
         default=SupportedTimeFormat.AUTO,
         description="Expected datetime format hint ('auto', 'epoch_s', 'epoch_ms', 'iso', or custom format)"
@@ -209,6 +213,28 @@ class FeatureEngineeringConfig(BaseModel):
     enable_velocity_features: bool = False
     velocity_windows: List[int] = Field(default_factory=lambda: [1, 24, 168])
 
+    # 4. Dynamic Feature Management Selection (ISS-040)
+    feature_set_ids: List[str] = Field(
+        default_factory=list,
+        description="List of FeatureSet UUID strings selected from the Feature Registry.",
+    )
+    feature_set_id: Optional[str] = Field(
+        default=None,
+        description="Single FeatureSet UUID alias (backward compatibility; merged into feature_set_ids).",
+    )
+    feature_ids: List[str] = Field(
+        default_factory=list,
+        description="List of individual Feature UUID strings selected in addition to or without a FeatureSet.",
+    )
+    feature_definitions: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Resolved feature definitions (topologically complete) populated for stateless execution.",
+    )
+    strict_feature_compatibility: bool = Field(
+        default=False,
+        description="When True, fail FE if any selected feature has missing inputs or dependencies.",
+    )
+
     @property
     def customer_id_col(self) -> Optional[str]:
         """Backward-compatible property for customer_id_col."""
@@ -218,6 +244,10 @@ class FeatureEngineeringConfig(BaseModel):
         extra = getattr(self, "__pydantic_extra__", None) or {}
         if "customer_id_col" in extra and extra["customer_id_col"]:
             self.user_id_col = extra["customer_id_col"]
+        if self.feature_set_id:
+            fs_str = str(self.feature_set_id)
+            if fs_str not in self.feature_set_ids:
+                self.feature_set_ids = [fs_str, *self.feature_set_ids]
 
 
 class TransformationConfig(BaseModel):

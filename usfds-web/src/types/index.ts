@@ -7,3 +7,4 @@ export * from './navigation';
 export * from './metrics';
 export * from './project';
 export * from './insightReport';
+export * from './feature';

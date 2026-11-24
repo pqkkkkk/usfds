@@ -38,6 +38,8 @@ from usfds_core.services.training.plugins.register import ModelPluginRegistratio
 from usfds_core.services.training.training_service import TrainingOrchestrationService
 from usfds_core.storage.base_storage import IFileStorage
 from usfds_infra.database import (
+	SqlFeatureRepository,
+	SqlFeatureSetRepository,
 	SqlSystemColumnMetadataRepository,
 	SqliteDatasetArtifactRepository,
 	SqliteDatasetRepository,
@@ -79,6 +81,8 @@ def _build_data_management_service(session: Session, storage: IFileStorage) -> D
 		project_repo=project_repo,
 		project_service=project_service,
 		metadata_repo=SqlSystemColumnMetadataRepository(session),
+		feature_repo=SqlFeatureRepository(session),
+		feature_set_repo=SqlFeatureSetRepository(session),
 	)
 
 
@@ -169,8 +173,10 @@ def handle_batch_inference(ctx: WorkerContext, data: Dict[str, Any]) -> None:
 				rule_repo=SqliteRuleRepository(session),
 				version_repo=SqliteRuleVersionRepository(session),
 				project_repo=SqliteProjectRepository(session),
+				feature_repo=SqlFeatureRepository(session),
 			),
 			case_repo=SqliteCaseRepository(session),
+			feature_repo=SqlFeatureRepository(session),
 		)
 		executor = BatchInferenceExecutor(
 			file_storage=ctx.storage,
@@ -349,6 +355,7 @@ def handle_rule_backtest(ctx: WorkerContext, data: Dict[str, Any]) -> Dict[str, 
 			target_column=data.get("target_column"),
 			amount_column=data.get("amount_column"),
 			max_samples=int(data.get("max_samples", 50)),
+			feature_definitions=data.get("feature_definitions"),
 		)
 		res_dict = asdict(bt_result)
 		res_dict["action"] = str(bt_result.action.value if hasattr(bt_result.action, "value") else bt_result.action)

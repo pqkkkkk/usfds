@@ -12,6 +12,9 @@ import {
 	Flame,
 	Layers,
 	Database,
+	Search,
+	CheckSquare,
+	X,
 } from 'lucide-react';
 import { useSystemMetadata } from '@/hooks/useSystemMetadata';
 import type {
@@ -19,6 +22,18 @@ import type {
 	DataMappingConfig,
 } from '../../../types/dataset';
 import type { SystemColumnMetadata } from '@/types/systemMetadata';
+
+type BulkLogicalFilter = 'ALL' | 'NUMERIC' | 'STRING' | 'DATETIME' | 'BOOLEAN';
+
+function inferLogicalTypeFromSnapshot(dtype?: string): 'NUMERIC' | 'STRING' | 'DATETIME' | 'BOOLEAN' {
+	const raw = String(dtype || '').toLowerCase();
+	if (raw.includes('bool')) return 'BOOLEAN';
+	if (raw.includes('date') || raw.includes('time')) return 'DATETIME';
+	if (raw.includes('int') || raw.includes('float') || raw.includes('double') || raw.includes('decimal') || raw.includes('num')) {
+		return 'NUMERIC';
+	}
+	return 'STRING';
+}
 
 interface SchemaMappingWorkspaceProps {
 	rawArtifact: DatasetArtifactResponse | null;
@@ -278,6 +293,11 @@ export const SchemaMappingWorkspace = ({
 	const [targetCol, setTargetCol] = useState<string>('');
 	const [requiredDomainMap, setRequiredDomainMap] = useState<Record<string, string>>({});
 	const [optionalMappings, setOptionalMappings] = useState<Array<{ raw: string; target: string }>>([]);
+	const [columnSemanticTypes, setColumnSemanticTypes] = useState<Record<string, string>>({});
+	const [isBulkPickerOpen, setIsBulkPickerOpen] = useState(false);
+	const [bulkSearch, setBulkSearch] = useState('');
+	const [bulkTypeFilter, setBulkTypeFilter] = useState<BulkLogicalFilter>('ALL');
+	const [bulkSelectedCols, setBulkSelectedCols] = useState<string[]>([]);
 
 	const metadataSignature = useMemo(
 		() =>
@@ -358,6 +378,73 @@ export const SchemaMappingWorkspace = ({
 	const mandatoryCount = coreSatisfiedCount + requiredDomainSatisfiedCount;
 	const isAllMandatorySatisfied = mandatoryCount === totalMandatorySlots;
 
+	const coreAndRequiredRawSet = useMemo(() => {
+		const s = new Set<string>();
+		[eventIdCol, timeCol, amountCol, userIdCol, targetCol, ...Object.values(requiredDomainMap)].forEach((v) => {
+			if (v) s.add(v);
+		});
+		return s;
+	}, [eventIdCol, timeCol, amountCol, userIdCol, targetCol, requiredDomainMap]);
+
+	const keptSourceColumnsCount = useMemo(() => {
+		const s = new Set<string>(coreAndRequiredRawSet);
+		optionalMappings.forEach((m) => {
+			if (m.raw) s.add(m.raw);
+		});
+		return s.size;
+	}, [coreAndRequiredRawSet, optionalMappings]);
+
+	const bulkCandidateColumns = useMemo(() => {
+		const q = bulkSearch.trim().toLowerCase();
+		return rawColumns
+			.filter((col) => !coreAndRequiredRawSet.has(col))
+			.filter((col) => {
+				if (q && !col.toLowerCase().includes(q)) return false;
+				if (bulkTypeFilter !== 'ALL') {
+					const inferred = inferLogicalTypeFromSnapshot(rawArtifact?.schema_snapshot?.[col]);
+					if (inferred !== bulkTypeFilter) return false;
+				}
+				return true;
+			});
+	}, [rawColumns, coreAndRequiredRawSet, bulkSearch, bulkTypeFilter, rawArtifact?.schema_snapshot]);
+
+	const handleOpenBulkPicker = () => {
+		setBulkSelectedCols(optionalMappings.map((m) => m.raw).filter(Boolean));
+		setBulkSearch('');
+		setBulkTypeFilter('ALL');
+		setIsBulkPickerOpen(true);
+	};
+
+	const handleSelectAllFilteredBulk = () => {
+		const next = new Set(bulkSelectedCols);
+		bulkCandidateColumns.forEach((c) => next.add(c));
+		setBulkSelectedCols(Array.from(next));
+	};
+
+	const handleClearFilteredBulk = () => {
+		const filteredSet = new Set(bulkCandidateColumns);
+		setBulkSelectedCols((prev) => prev.filter((c) => !filteredSet.has(c)));
+	};
+
+	const handleApplyBulkPicker = () => {
+		const selectedSet = new Set(bulkSelectedCols);
+		const existingByRaw = new Map<string, string>();
+		optionalMappings.forEach((m) => {
+			if (m.raw) existingByRaw.set(m.raw, m.target || m.raw);
+		});
+		const nextOptional: Array<{ raw: string; target: string }> = [];
+		rawColumns.forEach((col) => {
+			if (!coreAndRequiredRawSet.has(col) && selectedSet.has(col)) {
+				nextOptional.push({
+					raw: col,
+					target: existingByRaw.get(col) || col,
+				});
+			}
+		});
+		setOptionalMappings(nextOptional);
+		setIsBulkPickerOpen(false);
+	};
+
 	const handleAddOptional = () => {
 		const usedRaw = new Set<string>([
 			eventIdCol,
@@ -413,6 +500,7 @@ export const SchemaMappingWorkspace = ({
 			user_id_column: userIdCol,
 			target_column: targetCol,
 			optional_columns: optionalObj,
+			...(Object.keys(columnSemanticTypes).length > 0 ? { column_semantic_types: columnSemanticTypes } : {}),
 			time_format: timeFormat,
 		};
 
@@ -426,6 +514,7 @@ export const SchemaMappingWorkspace = ({
 		requiredDomainColumns,
 		requiredDomainMap,
 		optionalMappings,
+		columnSemanticTypes,
 		timeFormat,
 		isAllMandatorySatisfied,
 	]);
@@ -504,7 +593,10 @@ export const SchemaMappingWorkspace = ({
 								</span>
 							</h2>
 						</div>
-						<div className="flex items-center gap-3">
+						<div className="flex flex-wrap items-center gap-2.5">
+							<div className="px-2.5 py-1 rounded-full text-[11px] font-mono font-medium border bg-brand-500/10 text-brand-300 border-brand-500/30">
+								Giữ {keptSourceColumnsCount} / {rawColumns.length} cột nguồn
+							</div>
 							<div
 								className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-medium border flex items-center gap-1.5 ${
 									isAllMandatorySatisfied
@@ -519,6 +611,14 @@ export const SchemaMappingWorkspace = ({
 							</div>
 							<button
 								type="button"
+								onClick={handleOpenBulkPicker}
+								className="px-3 py-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 border border-brand-500/40 text-xs font-medium transition flex items-center gap-1.5"
+							>
+								<CheckSquare className="w-3.5 h-3.5" />
+								<span>Chọn nhiều cột tùy chọn</span>
+							</button>
+							<button
+								type="button"
 								onClick={handleAddOptional}
 								className="px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-750 text-slate-300 border border-dark-700 text-xs font-medium transition flex items-center gap-1.5"
 							>
@@ -527,6 +627,136 @@ export const SchemaMappingWorkspace = ({
 							</button>
 						</div>
 					</div>
+
+					{isBulkPickerOpen && (
+						<div className="p-4 rounded-xl bg-dark-950 border border-brand-500/30 space-y-3">
+							<div className="flex items-center justify-between gap-2">
+								<div>
+									<h3 className="text-xs font-semibold text-slate-100">
+										Chọn hàng loạt cột tùy chọn (Bulk Column Picker)
+									</h3>
+									<p className="text-[11px] text-slate-400">
+										Tìm theo tên hoặc kiểu dữ liệu để giữ nguyên nhanh nhiều cột nguồn (vd: V1..V28).
+									</p>
+								</div>
+								<button
+									type="button"
+									onClick={() => setIsBulkPickerOpen(false)}
+									className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-dark-800"
+								>
+									<X className="w-4 h-4" />
+								</button>
+							</div>
+
+							<div className="flex flex-wrap items-center gap-2">
+								<div className="relative flex-1 min-w-[180px]">
+									<Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+									<input
+										type="text"
+										value={bulkSearch}
+										onChange={(e) => setBulkSearch(e.target.value)}
+										placeholder="Tìm tên cột..."
+										className="w-full bg-dark-900 border border-dark-700 rounded-lg pl-8 pr-3 py-1.5 text-xs font-mono text-slate-200"
+									/>
+								</div>
+								<select
+									value={bulkTypeFilter}
+									onChange={(e) => setBulkTypeFilter(e.target.value as BulkLogicalFilter)}
+									aria-label="Lọc kiểu dữ liệu cột"
+									className="bg-dark-900 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200"
+								>
+									<option value="ALL">Tất cả kiểu</option>
+									<option value="NUMERIC">NUMERIC</option>
+									<option value="STRING">STRING</option>
+									<option value="DATETIME">DATETIME</option>
+									<option value="BOOLEAN">BOOLEAN</option>
+								</select>
+								<button
+									type="button"
+									onClick={handleSelectAllFilteredBulk}
+									className="px-2.5 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs text-slate-200"
+								>
+									Chọn tất cả kết quả lọc
+								</button>
+								<button
+									type="button"
+									onClick={handleClearFilteredBulk}
+									className="px-2.5 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-700 text-xs text-slate-400"
+								>
+									Bỏ chọn
+								</button>
+							</div>
+
+							<div className="max-h-48 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 p-2 rounded-lg bg-dark-900 border border-dark-800">
+								{bulkCandidateColumns.map((col) => {
+									const checked = bulkSelectedCols.includes(col);
+									const dtype = rawArtifact?.schema_snapshot?.[col] || 'auto';
+									return (
+										<div
+											key={col}
+											className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-dark-950/80 border border-dark-800 text-xs"
+										>
+											<label className="flex items-center gap-2 cursor-pointer min-w-0 flex-1">
+												<input
+													type="checkbox"
+													checked={checked}
+													onChange={() =>
+														setBulkSelectedCols((prev) =>
+															prev.includes(col)
+																? prev.filter((item) => item !== col)
+																: [...prev, col]
+														)
+													}
+												/>
+												<span className="font-mono text-slate-200 truncate">{col}</span>
+											</label>
+											<div className="flex items-center gap-1.5 shrink-0">
+												<span className="text-[10px] font-mono text-slate-500">{dtype}</span>
+												<select
+													aria-label={`Ngữ nghĩa ${col}`}
+													value={columnSemanticTypes[col] || 'AUTO'}
+													onChange={(e) => {
+														const val = e.target.value;
+														setColumnSemanticTypes((prev) => {
+															const next = { ...prev };
+															if (val === 'AUTO') {
+																delete next[col];
+															} else {
+																next[col] = val;
+															}
+															return next;
+														});
+													}}
+													className="bg-dark-900 border border-dark-700 rounded px-1 py-0.5 text-[10px] text-slate-300"
+												>
+													<option value="AUTO">AUTO</option>
+													<option value="IP_ADDRESS">IP_ADDRESS</option>
+													<option value="EMAIL">EMAIL</option>
+													<option value="PHONE">PHONE</option>
+													<option value="CARD_BIN">CARD_BIN</option>
+													<option value="COUNTRY_CODE">COUNTRY_CODE</option>
+													<option value="DEVICE_ID">DEVICE_ID</option>
+												</select>
+											</div>
+										</div>
+									);
+								})}
+							</div>
+
+							<div className="flex items-center justify-between pt-1">
+								<span className="text-[11px] font-mono text-slate-400">
+									Đã chọn {bulkSelectedCols.length} cột tùy chọn
+								</span>
+								<button
+									type="button"
+									onClick={handleApplyBulkPicker}
+									className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs font-semibold text-white"
+								>
+									Áp dụng lựa chọn
+								</button>
+							</div>
+						</div>
+					)}
 
 					{/* Unified Table */}
 					<div className="border border-dark-800 rounded-xl overflow-hidden bg-dark-950/70">

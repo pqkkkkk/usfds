@@ -4,6 +4,7 @@ import { Topbar, Sidebar, OmnisearchModal } from '@/components';
 import { FeatureRouteGuard } from '@/components/layout/FeatureRouteGuard';
 import {
 	DataManagementPage,
+	FeatureManagementPage,
 	ModelTrainingPage,
 	RuleEnginePage,
 	DetectionJobPage,
@@ -22,6 +23,7 @@ import type { AppModule } from '@/types';
 
 const MODULE_ROUTE_MAP: Record<AppModule, string> = {
 	'data-management': '/datasets',
+	'feature-management': '/features',
 	'model-management': '/models',
 	'rule-management': '/rules',
 	'detection': '/detection',
@@ -54,6 +56,9 @@ function WorkspaceShell() {
 
 	const activeModule: AppModule = useMemo(() => {
 		const path = location.pathname;
+		if (path.startsWith('/features')) {
+			return 'feature-management';
+		}
 		if (path.startsWith('/models')) {
 			return 'model-management';
 		}
@@ -122,6 +127,14 @@ function WorkspaceShell() {
 							element={
 								<FeatureRouteGuard feature="dataManagement" projectId={pid} fallbackPath={defaultRoute}>
 									<DataManagementPage />
+								</FeatureRouteGuard>
+							}
+						/>
+						<Route
+							path="/features/*"
+							element={
+								<FeatureRouteGuard feature="featureManagement" projectId={pid} fallbackPath={defaultRoute}>
+									<FeatureManagementPage />
 								</FeatureRouteGuard>
 							}
 						/>

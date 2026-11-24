@@ -60,8 +60,8 @@ def test_system_metadata_crud_api_and_rbac_enforcement(server_settings, monkeypa
 		forbidden_res = test_client.post(
 			"/api/v1/system-metadata/columns",
 			json={
-				"column_key": "device_id",
-				"display_name": "Mã thiết bị",
+				"column_key": "terminal_id",
+				"display_name": "Mã thiết bị đầu cuối",
 				"logical_type": "STRING",
 				"is_required": True,
 				"ml_role": "IDENTIFIER",
@@ -75,8 +75,8 @@ def test_system_metadata_crud_api_and_rbac_enforcement(server_settings, monkeypa
 		create_res = test_client.post(
 			"/api/v1/system-metadata/columns",
 			json={
-				"column_key": "device_id",
-				"display_name": "Mã thiết bị",
+				"column_key": "terminal_id",
+				"display_name": "Mã thiết bị đầu cuối",
 				"logical_type": "STRING",
 				"is_required": True,
 				"ml_role": "IDENTIFIER",
@@ -87,9 +87,9 @@ def test_system_metadata_crud_api_and_rbac_enforcement(server_settings, monkeypa
 		)
 		assert create_res.status_code == 201, create_res.text
 		created = create_res.json()["data"]
-		assert created["column_key"] == "device_id"
+		assert created["column_key"] == "terminal_id"
 		assert created["category"] == "DOMAIN"
-		assert "device_id" in created["aliases"]
+		assert "terminal_id" in created["aliases"]
 		assert "dev_hash" in created["aliases"]
 
 		# 4. system_admin updates the DOMAIN column -> 200
@@ -124,12 +124,12 @@ def test_system_metadata_crud_api_and_rbac_enforcement(server_settings, monkeypa
 
 def test_schema_mapping_endpoint_enforces_required_domain_column(client, server_settings):
 	"""ISS-007: POST /api/v1/datasets/{id}/schema-mapping enforces dynamically created required DOMAIN columns."""
-	# 1. Create required DOMAIN column 'channel' via API
+	# 1. Create required DOMAIN column 'acquisition_channel' via API
 	create_col_res = client.post(
 		"/api/v1/system-metadata/columns",
 		json={
-			"column_key": "channel",
-			"display_name": "Kênh giao dịch",
+			"column_key": "acquisition_channel",
+			"display_name": "Kênh thu thập giao dịch",
 			"logical_type": "STRING",
 			"is_required": True,
 			"ml_role": "FEATURE",
@@ -176,7 +176,7 @@ def test_schema_mapping_endpoint_enforces_required_domain_column(client, server_
 	assert import_res.status_code == 201, import_res.text
 	dataset_id = import_res.json()["data"]["dataset"]["dataset_id"]
 
-	# 3. Call schema-mapping WITHOUT 'channel' -> 400 Bad Request
+	# 3. Call schema-mapping WITHOUT 'acquisition_channel' -> 400 Bad Request
 	bad_map_res = client.post(
 		f"/api/v1/datasets/{dataset_id}/schema-mapping",
 		json={
@@ -190,9 +190,9 @@ def test_schema_mapping_endpoint_enforces_required_domain_column(client, server_
 		},
 	)
 	assert bad_map_res.status_code == 400
-	assert "channel" in bad_map_res.text
+	assert "acquisition_channel" in bad_map_res.text
 
-	# 4. Call schema-mapping WITH 'channel' -> 201 Created and 'channel' in schema_snapshot
+	# 4. Call schema-mapping WITH 'acquisition_channel' -> 201 Created and 'acquisition_channel' in schema_snapshot
 	ok_map_res = client.post(
 		f"/api/v1/datasets/{dataset_id}/schema-mapping",
 		json={
@@ -201,11 +201,11 @@ def test_schema_mapping_endpoint_enforces_required_domain_column(client, server_
 			"amount_column": "amt",
 			"user_id_column": "acct",
 			"target_column": "is_fraud",
-			"optional_columns": {"tx_channel": "channel"},
+			"optional_columns": {"tx_channel": "acquisition_channel"},
 			"time_format": "auto",
 		},
 	)
 	assert ok_map_res.status_code == 201, ok_map_res.text
 	art = ok_map_res.json()["data"]
-	assert "channel" in art["schema_snapshot"]
+	assert "acquisition_channel" in art["schema_snapshot"]
 	assert art["pipeline_stage"] == "MAPPED"

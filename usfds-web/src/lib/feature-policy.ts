@@ -44,6 +44,7 @@ export const ACTOR_FEATURE = {
 
 	// Workspace sidebar modules
 	dataManagement: { permission: 'dataset', path: '/datasets', scope: 'project', moduleId: 'data-management' },
+	featureManagement: { permission: 'feature:read', path: '/features', scope: 'project', moduleId: 'feature-management' },
 	modelManagement: { permission: ['model:read', 'training:read'], path: '/models', scope: 'project', moduleId: 'model-management' },
 	ruleManagement: { permission: 'rule:read', path: '/rules', scope: 'project', moduleId: 'rule-management' },
 	detection: { permission: 'detection:read', path: '/detection', scope: 'project', moduleId: 'detection' },
@@ -57,6 +58,11 @@ export const ACTOR_FEATURE = {
 	resetProjectSchema: { permission: 'project:reset_schema', path: '/settings', scope: 'project' },
 	viewProjectMembers: { permission: ['project_member:read', 'project_member:manage'], path: '/settings', scope: 'project' },
 	manageProjectMembers: { permission: 'project_member:manage', path: '/settings', scope: 'project' },
+
+	// Feature Management actions
+	createFeature: { permission: 'feature:create', path: '/features', scope: 'project' },
+	updateFeature: { permission: 'feature:update', path: '/features', scope: 'project' },
+	deleteFeature: { permission: 'feature:delete', path: '/features', scope: 'project' },
 
 	// Data management actions
 	createDataset: { permission: 'dataset:create', path: '/datasets', scope: 'project' },
@@ -99,6 +105,7 @@ export type ActorFeatureKey = keyof typeof ACTOR_FEATURE;
 
 export const MODULE_FEATURE_MAP: Record<AppModule, ActorFeatureKey> = {
 	'data-management': 'dataManagement',
+	'feature-management': 'featureManagement',
 	'model-management': 'modelManagement',
 	'rule-management': 'ruleManagement',
 	'detection': 'detection',
@@ -109,6 +116,7 @@ export const MODULE_FEATURE_MAP: Record<AppModule, ActorFeatureKey> = {
 
 const ORDERED_MODULES: readonly AppModule[] = [
 	'data-management',
+	'feature-management',
 	'model-management',
 	'rule-management',
 	'detection',

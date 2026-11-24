@@ -120,8 +120,56 @@ export function buildAvailableFieldsFromRawSchema(
 			dataType: isNumeric ? 'number' : isBoolean ? 'boolean' : 'string',
 			defaultOperator: isNumeric ? '>' : '==',
 			sampleValues: isBoolean ? [true, false] : isNumeric ? [100, 500, 2000] : undefined,
+			sourceKind: 'raw',
 		};
 	});
+}
+
+export interface FeatureFieldDescriptor {
+	feature_key: string;
+	display_name: string;
+	output_type: 'NUMERIC' | 'STRING' | 'BOOLEAN' | string;
+	requires_label?: boolean;
+	status?: string;
+}
+
+/**
+ * Combines project raw schema fields with active enriched features (`enriched.<feature_key>`).
+ */
+export function buildAvailableFieldsWithEnrichedFeatures(
+	rawSchema?: ProjectRawSchema | null,
+	activeFeatures: FeatureFieldDescriptor[] = []
+): AvailableFeatureField[] {
+	const rawFields = buildAvailableFieldsFromRawSchema(rawSchema).map((field) => ({
+		...field,
+		sourceKind: 'raw' as const,
+	}));
+
+	const seen = new Set(rawFields.map((f) => f.key));
+	const enrichedFields: AvailableFeatureField[] = [];
+	for (const feat of activeFeatures) {
+		if (feat.status && feat.status !== 'ACTIVE') {
+			continue;
+		}
+		const key = `enriched.${feat.feature_key}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+
+		const isBoolean = feat.output_type === 'BOOLEAN';
+		const isString = feat.output_type === 'STRING';
+		enrichedFields.push({
+			key,
+			label: `${key} (${feat.display_name})`,
+			category: 'velocity',
+			dataType: isBoolean ? 'boolean' : isString ? 'string' : 'number',
+			defaultOperator: isBoolean || isString ? '==' : '>',
+			sampleValues: isBoolean ? [true, false] : isString ? undefined : [1, 5, 10],
+			sourceKind: 'enriched',
+			requiresLabel: Boolean(feat.requires_label),
+		});
+	}
+
+	return [...rawFields, ...enrichedFields];
 }
 
 export function isRuleGroup(item: RuleClause | RuleGroup): item is RuleGroup {

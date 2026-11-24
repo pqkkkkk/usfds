@@ -6,6 +6,7 @@ import pandas as pd
 
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
 from usfds_core.domain.entities.enums import DataClassification, PipelineStage
+from usfds_core.domain.entities.feature import DatasetArtifactFeatureLink, Feature
 from usfds_core.domain.schemas.preprocessing_config import (
     DataMappingConfig,
     FeatureEngineeringConfig,
@@ -13,6 +14,7 @@ from usfds_core.domain.schemas.preprocessing_config import (
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
 from usfds_core.repositories.base_detection_job_repo import IDetectionJobRepository
+from usfds_core.repositories.base_feature_repo import IFeatureRepository, IFeatureSetRepository
 from usfds_core.repositories.base_project_repo import IProjectRepository
 from usfds_core.repositories.base_system_metadata_repo import ISystemColumnMetadataRepository
 from usfds_core.repositories.base_training_run_repo import ITrainingRunRepository
@@ -57,6 +59,8 @@ class DataManagementService:
         lineage_service: Optional[DataLineageService] = None,
         export_service: Optional[DatasetExportService] = None,
         fe_service: Optional[FeatureEngineeringExecutionService] = None,
+        feature_repo: Optional[IFeatureRepository] = None,
+        feature_set_repo: Optional[IFeatureSetRepository] = None,
     ) -> None:
         self.dataset_repo = dataset_repo
         self.artifact_repo = artifact_repo
@@ -66,6 +70,8 @@ class DataManagementService:
         self.training_run_repo = training_run_repo
         self.detection_job_repo = detection_job_repo
         self.metadata_repo = metadata_repo
+        self.feature_repo = feature_repo
+        self.feature_set_repo = feature_set_repo
 
         self.profiling_service = profiling_service or DataProfilingService()
         self.validation_service = validation_service or DataQualityValidationService()
@@ -256,6 +262,54 @@ class DataManagementService:
         if not mapped_art:
             raise ValueError("Kỹ thuật đặc trưng yêu cầu dataset đã hoàn tất bước Ánh xạ (MAPPED).")
 
+        resolved_set_ids: List[UUID] = []
+        if not config.feature_definitions and (config.feature_set_ids or config.feature_ids):
+            if self.feature_repo is None or self.feature_set_repo is None:
+                raise RuntimeError("Thiếu FeatureRepository hoặc FeatureSetRepository để giải mã Kho đặc trưng.")
+            from usfds_core.services.features.compiler import DAGResolver
+
+            for raw_sid in (config.feature_set_ids or []):
+                sid = UUID(str(raw_sid))
+                if sid not in resolved_set_ids:
+                    resolved_set_ids.append(sid)
+
+            origin_by_fid: Dict[UUID, Optional[UUID]] = {}
+            selected_fids: List[UUID] = []
+            if resolved_set_ids:
+                for fs in self.feature_set_repo.list_by_ids(resolved_set_ids):
+                    if fs.project_id is not None and fs.project_id != dataset.project_id:
+                        raise ValueError(f"Gói đặc trưng '{fs.name}' không thuộc dự án hiện tại.")
+                    for fid in (fs.feature_ids or []):
+                        if fid not in origin_by_fid:
+                            origin_by_fid[fid] = fs.feature_set_id
+                            selected_fids.append(fid)
+
+            for raw_fid in (config.feature_ids or []):
+                fid = UUID(str(raw_fid))
+                if fid not in origin_by_fid:
+                    origin_by_fid[fid] = None
+                    selected_fids.append(fid)
+
+            if selected_fids:
+                catalog = self.feature_repo.list_by_project(dataset.project_id, include_builtin=True)
+                catalog_by_id = {f.feature_id: f for f in catalog}
+                selected_feats: List[Feature] = []
+                for fid in selected_fids:
+                    feat = catalog_by_id.get(fid)
+                    if feat is None:
+                        raise ValueError(f"Đặc trưng '{fid}' không tồn tại trong phạm vi dự án.")
+                    selected_feats.append(feat)
+
+                full_feats = DAGResolver.collect_transitive_closure(selected_feats, catalog)
+                def_dicts: List[Dict[str, Any]] = []
+                for f in full_feats:
+                    d = f.to_dict()
+                    src_sid = origin_by_fid.get(f.feature_id)
+                    if src_sid is not None:
+                        d["source_feature_set_id"] = str(src_sid)
+                    def_dicts.append(d)
+                config.feature_definitions = def_dicts
+
         fe_artifact = self.fe_service.execute(
             parent_artifact=mapped_art,
             config=config,
@@ -263,6 +317,32 @@ class DataManagementService:
         )
         fe_artifact.created_by = user_name
         self.artifact_repo.save(fe_artifact)
+
+        if self.feature_set_repo is not None and resolved_set_ids:
+            self.feature_set_repo.record_artifact_feature_sets(fe_artifact.artifact_id, resolved_set_ids)
+
+        if self.feature_repo is not None and isinstance(fe_artifact.validation_report, dict):
+            mat = fe_artifact.validation_report.get("materialized_features") or []
+            links: List[DatasetArtifactFeatureLink] = []
+            for item in mat:
+                if not isinstance(item, dict) or not item.get("feature_key"):
+                    continue
+                links.append(
+                    DatasetArtifactFeatureLink(
+                        artifact_id=fe_artifact.artifact_id,
+                        feature_key=str(item["feature_key"]),
+                        feature_id=UUID(str(item["feature_id"])) if item.get("feature_id") else None,
+                        source_feature_set_id=(
+                            UUID(str(item["source_feature_set_id"]))
+                            if item.get("source_feature_set_id")
+                            else None
+                        ),
+                        status=str(item.get("status", "APPLIED")),
+                    )
+                )
+            if links:
+                self.feature_repo.record_artifact_features(fe_artifact.artifact_id, links)
+
         return fe_artifact
 
 

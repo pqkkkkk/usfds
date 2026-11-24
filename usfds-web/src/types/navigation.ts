@@ -1,5 +1,6 @@
 export type AppModule = 
   | 'data-management'
+  | 'feature-management'
   | 'model-management'
   | 'rule-management'
   | 'detection'

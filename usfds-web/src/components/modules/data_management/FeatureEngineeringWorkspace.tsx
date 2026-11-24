@@ -6,14 +6,22 @@ import {
   DollarSign,
   Activity,
   Database,
-  Info
+  Info,
+  Layers,
 } from 'lucide-react';
+import {
+  useFeatureCatalog,
+  useFeatureCompatibility,
+  useFeatureSets,
+} from '@/hooks/useFeatures';
 import type {
   DatasetArtifactResponse,
   FeatureEngineeringConfig
 } from '../../../types/dataset';
 
 interface FeatureEngineeringWorkspaceProps {
+  projectId?: string;
+  datasetId?: string;
   mappedArtifact: DatasetArtifactResponse | null;
   feArtifact: DatasetArtifactResponse | null;
   onConfigChange?: (config: FeatureEngineeringConfig) => void;
@@ -21,6 +29,8 @@ interface FeatureEngineeringWorkspaceProps {
 }
 
 export const FeatureEngineeringWorkspace = ({
+  projectId,
+  datasetId,
   mappedArtifact,
   feArtifact,
   onConfigChange,
@@ -33,6 +43,24 @@ export const FeatureEngineeringWorkspace = ({
   const [velocity1h, setVelocity1h] = useState(true);
   const [velocity24h, setVelocity24h] = useState(true);
   const [velocity168h, setVelocity168h] = useState(true);
+  const [selectedFeatureSetIds, setSelectedFeatureSetIds] = useState<string[]>([]);
+  const [selectedFeatureIds, setSelectedFeatureIds] = useState<string[]>([]);
+
+  const { data: featureSets = [] } = useFeatureSets(projectId, true);
+  const { data: featureCatalog = [] } = useFeatureCatalog(projectId, { include_builtin: true });
+  const { data: compatibilityReport } = useFeatureCompatibility(
+    projectId,
+    datasetId,
+    mappedArtifact?.artifact_id
+  );
+
+  const compatByFeatureId = useMemo(() => {
+    const map = new Map<string, { status: string; missing_inputs: string[] }>();
+    (compatibilityReport?.items || []).forEach((item) => {
+      map.set(item.feature_id, { status: item.status, missing_inputs: item.missing_inputs || [] });
+    });
+    return map;
+  }, [compatibilityReport]);
 
   const onConfigChangeRef = useRef(onConfigChange);
   useEffect(() => {
@@ -64,6 +92,8 @@ export const FeatureEngineeringWorkspace = ({
       enable_hour_of_day: enableHourOfDay,
       enable_velocity_features: enableVelocity && activeWindows.length > 0,
       velocity_windows: activeWindows.length > 0 ? activeWindows : [1, 24, 168],
+      ...(selectedFeatureSetIds.length > 0 ? { feature_set_ids: selectedFeatureSetIds } : {}),
+      ...(selectedFeatureIds.length > 0 ? { feature_ids: selectedFeatureIds } : {}),
     };
 
     onConfigChangeRef.current?.(payload);
@@ -74,6 +104,8 @@ export const FeatureEngineeringWorkspace = ({
     velocity1h,
     velocity24h,
     velocity168h,
+    selectedFeatureSetIds,
+    selectedFeatureIds,
   ]);
 
   // Extract generated columns from schema snapshot
@@ -127,6 +159,126 @@ export const FeatureEngineeringWorkspace = ({
             </span>
           </div>
         </div>
+
+        {/* Feature Store: Feature Sets + Individual Features Selection */}
+        {projectId && (
+          <div className="p-5 rounded-2xl bg-dark-900 border border-dark-800 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-dark-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-brand-400" />
+                <div>
+                  <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+                    Kho đặc trưng &amp; Gói đặc trưng (Feature Store)
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Chọn 0..N gói đặc trưng hoặc các đặc trưng riêng lẻ từ Kho đặc trưng để biên dịch tự động.
+                  </p>
+                </div>
+              </div>
+              <div className="text-[11px] font-mono text-slate-400">
+                Đã chọn: <span className="text-brand-300">{selectedFeatureSetIds.length} gói</span> •{' '}
+                <span className="text-purple-300">{selectedFeatureIds.length} đặc trưng lẻ</span>
+              </div>
+            </div>
+
+            {featureSets.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-[11px] font-semibold text-slate-300">Gói đặc trưng theo miền (Feature Sets)</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {featureSets.map((fs) => {
+                    const checked = selectedFeatureSetIds.includes(fs.feature_set_id);
+                    return (
+                      <label
+                        key={fs.feature_set_id}
+                        className={`p-3 rounded-xl border cursor-pointer flex items-start gap-2.5 text-xs transition ${
+                          checked
+                            ? 'bg-brand-500/10 border-brand-500/40'
+                            : 'bg-dark-950 border-dark-800 hover:border-dark-700'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          aria-label={`Chọn gói ${fs.set_key}`}
+                          checked={checked}
+                          onChange={() =>
+                            setSelectedFeatureSetIds((prev) =>
+                              prev.includes(fs.feature_set_id)
+                                ? prev.filter((id) => id !== fs.feature_set_id)
+                                : [...prev, fs.feature_set_id]
+                            )
+                          }
+                          className="mt-0.5"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-semibold text-slate-100 truncate">{fs.set_key}</span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-dark-900 border border-dark-700 text-slate-400 font-mono">
+                              {fs.feature_ids.length}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate mt-0.5">{fs.name}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {featureCatalog.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-[11px] font-semibold text-slate-300">Đặc trưng chọn lẻ (Individual Features)</div>
+                <div className="max-h-48 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-2 pr-1">
+                  {featureCatalog.map((feat) => {
+                    const checked = selectedFeatureIds.includes(feat.feature_id);
+                    const compat = compatByFeatureId.get(feat.feature_id);
+                    const isAvailable = !compat || compat.status === 'AVAILABLE';
+                    return (
+                      <label
+                        key={feat.feature_id}
+                        className={`p-2.5 rounded-xl border cursor-pointer flex items-center justify-between gap-2 text-xs transition ${
+                          checked
+                            ? 'bg-purple-500/10 border-purple-500/40'
+                            : 'bg-dark-950 border-dark-800 hover:border-dark-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <input
+                            type="checkbox"
+                            aria-label={`Chọn đặc trưng ${feat.feature_key}`}
+                            checked={checked}
+                            onChange={() =>
+                              setSelectedFeatureIds((prev) =>
+                                prev.includes(feat.feature_id)
+                                  ? prev.filter((id) => id !== feat.feature_id)
+                                  : [...prev, feat.feature_id]
+                              )
+                            }
+                          />
+                          <div className="min-w-0">
+                            <div className="font-mono text-slate-200 truncate">{feat.feature_key}</div>
+                            <div className="text-[10px] text-slate-500 truncate">{feat.display_name}</div>
+                          </div>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] shrink-0 border ${
+                            isAvailable
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                              : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                          }`}
+                        >
+                          {isAvailable
+                            ? 'Khả dụng'
+                            : `Thiếu cột: ${(compat?.missing_inputs || []).join(', ')}`}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Feature Engineering Generators Configuration */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

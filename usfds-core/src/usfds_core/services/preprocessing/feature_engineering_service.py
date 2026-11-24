@@ -187,46 +187,144 @@ class FeatureEngineeringExecutionService:
             # 4. Feature Engineering
             train_enriched = train_clean
             test_enriched = test_clean
-            fitted_engineers: Dict[str, Any] = {"cleanser": cleanser}
+            fitted_engineers: Any = {"cleanser": cleanser}
             engineered_features: List[str] = []
 
-            # 4a. Credit Card Domain Features (cyclical time, amount-to-mean ratio)
-            if fe_config.enable_amount_ratios or fe_config.enable_hour_of_day:
-                cc_engineer = CreditCardFeatureEngineer(
-                    time_col=fe_config.time_col,
-                    amount_col=fe_config.amount_col,
-                    add_ratio=fe_config.enable_amount_ratios,
-                    enable_hour_of_day=fe_config.enable_hour_of_day,
+            if fe_config.feature_definitions:
+                from usfds_core.domain.entities.feature import Feature
+                from usfds_core.domain.schemas.system_metadata import build_default_system_columns
+                from usfds_core.services.features.code_validator import compute_code_sha256
+                from usfds_core.services.features.compatibility import FeatureCompatibilityService
+                from usfds_core.services.features.compiler import CompiledFeaturePipeline
+
+                raw_specs = [
+                    s if isinstance(s, Feature) else Feature.from_dict(s)
+                    for s in fe_config.feature_definitions
+                ]
+                parent_vr_sem = (
+                    (parent_artifact.validation_report or {}).get("column_semantic_types")
+                    if isinstance(parent_artifact.validation_report, dict)
+                    else None
                 )
-                cc_engineer.fit(train_enriched)
-                train_enriched = cc_engineer.transform(train_enriched)
-                if len(test_enriched) > 0:
-                    test_enriched = cc_engineer.transform(test_enriched)
-
-                fitted_engineers["credit_card_engineer"] = cc_engineer
-                if fe_config.enable_hour_of_day:
-                    engineered_features.append("hour_of_day")
-                if fe_config.enable_amount_ratios:
-                    engineered_features.append("amount_to_mean_ratio")
-
-            # 4b. Rolling Window Velocity Features (tx_freq_last_*h, tx_sum_last_*h)
-            if fe_config.enable_velocity_features:
-                vel_engineer = VelocityFeatureEngineer(
-                    user_id_col=fe_config.user_id_col,
-                    time_col=fe_config.time_col,
-                    amount_col=fe_config.amount_col,
-                    windows=fe_config.velocity_windows,
+                compat_svc = FeatureCompatibilityService(system_metadata=build_default_system_columns())
+                compat_report = compat_svc.evaluate(
+                    raw_specs,
+                    [str(c) for c in train_clean.columns],
+                    column_semantic_types=parent_vr_sem,
                 )
-                vel_engineer.fit(train_enriched)
-                train_enriched = vel_engineer.transform(train_enriched)
-                if len(test_enriched) > 0:
-                    test_enriched = vel_engineer.transform(test_enriched)
+                status_by_id = {item.feature_id: item for item in compat_report.items}
+                applicable_specs = [
+                    f for f in raw_specs
+                    if status_by_id[f.feature_id].status == "AVAILABLE"
+                ]
+                skipped_items = [
+                    {
+                        "feature_id": str(item.feature_id),
+                        "feature_key": item.feature_key,
+                        "status": item.status,
+                        "missing_inputs": list(item.missing_inputs),
+                        "missing_dependencies": list(item.missing_dependencies),
+                        "missing_packages": list(item.missing_packages),
+                    }
+                    for item in compat_report.items
+                    if item.status != "AVAILABLE"
+                ]
 
-                fitted_engineers["velocity_engineer"] = vel_engineer
-                for w in fe_config.velocity_windows:
-                    engineered_features.append(f"tx_freq_last_{w}h")
-                    if fe_config.amount_col:
-                        engineered_features.append(f"tx_sum_last_{w}h")
+                if not applicable_specs:
+                    raise ValueError(
+                        "Không có đặc trưng nào khả dụng trên tập dữ liệu này (toàn bộ đặc trưng được chọn đều thiếu cột đầu vào hoặc thư viện)."
+                    )
+                if fe_config.strict_feature_compatibility and skipped_items:
+                    skipped_keys = ", ".join(s["feature_key"] for s in skipped_items)
+                    raise ValueError(
+                        f"Chế độ strict_feature_compatibility=True phát hiện đặc trưng không khả dụng: {skipped_keys}."
+                    )
+
+                pipeline = CompiledFeaturePipeline(
+                    specs=applicable_specs,
+                    cleanser=cleanser,
+                    time_col=fe_config.time_col or "timestamp",
+                    label_col=fe_config.split.target_column or "label",
+                )
+                train_enriched = pipeline.fit_transform(train_enriched)
+                if len(test_enriched) > 0:
+                    test_enriched = pipeline.transform(test_enriched)
+
+                engineered_features = list(pipeline.engineered_features)
+                pipeline.skipped_features = skipped_items
+                fitted_engineers = pipeline
+
+                origin_map = {
+                    str(d.get("feature_key")): d.get("source_feature_set_id")
+                    for d in fe_config.feature_definitions
+                    if isinstance(d, dict) and d.get("feature_key")
+                }
+                val_report["feature_set_ids"] = list(fe_config.feature_set_ids or [])
+                val_report["feature_ids"] = list(fe_config.feature_ids or [])
+                val_report["skipped_features"] = skipped_items
+                val_report["feature_set_snapshot"] = [
+                    {
+                        **spec_dict,
+                        "snapshot_sha256": spec_dict.get("snapshot_sha256")
+                        or compute_code_sha256(spec_dict.get("source_code")),
+                    }
+                    for spec_dict in pipeline.pinned_specs
+                ]
+                val_report["materialized_features"] = [
+                    {
+                        "feature_key": f.feature_key,
+                        "feature_id": str(f.feature_id),
+                        "source_feature_set_id": origin_map.get(f.feature_key),
+                        "status": "APPLIED",
+                    }
+                    for f in applicable_specs
+                ] + [
+                    {
+                        "feature_key": s["feature_key"],
+                        "feature_id": s["feature_id"],
+                        "source_feature_set_id": origin_map.get(s["feature_key"]),
+                        "status": "SKIPPED",
+                    }
+                    for s in skipped_items
+                ]
+            else:
+                # 4a. Legacy Credit Card Domain Features (cyclical time, amount-to-mean ratio)
+                if fe_config.enable_amount_ratios or fe_config.enable_hour_of_day:
+                    cc_engineer = CreditCardFeatureEngineer(
+                        time_col=fe_config.time_col,
+                        amount_col=fe_config.amount_col,
+                        add_ratio=fe_config.enable_amount_ratios,
+                        enable_hour_of_day=fe_config.enable_hour_of_day,
+                    )
+                    cc_engineer.fit(train_enriched)
+                    train_enriched = cc_engineer.transform(train_enriched)
+                    if len(test_enriched) > 0:
+                        test_enriched = cc_engineer.transform(test_enriched)
+
+                    fitted_engineers["credit_card_engineer"] = cc_engineer
+                    if fe_config.enable_hour_of_day:
+                        engineered_features.append("hour_of_day")
+                    if fe_config.enable_amount_ratios:
+                        engineered_features.append("amount_to_mean_ratio")
+
+                # 4b. Legacy Rolling Window Velocity Features (tx_freq_last_*h, tx_sum_last_*h)
+                if fe_config.enable_velocity_features:
+                    vel_engineer = VelocityFeatureEngineer(
+                        user_id_col=fe_config.user_id_col,
+                        time_col=fe_config.time_col,
+                        amount_col=fe_config.amount_col,
+                        windows=fe_config.velocity_windows,
+                    )
+                    vel_engineer.fit(train_enriched)
+                    train_enriched = vel_engineer.transform(train_enriched)
+                    if len(test_enriched) > 0:
+                        test_enriched = vel_engineer.transform(test_enriched)
+
+                    fitted_engineers["velocity_engineer"] = vel_engineer
+                    for w in fe_config.velocity_windows:
+                        engineered_features.append(f"tx_freq_last_{w}h")
+                        if fe_config.amount_col:
+                            engineered_features.append(f"tx_sum_last_{w}h")
 
             val_report["engineered_features"] = engineered_features
             val_report["train_rows"] = len(train_enriched)

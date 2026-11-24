@@ -75,3 +75,4 @@ class RuleBacktestResult:
     execution_time_ms: float
     avg_execution_time_ms: float
     sample_hits: List[RuleBacktestSampleHit] = field(default_factory=list)
+    feature_warnings: List[str] = field(default_factory=list)

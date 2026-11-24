@@ -36,6 +36,7 @@ from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactR
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
 from usfds_core.repositories.base_detection_job_repo import IDetectionJobRepository
 from usfds_core.repositories.base_case_repo import ICaseRepository
+from usfds_core.repositories.base_feature_repo import IFeatureRepository
 from usfds_core.repositories.base_model_repo import IModelRepository
 from usfds_core.repositories.base_model_version_repo import IModelVersionRepository
 from usfds_core.repositories.base_project_repo import IProjectRepository
@@ -85,6 +86,7 @@ class InferenceService:
         training_run_repo: Optional[ITrainingRunRepository] = None,
         rule_manager: Optional[RuleManager] = None,
         case_repo: Optional[ICaseRepository] = None,
+        feature_repo: Optional[IFeatureRepository] = None,
     ):
         self.pipeline_repo = pipeline_repo
         self.file_storage = file_storage
@@ -98,6 +100,7 @@ class InferenceService:
         self.training_run_repo = training_run_repo
         self.rule_manager = rule_manager
         self.case_repo = case_repo
+        self.feature_repo = feature_repo
         self.schema_validator = ProjectSchemaValidator()
 
     def _read_bytes(self, file_path_or_storage: Union[str, Path]) -> bytes:
@@ -748,6 +751,20 @@ class InferenceService:
         if self.detection_job_repo:
             self.detection_job_repo.save(job)
 
+        rule_feature_definitions: List[Dict[str, Any]] = []
+        if active_snapshots and self.feature_repo is not None:
+            from usfds_core.services.features.compiler import DAGResolver
+
+            ref_keys = set()
+            for snap in active_snapshots:
+                ref_keys.update(self.schema_validator.extract_enriched_feature_keys(snap.condition or {}))
+            if ref_keys:
+                catalog = self.feature_repo.list_by_project(project_id, include_builtin=True)
+                matched_feats = [f for f in catalog if f.feature_key in ref_keys]
+                if matched_feats:
+                    closure = DAGResolver.collect_transitive_closure(matched_feats, catalog)
+                    rule_feature_definitions = [f.to_dict() for f in closure]
+
         payload = BatchInferencePayload(
             job_id=job.job_id,
             project_id=project_id,
@@ -762,6 +779,7 @@ class InferenceService:
             column_mapping=column_mapping,
             use_rules=use_rules,
             active_rules=active_snapshots,
+            rule_feature_definitions=rule_feature_definitions,
         )
 
         job.status = DetectionJobStatus.RUNNING

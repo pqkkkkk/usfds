@@ -18,6 +18,14 @@ from usfds_infra.database.tables.auth import (
 	UserSessionModel,
 )
 from usfds_infra.database.tables.system_metadata import SystemColumnMetadataModel
+from usfds_infra.database.tables.feature import (
+	DatasetArtifactFeatureModel,
+	DatasetArtifactFeatureSetModel,
+	FeatureDependencyModel,
+	FeatureModel,
+	FeatureSetItemModel,
+	FeatureSetModel,
+)
 
 __all__ = [
 	"ProjectModel",
@@ -38,4 +46,10 @@ __all__ = [
 	"SystemUserRoleModel",
 	"ProjectMemberModel",
 	"SystemColumnMetadataModel",
+	"FeatureModel",
+	"FeatureDependencyModel",
+	"FeatureSetModel",
+	"FeatureSetItemModel",
+	"DatasetArtifactFeatureSetModel",
+	"DatasetArtifactFeatureModel",
 ]

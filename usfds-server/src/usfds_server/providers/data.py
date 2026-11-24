@@ -5,6 +5,8 @@ from usfds_core.services.data_management.service import DataManagementService
 from usfds_core.services.data_management.system_metadata_service import SystemMetadataService
 from usfds_core.services.project_management.project_service import ProjectManagementService
 from usfds_infra.database import (
+    SqlFeatureRepository,
+    SqlFeatureSetRepository,
     SqlSystemColumnMetadataRepository,
     SqliteDatasetArtifactRepository,
     SqliteDatasetRepository,
@@ -17,6 +19,8 @@ from usfds_server.providers.repos import (
     get_artifact_repo,
     get_dataset_repo,
     get_detection_job_repo,
+    get_feature_repo,
+    get_feature_set_repo,
     get_project_repo,
     get_system_metadata_repo,
     get_training_run_repo,
@@ -39,6 +43,8 @@ def get_data_management_service(
     training_run_repo: SqliteTrainingRunRepository = Depends(get_training_run_repo),
     detection_job_repo: SqliteDetectionJobRepository = Depends(get_detection_job_repo),
     metadata_repo: SqlSystemColumnMetadataRepository = Depends(get_system_metadata_repo),
+    feature_repo: SqlFeatureRepository = Depends(get_feature_repo),
+    feature_set_repo: SqlFeatureSetRepository = Depends(get_feature_set_repo),
     storage: LocalFileStorage = Depends(get_storage),
 ) -> DataManagementService:
     return DataManagementService(
@@ -50,4 +56,6 @@ def get_data_management_service(
         training_run_repo=training_run_repo,
         detection_job_repo=detection_job_repo,
         metadata_repo=metadata_repo,
+        feature_repo=feature_repo,
+        feature_set_repo=feature_set_repo,
     )
