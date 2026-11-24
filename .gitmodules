@@ -1,0 +1,3 @@
+[submodule "ccfd-sample-datasets"]
+	path = ccfd-sample-datasets
+	url = https://github.com/pqkkkkk/ccfd-sample-datasets.git
