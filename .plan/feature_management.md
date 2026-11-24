@@ -1,7 +1,7 @@
 # Plan: Quản lý Đặc trưng & Nền tảng Kỹ nghệ Đặc trưng Động (Feature Management)
 
 > **Task ID:** `feature_management` (= this file name) · **Issues:** ISS-040 (chosen by the user) · **Spec:** `docs/features/feature_management/context-modeling.md`, `docs/features/data_management/user-flow-and-ui-design.md`, `docs/features/critical_changes.md`, `docs/features/project_management/design.md`, Google Docs refs (DataVisor §4, AWS Fraud Detector FE, Ravelin §2.2)
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Ready for review
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Done (26-11-24)
 
 ## 1. Context (facts)
 - `.plan/feature_management.md:1-4` và `docs/issues/11-17-2026.md:23-30`: `ISS-040` hiện chưa có đặc tả hay cài đặt cho phân hệ Quản lý Đặc trưng (Feature Management).

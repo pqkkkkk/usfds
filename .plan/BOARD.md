@@ -27,3 +27,4 @@
 | [`large_data_analytics_duckdb`](large_data_analytics_duckdb.md) | ISS-012, ISS-021 | Done (26-11-22) | M0–M3 | `own_scope_access_control` | per plan §3 |
 | [`investigation_redesign`](investigation_redesign.md) | ISS-045 | Done (26-11-22) | M1–M3 | `large_data_analytics_duckdb` | per plan §3 |
 | [`graph_exploration`](graph_exploration.md) | ISS-041 | Done (26-11-24) | M1–M3 | `large_data_analytics_duckdb`, `investigation_redesign` | per plan §3 |
+| [`feature_management`](feature_management.md) | ISS-040 | Done (26-11-24) | M1–M5 | `system_metadata_management`, `own_scope_access_control`, `large_data_analytics_duckdb`, `graph_exploration` | per plan §3 |
