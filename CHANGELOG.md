@@ -2,6 +2,12 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-25 — ISS-044: Data Management Pipeline on Bounded DuckDB & Streaming Export
+Plan: `.plan/data_management_duckdb.md` · Board: `.plan/BOARD.md`
+
+- Core (`services/data_management/{duckdb_io,ingestion,profiling,mapping,validation,export,service}.py`, `services/project_management/schema_validator.py`): added shared bounded DuckDB I/O (`create_utc_bounded_duckdb_connection`, `register_file_view`, `copy_query_to_file`, chunked `sha256_file`, type mapping); migrated `DatasetIngestionService.import_dataset`, `ProjectSchemaValidator` (`extract_raw_schema_from_duckdb`, `validate_duckdb_view`), `DataProfilingService` (`analyze_duckdb`, `analyze_file`), `DataMappingService.map_dataset`, and `DataQualityValidationService` (`validate_duckdb`, `validate_file`) to bounded DuckDB (`threads=2`, `memory_limit="512MB"`, UTC timezone) without full-frame pandas loads while keeping backward-compatible DataFrame methods; added `DatasetExportService.export_artifact_bundle_to_file` & `DataManagementService.export_dataset_to_file` (disk ZIP + DuckDB Parquet→CSV). Legacy `VelocityFeatureEngineer` kept out of scope (`CompiledFeaturePipeline` already runs Velocity on DuckDB).
+- Server & Tests (`routers/dataset_router.py`, `usfds-core/tests/test_data_management_duckdb.py`, `usfds-server/tests/test_dataset_api.py`): updated `POST /api/v1/datasets/{dataset_id}/artifacts/{artifact_id}/export` to build ZIP on temp disk and stream via `FileResponse` (with `BackgroundTask` cleanup) or `storage.upload_file` when `presigned=true`; verified `usfds-core` (`191 passed, 9 skipped`), `usfds-infra` (`52 passed`), `usfds-server` (`57 passed`), `usfds-worker` (`10 passed`).
+
 ## 2026-11-24 — ISS-040: Dynamic 2-Tier Feature Management, Feature Sets & Cross-Module Integration
 Plan: `.plan/feature_management.md` · Board: `.plan/BOARD.md`
 
