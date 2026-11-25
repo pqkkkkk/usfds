@@ -2,6 +2,7 @@ import asyncio
 import logging
 from pathlib import Path
 import signal
+import sys
 from typing import Any, Callable, Dict
 
 from dotenv import load_dotenv
@@ -161,7 +162,10 @@ async def _serve(settings: WorkerSettings) -> None:
 	stop = asyncio.Event()
 	loop = asyncio.get_running_loop()
 	for sig in (signal.SIGINT, signal.SIGTERM):
-		loop.add_signal_handler(sig, stop.set)
+		try:
+			loop.add_signal_handler(sig, stop.set)
+		except NotImplementedError:
+			signal.signal(sig, lambda *_args: loop.call_soon_threadsafe(stop.set))
 	await stop.wait()
 
 	logger.info("Shutting down usfds-worker...")
@@ -172,7 +176,8 @@ async def _serve(settings: WorkerSettings) -> None:
 def run_worker() -> None:
 	"""CLI entrypoint: `usfds-worker`."""
 	logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-	asyncio.run(_serve(WorkerSettings.from_env()))
+	loop_factory = asyncio.SelectorEventLoop if sys.platform == "win32" else None
+	asyncio.run(_serve(WorkerSettings.from_env()), loop_factory=loop_factory)
 
 
 if __name__ == "__main__":

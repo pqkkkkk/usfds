@@ -1,5 +1,6 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import sys
 import time
 from typing import Any, Callable, Coroutine, Dict, Optional
 
@@ -59,14 +60,19 @@ def build_bullmq_opts(db_url: str, schema: str = DEFAULT_SCHEMA) -> Dict[str, An
 	}
 
 
+def _asyncio_run(coro: Coroutine[Any, Any, Any]) -> Any:
+	loop_factory = asyncio.SelectorEventLoop if sys.platform == "win32" else None
+	return asyncio.run(coro, loop_factory=loop_factory)
+
+
 def run_sync(coro: Coroutine[Any, Any, Any]) -> Any:
 	"""Run a coroutine from sync code, also when called from a thread that already has a running event loop."""
 	try:
 		asyncio.get_running_loop()
 	except RuntimeError:
-		return asyncio.run(coro)
+		return _asyncio_run(coro)
 	with ThreadPoolExecutor(max_workers=1) as pool:
-		return pool.submit(asyncio.run, coro).result()
+		return pool.submit(_asyncio_run, coro).result()
 
 
 class BullMQJobQueue:
