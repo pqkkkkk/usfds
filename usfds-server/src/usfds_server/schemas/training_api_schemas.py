@@ -126,6 +126,8 @@ class TrainingRunResponse(BaseModel):
     hyperparameters: Optional[Dict[str, Any]] = None
     custom_metrics: Optional[Dict[str, Any]] = None
     compute_target: Optional[str] = "local"
+    external_job_id: Optional[str] = None
+    compute_metadata: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
     created_by: Optional[str] = None
     started_at: Optional[datetime] = None
@@ -135,6 +137,31 @@ class TrainingRunResponse(BaseModel):
     metrics_path: Optional[str] = None
     eval_predictions_path: Optional[str] = None
     created_at: datetime
+
+
+class ComputeTargetOptionResponse(BaseModel):
+    """API response schema describing a single compute target option and its availability."""
+    target_id: str
+    display_name: str
+    provider_type: str
+    available: bool
+    reason: Optional[str] = None
+    resource_tiers: List[str] = Field(default_factory=list)
+
+
+class ComputeRecommendationResponse(BaseModel):
+    """API response schema for the resolved compute recommendation."""
+    requested_target: str
+    resolved_target: str
+    resource_tier: str = "cpu"
+    provider: Optional[str] = None
+    selection_reason: str
+
+
+class ComputeTargetsResponse(BaseModel):
+    """API response schema for GET /api/v1/training/compute-targets."""
+    targets: List[ComputeTargetOptionResponse] = Field(default_factory=list)
+    recommendation: ComputeRecommendationResponse
 
 
 class ModelLineageNodeResponse(BaseModel):
@@ -170,6 +197,9 @@ __all__ = [
     "ModelResponse",
     "ModelVersionResponse",
     "TrainingRunResponse",
+    "ComputeTargetOptionResponse",
+    "ComputeRecommendationResponse",
+    "ComputeTargetsResponse",
     "ModelLineageNodeResponse",
     "ModelLineageEdgeResponse",
     "ModelLineageResponse",

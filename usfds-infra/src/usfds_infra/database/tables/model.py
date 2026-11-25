@@ -113,6 +113,8 @@ class TrainingRunModel(Base):
     hyperparameters: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     custom_metrics: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     compute_target: Mapped[Optional[str]] = mapped_column(String(100), default="local", nullable=True)
+    external_job_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    compute_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

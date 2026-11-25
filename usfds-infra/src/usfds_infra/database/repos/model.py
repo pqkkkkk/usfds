@@ -319,6 +319,8 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
             hyperparameters=record.hyperparameters,
             custom_metrics=record.custom_metrics,
             compute_target=record.compute_target,
+            external_job_id=record.external_job_id,
+            compute_metadata=record.compute_metadata,
             error_message=record.error_message,
             created_by=record.created_by,
             started_at=record.started_at,
@@ -340,6 +342,7 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
 
         clean_hyperparameters = self._sanitize_json(run.hyperparameters)
         clean_custom_metrics = self._sanitize_json(run.custom_metrics)
+        clean_compute_metadata = self._sanitize_json(run.compute_metadata)
 
         if record is None:
             record = TrainingRunModel(
@@ -360,6 +363,8 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
                 hyperparameters=clean_hyperparameters,
                 custom_metrics=clean_custom_metrics,
                 compute_target=run.compute_target,
+                external_job_id=run.external_job_id,
+                compute_metadata=clean_compute_metadata,
                 error_message=run.error_message,
                 created_by=run.created_by,
                 started_at=run.started_at,
@@ -384,6 +389,8 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
             record.hyperparameters = clean_hyperparameters
             record.custom_metrics = clean_custom_metrics
             record.compute_target = run.compute_target
+            record.external_job_id = run.external_job_id
+            record.compute_metadata = clean_compute_metadata
             record.error_message = run.error_message
             record.started_at = run.started_at
             record.completed_at = run.completed_at
@@ -479,6 +486,18 @@ class SqliteTrainingRunRepository(ITrainingRunRepository):
             )
             .distinct()
             .order_by(TrainingRunModel.created_at.desc())
+        )
+        records = self.session.execute(stmt).scalars().all()
+        return [self._to_entity(r) for r in records]
+
+    def list_active_remote_runs(self) -> List[TrainingRun]:
+        stmt = (
+            select(TrainingRunModel)
+            .where(
+                TrainingRunModel.status == TrainingRunStatus.RUNNING.value,
+                TrainingRunModel.external_job_id.is_not(None),
+            )
+            .order_by(TrainingRunModel.created_at.asc())
         )
         records = self.session.execute(stmt).scalars().all()
         return [self._to_entity(r) for r in records]

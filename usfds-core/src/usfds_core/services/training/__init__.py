@@ -49,3 +49,22 @@ __all__ = [
     "TrainingRunExecutor",
     "TrainingOrchestrationService",
 ]
+
+# Remote compute exports (ISS-009)
+from usfds_core.services.training.compute_policy import (
+    ComputePolicyThresholds,
+    ComputeSelectionPolicy,
+)
+from usfds_core.services.training.dispatchers.routing_dispatcher import RoutingTrainingDispatcher
+from usfds_core.services.training.providers.base_provider import (
+    IRemoteComputeProvider,
+    RemoteProviderRegistry,
+)
+
+__all__ += [
+    "ComputePolicyThresholds",
+    "ComputeSelectionPolicy",
+    "RoutingTrainingDispatcher",
+    "IRemoteComputeProvider",
+    "RemoteProviderRegistry",
+]

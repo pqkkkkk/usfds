@@ -495,3 +495,209 @@ def test_list_model_versions_filters_by_project_id(server_settings):
         assert versions_b[0]["project_id"] == project_b
         assert versions_b[0]["semver"] == "v1"
 
+
+def test_compute_targets_endpoint_enforces_project_rbac_and_syncs_remote_run(
+    server_settings,
+    monkeypatch,
+):
+    """ISS-009, ISS-042: GET /compute-targets enforces project RBAC; POST /runs offloads to remote provider and GET /runs/{id} syncs completion."""
+    from uuid import UUID
+    from usfds_core.domain.schemas.training_payload import (
+        RemoteJobStatus,
+        RemoteTrainingJobSpec,
+        TrainingRunResult,
+    )
+    from usfds_infra.security import PasswordHasher
+    from usfds_core.services.training.providers.base_provider import (
+        IRemoteComputeProvider,
+        RemoteProviderRegistry,
+    )
+    from usfds_core.domain.entities.auth import ProjectMember
+    from usfds_core.domain.entities.enums import RoleScope
+    from usfds_core.domain.entities.system import User
+    from usfds_infra.database import (
+        SqlProjectMemberRepository,
+        SqlRoleRepository,
+        SqlUserRepository,
+        session_scope,
+    )
+    from usfds_server.providers.training import get_remote_provider_registry
+
+    class _FakeModalProvider(IRemoteComputeProvider):
+        def __init__(self):
+            self.submitted: list[RemoteTrainingJobSpec] = []
+            self.completed_result: TrainingRunResult | None = None
+
+        @property
+        def provider_id(self) -> str:
+            return "modal"
+
+        @property
+        def display_name(self) -> str:
+            return "Modal Serverless"
+
+        def is_available(self):
+            return True, None
+
+        def submit(self, job_spec: RemoteTrainingJobSpec) -> str:
+            self.submitted.append(job_spec)
+            self.completed_result = TrainingRunResult(
+                run_id=job_spec.payload.run_id,
+                is_success=True,
+                metrics={"accuracy": 0.93, "precision": 0.9, "recall": 0.87, "f1_score": 0.88},
+                artifact_uri=f"models/{job_spec.payload.model_id}/runs/{job_spec.payload.run_id}/model.joblib",
+                checksum_sha256="sha256-remote",
+                framework="scikit-learn",
+                duration_seconds=11,
+            )
+            return "fc-server-1"
+
+        def poll(self, external_job_id: str, timeout_seconds: float = 5.0) -> RemoteJobStatus:
+            return RemoteJobStatus(state="COMPLETED", result=self.completed_result)
+
+    fake_provider = _FakeModalProvider()
+    fake_registry = RemoteProviderRegistry()
+    fake_registry.register(fake_provider)
+
+    monkeypatch.setattr(server_settings, "auth_mode", "required")
+    monkeypatch.setattr(server_settings, "auto_compute_row_threshold", 50)
+    monkeypatch.setattr(server_settings, "remote_poller_enabled", False)
+
+    app.dependency_overrides[get_remote_provider_registry] = lambda: fake_registry
+    try:
+        with TestClient(app) as client:
+            project_id = str(uuid4())
+            fe_artifact_id, _ = _seed_feature_engineered_artifact(
+                settings.storage_dir,
+                project_id=project_id,
+            )
+            # Patch presigned URL methods on the active storage instance so remote dispatch succeeds without S3
+            storage = dependencies.get_storage()
+            monkeypatch.setattr(
+                storage,
+                "generate_presigned_download_url",
+                lambda file_path, filename=None, expires_in=900: f"https://s3.test/get/{file_path}",
+            )
+            monkeypatch.setattr(
+                storage,
+                "generate_presigned_upload_url",
+                lambda file_path, content_type=None, expires_in=900: f"https://s3.test/put/{file_path}",
+            )
+
+            # Seed 1 member in project and 1 outsider user
+            hasher = PasswordHasher()
+            with session_scope(dependencies._session_factory) as session:
+                user_repo = SqlUserRepository(session)
+                role_repo = SqlRoleRepository(session)
+                member_repo = SqlProjectMemberRepository(session)
+                ds_role = role_repo.get_by_scope_and_name(RoleScope.PROJECT, "data_scientist")
+                assert ds_role is not None
+
+                member_user = User(
+                    user_id=uuid4(),
+                    username="proj_member",
+                    email="proj_member@usfds.local",
+                    full_name="Project Member",
+                    password_hash=hasher.hash("MemberPass123!"),
+                )
+                outsider_user = User(
+                    user_id=uuid4(),
+                    username="outsider_user",
+                    email="outsider@usfds.local",
+                    full_name="Outsider",
+                    password_hash=hasher.hash("OutsiderPass123!"),
+                )
+                user_repo.save(member_user)
+                user_repo.save(outsider_user)
+                member_repo.add_member(
+                    project_id=UUID(project_id),
+                    user_id=member_user.user_id,
+                    role_id=ds_role.role_id,
+                )
+
+            def _login(username: str, password: str) -> dict[str, str]:
+                resp = client.post(
+                    "/api/v1/auth/login",
+                    json={"username": username, "password": password},
+                )
+                assert resp.status_code == 200, resp.text
+                token = resp.json()["data"]["access_token"]
+                return {"Authorization": f"Bearer {token}"}
+
+            member_headers = _login("proj_member", "MemberPass123!")
+            outsider_headers = _login("outsider_user", "OutsiderPass123!")
+
+            models_res = client.get(
+                "/api/v1/training/models",
+                params={"project_id": project_id},
+                headers=member_headers,
+            )
+            assert models_res.status_code == 200, models_res.text
+            rf_model = next(
+                m for m in models_res.json()["data"]["items"] if m["model_name"] == "random_forest"
+            )
+
+            # 1. Outsider gets 403 on GET /compute-targets
+            forbidden_res = client.get(
+                "/api/v1/training/compute-targets",
+                params={
+                    "project_id": project_id,
+                    "model_id": rf_model["model_id"],
+                    "dataset_artifact_id": fe_artifact_id,
+                },
+                headers=outsider_headers,
+            )
+            assert forbidden_res.status_code == 403
+
+            # 2. Valid project member gets targets + auto recommendation -> modal (80 rows >= 50 threshold)
+            targets_res = client.get(
+                "/api/v1/training/compute-targets",
+                params={
+                    "project_id": project_id,
+                    "model_id": rf_model["model_id"],
+                    "dataset_artifact_id": fe_artifact_id,
+                },
+                headers=member_headers,
+            )
+            assert targets_res.status_code == 200, targets_res.text
+            targets_data = targets_res.json()["data"]
+            target_ids = [t["target_id"] for t in targets_data["targets"]]
+            assert "auto" in target_ids
+            assert "local" in target_ids
+            assert "modal" in target_ids
+            assert targets_data["recommendation"]["resolved_target"] == "modal"
+
+            # 3. POST /runs with compute_target="auto" submits to Modal and returns RUNNING + external_job_id
+            run_res = client.post(
+                "/api/v1/training/runs",
+                json={
+                    "model_id": rf_model["model_id"],
+                    "dataset_artifact_id": fe_artifact_id,
+                    "project_id": project_id,
+                    "compute_target": "auto",
+                    "run_name": "remote-auto-run",
+                },
+                headers=member_headers,
+            )
+            assert run_res.status_code == 201, run_res.text
+            run_data = run_res.json()["data"]
+            assert run_data["status"] == "RUNNING"
+            assert run_data["compute_target"] == "modal"
+            assert run_data["external_job_id"] == "fc-server-1"
+            assert run_data["compute_metadata"]["resolved_target"] == "modal"
+
+            # 4. GET /runs/{run_id} syncs remote provider -> COMPLETED + attaches version_id
+            detail_res = client.get(
+                f"/api/v1/training/runs/{run_data['run_id']}",
+                params={"project_id": project_id},
+                headers=member_headers,
+            )
+            assert detail_res.status_code == 200, detail_res.text
+            detail_data = detail_res.json()["data"]
+            assert detail_data["status"] == "COMPLETED"
+            assert detail_data["version_id"] is not None
+            assert detail_data["f1_score"] == 0.88
+    finally:
+        app.dependency_overrides.pop(get_remote_provider_registry, None)
+
+

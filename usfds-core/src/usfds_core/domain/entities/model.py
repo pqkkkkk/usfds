@@ -71,6 +71,8 @@ class TrainingRun:
     hyperparameters: Optional[Dict[str, Any]] = None
     custom_metrics: Optional[Dict[str, Any]] = None
     compute_target: Optional[str] = "local"
+    external_job_id: Optional[str] = None
+    compute_metadata: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
     created_by: Optional[str] = None
     started_at: Optional[datetime] = None

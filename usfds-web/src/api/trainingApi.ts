@@ -2,6 +2,7 @@ import { apiClient } from './client';
 import type { ApiResponse, CursorPage } from '@/types';
 import type {
 	ActivateModelVersionRequest,
+	ComputeTargetsResponse,
 	ModelLineageGraph,
 	ModelPluginManifest,
 	ModelResponse,
@@ -154,6 +155,18 @@ export const trainingApi = {
 	): Promise<ApiResponse<ModelLineageGraph>> => {
 		return apiClient.get<ModelLineageGraph>(`/v1/training/runs/${runId}/lineage`, {
 			project_id: projectId,
+		});
+	},
+
+	getComputeTargets: async (params: {
+		projectId: string;
+		modelId?: string;
+		datasetArtifactId?: string;
+	}): Promise<ApiResponse<ComputeTargetsResponse>> => {
+		return apiClient.get<ComputeTargetsResponse>('/v1/training/compute-targets', {
+			project_id: params.projectId,
+			model_id: params.modelId,
+			dataset_artifact_id: params.datasetArtifactId,
 		});
 	},
 };
