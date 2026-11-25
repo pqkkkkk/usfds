@@ -8,6 +8,11 @@ from usfds_core.domain.schemas.project_schema import (
     ProjectRawSchema,
     SchemaValidationResult,
 )
+from usfds_core.services.data_management.duckdb_io import (
+    duckdb_type_to_logical_type,
+    duckdb_type_to_physical_dtype,
+    quote_ident,
+)
 
 
 class ProjectSchemaValidator:
@@ -163,6 +168,145 @@ class ProjectSchemaValidator:
                     f"Cột '{col_name}' có kiểu dữ liệu '{actual_logical.value}' ({series.dtype}) "
                     f"không tương thích với kiểu '{spec.logical_type.value}' trong RAW schema của dự án."
                 )
+
+        return result
+
+    @classmethod
+    def extract_raw_schema_from_duckdb(
+        cls,
+        conn: Any,
+        view_name: str,
+        source_dataset_id: Optional[Union[UUID, str]] = None,
+    ) -> ProjectRawSchema:
+        """Extracts a ProjectRawSchema from a registered DuckDB view without loading into pandas."""
+        v = quote_ident(view_name)
+        described = conn.execute(f"DESCRIBE SELECT * FROM {v}").fetchall()
+        col_types = [(str(row[0]), str(row[1])) for row in described]
+
+        nullable_map: Dict[str, bool] = {}
+        batch_size = 50
+        for idx in range(0, len(col_types), batch_size):
+            batch = col_types[idx : idx + batch_size]
+            exprs = [f"(COUNT(*) - COUNT({quote_ident(col_name)})) > 0" for col_name, _ in batch]
+            row = conn.execute(f"SELECT {', '.join(exprs)} FROM {v}").fetchone()
+            for col_idx, (col_name, _) in enumerate(batch):
+                nullable_map[col_name] = bool(row[col_idx]) if row is not None else True
+
+        columns: Dict[str, ColumnSchemaSpec] = {}
+        for col_name, dtype_str in col_types:
+            columns[col_name] = ColumnSchemaSpec(
+                logical_type=duckdb_type_to_logical_type(dtype_str),
+                physical_dtype=duckdb_type_to_physical_dtype(dtype_str),
+                nullable=nullable_map.get(col_name, True),
+            )
+
+        return ProjectRawSchema(
+            version=1,
+            source_dataset_id=str(source_dataset_id) if source_dataset_id else None,
+            columns=columns,
+        )
+
+    @classmethod
+    def validate_duckdb_view(
+        cls,
+        conn: Any,
+        view_name: str,
+        raw_schema: Union[ProjectRawSchema, Dict[str, Any]],
+        allow_missing_target: bool = True,
+    ) -> SchemaValidationResult:
+        """Validates a DuckDB view against the locked ProjectRawSchema (BR-PM-02) without pandas."""
+        schema = (
+            raw_schema
+            if isinstance(raw_schema, ProjectRawSchema)
+            else ProjectRawSchema.from_dict(raw_schema)
+        )
+
+        v = quote_ident(view_name)
+        described = conn.execute(f"DESCRIBE SELECT * FROM {v}").fetchall()
+        actual_cols = [str(row[0]) for row in described]
+        actual_types = {str(row[0]): str(row[1]) for row in described}
+
+        result = SchemaValidationResult(is_valid=True)
+        expected_cols = list(schema.columns.keys())
+        expected_set = set(expected_cols)
+        actual_set = set(actual_cols)
+
+        missing_cols = [c for c in expected_cols if c not in actual_set]
+        extra_cols = [c for c in actual_cols if c not in expected_set]
+
+        result.missing_columns = missing_cols
+        result.extra_columns = extra_cols
+
+        if len(missing_cols) == 1 and allow_missing_target:
+            result.inferred_unlabeled_inference = True
+            result.warnings.append(
+                f"Khuyết 1 cột '{missing_cols[0]}' so với RAW schema của dự án (được chấp nhận như tập dữ liệu Inference không nhãn)."
+            )
+        elif len(missing_cols) > 0:
+            result.is_valid = False
+            result.errors.append(
+                f"Tập dữ liệu thiếu {len(missing_cols)} cột bắt buộc theo RAW schema của dự án: {', '.join(missing_cols)}."
+            )
+
+        if extra_cols:
+            result.warnings.append(
+                f"Tập dữ liệu có {len(extra_cols)} cột dư ngoài RAW schema của dự án ({', '.join(extra_cols)})."
+            )
+
+        candidate_cols: List[Tuple[str, LogicalDataType, LogicalDataType, str]] = []
+        for col_name in expected_cols:
+            if col_name not in actual_types:
+                continue
+            spec = schema.columns[col_name]
+            dtype_str = actual_types[col_name]
+            actual_logical = duckdb_type_to_logical_type(dtype_str)
+
+            if spec.logical_type == actual_logical:
+                continue
+            if {spec.logical_type, actual_logical} == {LogicalDataType.DATETIME, LogicalDataType.STRING}:
+                continue
+            if spec.logical_type == LogicalDataType.NUMERIC and actual_logical == LogicalDataType.BOOLEAN:
+                continue
+            candidate_cols.append((col_name, spec.logical_type, actual_logical, dtype_str))
+
+        if candidate_cols:
+            batch_size = 25
+            for idx in range(0, len(candidate_cols), batch_size):
+                batch = candidate_cols[idx : idx + batch_size]
+                exprs: List[str] = []
+                for col_name, expected_ltype, actual_ltype, _ in batch:
+                    col_ident = quote_ident(col_name)
+                    exprs.append(f"COUNT({col_ident})")
+                    if expected_ltype == LogicalDataType.BOOLEAN and actual_ltype == LogicalDataType.NUMERIC:
+                        exprs.append(
+                            f"SUM(CASE WHEN {col_ident} IS NOT NULL "
+                            f"AND (TRY_CAST({col_ident} AS DOUBLE) IS NULL "
+                            f"OR TRY_CAST({col_ident} AS DOUBLE) NOT IN (0.0, 1.0)) THEN 1 ELSE 0 END)"
+                        )
+                    else:
+                        exprs.append("NULL")
+                row = conn.execute(f"SELECT {', '.join(exprs)} FROM {v}").fetchone()
+                for c_idx, (col_name, expected_ltype, actual_ltype, dtype_str) in enumerate(batch):
+                    non_null_count = int(row[c_idx * 2] or 0) if row else 0
+                    if non_null_count == 0:
+                        continue
+                    if expected_ltype == LogicalDataType.BOOLEAN and actual_ltype == LogicalDataType.NUMERIC:
+                        bad_binary = int(row[c_idx * 2 + 1] or 0) if row else 0
+                        if bad_binary == 0:
+                            continue
+                    phys_dtype = duckdb_type_to_physical_dtype(dtype_str)
+                    result.is_valid = False
+                    mismatch = {
+                        "column": col_name,
+                        "expected_logical_type": str(expected_ltype.value),
+                        "actual_logical_type": str(actual_ltype.value),
+                        "actual_physical_dtype": phys_dtype,
+                    }
+                    result.type_mismatches.append(mismatch)
+                    result.errors.append(
+                        f"Cột '{col_name}' có kiểu dữ liệu '{actual_ltype.value}' ({phys_dtype}) "
+                        f"không tương thích với kiểu '{expected_ltype.value}' trong RAW schema của dự án."
+                    )
 
         return result
 

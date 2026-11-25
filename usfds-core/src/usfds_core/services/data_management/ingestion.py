@@ -1,10 +1,8 @@
 from datetime import datetime, timezone
-import hashlib
-import io
 from pathlib import Path
-from typing import Optional, Tuple, Union
+import tempfile
+from typing import Dict, Optional, Tuple, Union
 from uuid import UUID, uuid4
-import pandas as pd
 
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
 from usfds_core.domain.entities.enums import (
@@ -17,6 +15,14 @@ from usfds_core.domain.schemas.artifact_output import validate_stage_outputs
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
 from usfds_core.repositories.base_project_repo import IProjectRepository
+from usfds_core.services.data_management.duckdb_io import (
+    copy_query_to_file,
+    create_utc_bounded_duckdb_connection,
+    duckdb_type_to_physical_dtype,
+    quote_ident,
+    register_file_view,
+    sha256_file,
+)
 from usfds_core.services.data_management.profiling import DataProfilingService
 from usfds_core.services.project_management.schema_validator import ProjectSchemaValidator
 from usfds_core.storage.base_storage import IFileStorage
@@ -47,26 +53,12 @@ class DatasetIngestionService:
         self.profiling_service = profiling_service or DataProfilingService()
         self.schema_validator = schema_validator or ProjectSchemaValidator()
 
-    def _load_dataframe_from_bytes(self, path_str: str, raw_bytes: bytes) -> pd.DataFrame:
-        """Parses a DataFrame from raw bytes based on file format extension."""
-        buffer = io.BytesIO(raw_bytes)
-        lower_path = path_str.lower()
-
+    def _cleanup_failed_ingestion(self, storage_dest: str, dataset_id: UUID) -> None:
         try:
-            if lower_path.endswith((".parquet", ".pq")):
-                return pd.read_parquet(buffer)
-            elif lower_path.endswith((".csv", ".txt")):
-                return pd.read_csv(buffer)
-            elif lower_path.endswith(".json"):
-                return pd.read_json(buffer)
-            else:
-                try:
-                    return pd.read_parquet(buffer)
-                except Exception:
-                    buffer.seek(0)
-                    return pd.read_csv(buffer)
-        except Exception as err:
-            raise ValueError(f"Failed to parse tabular data from '{path_str}': {err}") from err
+            self.file_storage.delete(storage_dest)
+            self.file_storage.delete(f"datasets/{dataset_id}")
+        except Exception:
+            pass
 
     def import_dataset(
         self,
@@ -81,9 +73,9 @@ class DatasetIngestionService:
         user_name: str = "system",
         max_file_size: int = DEFAULT_MAX_FILE_SIZE,
     ) -> Tuple[Dataset, DatasetArtifact]:
-        """Entry point for Data Management: Imports a local dataset file, validates/locks the
-        Project RAW schema, creates the Dataset entity, stores the raw
-        data file, computes basic data profiling, and persists the RAW artifact.
+        """Entry point for Data Management: Imports a dataset file via bounded DuckDB,
+        validates/locks the Project RAW schema, creates the Dataset entity, computes
+        basic data profiling, and persists the RAW artifact without loading full frames into RAM.
         """
         path_str = str(file_path).strip()
         if not self.file_storage.exists(path_str):
@@ -162,86 +154,124 @@ class DatasetIngestionService:
             except Exception:
                 pass
 
-        # 3. Read bytes & Parse DataFrame
-        try:
-            raw_bytes = self.file_storage.read_bytes(storage_dest)
-            df = self._load_dataframe_from_bytes(storage_dest, raw_bytes)
-            if df.empty or len(df.columns) == 0:
-                raise ValueError(f"Tập dữ liệu '{src_name}' không chứa bản ghi hoặc cột nào.")
-        except Exception:
-            try:
-                self.file_storage.delete(storage_dest)
-                self.file_storage.delete(f"datasets/{dataset_id}")
-            except Exception:
-                pass
-            raise
-
-        # 4. Project-level RAW Schema Lock / Compatibility Validation
+        # 3-5. Inspect schema, strip extra columns if needed, hash, and profile via bounded DuckDB
         validation_status = ValidationStatus.PASSED
         schema_validation_dict = None
+        columns: list[str] = []
+        col_types: Dict[str, str] = {}
+        row_count = 0
+        checksum = ""
+        profile_summary = None
 
-        if project is not None:
-            if not project.is_schema_locked:
-                # First dataset locks the Project's RAW schema
-                locked_schema = self.schema_validator.extract_raw_schema(
-                    df, source_dataset_id=dataset_id
-                )
-                project.raw_schema = locked_schema.to_dict()
-                project.base_dataset_id = dataset_id
-                project.updated_at = datetime.now(timezone.utc)
-                if self.project_repo is not None:
-                    self.project_repo.save(project)
-                schema_validation_dict = {
-                    "action": "SCHEMA_LOCKED",
-                    "is_valid": True,
-                    "warnings": [],
-                }
-            else:
-                # Validate against existing locked Project RAW schema
-                val_res = self.schema_validator.validate_dataframe(
-                    df, project.raw_schema, allow_missing_target=True
-                )
-                if not val_res.is_valid:
-                    try:
-                        self.file_storage.delete(storage_dest)
-                        self.file_storage.delete(f"datasets/{dataset_id}")
-                    except Exception:
-                        pass
-                    raise ValueError(" ".join(val_res.errors))
+        try:
+            with self.file_storage.open_local_path(storage_dest) as local_path:
+                expected_cols_to_strip: Optional[list[str]] = None
+                conn = create_utc_bounded_duckdb_connection()
+                try:
+                    columns, col_types = register_file_view(
+                        conn,
+                        local_path,
+                        view_name="raw_src",
+                        source_hint=storage_dest,
+                    )
+                    row_count = int(conn.execute('SELECT COUNT(*) FROM "raw_src"').fetchone()[0])
+                    if row_count == 0 or len(columns) == 0:
+                        raise ValueError(f"Tập dữ liệu '{src_name}' không chứa bản ghi hoặc cột nào.")
 
-                # Superset tolerance: strip extra columns not in project.raw_schema
-                if val_res.extra_columns and project.raw_schema:
-                    expected_cols = [
-                        c for c in project.raw_schema.get("columns", {}).keys()
-                        if c in df.columns
-                    ]
-                    df = df[expected_cols]
-                    # Re-persist filtered raw file so downstream stages see consistent columns
-                    out_buf = io.BytesIO()
-                    if ext in (".parquet", ".pq"):
-                        df.to_parquet(out_buf, index=False)
-                    elif ext == ".json":
-                        df.to_json(out_buf, orient="records")
-                    else:
-                        df.to_csv(out_buf, index=False)
-                    raw_bytes = out_buf.getvalue()
-                    self.file_storage.save_bytes(storage_dest, raw_bytes)
+                    if project is not None:
+                        if not project.is_schema_locked:
+                            locked_schema = self.schema_validator.extract_raw_schema_from_duckdb(
+                                conn,
+                                view_name="raw_src",
+                                source_dataset_id=dataset_id,
+                            )
+                            project.raw_schema = locked_schema.to_dict()
+                            project.base_dataset_id = dataset_id
+                            project.updated_at = datetime.now(timezone.utc)
+                            if self.project_repo is not None:
+                                self.project_repo.save(project)
+                            schema_validation_dict = {
+                                "action": "SCHEMA_LOCKED",
+                                "is_valid": True,
+                                "warnings": [],
+                            }
+                        else:
+                            val_res = self.schema_validator.validate_duckdb_view(
+                                conn,
+                                view_name="raw_src",
+                                raw_schema=project.raw_schema,
+                                allow_missing_target=True,
+                            )
+                            if not val_res.is_valid:
+                                raise ValueError(" ".join(val_res.errors))
 
-                if val_res.warnings:
-                    validation_status = ValidationStatus.WARNING
+                            if val_res.extra_columns and project.raw_schema:
+                                expected_cols_to_strip = [
+                                    c for c in project.raw_schema.get("columns", {}).keys()
+                                    if c in col_types
+                                ]
 
-                schema_validation_dict = val_res.model_dump()
+                            if val_res.warnings:
+                                validation_status = ValidationStatus.WARNING
+                            schema_validation_dict = val_res.model_dump()
 
-        checksum = hashlib.sha256(raw_bytes).hexdigest()
+                    if expected_cols_to_strip is None:
+                        checksum = sha256_file(local_path)
+                        profile_summary = self.profiling_service.analyze_duckdb(conn, view_name="raw_src")
+                finally:
+                    conn.close()
 
-        # 5. Basic Data Profiling
-        profile_summary = self.profiling_service.analyze(df)
+                if expected_cols_to_strip is not None:
+                    with tempfile.TemporaryDirectory() as tmp_dir:
+                        filtered_path = Path(tmp_dir) / f"filtered{ext}"
+                        filter_conn = create_utc_bounded_duckdb_connection()
+                        try:
+                            register_file_view(
+                                filter_conn,
+                                local_path,
+                                view_name="raw_src",
+                                source_hint=storage_dest,
+                            )
+                            proj_sql = ", ".join(quote_ident(c) for c in expected_cols_to_strip)
+                            copy_query_to_file(
+                                filter_conn,
+                                f'SELECT {proj_sql} FROM "raw_src"',
+                                filtered_path,
+                                ext,
+                            )
+                        finally:
+                            filter_conn.close()
+
+                        # Upload filtered artifact after releasing any handle on local_path
+                        self.file_storage.upload_file(filtered_path, storage_dest)
+                        checksum = sha256_file(filtered_path)
+
+                        profile_conn = create_utc_bounded_duckdb_connection()
+                        try:
+                            columns, col_types = register_file_view(
+                                profile_conn,
+                                filtered_path,
+                                view_name="raw_filtered",
+                                source_hint=storage_dest,
+                            )
+                            row_count = int(profile_conn.execute('SELECT COUNT(*) FROM "raw_filtered"').fetchone()[0])
+                            profile_summary = self.profiling_service.analyze_duckdb(
+                                profile_conn,
+                                view_name="raw_filtered",
+                            )
+                        finally:
+                            profile_conn.close()
+        except Exception:
+            self._cleanup_failed_ingestion(storage_dest, dataset_id)
+            raise
+
+        assert profile_summary is not None
 
         # 6. Build Stage outputs
         output_paths = {"raw": storage_dest}
         validate_stage_outputs(PipelineStage.RAW, output_paths)
 
-        schema_snapshot = {str(col): str(df[col].dtype) for col in df.columns}
+        schema_snapshot = {col: duckdb_type_to_physical_dtype(col_types[col]) for col in columns}
         val_report = {
             "profiling": profile_summary.to_dict(),
         }
@@ -259,8 +289,8 @@ class DatasetIngestionService:
             output_paths=output_paths,
             checksum_sha256=checksum,
             schema_snapshot=schema_snapshot,
-            row_count=len(df),
-            column_count=len(df.columns),
+            row_count=row_count,
+            column_count=len(columns),
             validation_status=validation_status,
             validation_report=val_report,
             created_by=user_name,
