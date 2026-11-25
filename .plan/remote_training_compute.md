@@ -1,7 +1,7 @@
 # Plan: Remote Training Compute (Multi-Provider, Modal & Auto Selection)
 
 > **Task ID:** `remote_training_compute` · **Issues:** ISS-009 · **Spec:** `docs/features/detection/training/suc-spec.md` (`SUC-08`; cập nhật phần `compute_target` & remote provider khi được user duyệt)
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Review
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Done (26-11-25)
 
 ## 1. Context (facts)
 - `TrainingRun` (`usfds-core/src/usfds_core/domain/entities/model.py:71`), `TrainingRunConfig` (`usfds-core/src/usfds_core/domain/schemas/training_config.py:14`), `TrainingRunPayload` (`usfds-core/src/usfds_core/domain/schemas/training_payload.py:19`), `StartTrainingRunRequest` (`usfds-server/src/usfds_server/schemas/training_api_schemas.py:43`), và bảng `training_runs` (`usfds-infra/src/usfds_infra/database/tables/model.py:71`) đã có sẵn trường `compute_target` (mặc định `"local"`), nhưng chưa có `external_job_id` hay metadata phân giải compute.
