@@ -1,6 +1,11 @@
+from pathlib import Path
+import shutil
+import tempfile
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 from usfds_core.domain.entities.auth import ActorContext
 from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
@@ -405,29 +410,40 @@ def export_normalized_dataset(
         authz.require_project_permission(
             actor, "dataset:export", dataset.project_id, owner_id=dataset.user_id
         )
-        zip_bytes, filename = service.export_dataset(
-            dataset_id=dataset_id,
-            artifact_id=artifact_id,
-            include_train=req.include_train,
-            include_test=req.include_test,
-            include_pipeline=req.include_pipeline,
-            include_schema=req.include_schema,
-            file_format=req.file_format,
-        )
-        if presigned:
-            export_key = f"exports/datasets/{dataset_id}/{artifact_id}/{filename}"
-            storage.save_bytes(export_key, zip_bytes)
-            dl_url = storage.generate_presigned_download_url(export_key, filename=filename)
-            if dl_url:
-                return ApiResponse.ok(
-                    data={"download_url": dl_url, "filename": filename, "object_key": export_key},
-                    message="Dataset export bundle ready",
-                )
-        return Response(
-            content=zip_bytes,
-            media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
-        )
+        # [26-11-25] ISS-044: Build ZIP on temp disk and stream/upload without holding archive bytes in RAM.
+        tmp_dir = Path(tempfile.mkdtemp(prefix="usfds_ds_export_"))
+        keep_tmp_dir = False
+        try:
+            export_zip = tmp_dir / "export.zip"
+            filename = service.export_dataset_to_file(
+                dataset_id=dataset_id,
+                artifact_id=artifact_id,
+                dest_path=export_zip,
+                include_train=req.include_train,
+                include_test=req.include_test,
+                include_pipeline=req.include_pipeline,
+                include_schema=req.include_schema,
+                file_format=req.file_format,
+            )
+            if presigned:
+                export_key = f"exports/datasets/{dataset_id}/{artifact_id}/{filename}"
+                storage.upload_file(export_zip, export_key)
+                dl_url = storage.generate_presigned_download_url(export_key, filename=filename)
+                if dl_url:
+                    return ApiResponse.ok(
+                        data={"download_url": dl_url, "filename": filename, "object_key": export_key},
+                        message="Dataset export bundle ready",
+                    )
+            keep_tmp_dir = True
+            return FileResponse(
+                export_zip,
+                media_type="application/zip",
+                filename=filename,
+                background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True),
+            )
+        finally:
+            if not keep_tmp_dir:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
     except FileNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except ValueError as e:

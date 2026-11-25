@@ -2,7 +2,9 @@ import csv
 from datetime import datetime, timedelta, timezone
 import hashlib
 import io
+import json
 from uuid import uuid4
+import zipfile
 
 import pandas as pd
 import pytest
@@ -25,6 +27,7 @@ from usfds_core.repositories.in_memory_repos import (
 	InMemoryDatasetRepository,
 	InMemoryProjectRepository,
 )
+from usfds_core.services.data_management.export import DatasetExportService
 from usfds_core.services.data_management.ingestion import DatasetIngestionService
 from usfds_core.services.data_management.mapping import DataMappingService
 from usfds_core.services.data_management.validation import DataQualityValidationService
@@ -402,4 +405,66 @@ def test_mapping_and_quality_validation_use_duckdb_without_pandas(tmp_path, monk
 	assert es_df["timestamp"].iloc[0] == "2024-01-01 12:00:00"
 	assert em_df["timestamp"].iloc[0] == "2024-01-01 12:00:00"
 	assert cu_df["timestamp"].iloc[0] == "2024-05-01 14:30:00"
+
+
+def test_export_artifact_bundle_to_file_converts_parquet_to_csv_without_pandas(tmp_path, monkeypatch):
+	"""ISS-044 (M3): DatasetExportService.export_artifact_bundle_to_file writes ZIP and converts Parquet->CSV via DuckDB without pandas."""
+	storage = InMemoryFileStorage()
+	dataset_id = uuid4()
+	artifact_id = uuid4()
+
+	train_df = pd.DataFrame({"event_id": ["E1", "E2"], "amount": [10.5, 25.0], "label": [0, 1]})
+	test_df = pd.DataFrame({"event_id": ["E3"], "amount": [99.0], "label": [0]})
+	train_key = f"datasets/{dataset_id}/artifacts/{artifact_id}/train_enriched.parquet"
+	test_key = f"datasets/{dataset_id}/artifacts/{artifact_id}/test_enriched.parquet"
+	pipe_key = f"datasets/{dataset_id}/artifacts/{artifact_id}/fitted_feature_engineers.joblib"
+
+	storage.save_bytes(train_key, train_df.to_parquet(index=False))
+	storage.save_bytes(test_key, test_df.to_parquet(index=False))
+	storage.save_bytes(pipe_key, b"dummy-joblib-bytes")
+
+	artifact = DatasetArtifact(
+		artifact_id=artifact_id,
+		dataset_id=dataset_id,
+		pipeline_stage=PipelineStage.FEATURE_ENGINEERED,
+		storage_path=f"datasets/{dataset_id}/artifacts/{artifact_id}",
+		output_paths={"train": train_key, "test": test_key, "pipeline": pipe_key},
+		row_count=2,
+		column_count=3,
+		validation_status=ValidationStatus.PASSED,
+		validation_report={"train_rows": 2, "test_rows": 1},
+	)
+
+	def _forbid(*args, **kwargs):
+		raise AssertionError("pandas export forbidden in ISS-044")
+
+	monkeypatch.setattr(pd, "read_parquet", _forbid)
+	monkeypatch.setattr(pd.DataFrame, "to_csv", _forbid)
+
+	export_service = DatasetExportService(storage)
+	dest_zip = tmp_path / "bundle.zip"
+	filename = export_service.export_artifact_bundle_to_file(
+		artifact=artifact,
+		dest_path=dest_zip,
+		include_train=True,
+		include_test=True,
+		include_pipeline=True,
+		include_schema=True,
+		file_format="csv",
+	)
+
+	assert filename == f"dataset_{dataset_id}_feature_engineered_export.zip"
+	assert dest_zip.is_file()
+	with zipfile.ZipFile(dest_zip, "r") as zf:
+		names = set(zf.namelist())
+		assert names == {"train.csv", "test.csv", "pipeline.joblib", "schema_metadata.json"}
+		train_rows = list(csv.reader(io.StringIO(zf.read("train.csv").decode("utf-8"))))
+		test_rows = list(csv.reader(io.StringIO(zf.read("test.csv").decode("utf-8"))))
+		assert train_rows[0] == ["event_id", "amount", "label"]
+		assert len(train_rows) == 3
+		assert test_rows[1][0] == "E3"
+		assert zf.read("pipeline.joblib") == b"dummy-joblib-bytes"
+		meta = json.loads(zf.read("schema_metadata.json").decode("utf-8"))
+		assert meta["artifact_id"] == str(artifact_id)
+
 

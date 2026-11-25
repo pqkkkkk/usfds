@@ -532,3 +532,115 @@ def test_delete_dataset_with_completed_jobs_succeeds(client, server_session_fact
 
 	res = client.delete(f"/api/v1/datasets/{dataset_id}")
 	assert res.status_code == 200, res.text
+
+
+def test_export_dataset_api_streams_zip_and_presigned_upload_without_pandas(
+	client, server_session_factory, server_settings, monkeypatch
+):
+	"""ISS-044 (M3): Dataset export endpoint streams ZIP from disk and uploads presigned export without pandas."""
+	import csv
+	import zipfile
+	from moto import mock_aws
+
+	from usfds_core.domain.entities.dataset import Dataset, DatasetArtifact
+	from usfds_core.domain.entities.enums import DataClassification, PipelineStage, ValidationStatus
+	from usfds_infra.database import SqliteDatasetArtifactRepository, SqliteDatasetRepository, session_scope
+	from usfds_infra.storage.s3_storage import S3FileStorage
+	from usfds_server import dependencies
+
+	dataset_id = uuid4()
+	artifact_id = uuid4()
+	mapped_rel = f"datasets/{dataset_id}/mapped/{artifact_id}/mapped.parquet"
+	mapped_df = pd.DataFrame(
+		{
+			"event_id": ["EV-1", "EV-2"],
+			"timestamp": ["2024-01-01 10:00:00", "2024-01-01 10:05:00"],
+			"amount": [120.5, 45.0],
+			"user_id": ["U-1", "U-2"],
+			"label": [0, 1],
+		}
+	)
+	parquet_bytes = mapped_df.to_parquet(index=False)
+
+	local_file = Path(server_settings.storage_dir) / mapped_rel
+	local_file.parent.mkdir(parents=True, exist_ok=True)
+	local_file.write_bytes(parquet_bytes)
+
+	with session_scope(server_session_factory) as session:
+		user_id, project_id = _seed_admin_project(session)
+		SqliteDatasetRepository(session).save(
+			Dataset(
+				dataset_id=dataset_id,
+				project_id=project_id,
+				user_id=user_id,
+				dataset_name="ds_stream_export",
+				data_classification=DataClassification.INTERNAL,
+			)
+		)
+		SqliteDatasetArtifactRepository(session).save(
+			DatasetArtifact(
+				artifact_id=artifact_id,
+				dataset_id=dataset_id,
+				pipeline_stage=PipelineStage.MAPPED,
+				storage_path=mapped_rel,
+				output_paths={"mapped": mapped_rel},
+				row_count=2,
+				column_count=5,
+				validation_status=ValidationStatus.PASSED,
+				validation_report={"quality_score": 98.0},
+			)
+		)
+
+	def _forbid(*args, **kwargs):
+		raise AssertionError("pandas export forbidden in ISS-044")
+
+	monkeypatch.setattr(pd, "read_parquet", _forbid)
+	monkeypatch.setattr(pd.DataFrame, "to_csv", _forbid)
+
+	tmp_root = Path(tempfile.gettempdir())
+	before_dirs = set(tmp_root.glob("usfds_ds_export_*"))
+
+	export_payload = {
+		"include_train": True,
+		"include_test": False,
+		"include_pipeline": False,
+		"include_schema": True,
+		"file_format": "csv",
+	}
+	res_local = client.post(
+		f"/api/v1/datasets/{dataset_id}/artifacts/{artifact_id}/export",
+		json=export_payload,
+	)
+	assert res_local.status_code == 200, res_local.text
+	assert res_local.headers["content-type"] == "application/zip"
+	with zipfile.ZipFile(io.BytesIO(res_local.content), "r") as zf:
+		assert set(zf.namelist()) == {"train.csv", "schema_metadata.json"}
+		rows = list(csv.reader(io.StringIO(zf.read("train.csv").decode("utf-8"))))
+		assert rows[0] == ["event_id", "timestamp", "amount", "user_id", "label"]
+		assert len(rows) == 3
+	assert set(tmp_root.glob("usfds_ds_export_*")) == before_dirs
+
+	with mock_aws():
+		s3_storage = S3FileStorage(
+			bucket="usfds",
+			access_key="test",
+			secret_key="test",
+			region="us-east-1",
+		)
+		s3_storage.save_bytes(mapped_rel, parquet_bytes)
+		monkeypatch.setattr(dependencies, "_storage", s3_storage)
+
+		res_s3 = client.post(
+			f"/api/v1/datasets/{dataset_id}/artifacts/{artifact_id}/export",
+			params={"presigned": "true"},
+			json=export_payload,
+		)
+		assert res_s3.status_code == 200, res_s3.text
+		s3_data = res_s3.json()["data"]
+		assert s3_data["download_url"]
+		assert s3_data["object_key"].startswith(f"exports/datasets/{dataset_id}/{artifact_id}/")
+		assert s3_storage.exists(s3_data["object_key"])
+		with zipfile.ZipFile(io.BytesIO(s3_storage.read_bytes(s3_data["object_key"])), "r") as zf:
+			assert set(zf.namelist()) == {"train.csv", "schema_metadata.json"}
+		assert set(tmp_root.glob("usfds_ds_export_*")) == before_dirs
+

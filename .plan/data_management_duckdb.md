@@ -1,7 +1,7 @@
 # Plan: Data Management Pipeline on Bounded DuckDB
 
 > **Task ID:** `data_management_duckdb` · **Issues:** ISS-044 · **Spec:** `docs/features/data_management/gap.md`, `docs/issues/11-21-2026.md` (`ISS-044`)
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** In progress (M3)
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Review
 
 ## 1. Context (facts)
 - **Ingestion nạp toàn bộ tệp vào pandas + RAM bytes:**
@@ -137,18 +137,23 @@ The agent ticks items as it works. This is the task's only to-do list (`TODO.md`
   - [x] [core] Bổ sung `validate_duckdb` và `validate_file` vào `validation.py` (khớp tuyệt đối công thức điểm & cảnh báo)
   - [x] [core] Chuyển `DataMappingService.map_dataset` sang DuckDB SQL + `COPY PARQUET` + `upload_file` + `validate_duckdb`
   - [x] [verify] `./scripts/test.sh core`
-- [ ] **M3 — Streaming Export ZIP/CSV** (`usfds-core`, `usfds-server`): xuất ZIP streaming không giữ RAM.
-  - [ ] [tests] Viết các acceptance test M3 trong `usfds-core/tests/test_data_management_duckdb.py` và `usfds-server/tests/test_dataset_api.py`; xác nhận fail đúng lý do
-  - [ ] [core] Bổ sung `export_artifact_bundle_to_file` vào `export.py` và `export_dataset_to_file` vào `service.py`
-  - [ ] [server] Cập nhật `dataset_router.py` dùng `export_dataset_to_file` + `FileResponse` / `storage.upload_file` + dọn thư mục tạm
-  - [ ] [verify] `./scripts/test.sh core infra server worker`
+- [x] **M3 — Streaming Export ZIP/CSV** (`usfds-core`, `usfds-server`): xuất ZIP streaming không giữ RAM.
+  - [x] [tests] Viết các acceptance test M3 trong `usfds-core/tests/test_data_management_duckdb.py` và `usfds-server/tests/test_dataset_api.py`; xác nhận fail đúng lý do
+  - [x] [core] Bổ sung `export_artifact_bundle_to_file` vào `export.py` và `export_dataset_to_file` vào `service.py`
+  - [x] [server] Cập nhật `dataset_router.py` dùng `export_dataset_to_file` + `FileResponse` / `storage.upload_file` + dọn thư mục tạm
+  - [x] [verify] `./scripts/test.sh core infra server worker`
 
 Checkpoint log (the agent appends one line per finished milestone):
 - 26-11-25 M1 done: usfds-core 189 passed, 9 skipped (pre-existing); notes: —
 - 26-11-25 M2 done: usfds-core 190 passed, 9 skipped (pre-existing); notes: exact parity verified between validate_duckdb and validate(df)
+- 26-11-25 M3 done: core 191 passed (9 skipped) · infra 52 passed · server 57 passed · worker 10 passed; notes: —
 
 ## 7. Review hotspots (filled in after implementation)
-- —
+- `usfds-core/src/usfds_core/services/data_management/ingestion.py:166-266` (M1): Đọc raw qua `open_local_path` + DuckDB khóa trần, đóng connection trước khi `upload_file` ghi đè `storage_dest` khi cắt cột dư (tránh khóa file trên Windows), và dọn storage khi parse/schema fail; test: `test_ingestion_schema_lock_strip_extra_and_profiling_use_duckdb_without_pandas`.
+- `usfds-core/src/usfds_core/services/project_management/schema_validator.py:256-311` (M1): Kiểm tra tương thích kiểu theo lô bằng SQL (`COUNT(col) == 0` cho cột toàn NULL, `DATETIME <-> STRING`, `{BOOLEAN, NUMERIC}` nhị phân `0/1`); sai điều kiện ở đây có thể chặn hợp lệ hoặc lọt sai kiểu; test: `test_ingestion_schema_lock_strip_extra_and_profiling_use_duckdb_without_pandas` & `test_project_management.py`.
+- `usfds-core/src/usfds_core/services/data_management/mapping.py:249-393` (M2): Coerce SQL (`AUTO`/`ISO8601`/`epoch_s`/`epoch_ms`/custom `strftime` theo UTC, `NUMERIC`, `BOOLEAN`), gom kiểm tra tỷ lệ lỗi `max_invalid_ratio_allowed` vào 1 truy vấn tổng hợp, ghi `mapped.parquet` ra đĩa tạm rồi `validate_duckdb` trên cùng connection và `DROP VIEW` trước khi thoát `TemporaryDirectory`; test: `test_mapping_and_quality_validation_use_duckdb_without_pandas`, `test_mapping_service.py`, `test_system_metadata.py`.
+- `usfds-core/src/usfds_core/services/data_management/validation.py:370-555` (M2): Chấm điểm chất lượng bằng DuckDB (`NULL`/chuỗi rỗng/`NaN`, `SELECT DISTINCT` để đếm trùng `NULL` khớp pandas, `quantile_cont(0.999)` + `STDDEV_SAMP` chống chia 0/`NaN`); lệch công thức sẽ làm sai `quality_score`; test: `test_mapping_and_quality_validation_use_duckdb_without_pandas`.
+- `usfds-core/src/usfds_core/services/data_management/export.py:23-125` & `usfds-server/src/usfds_server/routers/dataset_router.py:413-446` (M3): Tạo ZIP trực tiếp trên đĩa tạm (Parquet→CSV qua DuckDB `COPY`), trả `FileResponse` + `BackgroundTask(shutil.rmtree, tmp_dir)` hoặc `storage.upload_file` cho `presigned=True`, luôn dọn `tmp_dir` khi lỗi; test: `test_export_artifact_bundle_to_file_converts_parquet_to_csv_without_pandas` & `test_export_dataset_api_streams_zip_and_presigned_upload_without_pandas`.
 
 ## 8. Open questions
 - —

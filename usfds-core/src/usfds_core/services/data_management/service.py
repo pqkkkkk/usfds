@@ -382,5 +382,35 @@ class DataManagementService:
             file_format=file_format,
         )
 
+    def export_dataset_to_file(
+        self,
+        dataset_id: UUID,
+        artifact_id: UUID,
+        dest_path: Union[str, Path],
+        include_train: bool = True,
+        include_test: bool = True,
+        include_pipeline: bool = True,
+        include_schema: bool = True,
+        file_format: str = "parquet",
+    ) -> str:
+        """Bundles and writes normalized dataset files into a ZIP archive on disk."""
+        dataset = self.dataset_repo.get_by_id(dataset_id)
+        if not dataset:
+            raise ValueError(f"Dataset '{dataset_id}' không tồn tại.")
+
+        art = self.artifact_repo.get_by_id(artifact_id)
+        if not art or art.dataset_id != dataset_id:
+            raise ValueError(f"Artifact '{artifact_id}' không tồn tại cho dataset '{dataset_id}'.")
+
+        return self.export_service.export_artifact_bundle_to_file(
+            artifact=art,
+            dest_path=dest_path,
+            include_train=include_train,
+            include_test=include_test,
+            include_pipeline=include_pipeline,
+            include_schema=include_schema,
+            file_format=file_format,
+        )
+
 
 __all__ = ["DataManagementService"]
