@@ -1,7 +1,7 @@
 # Plan: Data Management Pipeline on Bounded DuckDB
 
 > **Task ID:** `data_management_duckdb` · **Issues:** ISS-044 · **Spec:** `docs/features/data_management/gap.md`, `docs/issues/11-21-2026.md` (`ISS-044`)
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** In progress (M2)
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** In progress (M3)
 
 ## 1. Context (facts)
 - **Ingestion nạp toàn bộ tệp vào pandas + RAM bytes:**
@@ -132,11 +132,11 @@ The agent ticks items as it works. This is the task's only to-do list (`TODO.md`
   - [x] [core] Bổ sung `analyze_duckdb` và `analyze_file` vào `profiling.py`
   - [x] [core] Chuyển `DatasetIngestionService.import_dataset` sang DuckDB + `open_local_path` + `upload_file` + `sha256_file`
   - [x] [verify] `./scripts/test.sh core`
-- [ ] **M2 — Schema Mapping & Data Quality Validation trên DuckDB** (`usfds-core`): ánh xạ 5 cột chuẩn + cột `DOMAIN`, ghi `mapped.parquet` ra đĩa và chấm điểm chất lượng hoàn toàn bằng DuckDB.
-  - [ ] [tests] Viết acceptance test M2 trong `usfds-core/tests/test_data_management_duckdb.py`; xác nhận fail đúng lý do
-  - [ ] [core] Bổ sung `validate_duckdb` và `validate_file` vào `validation.py` (khớp tuyệt đối công thức điểm & cảnh báo)
-  - [ ] [core] Chuyển `DataMappingService.map_dataset` sang DuckDB SQL + `COPY PARQUET` + `upload_file` + `validate_duckdb`
-  - [ ] [verify] `./scripts/test.sh core`
+- [x] **M2 — Schema Mapping & Data Quality Validation trên DuckDB** (`usfds-core`): ánh xạ 5 cột chuẩn + cột `DOMAIN`, ghi `mapped.parquet` ra đĩa và chấm điểm chất lượng hoàn toàn bằng DuckDB.
+  - [x] [tests] Viết acceptance test M2 trong `usfds-core/tests/test_data_management_duckdb.py`; xác nhận fail đúng lý do
+  - [x] [core] Bổ sung `validate_duckdb` và `validate_file` vào `validation.py` (khớp tuyệt đối công thức điểm & cảnh báo)
+  - [x] [core] Chuyển `DataMappingService.map_dataset` sang DuckDB SQL + `COPY PARQUET` + `upload_file` + `validate_duckdb`
+  - [x] [verify] `./scripts/test.sh core`
 - [ ] **M3 — Streaming Export ZIP/CSV** (`usfds-core`, `usfds-server`): xuất ZIP streaming không giữ RAM.
   - [ ] [tests] Viết các acceptance test M3 trong `usfds-core/tests/test_data_management_duckdb.py` và `usfds-server/tests/test_dataset_api.py`; xác nhận fail đúng lý do
   - [ ] [core] Bổ sung `export_artifact_bundle_to_file` vào `export.py` và `export_dataset_to_file` vào `service.py`
@@ -145,6 +145,7 @@ The agent ticks items as it works. This is the task's only to-do list (`TODO.md`
 
 Checkpoint log (the agent appends one line per finished milestone):
 - 26-11-25 M1 done: usfds-core 189 passed, 9 skipped (pre-existing); notes: —
+- 26-11-25 M2 done: usfds-core 190 passed, 9 skipped (pre-existing); notes: exact parity verified between validate_duckdb and validate(df)
 
 ## 7. Review hotspots (filled in after implementation)
 - —

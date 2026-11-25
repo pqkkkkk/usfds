@@ -1,8 +1,7 @@
-import hashlib
-import io
-from typing import Any, Dict, List, Optional, Union
+from pathlib import Path
+import tempfile
+from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID, uuid4
-import pandas as pd
 
 from usfds_core.domain.entities.dataset import DatasetArtifact
 from usfds_core.domain.entities.enums import (
@@ -20,11 +19,30 @@ from usfds_core.domain.schemas.preprocessing_config import (
 from usfds_core.domain.schemas.system_metadata import build_non_ml_columns
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_system_metadata_repo import ISystemColumnMetadataRepository
+from usfds_core.services.data_management.duckdb_io import (
+    copy_query_to_file,
+    create_utc_bounded_duckdb_connection,
+    duckdb_type_to_physical_dtype,
+    is_duckdb_datetime_type,
+    quote_ident,
+    quote_literal,
+    register_file_view,
+    sha256_file,
+)
 from usfds_core.services.data_management.validation import (
     DataQualityReport,
     DataQualityValidationService,
 )
 from usfds_core.storage.base_storage import IFileStorage
+
+_FLOAT_TYPES = {"FLOAT", "FLOAT4", "FLOAT8", "DOUBLE", "REAL"}
+
+_AUTO_TIME_FORMATS = (
+    "['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%dT%H:%M:%S', "
+    "'%Y-%m-%d', '%Y/%m/%d %H:%M:%S', '%Y/%m/%d', "
+    "'%d/%m/%Y %H:%M:%S', '%d/%m/%Y %H:%M', '%d/%m/%Y', "
+    "'%m/%d/%Y %H:%M:%S', '%m/%d/%Y %H:%M', '%m/%d/%Y']"
+)
 
 
 class DataMappingService:
@@ -45,138 +63,61 @@ class DataMappingService:
         self.validation_service = validation_service or DataQualityValidationService()
         self.metadata_repo = metadata_repo
 
-    def _load_dataframe_from_storage(self, storage_path: str) -> pd.DataFrame:
-        """Loads DataFrame from file storage based on file extension."""
-        if not self.file_storage.exists(storage_path):
-            raise FileNotFoundError(f"File not found in storage at '{storage_path}'.")
+    @staticmethod
+    def _not_blank_sql(col_ident: str, col_type: str) -> str:
+        t_up = col_type.strip().upper()
+        if t_up in _FLOAT_TYPES:
+            return f"{col_ident} IS NOT NULL AND NOT isnan({col_ident}) AND trim(CAST({col_ident} AS VARCHAR)) != ''"
+        return f"{col_ident} IS NOT NULL AND trim(CAST({col_ident} AS VARCHAR)) != ''"
 
-        raw_bytes = self.file_storage.read_bytes(storage_path)
-        buffer = io.BytesIO(raw_bytes)
-        lower_path = storage_path.lower()
-
-        try:
-            if lower_path.endswith((".parquet", ".pq")):
-                return pd.read_parquet(buffer)
-            elif lower_path.endswith((".csv", ".txt")):
-                return pd.read_csv(buffer)
-            elif lower_path.endswith(".json"):
-                return pd.read_json(buffer)
-            else:
-                try:
-                    return pd.read_parquet(buffer)
-                except Exception:
-                    buffer.seek(0)
-                    return pd.read_csv(buffer)
-        except Exception as err:
-            raise ValueError(f"Failed to parse source dataset from '{storage_path}': {err}") from err
-
-    def _parse_timestamps(
-        self,
-        series: pd.Series,
+    @staticmethod
+    def _timestamp_parse_sql(
+        col_ident: str,
+        col_type: str,
         time_format: Union[SupportedTimeFormat, str],
-        max_invalid_ratio: float,
-    ) -> pd.Series:
-        """Parses and standardizes timestamps to ISO-8601 UTC strings."""
+    ) -> str:
         fmt_str = time_format.value if isinstance(time_format, SupportedTimeFormat) else str(time_format)
+        if fmt_str == SupportedTimeFormat.EPOCH_SECONDS.value:
+            num_expr = f"TRY_CAST({col_ident} AS DOUBLE)"
+            return (
+                f"CASE WHEN {num_expr} IS NOT NULL AND isfinite({num_expr}) "
+                f"THEN CAST(to_timestamp({num_expr}) AS TIMESTAMP) ELSE NULL END"
+            )
+        if fmt_str == SupportedTimeFormat.EPOCH_MILLIS.value:
+            num_expr = f"TRY_CAST({col_ident} AS DOUBLE)"
+            return (
+                f"CASE WHEN {num_expr} IS NOT NULL AND isfinite({num_expr}) "
+                f"THEN CAST(to_timestamp({num_expr} / 1000.0) AS TIMESTAMP) ELSE NULL END"
+            )
+        if fmt_str in (SupportedTimeFormat.AUTO.value, SupportedTimeFormat.ISO8601.value):
+            if is_duckdb_datetime_type(col_type):
+                return f"CAST(TRY_CAST({col_ident} AS TIMESTAMPTZ) AS TIMESTAMP)"
+            trimmed = f"trim(CAST({col_ident} AS VARCHAR))"
+            return (
+                f"CAST(COALESCE("
+                f"TRY_CAST({trimmed} AS TIMESTAMPTZ), "
+                f"CAST(TRY_CAST({trimmed} AS TIMESTAMP) AS TIMESTAMPTZ), "
+                f"CAST(try_strptime({trimmed}, {_AUTO_TIME_FORMATS}) AS TIMESTAMPTZ)"
+                f") AS TIMESTAMP)"
+            )
+        trimmed = f"trim(CAST({col_ident} AS VARCHAR))"
+        return f"try_strptime({trimmed}, {quote_literal(fmt_str)})"
 
-        try:
-            if fmt_str == SupportedTimeFormat.EPOCH_SECONDS.value:
-                # Handle numeric epoch seconds
-                parsed = pd.to_datetime(pd.to_numeric(series, errors="coerce"), unit="s", utc=True)
-            elif fmt_str == SupportedTimeFormat.EPOCH_MILLIS.value:
-                # Handle numeric epoch milliseconds
-                parsed = pd.to_datetime(pd.to_numeric(series, errors="coerce"), unit="ms", utc=True)
-            elif fmt_str in (SupportedTimeFormat.AUTO.value, SupportedTimeFormat.ISO8601.value):
-                # Try automatic date parsing
-                parsed = pd.to_datetime(series, utc=True, errors="coerce")
-            else:
-                # Custom strftime format
-                parsed = pd.to_datetime(series, format=fmt_str, utc=True, errors="coerce")
-        except Exception as e:
-            raise ValueError(f"Cột nguồn thời gian không tương thích với định dạng thời gian được chọn: {e}") from e
+    @staticmethod
+    def _numeric_parse_sql(col_ident: str) -> str:
+        num_expr = f"TRY_CAST({col_ident} AS DOUBLE)"
+        return f"CASE WHEN {num_expr} IS NOT NULL AND isfinite({num_expr}) THEN {num_expr} ELSE NULL END"
 
-        # Check unparseable ratio
-        original_not_null = series.notna() & (series.astype(str).str.strip() != "")
-        if original_not_null.sum() > 0:
-            invalid_ratio = (original_not_null & parsed.isna()).sum() / original_not_null.sum()
-            if invalid_ratio > max_invalid_ratio:
-                raise ValueError(
-                    f"Cột nguồn thời gian không tương thích: tỷ lệ không thể chuyển đổi ({invalid_ratio * 100:.1f}%) "
-                    f"vượt ngưỡng cho phép ({max_invalid_ratio * 100:.1f}%)."
-                )
-
-        return parsed.dt.strftime("%Y-%m-%d %H:%M:%S")
-
-    def _parse_amounts(self, series: pd.Series, max_invalid_ratio: float) -> pd.Series:
-        """Parses and standardizes amounts to numeric float64."""
-        parsed = pd.to_numeric(series, errors="coerce")
-        original_not_null = series.notna() & (series.astype(str).str.strip() != "")
-        if original_not_null.sum() > 0:
-            invalid_ratio = (original_not_null & parsed.isna()).sum() / original_not_null.sum()
-            if invalid_ratio > max_invalid_ratio:
-                raise ValueError(
-                    f"Cột nguồn số tiền không tương thích với kiểu số: {invalid_ratio * 100:.1f}% giá trị không phải số "
-                    f"(vượt ngưỡng {max_invalid_ratio * 100:.1f}%)."
-                )
-        return parsed.astype("float64")
-
-    def _coerce_domain_column(
-        self,
-        series: pd.Series,
-        column_key: str,
-        logical_type: Union[LogicalDataType, str],
-        time_format: Union[SupportedTimeFormat, str],
-        max_invalid_ratio: float,
-    ) -> pd.Series:
-        """Coerces a mapped DOMAIN column according to its configured LogicalDataType."""
-        ltype_val = logical_type.value if hasattr(logical_type, "value") else str(logical_type).upper()
-
-        if ltype_val == LogicalDataType.NUMERIC.value:
-            parsed = pd.to_numeric(series, errors="coerce")
-            original_not_null = series.notna() & (series.astype(str).str.strip() != "")
-            if original_not_null.sum() > 0:
-                invalid_ratio = (original_not_null & parsed.isna()).sum() / original_not_null.sum()
-                if invalid_ratio > max_invalid_ratio:
-                    raise ValueError(
-                        f"Cột nghiệp vụ '{column_key}' không tương thích kiểu NUMERIC: "
-                        f"{invalid_ratio * 100:.1f}% giá trị không hợp lệ (vượt ngưỡng {max_invalid_ratio * 100:.1f}%)."
-                    )
-            return parsed.astype("float64")
-
-        if ltype_val == LogicalDataType.DATETIME.value:
-            return self._parse_timestamps(series, time_format, max_invalid_ratio)
-
-        if ltype_val == LogicalDataType.BOOLEAN.value:
-            true_vals = {"true", "1", "1.0", "yes", "y", "t"}
-            false_vals = {"false", "0", "0.0", "no", "n", "f"}
-
-            def _parse_bool(val: Any) -> Optional[bool]:
-                if pd.isna(val):
-                    return None
-                if isinstance(val, bool):
-                    return val
-                s = str(val).strip().lower()
-                if not s:
-                    return None
-                if s in true_vals:
-                    return True
-                if s in false_vals:
-                    return False
-                return None
-
-            original_not_null = series.notna() & (series.astype(str).str.strip() != "")
-            parsed_bool = series.map(_parse_bool)
-            if original_not_null.sum() > 0:
-                invalid_ratio = (original_not_null & parsed_bool.isna()).sum() / original_not_null.sum()
-                if invalid_ratio > max_invalid_ratio:
-                    raise ValueError(
-                        f"Cột nghiệp vụ '{column_key}' không tương thích kiểu BOOLEAN: "
-                        f"{invalid_ratio * 100:.1f}% giá trị không hợp lệ (vượt ngưỡng {max_invalid_ratio * 100:.1f}%)."
-                    )
-            return parsed_bool.astype("boolean")
-
-        # Default: STRING (preserve missing values instead of stringifying NaN to 'nan')
-        return series.where(series.isna(), series.astype(str))
+    @staticmethod
+    def _boolean_parse_sql(col_ident: str) -> str:
+        norm = f"lower(trim(CAST({col_ident} AS VARCHAR)))"
+        return (
+            f"CASE "
+            f"WHEN {col_ident} IS NULL OR trim(CAST({col_ident} AS VARCHAR)) = '' THEN NULL "
+            f"WHEN {norm} IN ('true', '1', '1.0', 'yes', 'y', 't') THEN TRUE "
+            f"WHEN {norm} IN ('false', '0', '0.0', 'no', 'n', 'f') THEN FALSE "
+            f"ELSE NULL END"
+        )
 
     @staticmethod
     def _serialize_metadata_snapshot(active_metadata: List[SystemColumnMetadata]) -> List[Dict[str, Any]]:
@@ -206,7 +147,7 @@ class DataMappingService:
         mapping_config: DataMappingConfig,
         user_name: str = "system",
     ) -> DatasetArtifact:
-        """Executes data mapping, saves mapped.parquet, and executes data quality validation."""
+        """Executes data mapping via bounded DuckDB, saves mapped.parquet, and runs DuckDB quality validation."""
         # 1. Validate Parent Artifact Stage
         if parent_artifact.pipeline_stage != PipelineStage.RAW:
             raise ValueError(
@@ -267,94 +208,197 @@ class DataMappingService:
                 "Vui lòng hoàn tất trước khi lưu."
             )
 
-        # 4. Load source raw DataFrame
+        # 4. Verify source file exists
         source_path = (
             parent_artifact.output_paths.get("raw")
             or parent_artifact.storage_path
         )
-        raw_df = self._load_dataframe_from_storage(source_path)
+        if not source_path or not self.file_storage.exists(source_path):
+            raise FileNotFoundError(f"File not found in storage at '{source_path}'.")
 
-        # 5. Verify mapped columns exist in source data
-        for std_name, raw_name in mandatory_fields.items():
-            if raw_name not in raw_df.columns:
-                raise ValueError(
-                    f"Cột nguồn '{raw_name}' ánh xạ cho '{std_name}' không tồn tại trong tập dữ liệu thô."
-                )
-
-        for raw_col in mapping_config.optional_columns.keys():
-            if raw_col not in raw_df.columns:
-                raise ValueError(
-                    f"Cột nguồn tùy chọn '{raw_col}' không tồn tại trong tập dữ liệu thô."
-                )
-
-        # 6. Transform and rename columns to standardized schema
-        mapped_df = pd.DataFrame(index=raw_df.index)
-
-        # 6.1 Event ID
-        mapped_df[SystemColumn.EVENT_ID.value] = raw_df[mapping_config.event_id_column].astype(str)
-
-        # 6.2 Timestamp (standardized)
-        mapped_df[SystemColumn.TIMESTAMP.value] = self._parse_timestamps(
-            raw_df[mapping_config.time_column],
-            mapping_config.time_format,
-            mapping_config.max_invalid_ratio_allowed,
-        )
-
-        # 6.3 Amount (numeric)
-        mapped_df[SystemColumn.AMOUNT.value] = self._parse_amounts(
-            raw_df[mapping_config.amount_column],
-            mapping_config.max_invalid_ratio_allowed,
-        )
-
-        # 6.4 User ID
-        mapped_df[SystemColumn.USER_ID.value] = raw_df[mapping_config.user_id_column].astype(str)
-
-        # 6.5 Label
-        mapped_df[SystemColumn.LABEL.value] = pd.to_numeric(
-            raw_df[mapping_config.target_column], errors="coerce"
-        ).fillna(0).astype(int)
-
-        # 6.6 Optional / Domain columns (apply logical_type coercion when defined in metadata)
-        for raw_col, target_col in mapping_config.optional_columns.items():
-            target_key = str(target_col).strip()
-            domain_meta = domain_meta_by_key.get(target_key)
-            if domain_meta is not None:
-                mapped_df[target_key] = self._coerce_domain_column(
-                    raw_df[raw_col],
-                    column_key=target_key,
-                    logical_type=domain_meta.logical_type,
-                    time_format=mapping_config.time_format,
-                    max_invalid_ratio=mapping_config.max_invalid_ratio_allowed,
-                )
-            else:
-                mapped_df[target_key] = raw_df[raw_col]
-
-        # 7. Serialize mapped DataFrame to immutable per-artifact Parquet path
         artifact_id = uuid4()
         storage_path = f"datasets/{dataset_id}/mapped/{artifact_id}/mapped.parquet"
-        parquet_buffer = io.BytesIO()
-        mapped_df.to_parquet(parquet_buffer, index=False)
-        parquet_bytes = parquet_buffer.getvalue()
+        checksum = ""
+        schema_snapshot: Dict[str, str] = {}
+        retained_columns: List[str] = []
+        quality_report: Optional[DataQualityReport] = None
 
-        self.file_storage.save_bytes(storage_path, parquet_bytes)
-        checksum = hashlib.sha256(parquet_bytes).hexdigest()
+        with self.file_storage.open_local_path(source_path) as local_path:
+            conn = create_utc_bounded_duckdb_connection()
+            try:
+                _, raw_types = register_file_view(
+                    conn,
+                    local_path,
+                    view_name="raw_src",
+                    source_hint=source_path,
+                )
 
-        # 8. Validate output contract for MAPPED stage
-        output_paths = {"mapped": storage_path}
-        validate_stage_outputs(PipelineStage.MAPPED, output_paths)
+                # 5. Verify mapped columns exist in source data
+                for std_name, raw_name in mandatory_fields.items():
+                    if raw_name not in raw_types:
+                        raise ValueError(
+                            f"Cột nguồn '{raw_name}' ánh xạ cho '{std_name}' không tồn tại trong tập dữ liệu thô."
+                        )
 
-        # 9. Data validation
-        quality_report: DataQualityReport = self.validation_service.validate(mapped_df)
+                for raw_col in mapping_config.optional_columns.keys():
+                    if raw_col not in raw_types:
+                        raise ValueError(
+                            f"Cột nguồn tùy chọn '{raw_col}' không tồn tại trong tập dữ liệu thô."
+                        )
 
-        # 10. Construct schema snapshot
-        schema_snapshot = {str(col): str(mapped_df[col].dtype) for col in mapped_df.columns}
+                # 6. Build SQL coercion expressions + invalid-ratio checks
+                select_exprs: Dict[str, str] = {}
+                # Each entry: (kind, target_key, not_blank_sql, parsed_sql)
+                ratio_checks: List[Tuple[str, str, str, str]] = []
 
-        # 10.1 Enrich validation report with column_mapping, retained_columns, and metadata snapshot
+                ev_ident = quote_ident(mapping_config.event_id_column)
+                select_exprs[SystemColumn.EVENT_ID.value] = f"CAST({ev_ident} AS VARCHAR)"
+
+                ts_src = mapping_config.time_column
+                ts_ident = quote_ident(ts_src)
+                ts_parsed_sql = self._timestamp_parse_sql(ts_ident, raw_types[ts_src], mapping_config.time_format)
+                select_exprs[SystemColumn.TIMESTAMP.value] = f"strftime({ts_parsed_sql}, '%Y-%m-%d %H:%M:%S')"
+                ratio_checks.append(
+                    ("TIMESTAMP", SystemColumn.TIMESTAMP.value, self._not_blank_sql(ts_ident, raw_types[ts_src]), ts_parsed_sql)
+                )
+
+                amt_src = mapping_config.amount_column
+                amt_ident = quote_ident(amt_src)
+                amt_parsed_sql = self._numeric_parse_sql(amt_ident)
+                select_exprs[SystemColumn.AMOUNT.value] = amt_parsed_sql
+                ratio_checks.append(
+                    ("AMOUNT", SystemColumn.AMOUNT.value, self._not_blank_sql(amt_ident, raw_types[amt_src]), amt_parsed_sql)
+                )
+
+                uid_ident = quote_ident(mapping_config.user_id_column)
+                select_exprs[SystemColumn.USER_ID.value] = f"CAST({uid_ident} AS VARCHAR)"
+
+                lbl_src = mapping_config.target_column
+                lbl_ident = quote_ident(lbl_src)
+                if raw_types[lbl_src].strip().upper() in ("BOOLEAN", "BOOL"):
+                    select_exprs[SystemColumn.LABEL.value] = f"CAST(COALESCE(CAST({lbl_ident} AS BIGINT), 0) AS BIGINT)"
+                else:
+                    lbl_num = self._numeric_parse_sql(lbl_ident)
+                    select_exprs[SystemColumn.LABEL.value] = f"CAST(COALESCE(TRY_CAST({lbl_num} AS BIGINT), 0) AS BIGINT)"
+
+                for raw_col, target_col in mapping_config.optional_columns.items():
+                    target_key = str(target_col).strip()
+                    col_ident = quote_ident(raw_col)
+                    col_type = raw_types[raw_col]
+                    domain_meta = domain_meta_by_key.get(target_key)
+                    if domain_meta is not None:
+                        ltype_val = (
+                            domain_meta.logical_type.value
+                            if hasattr(domain_meta.logical_type, "value")
+                            else str(domain_meta.logical_type).upper()
+                        )
+                        if ltype_val == LogicalDataType.NUMERIC.value:
+                            parsed_sql = self._numeric_parse_sql(col_ident)
+                            select_exprs[target_key] = parsed_sql
+                            ratio_checks.append(
+                                ("DOMAIN_NUMERIC", target_key, self._not_blank_sql(col_ident, col_type), parsed_sql)
+                            )
+                        elif ltype_val == LogicalDataType.DATETIME.value:
+                            parsed_sql = self._timestamp_parse_sql(col_ident, col_type, mapping_config.time_format)
+                            select_exprs[target_key] = f"strftime({parsed_sql}, '%Y-%m-%d %H:%M:%S')"
+                            ratio_checks.append(
+                                ("DOMAIN_DATETIME", target_key, self._not_blank_sql(col_ident, col_type), parsed_sql)
+                            )
+                        elif ltype_val == LogicalDataType.BOOLEAN.value:
+                            parsed_sql = self._boolean_parse_sql(col_ident)
+                            select_exprs[target_key] = parsed_sql
+                            ratio_checks.append(
+                                ("DOMAIN_BOOLEAN", target_key, self._not_blank_sql(col_ident, col_type), parsed_sql)
+                            )
+                        else:
+                            select_exprs[target_key] = (
+                                f"CASE WHEN {col_ident} IS NULL THEN NULL ELSE CAST({col_ident} AS VARCHAR) END"
+                            )
+                    else:
+                        select_exprs[target_key] = col_ident
+
+                # 6.1 Execute invalid-ratio checks in a single aggregate SQL pass
+                if ratio_checks:
+                    agg_exprs: List[str] = []
+                    for _, _, not_blank_sql, parsed_sql in ratio_checks:
+                        agg_exprs.append(f"SUM(CASE WHEN {not_blank_sql} THEN 1 ELSE 0 END)")
+                        agg_exprs.append(
+                            f"SUM(CASE WHEN ({not_blank_sql}) AND ({parsed_sql}) IS NULL THEN 1 ELSE 0 END)"
+                        )
+                    try:
+                        agg_row = conn.execute(f'SELECT {", ".join(agg_exprs)} FROM "raw_src"').fetchone()
+                    except Exception as e:
+                        raise ValueError(
+                            f"Cột nguồn thời gian không tương thích với định dạng thời gian được chọn: {e}"
+                        ) from e
+
+                    max_invalid = mapping_config.max_invalid_ratio_allowed
+                    for idx, (kind, target_key, _, _) in enumerate(ratio_checks):
+                        non_blank_cnt = int(agg_row[idx * 2] or 0) if agg_row else 0
+                        invalid_cnt = int(agg_row[idx * 2 + 1] or 0) if agg_row else 0
+                        if non_blank_cnt > 0:
+                            invalid_ratio = invalid_cnt / non_blank_cnt
+                            if invalid_ratio > max_invalid:
+                                if kind in ("TIMESTAMP", "DOMAIN_DATETIME"):
+                                    raise ValueError(
+                                        f"Cột nguồn thời gian không tương thích: tỷ lệ không thể chuyển đổi ({invalid_ratio * 100:.1f}%) "
+                                        f"vượt ngưỡng cho phép ({max_invalid * 100:.1f}%)."
+                                    )
+                                if kind == "AMOUNT":
+                                    raise ValueError(
+                                        f"Cột nguồn số tiền không tương thích với kiểu số: {invalid_ratio * 100:.1f}% giá trị không phải số "
+                                        f"(vượt ngưỡng {max_invalid * 100:.1f}%)."
+                                    )
+                                if kind == "DOMAIN_NUMERIC":
+                                    raise ValueError(
+                                        f"Cột nghiệp vụ '{target_key}' không tương thích kiểu NUMERIC: "
+                                        f"{invalid_ratio * 100:.1f}% giá trị không hợp lệ (vượt ngưỡng {max_invalid * 100:.1f}%)."
+                                    )
+                                if kind == "DOMAIN_BOOLEAN":
+                                    raise ValueError(
+                                        f"Cột nghiệp vụ '{target_key}' không tương thích kiểu BOOLEAN: "
+                                        f"{invalid_ratio * 100:.1f}% giá trị không hợp lệ (vượt ngưỡng {max_invalid * 100:.1f}%)."
+                                    )
+
+                retained_columns = list(select_exprs.keys())
+                select_sql = "SELECT " + ", ".join(
+                    f"{expr} AS {quote_ident(out_col)}" for out_col, expr in select_exprs.items()
+                ) + ' FROM "raw_src"'
+
+                # 7-9. Materialize mapped.parquet to temp disk, upload, and run DuckDB quality validation
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    tmp_mapped = Path(tmp_dir) / "mapped.parquet"
+                    copy_query_to_file(conn, select_sql, tmp_mapped, ".parquet")
+                    checksum = sha256_file(tmp_mapped)
+
+                    output_paths = {"mapped": storage_path}
+                    validate_stage_outputs(PipelineStage.MAPPED, output_paths)
+                    self.file_storage.upload_file(tmp_mapped, storage_path)
+
+                    out_cols, out_types = register_file_view(
+                        conn,
+                        tmp_mapped,
+                        view_name="mapped_out",
+                        source_hint=storage_path,
+                    )
+                    try:
+                        quality_report = self.validation_service.validate_duckdb(conn, view_name="mapped_out")
+                        schema_snapshot = {
+                            col: duckdb_type_to_physical_dtype(out_types[col]) for col in out_cols
+                        }
+                    finally:
+                        conn.execute('DROP VIEW IF EXISTS "mapped_out"')
+            finally:
+                conn.close()
+
+        assert quality_report is not None
+
+        # 10. Enrich validation report with column_mapping, retained_columns, and metadata snapshot
         report_dict = quality_report.to_dict()
         report_dict["column_mapping"] = mapping_config.get_full_column_mapping()
         if mapping_config.column_semantic_types:
             report_dict["column_semantic_types"] = dict(mapping_config.column_semantic_types)
-        report_dict["retained_columns"] = list(mapped_df.columns)
+        report_dict["retained_columns"] = retained_columns
         report_dict["non_ml_columns"] = sorted(build_non_ml_columns(active_metadata))
         if active_metadata:
             report_dict["metadata_snapshot"] = self._serialize_metadata_snapshot(active_metadata)
@@ -372,8 +416,8 @@ class DataMappingService:
             output_paths=output_paths,
             checksum_sha256=checksum,
             schema_snapshot=schema_snapshot,
-            row_count=len(mapped_df),
-            column_count=len(mapped_df.columns),
+            row_count=quality_report.total_rows,
+            column_count=quality_report.total_columns,
             validation_status=quality_report.validation_status,
             validation_report=report_dict,
             created_by=user_name,

@@ -1,4 +1,5 @@
 import csv
+from datetime import datetime, timedelta, timezone
 import hashlib
 import io
 from uuid import uuid4
@@ -6,14 +7,27 @@ from uuid import uuid4
 import pandas as pd
 import pytest
 
-from usfds_core.domain.entities.enums import LogicalDataType, ValidationStatus
+from usfds_core.domain.entities.dataset import DatasetArtifact
+from usfds_core.domain.entities.enums import (
+	ColumnMlRole,
+	LogicalDataType,
+	PipelineStage,
+	ValidationStatus,
+)
+from usfds_core.domain.entities.system_metadata import SystemColumnMetadata
 from usfds_core.domain.entities.system import Project
+from usfds_core.domain.schemas.preprocessing_config import (
+	DataMappingConfig,
+	SupportedTimeFormat,
+)
 from usfds_core.repositories.in_memory_repos import (
 	InMemoryDatasetArtifactRepository,
 	InMemoryDatasetRepository,
 	InMemoryProjectRepository,
 )
 from usfds_core.services.data_management.ingestion import DatasetIngestionService
+from usfds_core.services.data_management.mapping import DataMappingService
+from usfds_core.services.data_management.validation import DataQualityValidationService
 from usfds_core.storage.in_memory_storage import InMemoryFileStorage
 
 
@@ -141,3 +155,251 @@ def test_ingestion_schema_lock_strip_extra_and_profiling_use_duckdb_without_pand
 			user_id=user_id,
 		)
 	assert set(storage.list_files("datasets/")) == stored_before_bad
+
+
+class _StaticMetadataRepo:
+	def __init__(self, items):
+		self._items = items
+
+	def list_all(self, include_inactive: bool = False):
+		return list(self._items)
+
+
+def test_mapping_and_quality_validation_use_duckdb_without_pandas(tmp_path, monkeypatch):
+	"""ISS-044 (M2): Schema mapping and quality validation run via DuckDB with full parity against pandas validation."""
+	storage = InMemoryFileStorage()
+	artifact_repo = InMemoryDatasetArtifactRepository()
+	metadata_repo = _StaticMetadataRepo(
+		[
+			SystemColumnMetadata(
+				column_key="risk_hint",
+				display_name="Risk Hint",
+				logical_type=LogicalDataType.NUMERIC,
+				is_required=False,
+				ml_role=ColumnMlRole.FEATURE,
+			),
+			SystemColumnMetadata(
+				column_key="kyc_verified",
+				display_name="KYC Verified",
+				logical_type=LogicalDataType.BOOLEAN,
+				is_required=False,
+				ml_role=ColumnMlRole.FEATURE,
+			),
+			SystemColumnMetadata(
+				column_key="signup_at",
+				display_name="Signup At",
+				logical_type=LogicalDataType.DATETIME,
+				is_required=False,
+				ml_role=ColumnMlRole.FEATURE,
+			),
+			SystemColumnMetadata(
+				column_key="channel_note",
+				display_name="Channel Note",
+				logical_type=LogicalDataType.STRING,
+				is_required=False,
+				ml_role=ColumnMlRole.IDENTIFIER,
+			),
+		]
+	)
+	service = DataMappingService(
+		file_storage=storage,
+		artifact_repo=artifact_repo,
+		metadata_repo=metadata_repo,
+	)
+	dataset_id = uuid4()
+
+	future_ts = (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+	rows = [
+		["E1", "2024-01-01 10:00:00", "100.0", "U1", "0", "0.1", "true", "2024-01-01 09:00:00", "web"],
+		["E1", "2024-01-01 10:00:00", "100.0", "U1", "0", "0.1", "true", "2024-01-01 09:00:00", "web"],
+		["E2", "2024-01-01 10:05:00", "-5.0", "U2", "1", "0.5", "0", "2024-01-01 09:05:00", "mobile"],
+		["E3", future_ts, "0.0", "U3", "0", "", "yes", "", ""],
+		["E4", "2024-01-01 10:15:00", "1000000.0", "U4", "1", "0.9", "false", "2024-01-01 09:15:00", "pos"],
+	]
+	for i in range(5, 25):
+		rows.append([f"E{i}", f"2024-01-01 10:{i:02d}:00", str(10.0 + i), f"U{i % 4}", "0", "0.2", "no", "2024-01-01 08:00:00", "web"])
+
+	raw_csv = tmp_path / "raw_auto.csv"
+	with open(raw_csv, "w", newline="", encoding="utf-8") as f:
+		writer = csv.writer(f)
+		writer.writerow(["tx_id", "tx_time", "tx_amt", "cust_id", "is_fraud", "raw_risk", "raw_kyc", "raw_signup", "raw_note"])
+		writer.writerows(rows)
+	storage.save_bytes(f"datasets/{dataset_id}/raw/raw_auto.csv", raw_csv.read_bytes())
+	raw_art_auto = DatasetArtifact(
+		dataset_id=dataset_id,
+		pipeline_stage=PipelineStage.RAW,
+		storage_path=f"datasets/{dataset_id}/raw/raw_auto.csv",
+		output_paths={"raw": f"datasets/{dataset_id}/raw/raw_auto.csv"},
+	)
+
+	# Extra formats: epoch_s, epoch_ms, custom strftime, and invalid threshold violations
+	epoch_s_path = tmp_path / "epoch_s.csv"
+	epoch_s_path.write_text(
+		"tx_id,tx_time,tx_amt,cust_id,is_fraud\n"
+		"E1,1704110400,50,U1,0\n"
+		"E2,1704110460,60,U2,1\n",
+		encoding="utf-8",
+	)
+	storage.save_bytes(f"datasets/{dataset_id}/raw/epoch_s.csv", epoch_s_path.read_bytes())
+	raw_epoch_s = DatasetArtifact(
+		dataset_id=dataset_id,
+		pipeline_stage=PipelineStage.RAW,
+		storage_path=f"datasets/{dataset_id}/raw/epoch_s.csv",
+		output_paths={"raw": f"datasets/{dataset_id}/raw/epoch_s.csv"},
+	)
+
+	epoch_ms_path = tmp_path / "epoch_ms.csv"
+	epoch_ms_path.write_text(
+		"tx_id,tx_time,tx_amt,cust_id,is_fraud\n"
+		"E1,1704110400000,50,U1,0\n"
+		"E2,1704110460000,60,U2,1\n",
+		encoding="utf-8",
+	)
+	storage.save_bytes(f"datasets/{dataset_id}/raw/epoch_ms.csv", epoch_ms_path.read_bytes())
+	raw_epoch_ms = DatasetArtifact(
+		dataset_id=dataset_id,
+		pipeline_stage=PipelineStage.RAW,
+		storage_path=f"datasets/{dataset_id}/raw/epoch_ms.csv",
+		output_paths={"raw": f"datasets/{dataset_id}/raw/epoch_ms.csv"},
+	)
+
+	custom_path = tmp_path / "custom.csv"
+	custom_path.write_text(
+		"tx_id,tx_time,tx_amt,cust_id,is_fraud\n"
+		"E1,01/05/2024 14:30,50,U1,0\n"
+		"E2,02/05/2024 15:45,60,U2,1\n",
+		encoding="utf-8",
+	)
+	storage.save_bytes(f"datasets/{dataset_id}/raw/custom.csv", custom_path.read_bytes())
+	raw_custom = DatasetArtifact(
+		dataset_id=dataset_id,
+		pipeline_stage=PipelineStage.RAW,
+		storage_path=f"datasets/{dataset_id}/raw/custom.csv",
+		output_paths={"raw": f"datasets/{dataset_id}/raw/custom.csv"},
+	)
+
+	bad_bool_path = tmp_path / "bad_bool.csv"
+	bad_bool_path.write_text(
+		"tx_id,tx_time,tx_amt,cust_id,is_fraud,raw_kyc\n"
+		"E1,2024-01-01 10:00:00,50,U1,0,maybe\n"
+		"E2,2024-01-01 10:05:00,60,U2,1,unknown\n",
+		encoding="utf-8",
+	)
+	storage.save_bytes(f"datasets/{dataset_id}/raw/bad_bool.csv", bad_bool_path.read_bytes())
+	raw_bad_bool = DatasetArtifact(
+		dataset_id=dataset_id,
+		pipeline_stage=PipelineStage.RAW,
+		storage_path=f"datasets/{dataset_id}/raw/bad_bool.csv",
+		output_paths={"raw": f"datasets/{dataset_id}/raw/bad_bool.csv"},
+	)
+
+	def _forbid_pandas(*args, **kwargs):
+		raise AssertionError("pandas full-file load forbidden in ISS-044")
+
+	with monkeypatch.context() as mp:
+		mp.setattr(pd, "read_csv", _forbid_pandas)
+		mp.setattr(pd, "read_parquet", _forbid_pandas)
+		mp.setattr(pd, "read_json", _forbid_pandas)
+
+		mapped_auto = service.map_dataset(
+			dataset_id,
+			raw_art_auto,
+			DataMappingConfig(
+				event_id_column="tx_id",
+				time_column="tx_time",
+				amount_column="tx_amt",
+				user_id_column="cust_id",
+				target_column="is_fraud",
+				optional_columns={
+					"raw_risk": "risk_hint",
+					"raw_kyc": "kyc_verified",
+					"raw_signup": "signup_at",
+					"raw_note": "channel_note",
+				},
+				time_format=SupportedTimeFormat.AUTO,
+			),
+		)
+		mapped_es = service.map_dataset(
+			dataset_id,
+			raw_epoch_s,
+			DataMappingConfig(
+				event_id_column="tx_id",
+				time_column="tx_time",
+				amount_column="tx_amt",
+				user_id_column="cust_id",
+				target_column="is_fraud",
+				time_format=SupportedTimeFormat.EPOCH_SECONDS,
+			),
+		)
+		mapped_em = service.map_dataset(
+			dataset_id,
+			raw_epoch_ms,
+			DataMappingConfig(
+				event_id_column="tx_id",
+				time_column="tx_time",
+				amount_column="tx_amt",
+				user_id_column="cust_id",
+				target_column="is_fraud",
+				time_format=SupportedTimeFormat.EPOCH_MILLIS,
+			),
+		)
+		mapped_custom = service.map_dataset(
+			dataset_id,
+			raw_custom,
+			DataMappingConfig(
+				event_id_column="tx_id",
+				time_column="tx_time",
+				amount_column="tx_amt",
+				user_id_column="cust_id",
+				target_column="is_fraud",
+				time_format="%d/%m/%Y %H:%M",
+			),
+		)
+		with pytest.raises(ValueError, match="BOOLEAN"):
+			service.map_dataset(
+				dataset_id,
+				raw_bad_bool,
+				DataMappingConfig(
+					event_id_column="tx_id",
+					time_column="tx_time",
+					amount_column="tx_amt",
+					user_id_column="cust_id",
+					target_column="is_fraud",
+					optional_columns={"raw_kyc": "kyc_verified"},
+					max_invalid_ratio_allowed=0.05,
+				),
+			)
+
+	# Verify generated Parquets & exact parity with pandas DataQualityValidationService
+	mapped_df = pd.read_parquet(io.BytesIO(storage.read_bytes(mapped_auto.output_paths["mapped"])))
+	expected_report = DataQualityValidationService().validate(mapped_df).to_dict()
+	actual_report = mapped_auto.validation_report
+
+	for key in (
+		"quality_score",
+		"rating",
+		"validation_status",
+		"total_rows",
+		"total_columns",
+		"duplicate_rows_count",
+		"duplicate_event_ids_count",
+		"non_positive_amount_count",
+		"future_timestamp_count",
+		"amount_outliers_count",
+	):
+		assert actual_report[key] == expected_report[key], f"Mismatch on {key}"
+	assert actual_report["amount_q999"] == pytest.approx(expected_report["amount_q999"])
+	assert len(actual_report["sample_records"]) == len(expected_report["sample_records"])
+	for col, exp_m in expected_report["column_metrics"].items():
+		act_m = actual_report["column_metrics"][col]
+		assert act_m["null_count"] == exp_m["null_count"]
+		assert act_m["null_percentage"] == exp_m["null_percentage"]
+		assert act_m["unique_count"] == exp_m["unique_count"]
+
+	es_df = pd.read_parquet(io.BytesIO(storage.read_bytes(mapped_es.output_paths["mapped"])))
+	em_df = pd.read_parquet(io.BytesIO(storage.read_bytes(mapped_em.output_paths["mapped"])))
+	cu_df = pd.read_parquet(io.BytesIO(storage.read_bytes(mapped_custom.output_paths["mapped"])))
+	assert es_df["timestamp"].iloc[0] == "2024-01-01 12:00:00"
+	assert em_df["timestamp"].iloc[0] == "2024-01-01 12:00:00"
+	assert cu_df["timestamp"].iloc[0] == "2024-05-01 14:30:00"
+
