@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
 
 from usfds_core.domain.entities.auth import ActorContext
+from usfds_core.domain.entities.enums import TrainingRunStatus
 from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
 from usfds_core.domain.schemas.model_plugin import ModelPluginManifest
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
@@ -31,6 +32,9 @@ from usfds_server.schemas.pagination import (
 )
 from usfds_server.schemas.training_api_schemas import (
     ActivateModelVersionRequest,
+    ComputeRecommendationResponse,
+    ComputeTargetOptionResponse,
+    ComputeTargetsResponse,
     ModelLineageEdgeResponse,
     ModelLineageNodeResponse,
     ModelLineageResponse,
@@ -136,6 +140,8 @@ def _to_training_run_response(
         hyperparameters=run.hyperparameters,
         custom_metrics=run.custom_metrics,
         compute_target=run.compute_target,
+        external_job_id=run.external_job_id,
+        compute_metadata=run.compute_metadata,
         error_message=run.error_message,
         created_by=run.created_by,
         started_at=run.started_at,
@@ -695,6 +701,87 @@ def list_training_runs(
 
 
 @router.get(
+    "/compute-targets",
+    response_model=ApiResponse[ComputeTargetsResponse],
+    summary="List available training compute targets and get an automatic recommendation (ISS-009)",
+)
+def get_compute_targets(
+    project_id: UUID = Query(..., description="Project ID"),
+    model_id: Optional[UUID] = Query(None, description="Optional target Model ID for recommendation"),
+    dataset_artifact_id: Optional[UUID] = Query(
+        None,
+        description="Optional dataset artifact ID for recommendation",
+    ),
+    actor: ActorContext = Depends(get_actor_context),
+    authz: AuthzService = Depends(get_authz_service),
+    service: TrainingOrchestrationService = Depends(get_training_service),
+) -> ApiResponse[ComputeTargetsResponse]:
+    authz.require_project_permission(actor, "training:create", project_id, action="create")
+    try:
+        if model_id is not None:
+            model = service.get_model(model_id)
+            if model.project_id is not None and model.project_id != project_id:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Model '{model_id}' not found in project '{project_id}'.",
+                )
+            if model.project_id is not None:
+                authz.require_project_permission(actor, "model:read", project_id, owner_id=model.user_id)
+
+        if dataset_artifact_id is not None:
+            artifact = service.dataset_artifact_repo.get_by_id(dataset_artifact_id)
+            if artifact is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"DatasetArtifact '{dataset_artifact_id}' not found.",
+                )
+            if service.dataset_repo is not None:
+                dataset = service.dataset_repo.get_by_id(artifact.dataset_id)
+                if dataset is None or dataset.project_id != project_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"DatasetArtifact '{dataset_artifact_id}' not found in project '{project_id}'.",
+                    )
+                authz.require_project_permission(
+                    actor,
+                    "dataset:read",
+                    project_id,
+                    owner_id=dataset.user_id,
+                )
+
+        targets, recommendation = service.recommend_compute_target(
+            model_id=model_id,
+            dataset_artifact_id=dataset_artifact_id,
+            requested_target="auto",
+        )
+        return ApiResponse.ok(
+            data=ComputeTargetsResponse(
+                targets=[
+                    ComputeTargetOptionResponse(
+                        target_id=t.target_id,
+                        display_name=t.display_name,
+                        provider_type=t.provider_type,
+                        available=t.available,
+                        reason=t.reason,
+                        resource_tiers=t.resource_tiers,
+                    )
+                    for t in targets
+                ],
+                recommendation=ComputeRecommendationResponse(
+                    requested_target=recommendation.requested_target,
+                    resolved_target=recommendation.resolved_target,
+                    resource_tier=recommendation.resource_tier,
+                    provider=recommendation.provider,
+                    selection_reason=recommendation.selection_reason,
+                ),
+            ),
+            message="Compute targets retrieved successfully",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.get(
     "/runs/{run_id}",
     response_model=ApiResponse[TrainingRunResponse],
     summary="Get training run details and evaluation metrics by ID",
@@ -716,6 +803,12 @@ def get_training_run(
                 detail=f"TrainingRun '{run_id}' not found in project '{project_id}'.",
             )
         authz.require_project_permission(actor, "training:read", project_id, owner_id=run.user_id)
+        if run.status == TrainingRunStatus.RUNNING and run.external_job_id:
+            try:
+                run = service.sync_remote_run(run.run_id)
+            except Exception:
+                # Best-effort on-demand sync; background RemoteTrainingPoller retries on transient failures.
+                pass
         artifact_id = service.get_run_dataset_artifact_id(run.run_id)
         owner = resolve_owners(user_repo, [run.user_id]).get(run.user_id)
         return ApiResponse.ok(

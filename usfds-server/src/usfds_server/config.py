@@ -151,6 +151,39 @@ class Settings(BaseModel):
         ),
         description="Comma-separated Python module allowlist for PYTHON_CODE features",
     )
+    # Remote training compute (ISS-009)
+    modal_enabled: bool = Field(
+        default_factory=lambda: os.getenv("USFDS_MODAL_ENABLED", "false").lower() == "true",
+        description="Enable Modal serverless remote training compute provider",
+    )
+    modal_app_name: str = Field(
+        default_factory=lambda: os.getenv("USFDS_MODAL_APP_NAME", "usfds-training"),
+        description="Deployed Modal App name hosting USFDS training functions",
+    )
+    modal_cpu_fn: str = Field(
+        default_factory=lambda: os.getenv("USFDS_MODAL_CPU_FN", "run_usfds_training_cpu"),
+        description="Modal function name for CPU training tier",
+    )
+    modal_gpu_fn: str = Field(
+        default_factory=lambda: os.getenv("USFDS_MODAL_GPU_FN", "run_usfds_training_gpu"),
+        description="Modal function name for GPU training tier",
+    )
+    auto_compute_row_threshold: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_AUTO_COMPUTE_ROW_THRESHOLD", "100000")),
+        description="Dataset row count threshold above which 'auto' selects remote CPU compute",
+    )
+    remote_presigned_ttl_seconds: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_REMOTE_PRESIGNED_TTL_SECONDS", "14400")),
+        description="TTL in seconds for presigned S3 URLs issued to remote training providers",
+    )
+    remote_poller_enabled: bool = Field(
+        default_factory=lambda: os.getenv("USFDS_REMOTE_POLLER_ENABLED", "true").lower() == "true",
+        description="Enable in-server background poller for remote training runs",
+    )
+    remote_poll_interval_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("USFDS_REMOTE_POLL_INTERVAL_SECONDS", "15")),
+        description="Polling interval in seconds for in-server remote training poller",
+    )
 
 
 settings = Settings()

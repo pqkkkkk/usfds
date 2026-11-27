@@ -269,6 +269,32 @@ export const TrainingRunDetailView: React.FC = () => {
 
 			{/* Main Content */}
 			<div className="flex-1 overflow-y-auto p-6 space-y-6">
+				{(run.compute_target || run.compute_metadata || run.external_job_id) && (
+					<div className="p-3.5 rounded-xl bg-dark-900 border border-dark-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+						<div className="flex flex-wrap items-center gap-3">
+							<span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+								Môi trường tính toán:
+							</span>
+							<span className="px-2 py-0.5 rounded-md bg-brand-500/15 border border-brand-500/30 font-mono text-brand-300 font-semibold">
+								{run.compute_target || 'local'}
+								{run.compute_metadata?.resource_tier
+									? ` (${String(run.compute_metadata.resource_tier).toUpperCase()})`
+									: ''}
+							</span>
+							{run.compute_metadata?.selection_reason && (
+								<span className="text-slate-300">
+									{run.compute_metadata.selection_reason}
+								</span>
+							)}
+						</div>
+						{run.external_job_id && (
+							<div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+								<span>External Job ID:</span>
+								<span className="font-mono text-slate-200">{run.external_job_id}</span>
+							</div>
+						)}
+					</div>
+				)}
 				{isFailed ? (
 					/* EXCEPTION FLOW 2a: FAILED TRAINING RUN */
 					<div className="bg-dark-900 border border-rose-500/30 rounded-xl p-6 space-y-4">

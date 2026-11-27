@@ -91,8 +91,11 @@ Dưới đây là danh mục use case hệ thống (SUC) cho các chức năng q
 		- Hệ thống tự động sinh biểu mẫu cấu hình siêu tham số dựa trên `hyperparameter_schema` và điền sẵn giá trị từ `default_hyperparameters` (hỗ trợ chỉnh sửa từng trường hoặc chỉnh sửa trực tiếp JSON và nút **Reset to Defaults**).
 	- **Bước 3 — Kiểm tra & Khởi chạy (`Review & Launch`):**
 		- Nhập hoặc giữ tên lần chạy tự động (`run_name`), kiểm tra bảng tổng hợp cấu hình.
+		- <!-- [26-11-25] ISS-009 --> Chọn môi trường tính toán (`compute_target`: `auto`, `local`, hoặc remote provider khả dụng như `modal`) dựa trên danh sách và đề xuất từ `GET /api/v1/training/compute-targets`.
 4. Data Scientist nhấn nút **Start Training**.
-5. Hệ thống gọi `POST /api/v1/training/runs`, khởi tạo `TrainingRun`, thực thi huấn luyện (tự động khớp `preprocessor.joblib` đối với mô hình `BUILTIN` hoặc chạy qua `_usfds_runner.py` đối với mô hình `SCRIPT`), tính toán đầy đủ bộ chỉ số qua `MetricEvaluator` và đăng ký `ModelVersion` mới.
+5. Hệ thống gọi `POST /api/v1/training/runs`, khởi tạo `TrainingRun`, phân giải `compute_target` theo `ComputeSelectionPolicy`, sau đó:
+	- Nếu chạy cục bộ/worker (`local`/`worker`): thực thi huấn luyện (`TrainingRunExecutor` với `preprocessor.joblib` cho `BUILTIN` hoặc `_usfds_runner.py` cho `SCRIPT`), tính toán bộ chỉ số qua `MetricEvaluator` và đăng ký `ModelVersion` mới.
+	- <!-- [26-11-25] ISS-009 --> Nếu offload sang remote provider (ví dụ `modal`): cấp phát presigned S3 GET/PUT URLs (không truyền thông tin xác thực S3), submit job để lấy `external_job_id`, và đồng bộ kết quả qua `RemoteTrainingPoller` nền trên server (không cần `usfds-worker`) cùng on-demand sync tại `GET /api/v1/training/runs/{run_id}` để chuyển trạng thái nguyên tử và đăng ký đúng 1 `ModelVersion`.
 6. Hệ thống thông báo hoàn tất huấn luyện và điều hướng người dùng sang trang xem kết quả chi tiết `/models/runs/{run_id}` (`SUC-09`).
 
 ### Luồng ngoại lệ (Exception Flows)

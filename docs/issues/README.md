@@ -39,7 +39,7 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-006 | No user management / authentication / RBAC | feature | auth | **P0** | Resolved (26-11-15) | [user_management_rbac](../../.plan/user_management_rbac.md) | [11-13](11-13-2026.md) |
 | ISS-007 | System metadata (system columns) not manageable | feature | data-management | P2 | Resolved (26-11-21) | [system_metadata_management](../../.plan/system_metadata_management.md) <!-- [26-11-21] --> | [11-13](11-13-2026.md) |
 | ISS-008 | No lineage visualization for model versions | feature | training, web | P2 | Resolved (26-11-14) | [model_version_lineage](../../.plan/model_version_lineage.md) <!-- [26-11-14] --> | [11-13](11-13-2026.md) |
-| ISS-009 | Training only on local dedicated worker | feature | training, worker | P3 | Needs spec | — | [11-13](11-13-2026.md) |
+| ISS-009 | Training only on local dedicated worker | feature | training, worker | P3 | Resolved (26-11-25) | [remote_training_compute](../../.plan/remote_training_compute.md) <!-- [26-11-25] --> | [11-13](11-13-2026.md) |
 | ISS-010 | Model versioning has no semantics; duplicate versions possible | improvement | training | P2 | Resolved (26-11-21) | [model_versioning_scheme](../../.plan/model_versioning_scheme.md) <!-- [26-11-21] --> | [11-13](11-13-2026.md) |
 | ISS-011 | Training jobs cannot be stopped | feature | training, worker | P2 | Needs spec | — | [11-13](11-13-2026.md) |
 | ISS-012 | Large-data analytics in API process with pandas | improvement | insight-report, inference | P2 | Resolved (26-11-22) | [large_data_analytics_duckdb](../../.plan/large_data_analytics_duckdb.md) <!-- [26-11-22] --> | [11-13](11-13-2026.md) |
