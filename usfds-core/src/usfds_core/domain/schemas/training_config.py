@@ -11,5 +11,8 @@ class TrainingRunConfig(BaseModel):
     dataset_artifact_id: UUID = Field(..., description="ID of the PRE_PROCESSED dataset artifact to train on")
     project_id: Optional[UUID] = Field(default=None, description="Optional project ID owning the training run")
     hyperparameters: Optional[Dict[str, Any]] = Field(default=None, description="Optional hyperparameter overrides")
-    compute_target: str = Field(default="local", description="Target compute environment (e.g. 'local', 'worker')")
+    compute_target: str = Field(
+        default="local",
+        description="Target compute environment ('auto', 'local', 'worker', 'modal', ...)",
+    )
     run_name: Optional[str] = Field(default=None, description="Optional custom name for the training run")

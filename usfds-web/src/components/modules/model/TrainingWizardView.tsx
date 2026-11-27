@@ -6,16 +6,19 @@ import {
 	BrainCircuit,
 	CheckCircle2,
 	Code2,
+	Cpu,
 	Database,
 	Loader2,
 	Play,
 	RotateCcw,
 	ShieldAlert,
 	Sliders,
+	Sparkles,
 } from 'lucide-react';
 import { datasetApi } from '../../../api/datasetApi';
 import { trainingApi } from '../../../api/trainingApi';
 import { useProject } from '../../../hooks/useProjects';
+import { useComputeTargets } from '../../../hooks/useComputeTargets';
 import { WorkspaceStepper } from '../../layout/WorkspaceStepper';
 import type { PipelineStep } from '../../layout/WorkspaceStepper';
 import { PageHeader } from '../../layout/PageHeader';
@@ -52,11 +55,24 @@ export const TrainingWizardView: React.FC = () => {
 	const [jsonEditMode, setJsonEditMode] = useState<boolean>(false);
 	const [rawHyperparamsJson, setRawHyperparamsJson] = useState<string>('{}');
 	const [runName, setRunName] = useState<string>('');
+	const [computeTarget, setComputeTarget] = useState<string>('auto');
 
 	// Submission state
 	const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
 	const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+
+	const {
+		targets: computeTargets,
+		recommendation: computeRecommendation,
+		isLoading: isLoadingComputeTargets,
+		error: computeTargetsError,
+	} = useComputeTargets({
+		projectId,
+		modelId: selectedModelId || undefined,
+		datasetArtifactId: selectedArtifactId || undefined,
+		enabled: currentStep === 'step-review',
+	});
 
 	const loadInitialCatalog = useCallback(async () => {
 		if (!projectId) {
@@ -329,6 +345,7 @@ export const TrainingWizardView: React.FC = () => {
 				dataset_artifact_id: selectedArtifactId,
 				project_id: projectId,
 				hyperparameters: finalHyperparams,
+				compute_target: computeTarget,
 				run_name: runName.trim() || undefined,
 			});
 			if (!res.success || !res.data) {
@@ -751,6 +768,101 @@ export const TrainingWizardView: React.FC = () => {
 									placeholder="Ví dụ: rf-fraud-baseline-v1"
 									className="w-full max-w-md px-3 py-2 bg-dark-950 border border-dark-700 rounded-lg text-xs font-mono text-slate-100 focus:border-brand-500 focus:outline-none"
 								/>
+							</div>
+
+							<div className="p-4 rounded-xl bg-dark-950 border border-dark-800 space-y-3">
+								<div className="flex items-center justify-between gap-2">
+									<div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+										<Cpu className="w-3.5 h-3.5 text-brand-400" />
+										<span>Môi trường tính toán (`compute_target`)</span>
+									</div>
+									{isLoadingComputeTargets && (
+										<span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
+											<Loader2 className="w-3 h-3 animate-spin" />
+											<span>Đang kiểm tra tài nguyên...</span>
+										</span>
+									)}
+								</div>
+
+								{computeTargetsError && (
+									<div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300">
+										Không tải được gợi ý môi trường tính toán: {computeTargetsError.message}
+									</div>
+								)}
+
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+									{(computeTargets.length > 0
+										? computeTargets
+										: [
+												{
+													target_id: 'auto',
+													display_name: 'Tự động chọn (Auto)',
+													provider_type: 'auto',
+													available: true,
+													reason: null,
+													resource_tiers: ['cpu', 'gpu'],
+												},
+												{
+													target_id: 'local',
+													display_name: 'Local / Dedicated Worker',
+													provider_type: 'local',
+													available: true,
+													reason: null,
+													resource_tiers: ['cpu'],
+												},
+										  ]
+									).map((target) => {
+										const isSelected = computeTarget === target.target_id;
+										return (
+											<button
+												key={target.target_id}
+												type="button"
+												disabled={!target.available}
+												onClick={() => setComputeTarget(target.target_id)}
+												className={`p-3 rounded-xl border text-left transition ${
+													isSelected
+														? 'border-brand-500 bg-brand-500/10'
+														: 'border-dark-700 bg-dark-900 hover:border-dark-600'
+												} ${!target.available ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+											>
+												<div className="flex items-center justify-between gap-2">
+													<span className="text-xs font-semibold text-slate-100">
+														{target.display_name}
+													</span>
+													<span
+														className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+															target.available
+																? 'bg-emerald-500/15 text-emerald-300'
+																: 'bg-slate-700/50 text-slate-400'
+														}`}
+													>
+														{target.available ? 'Khả dụng' : 'Không khả dụng'}
+													</span>
+												</div>
+												{target.reason && (
+													<p className="text-[11px] text-slate-400 mt-1 leading-snug">
+														{target.reason}
+													</p>
+												)}
+											</button>
+										);
+									})}
+								</div>
+
+								{computeRecommendation && (
+									<div className="p-3 rounded-lg bg-brand-500/10 border border-brand-500/30 flex items-start gap-2.5 text-xs">
+										<Sparkles className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
+										<div className="space-y-0.5">
+											<div className="font-semibold text-slate-100">
+												Đề xuất tự động: <span className="font-mono text-brand-300">{computeRecommendation.resolved_target}</span>
+												{' '}({computeRecommendation.resource_tier.toUpperCase()})
+											</div>
+											<div className="text-slate-300">
+												{computeRecommendation.selection_reason}
+											</div>
+										</div>
+									</div>
+								)}
 							</div>
 
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
