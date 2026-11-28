@@ -12,3 +12,4 @@ export * from './useActorContext';
 export * from './useSystemMetadata';
 export * from './useNetworkGraph';
 export * from './useFeatures';
+export * from './useComputeTargets';

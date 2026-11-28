@@ -42,12 +42,27 @@ from usfds_server.routers import (
 )
 from usfds_server.schemas.base_response import ApiResponse
 
+from usfds_server.services.remote_poller import RemoteTrainingPoller
+from usfds_server.providers.training import get_remote_provider_registry
+from usfds_server import dependencies as _server_deps
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize DB tables and Storage directories
     setup_infrastructure()
+    remote_poller: RemoteTrainingPoller | None = None
+    if settings.remote_poller_enabled:
+        remote_poller = RemoteTrainingPoller(
+            session_factory_getter=lambda: _server_deps._session_factory,
+            provider_registry_getter=lambda: get_remote_provider_registry(get_storage()),
+            interval_seconds=settings.remote_poll_interval_seconds,
+        )
+        remote_poller.start()
     yield
-    # Shutdown: Clean up connections
+    # Shutdown: Stop background poller and clean up connections
+    if remote_poller is not None:
+        await remote_poller.stop()
     teardown_infrastructure()
 
 

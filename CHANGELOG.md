@@ -2,6 +2,13 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-25 — ISS-009: Remote Training Compute (Multi-Provider, Modal, In-Server Poller & Auto Selection)
+Plan: `.plan/remote_training_compute.md` · Board: `.plan/BOARD.md`
+
+- Core (`domain/{entities/model,schemas/{training_config,training_payload}}.py`, `storage/presigned_storage.py`, `repositories/base_training_run_repo.py`, `services/training/{providers/*,compute_policy,dispatchers/routing_dispatcher,training_service,__init__}.py`): added `external_job_id` & `compute_metadata` on `TrainingRun`, `RemoteTrainingJobSpec` / `RemoteJobStatus` / `ComputeTargetInfo` / `ComputeRecommendation`, `PresignedUrlStorage(IFileStorage)` (`urllib.request`, zero S3 credentials), `IRemoteComputeProvider` + `RemoteProviderRegistry`, `ComputeSelectionPolicy` (`auto` GPU for DL/graph, CPU for large tabular `>= 100,000` rows, local fallback when unavailable), `RoutingTrainingDispatcher`, and idempotent `apply_remote_status` / `sync_remote_run`.
+- Infra & Server (`database/{tables/model,repos/model}.py`, Alembic `f56bffce222f_add_training_run_compute_tracking.py`, `compute/{__init__,modal_app,modal_provider}.py`, `services/remote_poller.py`, `api.py`, `config.py`, `providers/training.py`, `schemas/training_api_schemas.py`, `routers/training_router.py`, `deploy/.env.example`): added Modal serverless app (`usfds_core` image, CPU/GPU functions) & `ModalTrainingProvider` (lazy SDK import), in-server `RemoteTrainingPoller` in FastAPI `lifespan` (eliminates `usfds-worker` dependency for remote runs, with 3-phase DB pool hygiene), `GET /api/v1/training/compute-targets` with project RBAC, and on-demand `sync_remote_run` on `GET /runs/{run_id}`.
+- Web, Docs & Tests (`usfds-web/src/{types/model.ts,api/trainingApi.ts,hooks/{useComputeTargets.ts,index.ts},components/modules/model/{TrainingWizardView,TrainingRunDetailView}.tsx}`, `docs/features/detection/training/suc-spec.md`): added `useComputeTargets` hook, Step 3 compute selector & recommendation banner, compute metadata display on run detail, and synced `SUC-08`; verified `core` (`190 passed, 15 skipped`), `infra` (`54 passed`), `server` (`59 passed`), `worker` (`10 passed`), `web` (`TrainingWizardView.test.tsx` `2 passed`, `npm run build && npm run lint` 0 errors).
+
 ## 2026-11-25 — ISS-044: Data Management Pipeline on Bounded DuckDB & Streaming Export
 Plan: `.plan/data_management_duckdb.md` · Board: `.plan/BOARD.md`
 

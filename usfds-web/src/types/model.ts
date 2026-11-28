@@ -133,6 +133,36 @@ export interface TrainingCustomMetrics {
 	[key: string]: any;
 }
 
+export interface TrainingRunComputeMetadata {
+	requested_target?: string | null;
+	resolved_target?: string | null;
+	resource_tier?: 'cpu' | 'gpu' | string | null;
+	selection_reason?: string | null;
+	provider?: string | null;
+}
+
+export interface ComputeTargetOption {
+	target_id: string;
+	display_name: string;
+	provider_type: 'auto' | 'local' | 'remote' | string;
+	available: boolean;
+	reason?: string | null;
+	resource_tiers: string[];
+}
+
+export interface ComputeRecommendation {
+	requested_target: string;
+	resolved_target: string;
+	resource_tier: 'cpu' | 'gpu' | string;
+	provider?: string | null;
+	selection_reason: string;
+}
+
+export interface ComputeTargetsResponse {
+	targets: ComputeTargetOption[];
+	recommendation: ComputeRecommendation;
+}
+
 export interface TrainingRunResponse {
 	run_id: string;
 	project_id?: string | null;
@@ -153,6 +183,8 @@ export interface TrainingRunResponse {
 	hyperparameters?: Record<string, any> | null;
 	custom_metrics?: TrainingCustomMetrics | null;
 	compute_target?: string | null;
+	external_job_id?: string | null;
+	compute_metadata?: TrainingRunComputeMetadata | null;
 	error_message?: string | null;
 	created_by?: string | null;
 	started_at?: string | null;

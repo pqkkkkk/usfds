@@ -45,3 +45,7 @@ class ITrainingRunRepository(ABC):
     def list_active_by_artifact_ids(self, artifact_ids: List[UUID]) -> List[TrainingRun]:
         """List PENDING or RUNNING training runs referencing any of the given dataset artifact IDs."""
         pass
+
+    def list_active_remote_runs(self) -> List[TrainingRun]:
+        """List RUNNING training runs that have an external_job_id for remote polling (ISS-009)."""
+        return []

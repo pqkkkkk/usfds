@@ -3,8 +3,11 @@ from datetime import datetime, timezone
 import hashlib
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from uuid import UUID, uuid4
+import json
+import zipfile
+import io
 
 from usfds_core.domain.entities.dataset import DatasetArtifact
 from usfds_core.domain.entities.enums import (
@@ -18,7 +21,13 @@ from usfds_core.domain.entities.enums import (
 from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
 from usfds_core.domain.schemas.model_plugin import ModelPluginManifest
 from usfds_core.domain.schemas.training_config import TrainingRunConfig
-from usfds_core.domain.schemas.training_payload import TrainingRunPayload, TrainingRunResult
+from usfds_core.domain.schemas.training_payload import (
+    ComputeRecommendation,
+    ComputeTargetInfo,
+    RemoteJobStatus,
+    TrainingRunPayload,
+    TrainingRunResult,
+)
 from usfds_core.repositories.base_dataset_artifact_repo import IDatasetArtifactRepository
 from usfds_core.repositories.base_dataset_repo import IDatasetRepository
 from usfds_core.repositories.base_model_repo import IModelRepository
@@ -29,8 +38,11 @@ from usfds_core.repositories.base_model_version_repo import (
     parse_version_sort_key,
 )
 from usfds_core.repositories.base_training_run_repo import ITrainingRunRepository
+from usfds_core.services.training.compute_policy import ComputeSelectionPolicy
 from usfds_core.services.training.dispatchers.base_dispatcher import ITrainingRunDispatcher
+from usfds_core.services.training.dispatchers.routing_dispatcher import RoutingTrainingDispatcher
 from usfds_core.services.training.plugins.register import ModelPluginRegistrationService
+from usfds_core.services.training.providers.base_provider import RemoteProviderRegistry
 from usfds_core.storage.base_storage import IFileStorage
 from usfds_core.storage.in_memory_storage import InMemoryFileStorage
 
@@ -78,6 +90,8 @@ class TrainingOrchestrationService:
         file_storage: Optional[IFileStorage] = None,
         plugin_registry: Optional[ModelPluginRegistrationService] = None,
         dataset_repo: Optional[IDatasetRepository] = None,
+        provider_registry: Optional[RemoteProviderRegistry] = None,
+        compute_policy: Optional[ComputeSelectionPolicy] = None,
     ):
         self.dispatcher = dispatcher
         self.training_run_repo = training_run_repo
@@ -90,6 +104,61 @@ class TrainingOrchestrationService:
             model_repo=self.model_repo,
             file_storage=self.file_storage,
         )
+        self.provider_registry = provider_registry
+        self.compute_policy = compute_policy or ComputeSelectionPolicy()
+
+    def _extract_plugin_framework(self, model: Optional[Model]) -> Optional[str]:
+        """Inspect a SCRIPT plugin archive's plugin_manifest.json for its declared framework (best-effort)."""
+        if model is None or not model.entrypoint_uri:
+            return None
+        exec_str = (
+            model.execution_type.value
+            if hasattr(model.execution_type, "value")
+            else str(model.execution_type)
+        )
+        if exec_str.upper() != ExecutionType.SCRIPT.value:
+            return None
+        try:
+            if model.entrypoint_uri.lower().endswith(".zip") and self.file_storage.exists(model.entrypoint_uri):
+                raw = self.file_storage.read_bytes(model.entrypoint_uri)
+                with zipfile.ZipFile(io.BytesIO(raw), "r") as zf:
+                    for name in zf.namelist():
+                        if name.endswith("plugin_manifest.json"):
+                            manifest = json.loads(zf.read(name).decode("utf-8"))
+                            fw = manifest.get("framework")
+                            if fw:
+                                return str(fw)
+        except Exception:
+            return None
+        return None
+
+    def recommend_compute_target(
+        self,
+        model_id: Optional[UUID] = None,
+        dataset_artifact_id: Optional[UUID] = None,
+        requested_target: str = "auto",
+    ) -> Tuple[List[ComputeTargetInfo], ComputeRecommendation]:
+        """Return available compute targets and a recommendation for the given model & dataset artifact (ISS-009)."""
+        model = self.model_repo.get_by_id(model_id) if model_id is not None else None
+        if model_id is not None and model is None:
+            raise ValueError(f"Model with ID {model_id} not found.")
+        artifact = (
+            self.dataset_artifact_repo.get_by_id(dataset_artifact_id)
+            if dataset_artifact_id is not None
+            else None
+        )
+        if dataset_artifact_id is not None and artifact is None:
+            raise ValueError(f"DatasetArtifact with ID {dataset_artifact_id} not found.")
+        plugin_framework = self._extract_plugin_framework(model)
+        targets = self.compute_policy.list_targets(registry=self.provider_registry)
+        recommendation = self.compute_policy.resolve(
+            requested_target=requested_target,
+            model=model,
+            artifact=artifact,
+            plugin_framework=plugin_framework,
+            registry=self.provider_registry,
+        )
+        return targets, recommendation
 
     def prepare_and_dispatch(
         self,
@@ -181,6 +250,23 @@ class TrainingOrchestrationService:
         run_params = config.hyperparameters or {}
         merged_params = {**default_params, **run_params}
 
+        # 4.5 Resolve compute target (ISS-009)
+        plugin_framework = self._extract_plugin_framework(model)
+        recommendation = self.compute_policy.resolve(
+            requested_target=config.compute_target,
+            model=model,
+            artifact=artifact,
+            plugin_framework=plugin_framework,
+            registry=self.provider_registry,
+        )
+        compute_metadata: Dict[str, Any] = {
+            "requested_target": recommendation.requested_target,
+            "resolved_target": recommendation.resolved_target,
+            "resource_tier": recommendation.resource_tier,
+            "selection_reason": recommendation.selection_reason,
+            "provider": recommendation.provider,
+        }
+
         # 5. Create TrainingRun
         run_name = (
             config.run_name
@@ -193,7 +279,8 @@ class TrainingOrchestrationService:
             model_id=model.model_id,
             run_name=run_name,
             hyperparameters=merged_params,
-            compute_target=config.compute_target,
+            compute_target=recommendation.resolved_target,
+            compute_metadata=compute_metadata,
             status=TrainingRunStatus.PENDING,
             created_by=user_name,
         )
@@ -220,24 +307,107 @@ class TrainingOrchestrationService:
             column_mapping=column_mapping,
             target_column=target_column,
             hyperparameters=merged_params,
-            compute_target=config.compute_target,
+            compute_target=recommendation.resolved_target,
         )
 
         # 8. Mark running and dispatch
         run.status = TrainingRunStatus.RUNNING
         run.started_at = datetime.now(timezone.utc)
-        self.training_run_repo.save(run)
 
+        if recommendation.provider is not None:
+            if not isinstance(self.dispatcher, RoutingTrainingDispatcher):
+                raise ValueError(
+                    "Remote compute dispatch requires RoutingTrainingDispatcher."
+                )
+            external_job_id = self.dispatcher.dispatch_remote(
+                payload=payload,
+                provider_id=recommendation.provider,
+                resource_tier=recommendation.resource_tier,
+                metadata=compute_metadata,
+            )
+            run.external_job_id = external_job_id
+            self.training_run_repo.save(run)
+            logger.info(
+                f"Submitted remote training run {run.run_id} to '{recommendation.provider}' "
+                f"(external_job_id={external_job_id}, tier={recommendation.resource_tier})."
+            )
+            return run
+
+        self.training_run_repo.save(run)
         logger.info(f"Dispatching training run {run.run_id} via {type(self.dispatcher).__name__}...")
         self.dispatcher.dispatch_run(payload)
 
         return run
+
+    def apply_remote_status(self, run_id: UUID, remote_status: RemoteJobStatus) -> TrainingRun:
+        """Apply a polled RemoteJobStatus to a TrainingRun atomically and idempotently (ISS-009)."""
+        run = self.training_run_repo.get_by_id(run_id)
+        if not run:
+            raise ValueError(f"TrainingRun with ID {run_id} not found.")
+
+        # Idempotent guard: only transition runs that are still RUNNING and have not registered a version yet
+        if run.status != TrainingRunStatus.RUNNING or run.version_id is not None:
+            return run
+
+        if remote_status.state in ("PENDING", "RUNNING"):
+            return run
+
+        if remote_status.state == "COMPLETED":
+            if remote_status.result is None:
+                return self.handle_training_completion(
+                    TrainingRunResult(
+                        run_id=run_id,
+                        is_success=False,
+                        error_message="Remote provider reported COMPLETED without TrainingRunResult.",
+                    )
+                )
+            result = remote_status.result.model_copy(update={"run_id": run_id})
+            return self.handle_training_completion(result)
+
+        # FAILED or CANCELLED
+        return self.handle_training_completion(
+            TrainingRunResult(
+                run_id=run_id,
+                is_success=False,
+                error_message=remote_status.error_message
+                or f"Remote training job ended with state {remote_status.state}.",
+            )
+        )
+
+    def sync_remote_run(self, run_id: UUID, timeout_seconds: float = 5.0) -> TrainingRun:
+        """Poll the external compute provider for a RUNNING remote run and persist any terminal state (ISS-009)."""
+        run = self.training_run_repo.get_by_id(run_id)
+        if not run:
+            raise ValueError(f"TrainingRun with ID {run_id} not found.")
+
+        if run.status != TrainingRunStatus.RUNNING or not run.external_job_id:
+            return run
+        if self.provider_registry is None:
+            return run
+
+        provider_id = None
+        if isinstance(run.compute_metadata, dict):
+            provider_id = run.compute_metadata.get("provider")
+        provider_id = provider_id or run.compute_target
+        if not provider_id:
+            return run
+
+        provider = self.provider_registry.get(str(provider_id))
+        if provider is None:
+            return run
+
+        remote_status = provider.poll(run.external_job_id, timeout_seconds=timeout_seconds)
+        return self.apply_remote_status(run_id, remote_status)
 
     def handle_training_completion(self, result: TrainingRunResult) -> TrainingRun:
         """Post-execution of training run. Handle worker results and register candidate ModelVersion if succeeded."""
         run = self.training_run_repo.get_by_id(result.run_id)
         if not run:
             raise ValueError(f"TrainingRun with ID {result.run_id} not found.")
+
+        # Idempotency guard against concurrent pollers / duplicate completion notifications
+        if run.status == TrainingRunStatus.COMPLETED and run.version_id is not None:
+            return run
 
         run.completed_at = datetime.now(timezone.utc)
         run.duration_seconds = result.duration_seconds
