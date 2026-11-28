@@ -14,6 +14,7 @@ class ModelTrainerFactory:
         execution_type: Union[ExecutionType, str] = ExecutionType.BUILTIN,
         model_name: str = "random_forest",
         entrypoint_uri: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> BaseTrainer:
         """Create a BaseTrainer instance according to execution type and model specification."""
         exec_type_str = str(execution_type).upper()
@@ -32,6 +33,11 @@ class ModelTrainerFactory:
         elif exec_type_str == ExecutionType.SCRIPT.value:
             if not entrypoint_uri:
                 raise ValueError("entrypoint_uri must be provided when execution_type is SCRIPT.")
+            if timeout_seconds is not None:
+                return ScriptPluginTrainer(
+                    entrypoint_uri=entrypoint_uri,
+                    timeout_seconds=timeout_seconds,
+                )
             return ScriptPluginTrainer(entrypoint_uri=entrypoint_uri)
 
         elif exec_type_str == ExecutionType.DOCKER_IMAGE.value:

@@ -92,6 +92,7 @@ class TrainingOrchestrationService:
         dataset_repo: Optional[IDatasetRepository] = None,
         provider_registry: Optional[RemoteProviderRegistry] = None,
         compute_policy: Optional[ComputeSelectionPolicy] = None,
+        remote_timeout_seconds: Optional[int] = None,
     ):
         self.dispatcher = dispatcher
         self.training_run_repo = training_run_repo
@@ -106,6 +107,7 @@ class TrainingOrchestrationService:
         )
         self.provider_registry = provider_registry
         self.compute_policy = compute_policy or ComputeSelectionPolicy()
+        self.remote_timeout_seconds = remote_timeout_seconds
 
     def _extract_plugin_framework(self, model: Optional[Model]) -> Optional[str]:
         """Inspect a SCRIPT plugin archive's plugin_manifest.json for its declared framework (best-effort)."""
@@ -263,6 +265,7 @@ class TrainingOrchestrationService:
             "requested_target": recommendation.requested_target,
             "resolved_target": recommendation.resolved_target,
             "resource_tier": recommendation.resource_tier,
+            "runtime_profile": recommendation.runtime_profile,
             "selection_reason": recommendation.selection_reason,
             "provider": recommendation.provider,
         }
@@ -308,6 +311,9 @@ class TrainingOrchestrationService:
             target_column=target_column,
             hyperparameters=merged_params,
             compute_target=recommendation.resolved_target,
+            timeout_seconds=(
+                self.remote_timeout_seconds if recommendation.provider is not None else None
+            ),
         )
 
         # 8. Mark running and dispatch
@@ -323,6 +329,7 @@ class TrainingOrchestrationService:
                 payload=payload,
                 provider_id=recommendation.provider,
                 resource_tier=recommendation.resource_tier,
+                runtime_profile=recommendation.runtime_profile,
                 metadata=compute_metadata,
             )
             run.external_job_id = external_job_id

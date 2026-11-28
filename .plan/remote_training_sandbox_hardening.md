@@ -138,28 +138,35 @@ sequenceDiagram
 ## 6. Milestones & to-do (checkpoints, not stop points: all tests green at each)
 The agent ticks items as it works. This is the task's only to-do list (`TODO.md` is no longer used for new work).
 
-- [ ] **M1 — Core import isolation, runtime profiles, remote entrypoint & SCRIPT/timeout fixes** (`usfds-core`):
-  - [ ] [tests] Viết toàn bộ tests M1 trong `usfds-core/tests/training/test_remote_compute.py`; xác nhận fail đúng lý do (reproducing bug #1, #3, #5)
-  - [ ] [core] Gỡ eager `import *` ở `usfds_core/__init__.py` và `usfds_core/services/__init__.py` (không dùng `__getattr__`)
-  - [ ] [core] Mở rộng `training_payload.py` (`timeout_seconds`, `runtime_profile`), cập nhật `compute_policy.py`, `trainer_factory.py`, `executor.py`, `routing_dispatcher.py`, `training_service.py`
-  - [ ] [core] Tạo `usfds-core/src/usfds_core/services/training/remote_entrypoint.py`
-  - [ ] [verify] `./scripts/test.sh core`
-- [ ] **M2 — Zero-deploy Modal Sandbox provider & dynamic profile images** (`usfds-infra`):
-  - [ ] [tests] Viết tests M2 trong `usfds-infra/tests/test_modal_provider.py`; xác nhận fail đúng lý do
-  - [ ] [infra] Tạo `usfds-infra/src/usfds_infra/compute/modal_images.py` và xóa `usfds-infra/src/usfds_infra/compute/modal_app.py`
-  - [ ] [infra] Cập nhật `usfds-infra/src/usfds_infra/compute/modal_provider.py` sang `App.lookup` + `Sandbox.create`/`from_id`/`poll`/`terminate` + localhost S3 endpoint guard
-  - [ ] [verify] `./scripts/test.sh infra`
-- [ ] **M3 — Server config wiring & DB-session-free on-demand poll** (`usfds-server`, `deploy`):
-  - [ ] [tests] Viết test M3 trong `usfds-server/tests/test_training_api.py`; xác nhận fail đúng lý do
-  - [ ] [server] Cập nhật `usfds-server/src/usfds_server/config.py`, `usfds-server/src/usfds_server/providers/training.py`, `deploy/.env.example`
-  - [ ] [server] Cập nhật `usfds-server/src/usfds_server/routers/training_router.py` (`GET /runs/{run_id}` tách pha poll mạng khỏi DB session)
-  - [ ] [verify] `./scripts/test.sh core infra server worker`
+- [x] **M1 — Core import isolation, runtime profiles, remote entrypoint & SCRIPT/timeout fixes** (`usfds-core`):
+  - [x] [tests] Viết toàn bộ tests M1 trong `usfds-core/tests/training/test_remote_compute.py`; xác nhận fail đúng lý do (reproducing bug #1, #3, #5)
+  - [x] [core] Gỡ eager `import *` ở `usfds_core/__init__.py` và `usfds_core/services/__init__.py` (không dùng `__getattr__`)
+  - [x] [core] Mở rộng `training_payload.py` (`timeout_seconds`, `runtime_profile`), cập nhật `compute_policy.py`, `trainer_factory.py`, `executor.py`, `routing_dispatcher.py`, `training_service.py`
+  - [x] [core] Tạo `usfds-core/src/usfds_core/services/training/remote_entrypoint.py`
+  - [x] [verify] `./scripts/test.sh core`
+- [x] **M2 — Zero-deploy Modal Sandbox provider & dynamic profile images** (`usfds-infra`):
+  - [x] [tests] Viết tests M2 trong `usfds-infra/tests/test_modal_provider.py`; xác nhận fail đúng lý do
+  - [x] [infra] Tạo `usfds-infra/src/usfds_infra/compute/modal_images.py` và xóa `usfds-infra/src/usfds_infra/compute/modal_app.py`
+  - [x] [infra] Cập nhật `usfds-infra/src/usfds_infra/compute/modal_provider.py` sang `App.lookup` + `Sandbox.create`/`from_id`/`poll`/`terminate` + localhost S3 endpoint guard
+  - [x] [verify] `./scripts/test.sh infra`
+- [x] **M3 — Server config wiring & DB-session-free on-demand poll** (`usfds-server`, `deploy`):
+  - [x] [tests] Viết test M3 trong `usfds-server/tests/test_training_api.py`; xác nhận fail đúng lý do
+  - [x] [server] Cập nhật `usfds-server/src/usfds_server/config.py`, `usfds-server/src/usfds_server/providers/training.py`, `deploy/.env.example`
+  - [x] [server] Cập nhật `usfds-server/src/usfds_server/routers/training_router.py` (`GET /runs/{run_id}` tách pha poll mạng khỏi DB session)
+  - [x] [verify] `./scripts/test.sh core infra server worker`
 
 Checkpoint log (the agent appends one line per finished milestone):
-- <YY-MM-DD> M1 done: <test summary line>; notes: <deviations or —>
+- 26-11-28 M1 done: 195 passed, 15 skipped, 169 warnings in 12.82s (`./scripts/test.sh core`); notes: separated `dl-pyg-gpu` profile for PyG/graph plugins in `ComputeSelectionPolicy`; also moved `duckdb_io` imports in `project_management/schema_validator.py` inside the two DuckDB methods to break a latent circular import exposed by removing `services/__init__.py` eager `import *`
+- 26-11-28 M2 done: 55 passed, 27 warnings in 6.38s (`./scripts/test.sh infra`); notes: —
+- 26-11-28 M3 done: core 195 passed (15 skipped), infra 55 passed, server 60 passed, worker 10 passed (`./scripts/test.sh core infra server worker`); notes: —
 
 ## 7. Review hotspots (filled in after implementation)
-—
+1. `usfds-core/src/usfds_core/services/training/compute_policy.py:81-111` (M1): `resolve_runtime_profile()` prioritizes explicit `plugin_framework` and `default_hyperparameters["framework"]` before falling back to `model_name`/`description`, separating `dl-pyg-gpu` from `dl-pytorch-gpu`; risky if a custom plugin omits `framework` in manifest and relies on naming; covered by `test_compute_policy_resolves_runtime_profile_per_model_and_framework`.
+2. `usfds-core/src/usfds_core/services/training/executor.py:107-125` (M1): Branches on `is_script_plugin` (`execution_type == "SCRIPT"` and non-empty `plugin_src_dir`) to upload only `model_bundle.zip` and skip per-file uploads from `workspace.model_dir`; risky if a SCRIPT plugin is misclassified and leaves loose artifacts unbundled or triggers `PresignedUrlStorage` `KeyError`; covered by `test_script_plugin_with_custom_artifact_files_succeeds_over_presigned_storage` and `test_training_run_executor_runs_builtin_and_script_over_presigned_storage`.
+3. `usfds-core/src/usfds_core/services/training/dispatchers/routing_dispatcher.py:116-128` (M1): Uploads `remote_job_spec.json` to storage and attaches `spec_get_url` into `job_spec.metadata` before `provider.submit()`; risky if storage does not retain `remote_job_spec.json` until container boot or TTL expires early; covered by `test_routing_dispatcher_generates_presigned_urls_and_submits_remote_job` and `test_remote_entrypoint_reads_spec_url_and_emits_structured_result_json`.
+4. `usfds-core/src/usfds_core/services/project_management/schema_validator.py:176-226` (M1): Moved `duckdb_io` imports into `extract_raw_schema_from_duckdb()` and `validate_duckdb_view()` to break a latent circular import (`schema_validator.py` <-> `data_management/ingestion.py`) exposed by removing `services/__init__.py` wildcard imports; covered by `test_importing_training_executor_does_not_load_heavy_unrelated_deps` and full `infra`/`server` suites.
+5. `usfds-infra/src/usfds_infra/compute/modal_provider.py:114-233` (M2): `is_available()` blocks loopback S3 endpoints (`localhost`/`127.0.0.1`/`::1`/`0.0.0.0`), `submit()` uses zero-deploy `App.lookup(create_if_missing=True)` + `Sandbox.create`, `poll()` scans stdout backwards for `__USFDS_RESULT_JSON__:` and falls back to 2000-char stderr tail on crash, `cancel()` calls `sb.terminate()`; risky if sandbox emits truncated sentinel or non-standard error output; covered by `test_modal_sandbox_provider_zero_deploy_submit_poll_cancel_and_localhost_guard`.
+6. `usfds-server/src/usfds_server/routers/training_router.py:875-986` (M3): `get_training_run` drops `Depends(get_db)`-backed parameters so no DB session/connection is held open during `provider.poll()`, running Phase 1 (authz + snapshot), Phase 2 (network poll), Phase 3 (apply terminal status), with a fallback path when tests override `get_training_service`/`get_actor_context`/`get_authz_service`/`get_user_repo`; risky if authz/project scope checks diverge from the fallback helper; covered by `test_get_training_run_releases_db_session_before_remote_poll` and `test_remote_training_api_rbac_and_sync_lifecycle`.
 
 ## 8. Open questions
 — (Đã xác nhận 26-11-27: bỏ hẳn `USFDS_MODAL_CPU_FN` / `USFDS_MODAL_GPU_FN`; giữ GPU mặc định `"T4"`.)

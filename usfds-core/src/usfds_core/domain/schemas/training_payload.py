@@ -17,6 +17,8 @@ class TrainingRunPayload(BaseModel):
     target_column: str = "is_fraud"
     hyperparameters: Dict[str, Any] = Field(default_factory=dict)
     compute_target: str = "local"
+    timeout_seconds: Optional[int] = None
+    timeout_seconds: Optional[int] = None
 
 
 class TrainingRunResult(BaseModel):
@@ -37,6 +39,7 @@ class RemoteTrainingJobSpec(BaseModel):
     """Self-contained specification submitted to a third-party compute provider (no S3 credentials)."""
     payload: TrainingRunPayload
     resource_tier: Literal["cpu", "gpu"] = "cpu"
+    runtime_profile: str = "tabular-sklearn"
     read_urls: Dict[str, str] = Field(default_factory=dict)
     write_urls: Dict[str, str] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
@@ -65,6 +68,7 @@ class ComputeRecommendation(BaseModel):
     requested_target: str
     resolved_target: str
     resource_tier: Literal["cpu", "gpu"] = "cpu"
+    runtime_profile: str = "tabular-sklearn"
     provider: Optional[str] = None
     selection_reason: str
 

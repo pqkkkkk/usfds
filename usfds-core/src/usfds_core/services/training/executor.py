@@ -90,6 +90,7 @@ class TrainingRunExecutor:
                 execution_type=payload.execution_type,
                 model_name=payload.model_name,
                 entrypoint_uri=resolved_entrypoint,
+                timeout_seconds=payload.timeout_seconds,
             )
 
             metrics = trainer.train(
@@ -99,39 +100,56 @@ class TrainingRunExecutor:
             )
 
             # Upload model artifacts
-            model_files = [p for p in workspace.model_dir.glob("*") if p.is_file()]
+            model_files = [p for p in workspace.model_dir.rglob("*") if p.is_file()]
             if not model_files:
                 raise FileNotFoundError(f"No model artifacts found in {workspace.model_dir}")
 
-            preferred_model_names = (
-                "model.joblib",
-                "model.pt",
-                "model.pth",
-                "model.onnx",
-                "model.json",
-            )
-            main_model_file = next(
-                (
-                    file_path
-                    for preferred_name in preferred_model_names
-                    for file_path in model_files
-                    if file_path.name == preferred_name
-                ),
-                model_files[0],
+            is_script_plugin = (
+                str(payload.execution_type).upper() == "SCRIPT"
+                and workspace.plugin_src_dir.exists()
+                and any(workspace.plugin_src_dir.iterdir())
             )
 
             main_artifact_uri = None
             main_checksum = None
 
-            for file_path in model_files:
-                with open(file_path, "rb") as mf:
-                    artifact_bytes = mf.read()
-                storage_uri = f"models/{payload.model_id}/runs/{payload.run_id}/{file_path.name}"
-                self.file_storage.save_bytes(storage_uri, artifact_bytes)
+            if is_script_plugin:
+                # Package self-contained model_bundle.zip for SCRIPT plugins without uploading arbitrary auxiliary files individually
+                bundle_bytes = package_model_bundle_bytes(
+                    artifact_dir=workspace.model_dir,
+                    plugin_src_dir=workspace.plugin_src_dir,
+                )
+                bundle_uri = f"models/{payload.model_id}/runs/{payload.run_id}/model_bundle.zip"
+                self.file_storage.save_bytes(bundle_uri, bundle_bytes)
+                main_artifact_uri = bundle_uri
+                main_checksum = hashlib.sha256(bundle_bytes).hexdigest()
+            else:
+                preferred_model_names = (
+                    "model.joblib",
+                    "model.pt",
+                    "model.pth",
+                    "model.onnx",
+                    "model.json",
+                )
+                main_model_file = next(
+                    (
+                        file_path
+                        for preferred_name in preferred_model_names
+                        for file_path in model_files
+                        if file_path.name == preferred_name
+                    ),
+                    model_files[0],
+                )
 
-                if file_path == main_model_file:
-                    main_artifact_uri = storage_uri
-                    main_checksum = hashlib.sha256(artifact_bytes).hexdigest()
+                for file_path in model_files:
+                    with open(file_path, "rb") as mf:
+                        artifact_bytes = mf.read()
+                    storage_uri = f"models/{payload.model_id}/runs/{payload.run_id}/{file_path.name}"
+                    self.file_storage.save_bytes(storage_uri, artifact_bytes)
+
+                    if file_path == main_model_file:
+                        main_artifact_uri = storage_uri
+                        main_checksum = hashlib.sha256(artifact_bytes).hexdigest()
 
             # Copy fitted_feature_engineers.joblib and column_mapping.json into the model run folder for self-contained inference
             if payload.fe_artifact_path:
@@ -149,21 +167,6 @@ class TrainingRunExecutor:
                     self.file_storage.save_bytes(cm_uri, cm_bytes)
                 except Exception as cm_ex:
                     logger.warning(f"Failed to bundle column_mapping.json into model run: {cm_ex}")
-
-            # Package self-contained model_bundle.zip for SCRIPT plugins (or multi-artifact runs)
-            is_script_plugin = (
-                str(payload.execution_type).upper() == "SCRIPT"
-                and (workspace.plugin_src_dir / "main.py").exists()
-            )
-            if is_script_plugin:
-                bundle_bytes = package_model_bundle_bytes(
-                    artifact_dir=workspace.model_dir,
-                    plugin_src_dir=workspace.plugin_src_dir,
-                )
-                bundle_uri = f"models/{payload.model_id}/runs/{payload.run_id}/model_bundle.zip"
-                self.file_storage.save_bytes(bundle_uri, bundle_bytes)
-                main_artifact_uri = bundle_uri
-                main_checksum = hashlib.sha256(bundle_bytes).hexdigest()
 
             # Upload metrics.json to persistent storage
             metrics_uri = None

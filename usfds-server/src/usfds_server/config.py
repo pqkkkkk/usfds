@@ -158,15 +158,27 @@ class Settings(BaseModel):
     )
     modal_app_name: str = Field(
         default_factory=lambda: os.getenv("USFDS_MODAL_APP_NAME", "usfds-training"),
-        description="Deployed Modal App name hosting USFDS training functions",
+        description="Modal App name hosting USFDS training sandboxes",
     )
-    modal_cpu_fn: str = Field(
-        default_factory=lambda: os.getenv("USFDS_MODAL_CPU_FN", "run_usfds_training_cpu"),
-        description="Modal function name for CPU training tier",
+    modal_gpu_type: str = Field(
+        default_factory=lambda: os.getenv("USFDS_MODAL_GPU_TYPE", "T4"),
+        description="Modal GPU accelerator type for GPU-tier training sandboxes",
     )
-    modal_gpu_fn: str = Field(
-        default_factory=lambda: os.getenv("USFDS_MODAL_GPU_FN", "run_usfds_training_gpu"),
-        description="Modal function name for GPU training tier",
+    modal_cpu_cores: float = Field(
+        default_factory=lambda: float(os.getenv("USFDS_MODAL_CPU_CORES", "4.0")),
+        description="CPU core allocation for Modal training sandboxes",
+    )
+    modal_memory_mb: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_MODAL_MEMORY_MB", "8192")),
+        description="Memory limit in MB for CPU-tier Modal training sandboxes",
+    )
+    modal_gpu_memory_mb: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_MODAL_GPU_MEMORY_MB", "16384")),
+        description="Memory limit in MB for GPU-tier Modal training sandboxes",
+    )
+    modal_timeout_seconds: int = Field(
+        default_factory=lambda: int(os.getenv("USFDS_MODAL_TIMEOUT_SECONDS", "14400")),
+        description="Execution timeout in seconds for Modal training sandboxes and SCRIPT plugins",
     )
     auto_compute_row_threshold: int = Field(
         default_factory=lambda: int(os.getenv("USFDS_AUTO_COMPUTE_ROW_THRESHOLD", "100000")),
