@@ -309,7 +309,7 @@ describe('PlanReviewView & MermaidDiagram', () => {
 		).toBeInTheDocument();
 	});
 
-	it('renders error alert and raw Mermaid code fallback on invalid Mermaid syntax', async () => {
+	it('preserves_mermaid_error_and_source', async () => {
 		const badMermaidPlan = parsePlanMarkdown(
 			SAMPLE_V2_PLAN.replace('A["Input"] --> B["Output"]', 'INVALID_MERMAID ???'),
 			'bad_mermaid',

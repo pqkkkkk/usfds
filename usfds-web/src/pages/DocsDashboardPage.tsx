@@ -27,6 +27,7 @@ import {
 } from '@/api/docsDashboardApi';
 import { useTheme } from '@/hooks/useTheme';
 import { PlanReviewView } from '@/components/modules/docs_dashboard/PlanReviewView';
+import { ArchitectureReviewView } from '@/components/modules/docs_dashboard/ArchitectureReviewView';
 import {
 	ContextInspectorPane,
 	type InspectorTarget,
@@ -39,7 +40,7 @@ import {
 	splitStatusAndNote,
 } from '@/components/modules/docs_dashboard/RichDocRenderer';
 
-type DashboardSection = 'board' | 'plan-detail' | 'issues' | 'specs';
+type DashboardSection = 'board' | 'plan-detail' | 'issues' | 'specs' | 'architecture';
 
 export const DocsDashboardPage: React.FC = () => {
 	const navigate = useNavigate();
@@ -51,7 +52,7 @@ export const DocsDashboardPage: React.FC = () => {
 	const [activeSection, setActiveSection] = useState<DashboardSection>('board');
 	const [selectedPlanSlug, setSelectedPlanSlug] = useState<string>('user_management_rbac');
 	const [selectedSpecPath, setSelectedSpecPath] = useState<string>(
-		'docs/arch/high-level-design.md'
+		'docs/arch/README.md'
 	);
 	const [specContent, setSpecContent] = useState<string>('');
 	const [isEditingSpec, setIsEditingSpec] = useState(false);
@@ -264,7 +265,7 @@ export const DocsDashboardPage: React.FC = () => {
 		>
 			{/* Single Primary Navigation Topbar */}
 			<header
-				className={`h-[56px] min-h-[56px] border-b px-5 flex items-center justify-between shrink-0 ${topbarBg}`}
+				className={`min-h-[56px] border-b px-5 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 ${topbarBg}`}
 			>
 				<div className="flex items-center gap-3">
 					<button
@@ -317,7 +318,7 @@ export const DocsDashboardPage: React.FC = () => {
 
 				{/* 4 Independent Top-Level Tabs */}
 				<div
-					className={`flex items-center gap-1 p-1 rounded-xl border ${
+					className={`order-last w-full xl:order-none xl:w-auto overflow-x-auto flex items-center gap-1 p-1 rounded-xl border [&>button]:shrink-0 [&>button]:whitespace-nowrap ${
 						isLight
 							? 'bg-zinc-100 border-zinc-200'
 							: 'bg-[#141418] border-zinc-800'
@@ -366,6 +367,21 @@ export const DocsDashboardPage: React.FC = () => {
 					>
 						<Bug className="w-3.5 h-3.5" />
 						<span>Issues ({overview?.issues.length || 0})</span>
+					</button>
+
+					<button
+						type="button"
+						onClick={() => setActiveSection('architecture')}
+						className={`px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
+							activeSection === 'architecture'
+								? 'bg-blue-600 text-white font-semibold shadow-sm'
+								: isLight
+									? 'text-zinc-600 hover:text-zinc-900'
+									: 'text-zinc-400 hover:text-zinc-100'
+						}`}
+					>
+						<GitMerge className="w-3.5 h-3.5" />
+						<span>Kiến trúc</span>
 					</button>
 
 					<button
@@ -437,6 +453,10 @@ export const DocsDashboardPage: React.FC = () => {
 						<div className="m-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-400">
 							{error}
 						</div>
+					)}
+
+					{activeSection === 'architecture' && (
+						<ArchitectureReviewView isLight={isLight} onSelectFileRef={handleSelectFileRef} />
 					)}
 
 					{/* =========================================================
@@ -1372,6 +1392,7 @@ export const DocsDashboardPage: React.FC = () => {
 										<div className={`p-8 rounded-2xl border ${cardBg}`}>
 											<RichDocRenderer
 												markdown={specContent}
+												sourcePath={selectedSpecPath}
 												isLight={isLight}
 												onSelectIssue={handleSelectIssue}
 												onSelectFileRef={handleSelectFileRef}

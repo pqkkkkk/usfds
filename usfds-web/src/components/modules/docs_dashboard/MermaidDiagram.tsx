@@ -6,6 +6,8 @@ import {
 	Copy,
 	Eye,
 	Maximize2,
+	Minus,
+	Plus,
 	X,
 } from 'lucide-react';
 
@@ -21,12 +23,16 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({
 	const rawId = useId();
 	const baseId = `mermaid-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 	const renderSeqRef = useRef(0);
+	const openButtonRef = useRef<HTMLButtonElement>(null);
+	const closeButtonRef = useRef<HTMLButtonElement>(null);
+	const dialogRef = useRef<HTMLDivElement>(null);
 
 	const [svg, setSvg] = useState<string>('');
 	const [renderError, setRenderError] = useState<string | null>(null);
 	const [showSource, setShowSource] = useState(false);
 	const [copied, setCopied] = useState(false);
 	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [zoom, setZoom] = useState(100);
 
 	const trimmedCode = code.trim();
 	const effectiveError = !trimmedCode
@@ -76,14 +82,29 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({
 		if (!isFullscreen) {
 			return;
 		}
+		const openButton = openButtonRef.current;
+		closeButtonRef.current?.focus();
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') {
 				setIsFullscreen(false);
+			} else if (e.key === 'Tab') {
+				const elements = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), [tabindex="0"]');
+				if (!elements?.length) return;
+				const first = elements[0];
+				const last = elements[elements.length - 1];
+				if (e.shiftKey && document.activeElement === first) {
+					e.preventDefault();
+					last.focus();
+				} else if (!e.shiftKey && document.activeElement === last) {
+					e.preventDefault();
+					first.focus();
+				}
 			}
 		};
 		window.addEventListener('keydown', handleKeyDown);
 		return () => {
 			window.removeEventListener('keydown', handleKeyDown);
+			openButton?.focus();
 		};
 	}, [isFullscreen]);
 
@@ -168,6 +189,7 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({
 						{!effectiveError && svg && (
 							<button
 								type="button"
+								ref={openButtonRef}
 								onClick={() => setIsFullscreen(true)}
 								className={btnClass}
 							>
@@ -236,6 +258,7 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({
 			{/* Fullscreen modal */}
 			{isFullscreen && svg && (
 				<div
+					ref={dialogRef}
 					role="dialog"
 					aria-modal="true"
 					aria-label="Xem sơ đồ Mermaid toàn màn hình"
@@ -260,25 +283,41 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({
 							<span className="text-xs font-mono font-semibold uppercase">
 								Sơ đồ Mermaid (Toàn màn hình)
 							</span>
-							<button
-								type="button"
-								onClick={() => setIsFullscreen(false)}
-								aria-label="Đóng"
-								className={`p-1.5 rounded-lg border transition ${
-									isLight
-										? 'bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-700'
-										: 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
-								}`}
-							>
-								<X className="w-4 h-4" />
-							</button>
+							<div className="flex items-center gap-2">
+								<button type="button" className={btnClass} aria-label="Giảm mức thu phóng" disabled={zoom <= 50} onClick={() => setZoom((value) => Math.max(50, value - 25))}><Minus className="w-3 h-3" aria-hidden="true" /></button>
+								<button type="button" className={btnClass} aria-label="Đặt lại mức thu phóng" onClick={() => setZoom(100)}>{zoom}%</button>
+								<button type="button" className={btnClass} aria-label="Tăng mức thu phóng" disabled={zoom >= 300} onClick={() => setZoom((value) => Math.min(300, value + 25))}><Plus className="w-3 h-3" aria-hidden="true" /></button>
+								<button
+									type="button"
+									ref={closeButtonRef}
+									onClick={() => setIsFullscreen(false)}
+									aria-label="Đóng"
+									className={`p-1.5 rounded-lg border transition ${
+										isLight
+											? 'bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-700'
+											: 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+									}`}
+								>
+									<X className="w-4 h-4" />
+								</button>
+							</div>
 						</div>
 						<div
-							className={`flex-1 overflow-auto p-6 flex items-center justify-center [&_svg]:max-w-full [&_svg]:h-auto ${
+							role="region"
+							aria-label="Cuộn sơ đồ"
+							tabIndex={0}
+							className={`flex-1 overflow-auto p-6 ${
 								isLight ? 'bg-white' : 'bg-[#0b0b0e]'
 							}`}
-							dangerouslySetInnerHTML={{ __html: svg }}
-						/>
+						>
+							<div
+								role="img"
+								aria-label="Vùng sơ đồ"
+								style={{ width: `${zoom}%` }}
+								className="mx-auto [&_svg]:w-full [&_svg]:!max-w-none [&_svg]:h-auto"
+								dangerouslySetInnerHTML={{ __html: svg }}
+							/>
+						</div>
 					</div>
 				</div>
 			)}

@@ -1,9 +1,11 @@
 import React from 'react';
 import { FileCode2, Bug, FileText } from 'lucide-react';
 import { MermaidDiagram } from './MermaidDiagram';
+import { headingSlug, resolveDocumentLink } from '@/utils/docsArchitecture';
 
 interface RichDocRendererProps {
 	markdown: string;
+	sourcePath?: string;
 	isLight?: boolean;
 	onSelectIssue: (issueId: string) => void;
 	onSelectFileRef: (fileRef: string) => void;
@@ -75,7 +77,9 @@ export const InlineSmartText: React.FC<{
 	onSelectIssue: (issueId: string) => void;
 	onSelectFileRef: (fileRef: string) => void;
 	onSelectPlan?: (slug: string) => void;
-}> = ({ text, isLight = false, onSelectIssue, onSelectFileRef, onSelectPlan }) => {
+	sourcePath?: string;
+}> = ({ text, isLight = false, onSelectIssue, onSelectFileRef, onSelectPlan, sourcePath }) => {
+	const [linkError, setLinkError] = React.useState<string | null>(null);
 	const cleanedText = text.replace(/<!--.*?-->/g, '');
 	const tokenRegex =
 		/(\[`?[^\]]+`?\]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|\bISS-\d+\b)/g;
@@ -153,7 +157,7 @@ export const InlineSmartText: React.FC<{
 					if (
 						onSelectPlan &&
 						(href.includes('.plan/') ||
-							(!href.includes('/') &&
+							(!sourcePath && !href.includes('/') &&
 								href.endsWith('.md') &&
 								!/^\d{2}-\d{2}-\d{4}/.test(href)))
 					) {
@@ -185,7 +189,20 @@ export const InlineSmartText: React.FC<{
 						<button
 							key={idx}
 							type="button"
-							onClick={() => onSelectFileRef(href)}
+							onClick={() => {
+								let path: string;
+								try {
+									path = sourcePath && !/^(?:docs|usfds-[^/]+|\.plan|scripts|deploy)\//.test(href)
+										? resolveDocumentLink(sourcePath, href)
+										: href;
+								} catch (error) {
+									if (!(error instanceof Error)) throw error;
+									setLinkError(error.message);
+									return;
+								}
+								setLinkError(null);
+								onSelectFileRef(path);
+							}}
 							className={`inline-flex items-center whitespace-nowrap gap-1 px-2 py-0.5 my-0.5 mx-0.5 rounded-md text-xs font-mono transition border ${
 								isLight
 									? 'bg-sky-50 text-sky-800 border-sky-200 hover:bg-sky-100'
@@ -271,12 +288,14 @@ export const InlineSmartText: React.FC<{
 
 				return <span key={idx}>{part}</span>;
 			})}
+			{linkError && <span role="alert" className="text-rose-500"> {linkError}</span>}
 		</span>
 	);
 };
 
 export const RichDocRenderer: React.FC<RichDocRendererProps> = ({
 	markdown,
+	sourcePath,
 	isLight = false,
 	onSelectIssue,
 	onSelectFileRef,
@@ -393,6 +412,7 @@ export const RichDocRenderer: React.FC<RichDocRendererProps> = ({
 												onSelectIssue={onSelectIssue}
 												onSelectFileRef={onSelectFileRef}
 												onSelectPlan={onSelectPlan}
+												sourcePath={sourcePath}
 											/>
 										</th>
 									))}
@@ -427,6 +447,7 @@ export const RichDocRenderer: React.FC<RichDocRendererProps> = ({
 													onSelectIssue={onSelectIssue}
 													onSelectFileRef={onSelectFileRef}
 													onSelectPlan={onSelectPlan}
+													sourcePath={sourcePath}
 												/>
 											</td>
 										))}
@@ -464,13 +485,14 @@ export const RichDocRenderer: React.FC<RichDocRendererProps> = ({
 									isLight ? 'text-zinc-800' : 'text-zinc-200'
 								}`;
 			elements.push(
-				<div key={`h-${i}`} className={sizeClass}>
+				<div key={`h-${i}`} data-doc-heading={headingSlug(text)} className={sizeClass}>
 					<InlineSmartText
 						text={text}
 						isLight={isLight}
 						onSelectIssue={onSelectIssue}
 						onSelectFileRef={onSelectFileRef}
 						onSelectPlan={onSelectPlan}
+						sourcePath={sourcePath}
 					/>
 				</div>
 			);
@@ -502,6 +524,7 @@ export const RichDocRenderer: React.FC<RichDocRendererProps> = ({
 								onSelectIssue={onSelectIssue}
 								onSelectFileRef={onSelectFileRef}
 								onSelectPlan={onSelectPlan}
+								sourcePath={sourcePath}
 							/>
 						</div>
 					))}
@@ -531,6 +554,7 @@ export const RichDocRenderer: React.FC<RichDocRendererProps> = ({
 							onSelectIssue={onSelectIssue}
 							onSelectFileRef={onSelectFileRef}
 							onSelectPlan={onSelectPlan}
+							sourcePath={sourcePath}
 						/>
 					</div>
 				</div>
@@ -571,6 +595,7 @@ export const RichDocRenderer: React.FC<RichDocRendererProps> = ({
 					onSelectIssue={onSelectIssue}
 					onSelectFileRef={onSelectFileRef}
 					onSelectPlan={onSelectPlan}
+					sourcePath={sourcePath}
 				/>
 			</p>
 		);
