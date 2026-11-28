@@ -57,4 +57,4 @@ sequenceDiagram
 - `IRemoteComputeProvider` is still training-specific; other job types cannot run remotely yet (`ISS-056`, draft epic `.plan/remote_compute_multi_workload.md`).
 - Open gaps: `ISS-001` / `ISS-051` (artifact format implicit; plugin entrypoint hardcoded; `PRE_PROCESSED` pipeline not copied into the run folder), `ISS-050` (static `NON_ML_COLUMNS` instead of the `C1` snapshot).
 - **Code:** `usfds-core/src/usfds_core/services/training/` (incl. `remote_entrypoint.py`), `usfds-infra/src/usfds_infra/compute/{modal_provider,modal_images}.py`, `usfds-server/src/usfds_server/{routers/training_router.py,services/remote_poller.py}`, `usfds-worker/src/usfds_worker/handlers.py` (`handle_training_run`, `handle_plugin_dry_run`).
-- **Spec:** [`detection/suc-spec.md`](../../features/detection/suc-spec.md), [`detection/training/suc-spec.md`](../../features/detection/training/suc-spec.md).
+- **Spec:** [`detection/training/suc-spec.md`](../../features/detection/training/suc-spec.md), [`detection/training/model_plugin/design.md`](../../features/detection/training/model_plugin/design.md). <!-- [26-11-28] -->

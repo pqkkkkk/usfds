@@ -211,3 +211,78 @@ def test_user_id_and_fk_migration_backfills_enforces_fks_and_renders_pg(tmp_path
 				session.flush()
 
 	engine.dispose()
+
+
+def _extract_erd_tables(erd_markdown: str) -> set[str]:
+	import re
+
+	tables: set[str] = set()
+	in_mermaid_fence = False
+	in_er_block = False
+	in_entity_body = False
+	rel_pattern = re.compile(r"^\s*([a-z][a-z0-9_]*)\s+[|o}\-.*{]+\s+([a-z][a-z0-9_]*)\s*:")
+	entity_pattern = re.compile(r"^\s*([a-z][a-z0-9_]*)\s*\{\s*$")
+
+	for line in erd_markdown.splitlines():
+		stripped = line.strip()
+		if stripped.startswith("```mermaid"):
+			in_mermaid_fence = True
+			in_er_block = False
+			in_entity_body = False
+			continue
+		if stripped.startswith("```") and in_mermaid_fence:
+			in_mermaid_fence = False
+			in_er_block = False
+			in_entity_body = False
+			continue
+		if not in_mermaid_fence:
+			continue
+		if stripped == "erDiagram":
+			in_er_block = True
+			in_entity_body = False
+			continue
+		if not in_er_block:
+			continue
+		if in_entity_body:
+			if stripped == "}":
+				in_entity_body = False
+			continue
+		entity_match = entity_pattern.match(line)
+		if entity_match:
+			tables.add(entity_match.group(1))
+			in_entity_body = True
+			continue
+		rel_match = rel_pattern.match(line)
+		if rel_match:
+			tables.add(rel_match.group(1))
+			tables.add(rel_match.group(2))
+	return tables
+
+
+def test_every_orm_table_is_documented_in_arch_erd():
+	"""INV-015 / ISS-059: Every SQLAlchemy ORM table must stay 1:1 synchronized with docs/arch/04-data-model-erd.md."""
+	from pathlib import Path
+	import usfds_infra.database.case_models  # noqa: F401
+	import usfds_infra.database.models  # noqa: F401
+
+	repo_root = Path(__file__).resolve().parents[2]
+	erd_path = repo_root / "docs" / "arch" / "04-data-model-erd.md"
+	assert erd_path.is_file(), f"Missing architecture ERD document: {erd_path}"
+
+	test_only_tables = {
+		mapper.local_table.name
+		for mapper in Base.registry.mappers
+		if not mapper.class_.__module__.startswith("usfds_infra.database.")
+	}
+	orm_tables = set(Base.metadata.tables.keys()) - test_only_tables
+	assert orm_tables, "No production ORM tables discovered from Base.metadata.tables"
+	erd_tables = _extract_erd_tables(erd_path.read_text(encoding="utf-8"))
+
+	missing_in_erd = sorted(orm_tables - erd_tables)
+	stale_in_erd = sorted(erd_tables - orm_tables)
+	assert not (missing_in_erd or stale_in_erd), (
+		"ORM tables and docs/arch/04-data-model-erd.md are out of sync (INV-015):\n"
+		f"  missing_in_erd={missing_in_erd}\n"
+		f"  stale_in_erd={stale_in_erd}"
+	)
+

@@ -3,7 +3,7 @@
 > **Ngày cập nhật:** 09/10/2026  
 > **Chủ đề:** Tách rời khâu Làm giàu đặc trưng (Feature Engineering) và Chuẩn hóa đa mô hình (Model-Specific Normalization)  
 > **Tài liệu liên quan:** 
-> - `docs/usecase/suc-module-1-2.md` (`SUC-05`, `SUC-08`)
+> - `docs/features/detection/training/suc-spec.md` (`SUC-08`) và đặc tả `SUC-05` trên Notion <!-- [26-11-28] -->
 > - `docs/features/data_management/gap.md`
 > - `docs/features/detection/gap.md`
 > - [Notion: Cải thiện quy trình tiền xử lý dữ liệu để hỗ trợ đa mô hình học máy](https://app.notion.com/p/C-i-thi-n-quy-tr-nh-ti-n-x-l-d-li-u-h-tr-a-m-h-nh-h-c-m-y-3f4b99c6a95080cbbb58f1c107c92e83)
@@ -62,7 +62,7 @@ flowchart TD
 
 ## 3. Tác động cụ thể tới Đặc tả Use Case và Mã nguồn (`usfds-core`)
 
-### 3.1. Cập nhật Đặc tả Use Case (`docs/usecase/suc-module-1-2.md`)
+### 3.1. Cập nhật Đặc tả Use Case (`SUC-05`, `SUC-07`, `SUC-08`) <!-- [26-11-28] -->
 * **`SUC-05` đổi tên thành:** `Create advanced features & enrich dataset` (Tạo đặc trưng nâng cao và làm giàu dữ liệu).
 * **Kết thúc của `SUC-05`:** Dừng lại ở stage `FEATURE_ENGINEERED` (lưu `train_enriched.parquet`, `test_enriched.parquet`). Bổ sung quy tắc nghiệp vụ `BR-DM-07` bắt buộc bảo lưu khóa định danh và thời gian.
 * **`SUC-08` (Start model training):** Chịu trách nhiệm tự động kích hoạt chuẩn hóa dữ liệu đầu vào phù hợp với thuật toán đã chọn (Tabular, Sequence, Graph).

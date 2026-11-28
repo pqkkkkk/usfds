@@ -16,8 +16,6 @@ This file is the **only routing table** for architecture docs. Other entry point
 | 2 — Modules | [`modules/`](modules/) (6 bounded contexts) | What each module owns, which contracts it provides, its state machines and traps. |
 | 3 — Rules | [`03-system-invariants.md`](03-system-invariants.md) | Architecture principles (`P-NN`) and invariants (`INV-NNN`) that no change may break, and how each is enforced. |
 
-[`docs/research/high-level-design.md`](../research/high-level-design.md) is the original research design (K8s, MinIO, Apache AGE). It is **not** as-built; when it disagrees with this folder, this folder wins.
-
 ## 2. Routing: touching X → read first
 
 | Task touches... | Read (in order) | Business spec (`docs/features/`) |
@@ -25,8 +23,8 @@ This file is the **only routing table** for architecture docs. Other entry point
 | **Every task** (plan & review) | [`03-system-invariants.md`](03-system-invariants.md) | — |
 | Auth, users, roles, RBAC, project membership, presigned storage auth | [`01`](01-context-and-runtime.md) → [`modules/auth-and-access.md`](modules/auth-and-access.md) | [`project_management/suc-spec.md`](../features/project_management/suc-spec.md) |
 | Dataset ingestion, schema mapping, system metadata, feature management, preprocessing | [`02`](02-data-and-lifecycle-flows.md) → [`modules/data-and-features.md`](modules/data-and-features.md) | [`data_management/`](../features/data_management/), [`feature_management/context-modeling.md`](../features/feature_management/context-modeling.md), [`critical_changes.md`](../features/critical_changes.md) |
-| Model training, built-in / plugin trainers, model versions, lineage, remote compute | [`01`](01-context-and-runtime.md) → [`02`](02-data-and-lifecycle-flows.md) → [`modules/training-and-models.md`](modules/training-and-models.md) | [`detection/suc-spec.md`](../features/detection/suc-spec.md) |
-| Detection jobs, batch inference, rule engine, JsonLogic, backtest | [`02`](02-data-and-lifecycle-flows.md) → [`modules/detection-and-rules.md`](modules/detection-and-rules.md) | [`detection/suc-spec.md`](../features/detection/suc-spec.md) |
+| Model training, built-in / plugin trainers, model versions, lineage, remote compute | [`01`](01-context-and-runtime.md) → [`02`](02-data-and-lifecycle-flows.md) → [`modules/training-and-models.md`](modules/training-and-models.md) | [`detection/training/suc-spec.md`](../features/detection/training/suc-spec.md) |
+| Detection jobs, batch inference, rule engine, JsonLogic, backtest | [`02`](02-data-and-lifecycle-flows.md) → [`modules/detection-and-rules.md`](modules/detection-and-rules.md) | [`detection/inference/suc-spec.md`](../features/detection/inference/suc-spec.md), [`detection/rule_management/suc-spec.md`](../features/detection/rule_management/suc-spec.md) |
 | Cases, blacklist, behavior profile, network graph | [`02`](02-data-and-lifecycle-flows.md) → [`modules/investigation-and-graph.md`](modules/investigation-and-graph.md) | [`investigation/suc-spec.md`](../features/investigation/suc-spec.md) |
 | ProjectWarehouse, insight metrics, SAR / executive reports | [`02`](02-data-and-lifecycle-flows.md) → [`modules/insight-and-warehouse.md`](modules/insight-and-warehouse.md) | [`insight_report/suc-spec.md`](../features/insight_report/suc-spec.md) |
 | Tables, columns, migrations | [`04-data-model-erd.md`](04-data-model-erd.md) → owning module | — |

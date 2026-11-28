@@ -1,6 +1,6 @@
 # Plan: Unified Remote Compute Platform for Inference & Data Processing (Đợt 2)
 
-> **Task ID:** `remote_compute_multi_workload` · **Issues:** — (future epic, follow-up to ISS-009) · **Spec:** `docs/research/high-level-design.md` <!-- [26-11-28] moved -->, `docs/features/detection/inference/suc-spec.md`, `docs/features/data-management/suc-spec.md`
+> **Task ID:** `remote_compute_multi_workload` · **Issues:** — (future epic, follow-up to ISS-009, ISS-056) · **Spec:** `docs/arch/01-context-and-runtime.md`, `docs/arch/modules/training-and-models.md`, `docs/features/detection/inference/suc-spec.md` <!-- [26-11-28] removed deleted research doc link -->
 > **Conflict verdict:** BLOCKED (needs `remote_training_sandbox_hardening` first) · **Status:** Draft
 
 ## 1. Context (facts)

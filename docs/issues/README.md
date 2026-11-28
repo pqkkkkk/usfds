@@ -89,5 +89,4 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-056 | Computation still runs in API; only training runs on remote compute (P-03) | tech-debt | server, worker, training, inference, rule-engine, data-management, insight-report | P2 | Open <!-- [26-11-28] --> | — | [11-28](11-28-2026.md) |
 | ISS-057 | `usfds-core` uses duckdb / ladybug engines directly instead of ports (P-04) | tech-debt | warehouse, investigation, inference, insight-report, data-management | P3 | Open <!-- [26-11-28] --> | — | [11-28](11-28-2026.md) |
 | ISS-058 | Business-significant values hardcoded instead of system metadata (P-01) | tech-debt | data-management, investigation, warehouse, server, web | P3 | Open <!-- [26-11-28] --> | — | [11-28](11-28-2026.md) |
-
-Older resolved bugs (pre-ISS numbering) are kept in [`docs/bugs.md`](../bugs.md).
+| ISS-059 | Stale Detection spec & legacy plans, design-system Tailwind drift, and missing Tier-1 guards for FE layering / ERD / skill sync | docs | docs, web, devex, agents | P2 | Resolved (26-11-28) <!-- [26-11-28] --> | [agent_context_and_guard_refinement](../../.plan/agent_context_and_guard_refinement.md) <!-- [26-11-28] --> | [11-28](11-28-2026.md) |

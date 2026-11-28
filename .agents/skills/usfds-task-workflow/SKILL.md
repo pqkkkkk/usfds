@@ -32,7 +32,7 @@ At the end of each milestone:
 3. Do not weaken, skip or delete an approved test to get green. If a test is wrong, stop and tell the user why.
 
 ## 2. Implement
-- Follow `AGENTs.md` coding rules (tabs in new files, follow existing file style when editing; semicolons & 1TBS in TS, no semicolons in Python; minimal diff, no unrelated refactors; remove obsolete code cleanly when explicitly dropped by the task).
+- Follow `AGENTS.md` coding rules (tabs in new files, follow existing file style when editing; semicolons & 1TBS in TS, no semicolons in Python; minimal diff, no unrelated refactors; remove obsolete code cleanly when explicitly dropped by the task).
 - Backend changes: skill `usfds-backend-change`. Web changes: skill `usfds-frontend-change`.
 - Stay inside plan §3 scope. If you must touch another file, note it in the report with the reason.
 - Hot-spot files: append only.

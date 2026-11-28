@@ -142,13 +142,13 @@ Read this file for **every** task (plan and review).
 
 ### `INV-014` — Frontend layering, policy sync & full error propagation
 - **Rule:**
-  - New `usfds-web` code follows `component → hook → api client` (no direct `api/*` calls in new components).
+  - New `usfds-web` code follows `component → hook → api client` (no direct `api/*` calls in new components; legacy components are frozen in a shrink-only allowlist).
   - Feature visibility goes through `lib/feature-policy.ts` + `useActorContext`, matching backend permissions; `api/client.ts` always rejects with `ApiClientError` for HTTP errors or `success: false` (`ISS-028`).
-- **Enforcement:** Tier 1/2 (`client.test.ts`, feature-policy tests, ESLint / build) + Tier 3.
+- **Enforcement:** Tier 1 (`usfds-web/tests/test_layering_guard.mjs`) + Tier 2 (`client.test.ts`, feature-policy tests, oxlint / build) + Tier 3. <!-- [26-11-28] -->
 
 ### `INV-015` — Architecture doc sync in the same PR
 - **Rule:** Any task that changes a contract (`C1–C5`), state machine, queue / storage layout, table relation, principle or invariant updates `docs/arch/` in the same PR before merge (policy: [`README.md`](README.md) §4).
-- **Enforcement:** Tier 3 — `usfds-plan` (§4.5) + `usfds-review` + `usfds-task-workflow` (§5).
+- **Enforcement:** Tier 1 (`test_every_orm_table_is_documented_in_arch_erd` in `usfds-infra/tests/test_migrations.py`, `test_claude_and_agents_skills_stay_identical` in `usfds-core/tests/test_architecture_guards.py`) + Tier 3 (`usfds-plan` §4.5, `usfds-review`, `usfds-task-workflow` §5). <!-- [26-11-28] -->
 
 ---
 
@@ -173,6 +173,6 @@ Read this file for **every** task (plan and review).
 | `INV-011` | In-use & zero-orphan delete | 2 + 3 | `test_dataset_api.py`, `test_feature_api.py`, `test_migrations.py` | `ISS-002`, `ISS-048` |
 | `INV-012` | Optimistic lock & immutability | 2 | `test_case_repositories.py`, `test_model_version_uniqueness.py`, `test_rule_api.py` | — |
 | `INV-013` | Hybrid decision & metric math | 2 + 3 | `test_architecture_guards.py`, `test_insight_report_service.py` | — |
-| `INV-014` | FE layering & error propagation | 2 + 3 | `client.test.ts`, `usfds-review` | `ISS-032` |
-| `INV-015` | Architecture doc sync | 3 | `usfds-plan`, `usfds-review`, `usfds-task-workflow` | — |
+| `INV-014` | FE layering & error propagation | 1 + 2 | `test_layering_guard.mjs`, `client.test.ts`, `usfds-review` | `ISS-032` |
+| `INV-015` | Architecture doc sync | 1 + 3 | `test_migrations.py` (ERD parity), `test_architecture_guards.py` (skills), `usfds-plan`, `usfds-review` | — |
 | `INV-016` | No pandas | 1 | `test_architecture_guards.py` (pandas allowlist) | `ISS-055` |

@@ -1,6 +1,14 @@
 # Changelog
 
-Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
+Completed work, newest first. Updated at merge time (see `AGENTS.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
+
+## 2026-11-28 — ISS-059: Agent Context Refinement, Design System As-Built Sync & Tier-1 Guards
+Plan: `.plan/agent_context_and_guard_refinement.md` · Board: `.plan/BOARD.md`
+
+- Entrypoints & Docs (`AGENTS.md`, `CLAUDE.md`, `docs/features/{detection/suc-spec,critical_changes}.md`, `docs/arch/{README,03-system-invariants,modules/training-and-models,modules/detection-and-rules}.md`, `.plan/{training_evaluation_metrics,automl_training_integration,remote_compute_multi_workload}.md`, `.claude/skills/**`, `.agents/skills/**`): normalized git index filename `AGENTs.md` → `AGENTS.md`, added `CLAUDE.md` (`@AGENTS.md`), converted `detection/suc-spec.md` to a thin index and routed `docs/arch/` directly to the 3 split Detection specs, marked legacy `Planned` plans (`ISS-038`, `ISS-039`) as `NEEDS-REPLAN`, and cleaned broken relative links.
+- Design System (`docs/design-system.md`): added §2.4 as-built Tailwind `--tw-*` RGB tokens (`bg-dark-*`, `text-slate-*`, per-palette adaptive shades), Light Mode `text-white` restriction vs `text-slate-100`, `useTheme().chartTokens`, real Type Scale utilities, and `RAW → MAPPED → FEATURE_ENGINEERED` stepper without emoji.
+- Tier-1 Guards (`usfds-core/tests/test_architecture_guards.py`, `usfds-infra/tests/test_migrations.py`, `usfds-web/tests/test_layering_guard.mjs`): enforced 1:1 `.claude/skills` == `.agents/skills` parity, 1:1 `Base.metadata.tables` == `04-data-model-erd.md` parity (`INV-015`), and shrink-only `INV-014` FE `src/api/*` import allowlist across `src/components/` and `src/pages/` (19 legacy files; excluding `docs_dashboard`).
+- Verified: `core` (`217 passed, 15 skipped`), `infra` (`56 passed`), `web` (`pretest 3 passed`, `28 files / 62 passed`, `npm run build && npm run lint` 0 errors); `docs/issues/11-28-2026.md` (`ISS-059` resolved).
 
 ## 2026-11-28 — ISS-054: Architecture Docs Dedupe, English Rewrite, Principles P-01..P-04 & INV-016
 Plan: `.plan/arch_docs_principles_english.md` · Board: `.plan/BOARD.md`

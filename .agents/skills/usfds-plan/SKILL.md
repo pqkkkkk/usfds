@@ -29,7 +29,7 @@ After reading the sources, judge whether the given issues form a sensible single
 1. **Collect sources.** Read in this order, stop when you have enough:
    - Every issue given in the prompt (`docs/issues/README.md` → dated file) and its existing plan, if any.
    - Architecture & invariants: follow the routing table in `docs/arch/README.md` (it always includes `03-system-invariants.md`). <!-- [26-11-28] -->
-   - The related spec in `docs/features/**/suc-spec.md`. If none exists and the task changes behavior, ask the user for the Notion link (see `AGENTs.md`).
+   - The related spec in `docs/features/**/suc-spec.md`. If none exists and the task changes behavior, ask the user for the Notion link (see `AGENTS.md`).
    - `.plan/BOARD.md` (who is doing what, which files are owned).
    - The code you will touch. Never plan from memory: cite `path:line`.
 2. **Size the scope** (section above). If `TOO-BROAD` or `TOO-SMALL`, write only §1–§2 of the plan with the proposal and stop.

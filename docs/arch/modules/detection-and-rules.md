@@ -44,4 +44,4 @@ flowchart LR
 - Rule validation checks field names against `raw_schema` while execution evaluates mapped / enriched / model fields — the two can disagree (`ISS-053`).
 - Open gaps: `ISS-049` (feature engineers applied twice for built-in models → `INV-007`), `ISS-002` (active rules can be deleted → `INV-011`).
 - **Code:** `usfds-core/src/usfds_core/services/{inference,rule_engine}/`, `usfds-server/src/usfds_server/routers/{detection,rule}_router.py`, `usfds-worker/src/usfds_worker/handlers.py` (`handle_batch_inference`, `handle_rule_backtest`).
-- **Spec:** [`detection/suc-spec.md`](../../features/detection/suc-spec.md), [`detection/user-flow-and-ui-design.md`](../../features/detection/user-flow-and-ui-design.md).
+- **Spec:** [`detection/inference/suc-spec.md`](../../features/detection/inference/suc-spec.md), [`detection/rule_management/suc-spec.md`](../../features/detection/rule_management/suc-spec.md), [`detection/user-flow-and-ui-design.md`](../../features/detection/user-flow-and-ui-design.md). <!-- [26-11-28] -->

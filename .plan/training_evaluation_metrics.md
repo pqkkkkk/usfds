@@ -1,5 +1,7 @@
 # Plan: Upgrade Model Training Evaluation Metrics (`TASK-105`)
 
+> **[26-11-28] NEEDS-REPLAN BEFORE IMPLEMENTATION:** Plan written before template v2 (`usfds-plan`) and `INV-016` (no pandas). Section §1.2's "comment out with `DEPRECATED`" rule conflicts with current `AGENTS.md` §3 (delete obsolete code cleanly when explicitly dropped). Re-plan with `.claude/skills/usfds-plan/template.md` (§2.5, §4, §4.5, §5, §6) before coding `ISS-038`.
+
 > **Source Specification:** [Notion — Độ đo (metrics) đánh giá (`TASK-105`)](https://app.notion.com/p/o-metrics-nh-gi-670b99c6a95082799942018c3616dd9b)  
 > **Related Spec:** `docs/features/detection/training/suc-spec.md` (`SUC-09`, `SUC-27`)  
 > **Date:** 10/11/2026 (`[26-11-10]`)

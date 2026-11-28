@@ -1,5 +1,7 @@
 # Plan: AutoML (Optuna Bayesian Optimization) Integration into Model Training Flow
 
+> **[26-11-28] NEEDS-REPLAN BEFORE IMPLEMENTATION:** Plan written before template v2 (`usfds-plan`), `P-01..P-04`, and `INV-016` (no pandas). Re-plan with `.claude/skills/usfds-plan/template.md` (§2.5, §4, §4.5, §5, §6) and check remote compute (`ISS-009`) / `usfds-worker` parity before coding `ISS-039`.
+
 > **Notion Document:** [Tích hợp autoML vào luồng huấn luyện mô hình (`TASK-113`)](https://app.notion.com/p/T-ch-h-p-autoML-v-o-lu-ng-hu-n-luy-n-m-h-nh-413b99c6a9508045a01bddf734e4614a)
 
 ## 1. Context & Approved Architectural Decisions

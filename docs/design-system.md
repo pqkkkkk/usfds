@@ -1,5 +1,5 @@
 # UI/UX Design Foundation
-<!-- [26-11-28] English translation (content unchanged). -->
+<!-- [26-11-28] English translation; synced Tailwind RGB tokens, Light Mode rules, type scale utilities, and stepper flow with usfds-web (ISS-059). -->
 
 This document defines the **Design System Foundations**, the **Global Layout Architecture**, the three-layer design token architecture, and the **Accessibility & Interaction Guidelines** for the whole **USFDS** (Unified System for Fraud Detection & Scoring).
 
@@ -212,24 +212,45 @@ html[data-theme="light"] {
 
 ---
 
+### 2.4. As-Built Tailwind Utility Tokens & Light Mode Contract (`usfds-web`)
+<!-- [26-11-28] Added from usfds-web/tailwind.config.js, src/index.css, and src/hooks/useTheme.tsx (ISS-059). -->
+
+In `usfds-web`, Tailwind utility classes (`tailwind.config.js`) bind to RGB channel CSS variables (`--tw-*` in `src/index.css`) so surfaces, borders, text, and status accents flip automatically between `:root` (dark default) and `html[data-theme="light"]` (`ThemeProvider` / `useTheme()` in `src/hooks/useTheme.tsx`, persisted under `localStorage` key `usfds_theme`):
+
+| Purpose | Tailwind classes (as-built) | Notes |
+| :--- | :--- | :--- |
+| App canvas & surfaces | `bg-dark-950` (canvas), `bg-dark-900` (card / panel), `bg-dark-850` (header / inset), `bg-dark-800` (input / button / hover) | All invert automatically to light slate / white in Light Mode (`--tw-dark-*`). |
+| Borders & dividers | `border-dark-700`, `border-dark-700/80`, `border-dark-600` | Support Tailwind opacity modifiers via `rgb(var(--tw-*) / <alpha-value>)`. |
+| Text hierarchy | `text-slate-100` (primary headings / values), `text-slate-200` / `text-slate-300` (body), `text-slate-400` (secondary labels), `text-slate-500` (muted / placeholder) | Invert automatically to dark slate in Light Mode (`--tw-slate-*`). |
+| Brand & semantic accents | `brand-*` / `blue-*` (primary), `emerald-*` / `legit-*` (success / allow), `amber-*` / `alarm-*` (warning / review), `rose-*` / `red-*` / `fraud-*` (danger / reject), `purple-*`, `sky-*`, `cyan-*`, `indigo-*` | Theme-adaptive shades for WCAG AA contrast: `brand`/`blue`/`emerald`/`amber`/`rose`/`red` adapt `200`/`300`/`400`/`900`/`950`; `purple` adapts `300`/`400`/`900`/`950`; `sky`/`cyan` adapt `300`/`400`; `indigo` adapts `400`; `fraud`/`legit`/`alarm` adapt `400` (`fraud` also adapts `900`). |
+| Layout & focus helpers | `h-topbar` (`56px`), `w-sidebar` (`240px`), `w-sidebar-collapsed` (`64px`), `h-bottombar` (`28px`), `.focus-ring`, `.tabular-nums`, `shadow-glow-{blue,green,red,amber}` | Defined in `tailwind.config.js` and `src/index.css`. |
+
+**Mandatory theme rules for `usfds-web` components:**
+1. **Never use `text-white` for headings, labels, or table cells on cards/panels** — `text-white` does not invert in Light Mode. Always use `text-slate-100` (primary) or `text-slate-200`. Reserve `text-white` strictly for solid colored buttons/pills (e.g. `bg-brand-600 text-white`).
+2. **Never hardcode hex colors in Recharts, Cytoscape, or custom SVG** — read `chartTokens` (`gridStroke`, `gridSubtleStroke`, `axisStroke`, `axisTick`, `axisLabel`, `tooltipBg`, `tooltipBorder`, `tooltipText`, `canvasDot`, `inactiveBar`) from `useTheme()`.
+3. **Reuse shared primitives** (`Card`, `Button`, `Badge`, `EmptyState`, `PageHeader`, `WorkspaceStepper`, `InspectorDrawer`) instead of reinventing surface styles.
+
+---
+
 ## 3. Typography & Specialized Fonts
 
 The system combines **2 complementary font families**:
-1. **Interface & general text (UI copy):** `Inter`, `-apple-system`, `sans-serif`.
+1. **Interface & general text (UI copy):** `Inter`, `-apple-system`, `sans-serif` (`font-sans`).
    - Excellent legibility at small sizes (11px - 13px); renders Vietnamese UTF-8 correctly.
-2. **Financial figures, checksums, identifiers & schema (tabular code font):** `Fira Code` or `JetBrains Mono`.
-   - **Mandatory:** `font-variant-numeric: tabular-nums;` so numbers align exactly in financial analysis tables.
+2. **Financial figures, checksums, identifiers & schema (tabular code font):** `JetBrains Mono` / `Fira Code` (`font-mono`).
+   - **Mandatory:** `.tabular-nums` (`font-variant-numeric: tabular-nums;`, applied globally to `.tabular-nums`, `code`, `pre`, `.font-mono`) so numbers align exactly in financial analysis tables.
 
-### Type Scale
+### Type Scale (Tailwind utilities used in `usfds-web`)
+<!-- [26-11-28] Replaced unimplemented custom token names with actual Tailwind classes used in usfds-web (ISS-059). -->
 
-| Token | Size / Line-height | Weight | Usage |
-| :--- | :--- | :--- | :--- |
-| `text-display` | 24px / 32px | 700 (Bold) | Page title |
-| `text-heading-lg`| 18px / 24px | 600 (Semi-bold) | Section title, modal header |
-| `text-heading-md`| 15px / 20px | 600 (Semi-bold) | Card title, drawer inspector header |
-| `text-body` | 13px / 18px | 400 (Regular) | Table content, descriptions, form text |
-| `text-caption` | 11px / 16px | 500 (Medium) | Meta labels, tag badges, table headers (uppercase) |
-| `text-code` | 12px / 16px | 500 (Mono) | UUID, SHA-256 checksum, canonical column names (`event_id`) |
+| Role | Tailwind utility classes | Usage |
+| :--- | :--- | :--- |
+| Page title (`PageHeader`) | `text-lg md:text-xl font-bold text-slate-100 tracking-tight font-sans` | Top-level workspace header |
+| Section heading | `text-base font-semibold text-slate-100` or `text-sm font-semibold text-slate-100` | Section title, modal header |
+| Card / drawer title | `text-sm font-semibold text-slate-100` | Card header, inspector drawer header |
+| Body / table content | `text-xs` (`12px`) or `text-sm` (`14px`) with `text-slate-200` / `text-slate-300` | Dense table cells, descriptions, form controls |
+| Caption / badge / column header | `text-[11px]` or `text-[10px] uppercase font-medium tracking-wide text-slate-400` | Breadcrumbs, `Badge`, uppercase table headers |
+| Code / ID / financial metric | `font-mono tabular-nums text-xs` | UUID, SHA-256 checksum, canonical column names (`event_id`), KPI values |
 
 ---
 
@@ -269,12 +290,12 @@ The system combines **2 complementary font families**:
 ## 5. Shared Component Specifications
 
 ### 5.1. Workspace Stepper (linear & branching pipeline navigation)
-- **Purpose:** Guides the user through data preparation steps (`RAW` $\to$ `MAPPED` $\to$ `PRE_PROCESSED`).
+- **Purpose:** Guides the user through data preparation steps (`RAW` → `MAPPED` → `FEATURE_ENGINEERED`, with optional legacy `PRE_PROCESSED`). <!-- [26-11-28] -->
 - **States:**
-  - **`Completed`:** Green circle with a check icon (`✓`); clickable to review the previous step's result.
-  - **`Active`:** Glowing blue-outlined circle (`box-shadow: var(--shadow-glow-blue)`) showing the current step number.
-  - **`Locked`:** Dim gray (`--primitives-slate-700`), `cursor: not-allowed`.
-  - **`Forked Badge`:** When the user branches from an older node, the stepper shows a secondary label: *"🌿 Branch: [Branch Name] (Forked from Artifact #X)"*.
+  - **`Completed`:** Green circle with a Lucide `Check` icon; clickable to review the previous step's result.
+  - **`Active`:** Glowing blue-outlined circle (`shadow-glow-blue`) showing the current step number.
+  - **`Locked`:** Dim gray (`border-dark-800`, `text-slate-500`), `cursor-not-allowed`, with a Lucide `Lock` icon.
+  - **`Forked Badge`:** When the user branches from an older node, the stepper shows a secondary label with a Lucide `GitBranch` icon: *"Branch: [Branch Name] (Forked from Artifact #X)"*.
 
 ### 5.2. Interactive High-Density Data Grid
 - **Sticky Column:** The first column (transaction ID or dataset name) stays fixed on horizontal scroll.

@@ -102,14 +102,13 @@ Follow current design system guidelines for consistency in UI components, typogr
 
 ## Documentation Location
 
-All documentation is maintained in the Notion page [Task](https://app.notion.com/p/325b99c6a9508074ba72e26e509260bf?v=325b99c6a9508078acdc000cad8d9232). Documentation in `docs/` is the local reference and is kept in sync with Notion. Architecture docs (`docs/arch/`), `AGENTS.md`, `README.md` and `docs/design-system.md` are written in English. <!-- [26-11-28] -->
+Architecture docs (`docs/arch/`), `AGENTS.md`, `README.md` and `docs/design-system.md` are written in English.
 
 **Agent Modification Policy:** Request user approval before editing any file in `docs/`. Append a `[YY-MM-DD]` comment to all approved edits.
 
 ---
 
 # CRITICAL IMPORTANT: MANDATORY AGENT DIRECTIVE
-<!-- [26-11-28] Deduplicated: workflow steps live in the skills of §0.1; Notion rules live in §0. -->
 
 Before modifying codebase logic, databases, routes, or assets:
 

@@ -5,7 +5,7 @@ Three views of the running system: **system boundary**, **package structure (Cle
 
 ## 1. System context
 
-USFDS is a fraud detection system deployed for **one organization** (not multi-tenant). Inside it, a **`Project` is a workspace isolation boundary**: every business resource (`datasets`, `features`, `rules`, `models`, `detection_jobs`, `fraud_cases`, warehouse files) is scoped by `project_id` (`INV-002`). Exceptions are the system-wide `BUILTIN` catalog (built-in models, built-in features) and `system_column_metadata`.
+USFDS is a fraud detection system deployed for **one organization** (not multi-tenant) when they self-host it. Inside it, a **`Project` is a workspace isolation boundary**: every business resource (`datasets`, `features`, `rules`, `models`, `detection_jobs`, `fraud_cases`, warehouse files) is scoped by `project_id` (`INV-002`). Exceptions are the system-wide `BUILTIN` catalog (built-in models, built-in features) and `system_column_metadata`.
 
 ```mermaid
 flowchart LR

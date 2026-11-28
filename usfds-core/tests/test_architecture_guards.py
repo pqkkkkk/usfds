@@ -298,3 +298,37 @@ def test_core_engine_imports_limited_to_allowlist():
 	stale = CORE_ENGINE_IMPORT_ALLOWLIST - actual
 	assert not new_files, "Direct duckdb/ladybug import in usfds-core (P-04); put it behind a port:\n" + "\n".join(sorted(new_files))
 	assert not stale, "Remove from CORE_ENGINE_IMPORT_ALLOWLIST (no longer import duckdb/ladybug):\n" + "\n".join(sorted(stale))
+
+
+def test_claude_and_agents_skills_stay_identical():
+	"""ISS-059: .claude/skills and .agents/skills must stay 1:1 synchronized."""
+	claude_root = REPO_ROOT / ".claude" / "skills"
+	agents_root = REPO_ROOT / ".agents" / "skills"
+	assert claude_root.is_dir(), f"Missing skills directory: {claude_root}"
+	assert agents_root.is_dir(), f"Missing skills directory: {agents_root}"
+
+	claude_files = {
+		p.relative_to(claude_root).as_posix(): p
+		for p in sorted(claude_root.rglob("*"))
+		if p.is_file() and p.name != ".DS_Store"
+	}
+	agents_files = {
+		p.relative_to(agents_root).as_posix(): p
+		for p in sorted(agents_root.rglob("*"))
+		if p.is_file() and p.name != ".DS_Store"
+	}
+
+	missing_in_agents = sorted(set(claude_files) - set(agents_files))
+	missing_in_claude = sorted(set(agents_files) - set(claude_files))
+	drifted = [
+		rel
+		for rel in sorted(set(claude_files) & set(agents_files))
+		if claude_files[rel].read_bytes() != agents_files[rel].read_bytes()
+	]
+	assert not (missing_in_agents or missing_in_claude or drifted), (
+		"Skill mirror drift between .claude/skills and .agents/skills:\n"
+		f"  missing_in_agents={missing_in_agents}\n"
+		f"  missing_in_claude={missing_in_claude}\n"
+		f"  content_mismatch={drifted}"
+	)
+
