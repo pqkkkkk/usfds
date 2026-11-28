@@ -396,6 +396,8 @@ def handle_insight_report(ctx: WorkerContext, data: Dict[str, Any]) -> Dict[str,
 			rule_repo=SqliteRuleRepository(session),
 			rule_version_repo=SqliteRuleVersionRepository(session),
 			file_storage=ctx.storage,
+			model_version_repo=SqliteModelVersionRepository(session),
+			model_repo=SqliteModelRepository(session),
 		)
 		result = getattr(service, _INSIGHT_OPERATIONS[operation])(**params)
 	if operation == "export":

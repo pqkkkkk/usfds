@@ -174,11 +174,11 @@ Tuân thủ `docs/design-system.md` (Dark Mode OLED, Dual-Encoding icon + badge,
   - [x] [core] Cập nhật `service.py` (optional `model_version_repo`/`model_repo`) và `report_builder.py` (Executive Audit mới + HTML/Print template chuẩn)
   - [x] [verify] `./scripts/test.sh core`
 
-- [ ] **M2 — Đồng bộ API Provider & Analytics Worker** (`usfds-server`, `usfds-worker`): Cả chế độ inline và queue worker đều trả đầy đủ metadata model & payload mới.
-  - [ ] [tests] Bổ sung integration tests M2 trong `usfds-server/tests/test_insight_report_api.py`
-  - [ ] [server] Cập nhật `usfds-server/src/usfds_server/providers/insight.py` để truyền `model_repo` và `model_version_repo`
-  - [ ] [worker] Cập nhật `usfds-worker/src/usfds_worker/handlers.py` (`handle_insight_report`) để truyền `SqliteModelRepository` và `SqliteModelVersionRepository`
-  - [ ] [verify] `./scripts/test.sh server worker`
+- [x] **M2 — Đồng bộ API Provider & Analytics Worker** (`usfds-server`, `usfds-worker`): Cả chế độ inline và queue worker đều trả đầy đủ metadata model & payload mới.
+  - [x] [tests] Bổ sung integration tests M2 trong `usfds-server/tests/test_insight_report_api.py`
+  - [x] [server] Cập nhật `usfds-server/src/usfds_server/providers/insight.py` để truyền `model_repo` và `model_version_repo`
+  - [x] [worker] Cập nhật `usfds-worker/src/usfds_worker/handlers.py` (`handle_insight_report`) để truyền `SqliteModelRepository` và `SqliteModelVersionRepository`
+  - [x] [verify] `./scripts/test.sh server worker`
 
 - [ ] **M3 — Tái thiết kế 4 Tab Insight & Report + Metric Tooltips** (`usfds-web`): Giao diện 100% tiếng Việt, tổ chức mạch lạc theo quyết định nghiệp vụ, có tooltip giải thích từng metric.
   - [ ] [tests] Viết Vitest + MSW tests M3 tại `usfds-web/src/components/modules/reports/InsightReportTabs.test.tsx`
@@ -190,6 +190,7 @@ Tuân thủ `docs/design-system.md` (Dark Mode OLED, Dual-Encoding icon + badge,
 
 Checkpoint log:
 - 26-11-28 M1: `./scripts/test.sh core` → `197 passed, 15 skipped, 169 warnings in 14.97s` (PASS core). Toàn bộ 7 acceptance tests M1 xanh; không có sai lệch ngoài kế hoạch.
+- 26-11-28 M2: `./scripts/test.sh server worker` → server `60 passed, 120 warnings in 53.34s`, worker `10 passed, 4 warnings in 6.06s` (PASS server, PASS worker). Model labels & upgraded payload verified end-to-end.
 
 ## 7. Review hotspots (filled in after implementation)
 - (điền sau khi hoàn tất triển khai)
