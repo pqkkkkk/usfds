@@ -10,7 +10,8 @@ The user reviews **Design & Approach, tests, and a few key logic points**, not t
 ## 0. Preconditions
 - An approved plan exists in `.plan/<task>.md` (skill `usfds-plan`). If not, plan first and stop.
 - **1 task = 1 session = 1 plan file.** You implement the whole task yourself, every milestone in order. Do not hand parts to other agents, and do not open extra tasks.
-- You work in your own git worktree and branch `task/<task_slug>`. Do not commit to `main`.
+- Default: you work in your own git worktree and branch `task/<task_slug>`. Do not commit to `main`.
+- **Exception:** if the user explicitly allows working directly on local `main` (e.g. "làm trực tiếp trên main"), skip the worktree/branch and work and commit on local `main` in the current checkout. The permission applies to that task only. Do not push or open a PR unless the user asks; steps below that mention `task/<task_slug>` then refer to `main`.
 - Track progress only in your plan's §6 (tick each to-do item as you finish it). Do not edit `CHANGELOG.md` or `.plan/BOARD.md` in the task branch during implementation, and never add to `TODO.md` (frozen history). (When running multiple agents concurrently, `.plan/BOARD.md` is marked `In progress` on `main` when the task is claimed; final status + `CHANGELOG.md` are updated at step 5.)
 
 ## Milestone loop
@@ -82,7 +83,7 @@ Choose code where a wrong decision would still let the tests pass, or would corr
 Also copy the hotspots into plan §7.
 
 ## 5. After user approval (push & PR)
-Done by the agent on `task/<task_slug>` (never merge directly into local `main`):
+Done by the agent on `task/<task_slug>` (never merge directly into local `main`, unless the user explicitly allowed working on `main` for this task):
 - Fetch and rebase onto `origin/main` if needed; if there is an Alembic revision, update `down_revision` to the current head and re-run `./scripts/test.sh`.
 - **Architecture Doc-Sync (`INV-015`):** If the task changed any shared contract (`C1–C5`), state machine, queue/storage layout, module boundary, or invariant, update the corresponding `docs/arch/` file(s) with a `[YY-MM-DD]` comment in this same branch.
 - Update `CHANGELOG.md`, `.plan/BOARD.md`, and the ISS status in `docs/issues/` (both the dated file and `README.md`). Set the plan's status to `Done (YY-MM-DD)`.

@@ -28,7 +28,7 @@ Several AI agents work on this repo at the same time. Follow these skills (in `.
 | Phase | Skill | Output |
 | --- | --- | --- |
 | Plan | `usfds-plan` | `.plan/<task>.md` from the template, with `Design & Approach` (Mermaid + decisions/risks), Dependencies & Conflicts verdict, **§4.5 System Invariant & Blast-Radius Impact**, and acceptance tests. **Stop for user approval.** |
-| Implement | `usfds-task-workflow` | Tests first, then code, in your own git worktree/branch `task/<slug>` |
+| Implement | `usfds-task-workflow` | Tests first, then code, in your own git worktree/branch `task/<slug>` (default). Only if the user explicitly allows it for the task, work directly on local `main` instead |
 | Review | `usfds-review` | Independent adversarial audit of diff against `docs/arch/03-system-invariants.md` & `modules/*.md` before Final Report |
 | Backend | `usfds-backend-change` | Layer map, Alembic migrations, append-only hot spots |
 | Frontend | `usfds-frontend-change` | Design system, Vietnamese UI copy, react-query, MSW tests |
