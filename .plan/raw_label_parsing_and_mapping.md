@@ -1,7 +1,7 @@
 # Plan: Raw Label Value Mapping to Canonical Binary (`0` / `1`)
 
 > **Task ID:** `raw_label_parsing_and_mapping` · **Issues:** ISS-047 (chosen by the user) · **Spec:** `docs/features/data_management/user-flow-and-ui-design.md` (Màn hình 4 — Schema Mapping & Validation)
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Approved (26-11-28)
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Done (26-11-28)
 
 ## 1. Context (facts)
 - `usfds-core/src/usfds_core/services/data_management/mapping.py:276-282`: `DataMappingService` chỉ chuyển đổi cột `label` theo kiểu `BOOLEAN` hoặc `TRY_CAST(TRY_CAST(col AS DOUBLE) AS BIGINT)` rồi `COALESCE(..., 0)` và **không đưa `label` vào `ratio_checks`**. Khi file raw chứa chuỗi nhãn phổ biến (`'fraud'` / `'legit'`, `'Yes'` / `'No'`, `'true'` / `'false'` dạng chuỗi) hoặc mã hóa khác (`1`/`2`, `'A'`/`'B'`), `TRY_CAST` trả `NULL` và `COALESCE` **âm thầm biến 100% nhãn thành `0`** trong khi `validation_status` vẫn là `PASSED`. Các mã số phi nhị phân (`1`/`2`, `-1`/`1`) cũng đi thẳng vào `mapped.parquet` mà không được map về `0`/`1`.

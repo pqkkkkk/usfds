@@ -2,6 +2,12 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-28 — ISS-047: Explicit Raw Label Value Mapping to Binary (0/1) & CSV Raw String Preservation
+Plan: `.plan/raw_label_parsing_and_mapping.md` · Board: `.plan/BOARD.md`
+
+- Core (`domain/schemas/{label_normalization,preprocessing_config,dataset_profiling}.py`, `services/data_management/{duckdb_io,profiling,mapping,validation}.py`, `services/{warehouse/project_warehouse,inference/inference_service,rule_engine/executor}.py`): added `validate_label_value_mapping`, `build_label_parse_sql`, and `apply_label_mapping` with fail-fast `invalid_cnt > 0` rejection and strict canonical binary (`0`/`1`/`BOOLEAN`) when `label_value_mapping=None`; collected `distinct_values` (`1 <= unique_count <= 20`) during profiling, excluded `BOOLEAN` from CSV `auto_type_candidates` in `register_file_view` so raw strings like `"No"`/`"Yes"` are preserved verbatim, added single-class warnings, and propagated `label_value_mapping` into `ProjectWarehouse` and `RuleExecutor`.
+- Web & Tests (`usfds-web/src/{utils/labelMapping.ts,types/dataset.ts,components/modules/data_management/SchemaMappingWorkspace.tsx}`, `usfds-core/tests/*`, `usfds-server/tests/test_dataset_api.py`): added FE default suggestion tokens and compact inline `label` row value-to-binary mapping UI; verified `core` (`208 passed, 15 skipped`), `server` (`63 passed`), `worker` (`10 passed`), `web` (`28 files / 62 passed`, `npm run build && npm run lint` 0 errors).
+
 ## 2026-11-25 — ISS-009: Remote Training Compute (Multi-Provider, Modal, In-Server Poller & Auto Selection)
 Plan: `.plan/remote_training_compute.md` · Board: `.plan/BOARD.md`
 
