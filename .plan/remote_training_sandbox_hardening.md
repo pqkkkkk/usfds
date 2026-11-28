@@ -1,7 +1,7 @@
 # Plan: Remote Training Sandbox Hardening & Runtime Profile Isolation (Đợt 1)
 
 > **Task ID:** `remote_training_sandbox_hardening` · **Issues:** ISS-009 (follow-up hardening) · **Spec:** `docs/features/detection/training/suc-spec.md` (`SUC-08`)
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Approved (26-11-27)
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Done (26-11-28)
 
 ## 1. Context (facts)
 - `usfds-core/src/usfds_core/__init__.py:6-11` và `usfds-core/src/usfds_core/services/__init__.py:1-6` dùng eager wildcard `import *`, kéo toàn bộ `data_management` (`duckdb`), `investigation` (`ladybug`, `shap`), `preprocessing` (`imblearn`, `category_encoders`) ngay khi import `usfds_core.services.training.executor`. Toàn bộ codebase (`usfds-core`, `usfds-infra`, `usfds-server`, `usfds-worker`, `usfds-cli`, `custom-models`) không có caller nào dùng `from usfds_core import ...` hay `from usfds_core.services import ...`.

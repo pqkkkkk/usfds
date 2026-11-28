@@ -2,6 +2,24 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-28 — ISS-046: Insight & Report FDS Upgrade (DuckDB OLAP Metrics, Dual-Threshold Simulator & 4-Tab UI)
+Plan: `.plan/insight_report_fds_upgrade.md` · Board: `.plan/BOARD.md`
+
+- Core (`services/insight_report/{engine,service,report_builder}.py`): fixed Customer Insult Rate (`FP/(TN+FP)`), REJECT vs REVIEW friction separation, monotonic 4-stage funnel, daily `tx_timestamp` trends, 24h `confirmed_fraud_rate` vs `flagged_rate`, and true user `total_tx_count`; added Missed Fraud / VDR / bps with `VERIFIED_ONLY` `ground_truth_coverage` null guards, Case SLA / MTTR / Backlog Aging / Analyst stats (`CRITICAL <= 4h`, `HIGH <= 24h`, `MEDIUM <= 72h`), Rule `false_alert_rate` / `unique_catch` / `is_small_sample` (`n < 30`) / FP & FN samples, `equal_width` & `equal_count` Calibration + Brier + ECE + KS, Top-K Lift/Gain, PSI Score Drift, Dual-Threshold Simulator (`hybrid` & `model_only`), Model Comparison, 6-dimension Segment Hit-Rate, Watchlist impact, and structured HTML/print export without `<pre>`.
+- Server, Worker & Web (`providers/insight.py`, `usfds_worker/handlers.py`, `usfds-web/src/{types/insightReport.ts,components/modules/reports/{MetricInfoTooltip,ExecutiveOverviewTab,EffectivenessTab,TypologiesPatternsTab,ComplianceReportCenterTab}.tsx}`): injected `model_version_repo` & `model_repo` in sync API & analytics worker, replaced hardcoded `"XGBoost"` labels, added Vietnamese `MetricInfoTooltip` and upgraded all 4 report tabs; verified `core` (`197 passed, 15 skipped`), `server` (`60 passed`), `worker` (`10 passed`), `web` (`28 files / 61 passed`, `npm run build && npm run lint` 0 errors).
+
+## 2026-11-28 — ISS-047: Explicit Raw Label Value Mapping to Binary (0/1) & CSV Raw String Preservation
+Plan: `.plan/raw_label_parsing_and_mapping.md` · Board: `.plan/BOARD.md`
+
+- Core (`domain/schemas/{label_normalization,preprocessing_config,dataset_profiling}.py`, `services/data_management/{duckdb_io,profiling,mapping,validation}.py`, `services/{warehouse/project_warehouse,inference/inference_service,rule_engine/executor}.py`): added `validate_label_value_mapping`, `build_label_parse_sql`, and `apply_label_mapping` with fail-fast `invalid_cnt > 0` rejection and strict canonical binary (`0`/`1`/`BOOLEAN`) when `label_value_mapping=None`; collected `distinct_values` (`1 <= unique_count <= 20`) during profiling, excluded `BOOLEAN` from CSV `auto_type_candidates` in `register_file_view` so raw strings like `"No"`/`"Yes"` are preserved verbatim, added single-class warnings, and propagated `label_value_mapping` into `ProjectWarehouse` and `RuleExecutor`.
+- Web & Tests (`usfds-web/src/{utils/labelMapping.ts,types/dataset.ts,components/modules/data_management/SchemaMappingWorkspace.tsx}`, `usfds-core/tests/*`, `usfds-server/tests/test_dataset_api.py`): added FE default suggestion tokens and compact inline `label` row value-to-binary mapping UI; verified `core` (`208 passed, 15 skipped`), `server` (`63 passed`), `worker` (`10 passed`), `web` (`28 files / 62 passed`, `npm run build && npm run lint` 0 errors).
+
+## 2026-11-28 — ISS-009 (Đợt 1): Remote Training Sandbox Hardening & Runtime Profile Isolation
+Plan: `.plan/remote_training_sandbox_hardening.md` · Board: `.plan/BOARD.md`
+
+- Core (`__init__.py`, `services/__init__.py`, `domain/schemas/training_payload.py`, `services/{project_management/schema_validator,training/{compute_policy,executor,training_service,remote_entrypoint,models/trainer_factory,dispatchers/routing_dispatcher}}.py`): removed eager wildcard `import *` (without `__getattr__`) and resolved latent circular import in `schema_validator.py`; added `runtime_profile` resolution (`tabular-sklearn`, `tabular-gbdt`, `tabular-lightgbm`, `tabular-onnx`, `dl-pytorch-gpu`, `dl-pyg-gpu`), `python -m usfds_core.services.training.remote_entrypoint` (`__USFDS_RESULT_JSON__:`), `model_bundle.zip`-only upload for `SCRIPT` plugins, and `timeout_seconds` propagation.
+- Infra & Server (`usfds_infra/compute/{modal_images,modal_provider}.py`, removed `modal_app.py`, `usfds_server/{config,providers/training,routers/training_router}.py`, `deploy/.env.example`): migrated from manual `modal deploy` to zero-deploy `App.lookup` + `modal.Sandbox.create` with pinned `scikit-learn>=1.4.0,<1.6.0` profile images, loopback S3 URL guard, `MODAL_TOKEN_ID`/`MODAL_TOKEN_SECRET` env placeholders, and 3-phase DB-session-free `GET /runs/{run_id}` polling; verified `core`, `infra` (`55 passed`), `server`, `worker`.
+
 ## 2026-11-25 — ISS-009: Remote Training Compute (Multi-Provider, Modal, In-Server Poller & Auto Selection)
 Plan: `.plan/remote_training_compute.md` · Board: `.plan/BOARD.md`
 
