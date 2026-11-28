@@ -104,7 +104,7 @@ flowchart LR
 | M1 | `test_pandas_allowlist_has_no_stale_entries` (same) | allowlisted file | it no longer imports pandas | test fails asking to remove the entry | INV-016 (shrink-only) |
 | M1 | `test_core_engine_imports_limited_to_allowlist` (same) | frozen allowlist of current core files importing `duckdb` / `ladybug` | a new core file imports either, or an allowlisted file stops importing | test fails | P-04 |
 | M2 | check: `grep -rnE '\.(py\|ts\|tsx):[0-9]+' docs/arch` | — | run | empty | Stop Rule |
-| M2 | check: `grep -rniE 'multi-?tenan\|tenancy\|usfds-(cli\|agent)' docs/arch AGENTS.md README.md .claude/skills .agents/skills` | — | run | empty | rules 1, 2 |
+| M2 | check: `grep -rniE 'multi-?tenan\|tenancy\|usfds-(cli\|agent)' docs/arch AGENTS.md README.md .claude/skills .agents/skills` | — | run | empty, except the explicit "not multi-tenant" statement and the rename-history comment | rules 1, 2 |
 | M2 | check: every ORM `__tablename__` appears in `04-data-model-erd.md` (inline script) | 27 tables | run | 0 missing | rule 3 |
 | M2 | check: no Vietnamese diacritics in `docs/arch/**`, `AGENTS.md`, `README.md`; in `design-system.md` only inside code spans/UI copy examples | — | run | empty | rule 9 |
 | M2 | check: `wc -c docs/arch/{README,0[1-3]*}.md docs/arch/modules/*.md` | — | run | ≤ current total | context budget |
@@ -117,21 +117,22 @@ flowchart LR
   - [x] [tests] Write the 3 guard tests (pandas repo-wide; duckdb/ladybug in core); confirm red without allowlist, green with it
   - [x] [docs] `docs/issues/11-28-2026.md`: ISS-054 (this task), ISS-055 pandas removal (39 files), ISS-056 compute isolation: move computation out of API into jobs, remote/K8s providers for all job types (not only training), per-job dependency packaging, ISS-057 DI gaps (`ProjectWarehouse`, `network_graph` ladybug impl, API-called duckdb services → ports + infra adapters), ISS-058 hardcoded business values → system metadata (generalize beyond `SystemColumnMetadata`, incl. compute routing & limits, UI)
   - [x] [verify] `./scripts/test.sh core`
-- [ ] **M2 — Arch docs rewrite** (docs)
-  - [ ] [docs] `README.md` (arch): English, keep routing + Stop Rule + Doc-Sync, add 04, point research doc
-  - [ ] [docs] `01`: English, remove cli/agent, single-org statement
-  - [ ] [docs] `02`: English, keep C1–C5 1:1
-  - [ ] [docs] `03`: English, Principles P-01..P-04, INV-016, Group A rename, remove WARNING block and `path:line`
-  - [ ] [docs] `modules/*`: English, rename auth module, gotchas → ISS IDs
-  - [ ] [docs] `04-data-model-erd.md` from ORM tables
-  - [ ] [docs] move `high-level-design.md` to `docs/research/`
-  - [ ] [verify] M2 checks in §5
+- [x] **M2 — Arch docs rewrite** (docs)
+  - [x] [docs] `README.md` (arch): English, keep routing + Stop Rule + Doc-Sync, add 04, point research doc
+  - [x] [docs] `01`: English, remove cli/agent, single-org statement
+  - [x] [docs] `02`: English, keep C1–C5 1:1
+  - [x] [docs] `03`: English, Principles P-01..P-04, INV-016, Group A rename, remove WARNING block and `path:line`
+  - [x] [docs] `modules/*`: English, rename auth module, gotchas → ISS IDs
+  - [x] [docs] `04-data-model-erd.md` from ORM tables
+  - [x] [docs] move `high-level-design.md` to `docs/research/`
+  - [x] [verify] M2 checks in §5
 - [ ] **M3 — Entry points & skills** (docs, skills)
   - [ ] [docs] `AGENTS.md` dedupe + cli removal; `README.md` package list (+worker, −cli/agent, SQLite/PostgreSQL); `design-system.md` English
   - [ ] [docs] skills: INV range, file names, "Tenancy" heading, plan step 1 pointer; mirror to `.agents/skills`
   - [ ] [verify] M3 checks + `./scripts/test.sh core`
 
 Checkpoint log:
+- 26-11-28 M2 done: 0 `path:line` refs, 0 Vietnamese chars, 27/27 tables in ERD, 16/16 Mermaid diagrams parse (mermaid 12.3), 0 broken links, size 65.5KB vs 77.0KB before (+7.3KB ERD); notes: `docs/arch/modules/training-and-models.md` spec link adds `detection/training/suc-spec.md`; 2 intentional "tenant" mentions (negation + rename history).
 - 26-11-28 M1 done: core `216 passed, 15 skipped`; guards red first (2 failed listing 39 + 8 files), green after allowlists; notes: pandas count 39 not 42 (AST vs grep).
 
 ## 7. Review hotspots

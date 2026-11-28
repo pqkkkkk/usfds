@@ -1,146 +1,178 @@
-# 03 — System Invariants & Guardrail Matrix
-<!-- [26-11-27] Created: Canonical catalog of technical & business invariants (INV-001..015) and 3-tier enforcement strategy. -->
+# 03 — Architecture Principles, System Invariants & Guardrail Matrix
+<!-- [26-11-27] Created (INV-001..015). [26-11-28] English rewrite; principles P-01..P-04 and INV-016 added; bug details moved to docs/issues. -->
 
-Tài liệu này định nghĩa **15 bất biến hệ thống (`INV-001` đến `INV-015`)** — tập hợp các quy tắc kỹ thuật và quy tắc nghiệp vụ cốt lõi mà mọi thay đổi mới **không được phép phá vỡ**.
+Read this file for **every** task (plan and review).
 
-Mỗi bất biến được gán vào **1 trong 3 tầng thực thi**:
-- **Tầng 1 (Static / Structural Guard):** Test tự động trong `./scripts/test.sh` quét toàn bộ app/AST/schema — chặn lỗi ngay cả khi tác giả quên viết unit test cho tính năng mới.
-- **Tầng 2 (Contract / Property Test):** Test tích hợp xuyên module hoặc kiểm tra bất biến toán học/vòng đời trên dữ liệu mẫu.
-- **Tầng 3 (Plan Checklist + `usfds-review`):** Kiểm duyệt ngữ nghĩa ở bước lên kế hoạch và phản biện độc lập trước khi trình duyệt.
-
----
-
-## Nhóm A — Bảo mật, Phân quyền & Cô lập dữ liệu (Security & Multi-Tenancy)
-
-### `INV-001` — Authenticated-by-Default API & Safe CORS
-- **Quy tắc:** Mọi FastAPI route không nằm trong `PUBLIC_ALLOWLIST` (`/health`, `/api/health`, `/api/v1/auth/{mode,login,refresh,logout}`) bắt buộc phải qua dependency xác thực (`get_actor_context` / `get_current_user` / `require_system_permission`). Khi `USFDS_CORS_ORIGINS` chứa `*`, `allow_credentials` bắt buộc là `False` (`ISS-014`).
-- **Thực thi:** **Tầng 1 (ĐÃ KHÓA)** — [`test_route_security_guard.py`](../../usfds-server/tests/test_route_security_guard.py) + [`test_auth_and_rbac_api.py`](../../usfds-server/tests/test_auth_and_rbac_api.py).
-
-### `INV-002` — Cô lập Project & Chống dò ID (Anti-404-Oracle)
-- **Quy tắc:**
-  - Mọi truy vấn tài nguyên thuộc project (`dataset`, `feature`, `rule`, `training`, `detection`, `case`, `network`, `report`, `storage`) phải xác thực quyền truy cập `project_id` **trước khi** tiết lộ sự tồn tại của bản ghi; truy cập chéo project trả `404` hoặc `403`, không bao giờ rò rỉ dữ liệu project khác (`ISS-042`).
-  - `GET /api/v1/storage/presigned-download` chỉ ký URL sau khi kiểm tra anti-path-traversal, prefix hợp lệ và quyền sở hữu/project của key.
-- **Thực thi:** **Tầng 1 (ĐÃ KHÓA)** ([`test_route_security_guard.py`](../../usfds-server/tests/test_route_security_guard.py)) + **Tầng 2** ([`test_auth_and_rbac_api.py`](../../usfds-server/tests/test_auth_and_rbac_api.py)).
-
-### `INV-003` — RBAC 3 phạm vi (`OWN < PROJECT < SYSTEM`), Cô lập nhánh & Chống leo thang quyền
-- **Quy tắc:**
-  - `GrantScope.OWN` chỉ cho phép đọc/sửa/xóa bản ghi có `user_id == actor.user_id`; list query dưới quyền `OWN` bắt buộc lọc `owner_id = actor.user_id` (`ISS-043`).
-  - `SYSTEM_ONLY_PERMISSIONS` không bao giờ được gán cho vai trò `RoleScope.PROJECT`; non-`system_admin` không được gán quyền rộng hơn quyền mình đang giữ; không được xóa/hạ cấp `project_admin` cuối cùng của một project.
-- **Thực thi:** **Tầng 2** (`test_auth_and_rbac_api.py`, `test_authz_enforcement.py`, `test_authz_management.py`) + **Tầng 3** (`usfds-review` cho mọi router/endpoint mới).
-
-### `INV-004` — Biên an toàn File I/O & Sandbox mã người dùng
-- **Quy tắc:**
-  - Ở chế độ S3, server không bao giờ đọc đường dẫn filesystem cục bộ do client gửi lên (`ISS-015`). Upload plugin có giới hạn dung lượng (`USFDS_MAX_PLUGIN_UPLOAD_MB`) và không chặn event loop (`ISS-016`, `ISS-019`).
-  - Mã tùy chỉnh (`SCRIPT` model plugins & `PYTHON_CODE` features) bắt buộc qua AST validator (chặn import/builtin nguy hiểm) và chạy trong subprocess có timeout (`ISS-022`).
-  - Remote compute (Modal) chỉ nhận `PresignedUrlStorage` có TTL giới hạn — **tuyệt đối không** truyền S3/DB credentials vào container từ xa.
-- **Thực thi:** **Tầng 2** (`test_feature_management.py`, `test_modal_provider.py`, `test_s3_storage.py`) + **Tầng 3** (`usfds-review`).
+- **Principles (`P-01..P-04`)** are design rules for new and changed code. Existing code does not fully conform yet; gaps are tracked as issues. A change must not widen a gap.
+- **Invariants (`INV-001..016`)** must never be broken. Each one is enforced at one or more tiers:
+  - **Tier 1 — static / structural guard:** automated test in `./scripts/test.sh` that scans the app / AST / schema; catches violations even when the author forgot a unit test.
+  - **Tier 2 — contract / property test:** cross-module integration test or lifecycle / math property test on sample data.
+  - **Tier 3 — plan checklist + `usfds-review`:** semantic check during planning (§4.5) and independent review.
 
 ---
 
-## Nhóm B — Kiến trúc phân lớp, Dữ liệu bền vững & Hiệu năng
+## Architecture principles
 
-### `INV-005` — Ranh giới Clean Architecture & Worker Không Chạm DB
-- **Quy tắc:**
-  - `usfds-core` không được import `usfds_infra`, `usfds_server`, `usfds_worker`, `sqlalchemy`, `fastapi`, `boto3`, `bullmq`, hay `modal`.
-  - `TrainingRunExecutor` và `BatchInferenceExecutor` không nhận SQLAlchemy session hay truy cập DB trực tiếp — chỉ giao tiếp qua DTO payload, `IFileStorage`, và notifier/result.
-  - FastAPI routers không import trực tiếp ORM table/model từ `usfds_infra.database.{models,tables,case_models}`.
-- **Thực thi:** **Tầng 1 (ĐÃ KHÓA)** — [`test_architecture_guards.py`](../../usfds-core/tests/test_architecture_guards.py) + [`test_route_security_guard.py`](../../usfds-server/tests/test_route_security_guard.py).
+### `P-01` — Configurable
+- **Rule:** Business-significant values — thresholds, limits, column roles, label mappings, compute routing — live in **system metadata**: an extensible registry with defaults, editable via UI. `SystemColumnMetadata` is the first kind; new features extend system metadata instead of adding constants. `USFDS_*` env vars are only for deployment infrastructure and secrets (DB URL, storage endpoint, credentials). Never hardcode a business value in a service.
+- **Conformance:** column roles, label mappings and per-run parameters (`score_threshold`, split ratio, hyperparameters) are configurable. Limits and routing are still constants or env vars.
+- **Gaps:** `ISS-058`.
+- **Enforcement:** Tier 3.
 
-### `INV-006` — Tương thích PostgreSQL & Schema Migration duy nhất
-- **Quy tắc:**
-  - Mọi câu truy vấn SQL/ORM và DDL bắt buộc tương thích PostgreSQL dù test chạy trên SQLite (`ISS-018`).
-  - Mọi thay đổi bảng/cột chỉ đi qua Alembic migration, luôn có **đúng 1 head**, `schema_drift == []`, và render được SQL offline cho PostgreSQL (`ISS-020`).
-- **Thực thi:** **Tầng 1 (ĐÃ KHÓA)** — [`test_pg_compat_guard.py`](../../usfds-infra/tests/test_pg_compat_guard.py) + [`test_migrations.py`](../../usfds-infra/tests/test_migrations.py).
+### `P-02` — Pluggable
+- **Rule:** A variant (trainer, model plugin, feature script, compute provider, storage backend, queue, analytic / graph engine) is added by implementing a port and registering it. Never by adding `if/else` on a type at call sites.
+- **Conformance:** mature in model management (`BUILTIN` / `SCRIPT` trainers, `IRemoteComputeProvider` + `RemoteProviderRegistry`), storage (`IFileStorage`), dispatchers (local / queue / routing). Other modules adopt it as they evolve.
+- **Gaps:** engines without a port (`ISS-057`).
+- **Enforcement:** Tier 3.
 
-### `INV-007` — Xử lý dữ liệu lớn có giới hạn RAM (Bounded DuckDB)
-- **Quy tắc:** Các luồng đọc dữ liệu lớn trong API/Worker (`Ingestion`, `DataMapping`, `PredictionResults`, `ProjectWarehouse`, `InsightReport`, `BehaviorProfile`, `NetworkGraph`) phải dùng DuckDB có giới hạn tài nguyên (`create_bounded_duckdb_connection`: 2 threads, 512MB RAM, spill temp dir) — **không** gọi `pd.read_csv`/`pd.read_parquet` tải toàn bộ file lên RAM trong tiến trình API (`ISS-012`, `ISS-044`).
-- **Thực thi:** **Tầng 1 (ĐÃ KHÓA)** — [`test_architecture_guards.py`](../../usfds-core/tests/test_architecture_guards.py) (`test_large_data_modules_do_not_call_pandas_full_file_readers`) + **Tầng 3** (`usfds-review`).
+### `P-03` — Compute-isolated workloads
+- **Rule:**
+  - The API runs only business logic: validate, authorize, persist, dispatch.
+  - All computation runs as a **self-contained job**: payload DTO in → data via `IFileStorage` / presigned URLs → result via notifier out. A job may use only explicitly allowed services (ideally none) and never a DB session or credentials (`INV-004`, `INV-005`).
+  - The same job can run in-process, on a dedicated worker, on K8s, or on a third-party provider, selected via system metadata (`P-01`) and a provider registry (`P-02`).
+  - Each job pulls only the dependencies it needs.
+  - **Exception:** bounded interactive reads (result pagination, graph neighbor expansion, dataset preview) stay in the API, behind a port, with bounded resources (`INV-007`). Full-dataset computation is always a job.
+- **Conformance:** training runs in-process, on BullMQ, or on Modal. Other job types run in-process or on BullMQ only. No K8s adapter. All jobs share one `usfds-core` dependency set. Some routers still compute on full data.
+- **Gaps:** `ISS-056`.
+- **Enforcement:** Tier 3 + Tier 1 executor guard of `INV-005`.
 
-### `INV-008` — An toàn hàng đợi, Idempotency & Không giữ DB session qua Network I/O
-- **Quy tắc:**
-  - Handler CPU-bound trên `usfds-worker` chạy qua `asyncio.to_thread` để event loop duy trì BullMQ lock; job fire-and-forget (`training_run`, `batch_inference`) bỏ qua ngay nếu trạng thái DB đã terminal.
-  - Danh mục `JOB_*` và `QUEUE_*` trong `usfds-infra`, `usfds-worker`, và `InlineJobQueue` luôn đồng bộ 1-1; lỗi đầu vào/nghiệp vụ xác định bọc trong `UnrecoverableError` (không retry vô ích, `ISS-021`).
-  - Các poller nền (như `RemoteTrainingPoller`) tách 3 pha *đọc DB → gọi network (không giữ session) → ghi DB*.
-- **Thực thi:** **Tầng 1 (ĐÃ KHÓA)** ([`test_worker_guards.py`](../../usfds-worker/tests/test_worker_guards.py)) + **Tầng 2** (`test_queue_mode_api.py`, `test_queue_timeout_api.py`, `test_remote_poller.py`) + **Tầng 3**.
-
----
-
-## Nhóm C — Toàn vẹn dữ liệu & Vòng đời tài nguyên
-
-### `INV-009` — Chuẩn bị dữ liệu 2 tầng & Chống Data Leakage
-- **Quy tắc:**
-  - Artifact ở giai đoạn `FEATURE_ENGINEERED` bắt buộc bảo lưu `event_id`, `user_id`, `timestamp` (`BR-DM-07`, `critical_changes.md`).
-  - Chia tập Train/Test theo thời gian diễn ra **trước** khi fit cleanser, target-rate encoder hoặc scaler; không bao giờ fit trên tập test.
-  - Mọi cột có `ml_role != FEATURE` (theo `SystemColumnMetadata` snapshot của artifact) phải bị loại nhất quán khỏi vector đặc trưng ở cả Preprocessing, Training và Inference.
-- **Thực thi:** **Tầng 2** ([`test_architecture_guards.py`](../../usfds-core/tests/test_architecture_guards.py), `test_feature_engineering_service.py`) + **Tầng 3** (`usfds-review`).
-
-### `INV-010` — Một nguồn sự thật cho Chuẩn hóa cột & Nhãn (No Silent Corruption)
-- **Quy tắc:**
-  - Tra cứu tên cột hệ thống (`event_id`, `timestamp`, `amount`, `user_id`, `label`, entity columns) dùng chung `resolve_canonical_column()` (`ISS-027`).
-  - Chuẩn hóa nhãn nhị phân `0/1` không được âm thầm ép nhãn không nhận diện được về `0` hay `-1` mà vẫn báo `PASSED` (`ISS-047`); phải fail-fast hoặc dùng bộ chuẩn hóa dùng chung xuyên suốt Mapping → Warehouse → Rule Backtest → Training.
-- **Thực thi:** **Tầng 2** (`test_system_metadata.py`, `test_mapping_service.py`, `test_project_warehouse.py`, `test_rule_engine.py`) + **Tầng 3** (`usfds-review`).
-
-### `INV-011` — Bảo vệ vòng đời xóa & Không để lại rác lưu trữ (Zero-Orphan)
-- **Quy tắc:**
-  - Không cho phép xóa tài nguyên đang được sử dụng (`dataset` đang có job active → `409`; `feature` có dependent / thuộc `FeatureSet` / đang dùng bởi `ACTIVE` rule → `400`; `CORE` metadata → `400`; `project` còn job active → `400`; `rule` đang active/in-use → *`ISS-002`*).
-  - Xóa bản ghi DB sở hữu file (ví dụ `delete_dataset`) bắt buộc dọn file artifact tương ứng trên `IFileStorage` (`ISS-017`). Khóa ngoại `user_id` dùng `ON DELETE RESTRICT` (`ISS-023`).
-- **Thực thi:** **Tầng 2** (`test_dataset_api.py`, `test_feature_api.py`, `test_migrations.py`) + **Tầng 3** (`usfds-review`).
-
-### `INV-012` — Đồng thời lạc quan & Lịch sử bất biến
-- **Quy tắc:**
-  - Cập nhật `Case` bắt buộc kiểm tra `expected_version` (optimistic locking → `CaseConflictError`).
-  - Sửa `condition` hoặc `action` của `Rule` luôn sinh `RuleVersion` mới bất biến; `ModelVersion` đánh số `v1, v2, ...` duy nhất trong `(project_id, model_id)` (có unique constraint + retry). `AuditLog` chỉ ghi thêm (append-only).
-- **Thực thi:** **Tầng 2** (`test_case_repositories.py`, `test_model_version_uniqueness.py`, `test_rule_api.py`).
+### `P-04` — Dependency inversion
+- **Rule:** `usfds-core` depends only on ports (abstract classes). Concrete adapters live in `usfds-infra` and are wired at composition roots (`usfds-server/providers`, `usfds-worker/main`). Stateful engines (warehouse store, graph DB) are always behind a port. **Sole exception:** job executors may import compute libraries directly.
+- **Conformance:** repositories, `IFileStorage`, dispatchers, notifiers, compute providers, token / password providers are ports. `ProjectWarehouse`, the LadybugDB graph implementation and some API-called DuckDB readers live in core.
+- **Gaps:** `ISS-057`.
+- **Enforcement:** Tier 1 — `INV-005` import guard + `test_core_engine_imports_limited_to_allowlist` (frozen, shrink-only allowlist of core files importing `duckdb` / `ladybug`).
 
 ---
 
-## Nhóm D — Ngữ nghĩa nghiệp vụ FDS, Frontend & Đồng bộ tài liệu
+## Group A — Security, authorization & project isolation
 
-### `INV-013` — Chuẩn xác quyết định lai & Bất biến công thức phân tích
-- **Quy tắc:**
-  - Quyết định lai tuân thủ `BR-DT-07`: `Rule REJECT > Rule REVIEW | (score >= threshold) > ALLOW`.
-  - Mọi chỉ số phân tích FDS trong `InsightReport` phải giữ bất biến toán học (funnel 4 tầng đơn điệu giảm `Stage1 >= Stage2 >= Stage3 >= Stage4`; các tỷ lệ nằm trong `[0, 1]`; không trộn `VERIFIED` với `PENDING` trong công thức sai lệch như `ISS-046`; không phát sinh `NaN`/`Infinity` trong payload JSON).
-- **Thực thi:** **Tầng 2** ([`test_architecture_guards.py`](../../usfds-core/tests/test_architecture_guards.py) cho `BR-DT-07`, `test_insight_report_service.py`) + **Tầng 3** (`usfds-review`).
+### `INV-001` — Authenticated-by-default API & safe CORS
+- **Rule:** Every FastAPI route outside `PUBLIC_ALLOWLIST` (`/health`, `/api/health`, `/api/v1/auth/{mode,login,refresh,logout}`) goes through an auth dependency (`get_actor_context` / `get_current_user` / `require_system_permission`). If `USFDS_CORS_ORIGINS` contains `*`, `allow_credentials` must be `False` (`ISS-014`).
+- **Enforcement:** Tier 1 — `usfds-server/tests/test_route_security_guard.py` + `test_auth_and_rbac_api.py`.
 
-### `INV-014` — Phân lớp Frontend, Đồng bộ Policy & Truyền lỗi đầy đủ
-- **Quy tắc:**
-  - Code mới trong `usfds-web` theo đúng 3 lớp `component → hook → api client` (không gọi `api/*` trực tiếp trong component mới).
-  - Hiển thị/ẩn tính năng đi qua `lib/feature-policy.ts` + `useActorContext` khớp với quyền backend; `api/client.ts` luôn reject `ApiClientError` cho mọi HTTP lỗi hoặc `success: false` (`ISS-028`).
-- **Thực thi:** **Tầng 1/2** (`client.test.ts`, `feature-policy` tests, ESLint/build) + **Tầng 3** (`usfds-review`).
+### `INV-002` — Project isolation & anti-404-oracle
+- **Rule:**
+  - Every query on a project resource (`dataset`, `feature`, `rule`, `training`, `detection`, `case`, `network`, `report`, `storage`) authorizes `project_id` **before** revealing whether the record exists. Cross-project access returns `404` / `403` and never leaks data (`ISS-042`).
+  - `GET /api/v1/storage/presigned-download` signs a URL only after anti-path-traversal, registered-prefix and project / ownership checks.
+- **Enforcement:** Tier 1 (`test_route_security_guard.py`) + Tier 2 (`test_auth_and_rbac_api.py`).
 
-### `INV-015` — Đồng bộ tài liệu kiến trúc cùng PR
-- **Quy tắc:** Bất kỳ task nào thay đổi contract (`C1–C5`), state machine, queue/storage layout, hoặc bất biến (`INV-001..015`) đều phải cập nhật `docs/arch/` trong cùng PR trước khi merge.
-- **Thực thi:** **Tầng 3 (ĐÃ KÍCH HOẠT)** — `usfds-plan` (§4.5) + `usfds-review` + `usfds-task-workflow` (§5).
+### `INV-003` — 3-scope RBAC (`OWN < PROJECT < SYSTEM`) & no privilege escalation
+- **Rule:**
+  - `GrantScope.OWN` allows read / update / delete only where `user_id == actor.user_id`; list queries under `OWN` filter `owner_id = actor.user_id` (`ISS-043`).
+  - `SYSTEM_ONLY_PERMISSIONS` are never granted to `RoleScope.PROJECT` roles; a non-`system_admin` cannot grant more than they hold; the last `project_admin` of a project cannot be removed or demoted.
+- **Enforcement:** Tier 2 (`test_auth_and_rbac_api.py`, `test_authz_enforcement.py`, `test_authz_management.py`) + Tier 3 for every new router / endpoint.
 
----
-
-## Bảng tổng hợp mức độ tự động hóa (Guardrail Matrix)
-
-| Mã | Tên ngắn | Tầng thực thi chính | Guard / Test đang chạy |
-|---|---|---|---|
-| `INV-001` | Auth-by-default & CORS | **Tầng 1** (Route Guard) | `usfds-server/tests/test_route_security_guard.py`, `test_auth_and_rbac_api.py` |
-| `INV-002` | Project isolation & Storage auth | **Tầng 1 + Tầng 2** | `usfds-server/tests/test_route_security_guard.py`, `test_auth_and_rbac_api.py` |
-| `INV-003` | 3-Scope RBAC & OWN | **Tầng 2 + Tầng 3** | `test_auth_and_rbac_api.py`, `usfds-review` *(open gap: `ISS-052`)* |
-| `INV-004` | File I/O & Code Sandbox | **Tầng 2 + Tầng 3** | `test_feature_management.py`, `test_modal_provider.py`, `test_s3_storage.py` |
-| `INV-005` | Clean Arch Layering | **Tầng 1** (AST Guard) | `usfds-core/tests/test_architecture_guards.py`, `usfds-server/tests/test_route_security_guard.py` |
-| `INV-006` | PG Compat & Single-Head Alembic | **Tầng 1** (Guard) | `usfds-infra/tests/test_pg_compat_guard.py`, `test_migrations.py` |
-| `INV-007` | Bounded DuckDB for Large Data | **Tầng 1** (AST Guard) | `usfds-core/tests/test_architecture_guards.py` *(open gap: `ISS-049`)* |
-| `INV-008` | Queue Sync, Idempotency & DB Hygiene | **Tầng 1 + Tầng 2** | `usfds-worker/tests/test_worker_guards.py`, `test_queue_mode_api.py`, `test_remote_poller.py` |
-| `INV-009` | Two-Tier Prep & Anti-Leakage | **Tầng 2 + Tầng 3** | `usfds-core/tests/test_architecture_guards.py`, `test_feature_engineering_service.py` *(open gap: `ISS-050`)* |
-| `INV-010` | Single-Source Columns & Labels | **Tầng 2 + Tầng 3** | `test_system_metadata.py`, `test_mapping_service.py`, `test_project_warehouse.py`, `test_rule_engine.py` (`ISS-047` resolved) |
-| `INV-011` | In-Use & Zero-Orphan Delete | **Tầng 2 + Tầng 3** | `test_dataset_api.py`, `test_feature_api.py`, `test_migrations.py` *(open gaps: `ISS-002`, `ISS-048`)* |
-| `INV-012` | Optimistic Lock & Immutability | **Tầng 2** | `test_case_repositories.py`, `test_model_version_uniqueness.py`, `test_rule_api.py` |
-| `INV-013` | Hybrid Decision & Metric Math | **Tầng 2 + Tầng 3** | `usfds-core/tests/test_architecture_guards.py` (`BR-DT-07`), `test_insight_report_service.py` (`ISS-046` resolved) |
-| `INV-014` | FE Layering & Error Propagation | **Tầng 2 + Tầng 3** | `usfds-web` `client.test.ts`, `usfds-review` *(tech-debt: `ISS-032`)* |
-| `INV-015` | Architecture Doc-Sync | **Tầng 3** | `usfds-plan` (§4.5) + `usfds-review` + `usfds-task-workflow` (§5) |
+### `INV-004` — File I/O boundary & user-code sandbox
+- **Rule:**
+  - In S3 mode the server never reads a client-supplied local filesystem path (`ISS-015`). Plugin uploads are size-capped (`USFDS_MAX_PLUGIN_UPLOAD_MB`) and do not block the event loop (`ISS-016`, `ISS-019`).
+  - User code (`SCRIPT` model plugins, `PYTHON_CODE` features) passes an AST validator (blocks dangerous imports / builtins) and runs in a subprocess with a timeout (`ISS-022`).
+  - Remote compute receives only `PresignedUrlStorage` with bounded TTL — **never** S3 or DB credentials.
+- **Enforcement:** Tier 2 (`test_feature_management.py`, `test_modal_provider.py`, `test_s3_storage.py`) + Tier 3.
 
 ---
 
-> [!WARNING]
-> **Các lỗ hổng thực tế phát hiện trong kiểm toán As-Built (26-11-27) — đã ghi nhận vào `docs/issues/11-27-2026.md`:**
-> 1. **`ISS-048` (`INV-011`):** `project_service.py:87-98` — `_check_active_workloads` bỏ sót `TrainingRun` đang chạy trên SQL DB.
-> 2. **`ISS-049` (`INV-007`):** `inference/executor.py:594, 643` — model `BUILTIN` gọi `apply_domain_feature_engineers` 2 lần liên tiếp.
-> 3. **`ISS-050` (`INV-009`):** `builtin_trainer.py:93-97` & `inference/executor.py:146-150` — bỏ qua `non_ml_columns` động từ `SystemColumnMetadata`.
-> 4. **`ISS-051` (`C3` / liên quan `ISS-001`):** `training/executor.py:156` hardcode `main.py`; `training_service.py:213-243` chưa copy `fitted_pipeline.joblib` vào thư mục run.
-> 5. **`ISS-052` (`INV-003`):** `feature_router.py:112, 241, 372, 434` — endpoint đọc feature/feature-set chưa lọc `GrantScope.OWN`.
-> 6. **`ISS-053`:** `schema_validator.py:408-427` đối chiếu `raw_schema` và chưa whitelist `model_score` / `model.score`.
+## Group B — Layering, persistence & performance
+
+### `INV-005` — Clean Architecture boundary & DB-free executors
+- **Rule:**
+  - `usfds-core` never imports `usfds_infra`, `usfds_server`, `usfds_worker`, `sqlalchemy`, `fastapi`, `boto3`, `bullmq`, or `modal`.
+  - `TrainingRunExecutor` and `BatchInferenceExecutor` never receive a SQLAlchemy session or repository; they use only DTO payloads, `IFileStorage`, and notifier / result objects.
+  - FastAPI routers never import ORM tables / models from `usfds_infra.database.{models,tables,case_models}`.
+- **Enforcement:** Tier 1 — `usfds-core/tests/test_architecture_guards.py` + `usfds-server/tests/test_route_security_guard.py`.
+
+### `INV-006` — PostgreSQL compatibility & single migration path
+- **Rule:**
+  - All SQL / ORM / DDL is PostgreSQL-compatible even though tests run on SQLite (`ISS-018`).
+  - Schema changes go only through Alembic, with **exactly one head**, `schema_drift == []`, and offline-renderable PostgreSQL SQL (`ISS-020`).
+- **Enforcement:** Tier 1 — `usfds-infra/tests/test_pg_compat_guard.py` + `test_migrations.py`.
+
+### `INV-007` — Bounded memory for large data
+- **Rule:** Large-data reads in API / worker (ingestion, mapping, prediction results, warehouse, insight report, behavior profile, network graph) use bounded DuckDB (`create_bounded_duckdb_connection`: capped threads, RAM, spill directory) — never a full-file pandas load in the API process (`ISS-012`, `ISS-044`).
+- **Enforcement:** Tier 1 — `test_large_data_modules_do_not_call_pandas_full_file_readers` + Tier 3.
+
+### `INV-008` — Queue safety, idempotency & no DB session across network I/O
+- **Rule:**
+  - CPU-bound handlers in `usfds-worker` run via `asyncio.to_thread` so the event loop keeps the BullMQ lock; fire-and-forget jobs (`training_run`, `batch_inference`) exit immediately if the DB status is already terminal.
+  - `JOB_*` / `QUEUE_*` catalogs in `usfds-infra`, `usfds-worker` and `InlineJobQueue` stay 1:1; deterministic input / business errors are wrapped in `UnrecoverableError` (`ISS-021`).
+  - Background pollers (e.g. `RemoteTrainingPoller`) split *read DB → network call without a session → write DB*.
+- **Enforcement:** Tier 1 (`usfds-worker/tests/test_worker_guards.py`) + Tier 2 (`test_queue_mode_api.py`, `test_queue_timeout_api.py`, `test_remote_poller.py`) + Tier 3.
+
+### `INV-016` — No pandas for data processing
+- **Rule:** New code never imports `pandas` in `usfds-core`, `usfds-infra`, `usfds-server`, or `usfds-worker`. Use bounded DuckDB (`INV-007`) or PyArrow; at the model fit / predict boundary pass NumPy / Arrow. Legacy files are frozen in a shrink-only allowlist; migrating a file means removing its entry.
+- **Enforcement:** Tier 1 — `test_pandas_imports_limited_to_allowlist` + `test_pandas_allowlist_has_no_stale_entries` (`usfds-core/tests/test_architecture_guards.py`). Migration: `ISS-055`.
+
+---
+
+## Group C — Data integrity & resource lifecycle
+
+### `INV-009` — Two-tier preparation & anti-leakage
+- **Rule:**
+  - `FEATURE_ENGINEERED` artifacts keep `event_id`, `user_id`, `timestamp` (`BR-DM-07`, `critical_changes.md`).
+  - Train/test is split by event time **before** fitting any cleanser, target-rate encoder or scaler; nothing is ever fit on test data.
+  - Every column with `ml_role != FEATURE` (from the artifact's `SystemColumnMetadata` snapshot) is excluded from the feature vector consistently in preprocessing, training and inference.
+- **Enforcement:** Tier 2 (`test_architecture_guards.py`, `test_feature_engineering_service.py`) + Tier 3.
+
+### `INV-010` — Single source for column & label normalization (no silent corruption)
+- **Rule:**
+  - System column lookup (`event_id`, `timestamp`, `amount`, `user_id`, `label`, entity columns) always uses `resolve_canonical_column()` (`ISS-027`).
+  - Binary label normalization never silently coerces unknown labels to `0` / `-1` while reporting `PASSED` (`ISS-047`); it fails fast or uses the shared normalizer across mapping → warehouse → rule backtest → training (`C4`).
+- **Enforcement:** Tier 2 (`test_system_metadata.py`, `test_mapping_service.py`, `test_project_warehouse.py`, `test_rule_engine.py`) + Tier 3.
+
+### `INV-011` — Safe deletion & zero orphans
+- **Rule:**
+  - In-use resources cannot be deleted: dataset with an active job → `409`; feature with dependents / in a `FeatureSet` / used by an `ACTIVE` rule → `400`; `CORE` metadata → `400`; project with active jobs → `400`; active / in-use rule (`ISS-002`).
+  - Deleting a DB record that owns files (e.g. `delete_dataset`) also deletes its artifacts on `IFileStorage` (`ISS-017`). `user_id` foreign keys use `ON DELETE RESTRICT` (`ISS-023`).
+- **Enforcement:** Tier 2 (`test_dataset_api.py`, `test_feature_api.py`, `test_migrations.py`) + Tier 3.
+
+### `INV-012` — Optimistic concurrency & immutable history
+- **Rule:**
+  - `Case` updates check `expected_version` (optimistic locking → `CaseConflictError`).
+  - Editing a `Rule`'s `condition` or `action` always creates a new immutable `RuleVersion`; `ModelVersion` numbers `v1, v2, ...` are unique per `(project_id, model_id)` (unique constraint + retry). `AuditLog` is append-only.
+- **Enforcement:** Tier 2 (`test_case_repositories.py`, `test_model_version_uniqueness.py`, `test_rule_api.py`).
+
+---
+
+## Group D — FDS semantics, frontend & doc sync
+
+### `INV-013` — Hybrid decision & analytic formula invariants
+- **Rule:**
+  - Hybrid decision follows `BR-DT-07`: `Rule REJECT > Rule REVIEW | (score >= threshold) > ALLOW`.
+  - Insight metrics keep their math invariants: the 4-stage funnel is monotonically non-increasing (`Stage1 >= Stage2 >= Stage3 >= Stage4`); rates are in `[0, 1]`; `VERIFIED` and `PENDING` are never mixed in one formula (`ISS-046`); no `NaN` / `Infinity` in JSON payloads.
+- **Enforcement:** Tier 2 (`test_architecture_guards.py` for `BR-DT-07`, `test_insight_report_service.py`) + Tier 3.
+
+### `INV-014` — Frontend layering, policy sync & full error propagation
+- **Rule:**
+  - New `usfds-web` code follows `component → hook → api client` (no direct `api/*` calls in new components).
+  - Feature visibility goes through `lib/feature-policy.ts` + `useActorContext`, matching backend permissions; `api/client.ts` always rejects with `ApiClientError` for HTTP errors or `success: false` (`ISS-028`).
+- **Enforcement:** Tier 1/2 (`client.test.ts`, feature-policy tests, ESLint / build) + Tier 3.
+
+### `INV-015` — Architecture doc sync in the same PR
+- **Rule:** Any task that changes a contract (`C1–C5`), state machine, queue / storage layout, table relation, principle or invariant updates `docs/arch/` in the same PR before merge (policy: [`README.md`](README.md) §4).
+- **Enforcement:** Tier 3 — `usfds-plan` (§4.5) + `usfds-review` + `usfds-task-workflow` (§5).
+
+---
+
+## Guardrail matrix
+
+| ID | Short name | Main tier | Guard / tests | Open gaps |
+|---|---|---|---|---|
+| `P-01` | Configurable | 3 | `usfds-review` | `ISS-058` |
+| `P-02` | Pluggable | 3 | `usfds-review` | `ISS-057` |
+| `P-03` | Compute-isolated | 1 + 3 | `INV-005` executor guard, `usfds-review` | `ISS-056` |
+| `P-04` | Dependency inversion | 1 | `test_architecture_guards.py` (`INV-005` + engine allowlist) | `ISS-057` |
+| `INV-001` | Auth-by-default & CORS | 1 | `test_route_security_guard.py`, `test_auth_and_rbac_api.py` | — |
+| `INV-002` | Project isolation & storage auth | 1 + 2 | `test_route_security_guard.py`, `test_auth_and_rbac_api.py` | — |
+| `INV-003` | 3-scope RBAC & `OWN` | 2 + 3 | `test_auth_and_rbac_api.py`, `usfds-review` | `ISS-052` |
+| `INV-004` | File I/O & code sandbox | 2 + 3 | `test_feature_management.py`, `test_modal_provider.py`, `test_s3_storage.py` | — |
+| `INV-005` | Clean Architecture layering | 1 | `test_architecture_guards.py`, `test_route_security_guard.py` | — |
+| `INV-006` | PG compat & single-head Alembic | 1 | `test_pg_compat_guard.py`, `test_migrations.py` | — |
+| `INV-007` | Bounded memory for large data | 1 + 3 | `test_architecture_guards.py` | `ISS-049` |
+| `INV-008` | Queue sync, idempotency, DB hygiene | 1 + 2 | `test_worker_guards.py`, `test_queue_mode_api.py`, `test_remote_poller.py` | — |
+| `INV-009` | Two-tier prep & anti-leakage | 2 + 3 | `test_architecture_guards.py`, `test_feature_engineering_service.py` | `ISS-050` |
+| `INV-010` | Single-source columns & labels | 2 + 3 | `test_system_metadata.py`, `test_mapping_service.py`, `test_project_warehouse.py`, `test_rule_engine.py` | — |
+| `INV-011` | In-use & zero-orphan delete | 2 + 3 | `test_dataset_api.py`, `test_feature_api.py`, `test_migrations.py` | `ISS-002`, `ISS-048` |
+| `INV-012` | Optimistic lock & immutability | 2 | `test_case_repositories.py`, `test_model_version_uniqueness.py`, `test_rule_api.py` | — |
+| `INV-013` | Hybrid decision & metric math | 2 + 3 | `test_architecture_guards.py`, `test_insight_report_service.py` | — |
+| `INV-014` | FE layering & error propagation | 2 + 3 | `client.test.ts`, `usfds-review` | `ISS-032` |
+| `INV-015` | Architecture doc sync | 3 | `usfds-plan`, `usfds-review`, `usfds-task-workflow` | — |
+| `INV-016` | No pandas | 1 | `test_architecture_guards.py` (pandas allowlist) | `ISS-055` |

@@ -1,4 +1,5 @@
 # Thiết kế kiến trúc high-level
+<!-- [26-11-28] Moved from docs/arch/. Historical research design (K8s, MinIO, Apache AGE); NOT as-built. Source of truth: docs/arch/README.md. -->
 
 Stage: 3. Design
 Status: Not started
