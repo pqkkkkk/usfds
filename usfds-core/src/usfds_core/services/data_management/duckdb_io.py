@@ -51,6 +51,8 @@ _INT_EXACT_TYPES = {
 }
 
 _STRING_PREFIXES = ("VARCHAR", "TEXT", "CHAR", "STRING", "UUID")
+# Exclude BOOLEAN so CSV raw strings like "Yes"/"No" or "Y"/"N" are preserved verbatim rather than coerced to true/false.
+_CSV_AUTO_TYPE_CANDIDATES = "['BIGINT', 'DOUBLE', 'TIMESTAMP', 'DATE', 'VARCHAR']"
 
 
 def quote_ident(name: str) -> str:
@@ -149,7 +151,7 @@ def register_file_view(
 			conn.execute(f"CREATE OR REPLACE VIEW {view_ident} AS SELECT * FROM read_parquet({path_lit})")
 		elif lower.endswith((".csv", ".txt")):
 			conn.execute(
-				f"CREATE OR REPLACE VIEW {view_ident} AS SELECT * FROM read_csv_auto({path_lit}, sample_size=20480)"
+				f"CREATE OR REPLACE VIEW {view_ident} AS SELECT * FROM read_csv_auto({path_lit}, sample_size=20480, auto_type_candidates={_CSV_AUTO_TYPE_CANDIDATES})"
 			)
 		elif lower.endswith(".json"):
 			conn.execute(f"CREATE OR REPLACE VIEW {view_ident} AS SELECT * FROM read_json_auto({path_lit})")
@@ -158,7 +160,7 @@ def register_file_view(
 				conn.execute(f"CREATE OR REPLACE VIEW {view_ident} AS SELECT * FROM read_parquet({path_lit})")
 			except Exception:
 				conn.execute(
-					f"CREATE OR REPLACE VIEW {view_ident} AS SELECT * FROM read_csv_auto({path_lit}, sample_size=20480)"
+					f"CREATE OR REPLACE VIEW {view_ident} AS SELECT * FROM read_csv_auto({path_lit}, sample_size=20480, auto_type_candidates={_CSV_AUTO_TYPE_CANDIDATES})"
 				)
 		described = conn.execute(f"DESCRIBE SELECT * FROM {view_ident}").fetchall()
 	except Exception as err:
