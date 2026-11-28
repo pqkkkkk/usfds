@@ -7,20 +7,20 @@ Conventions:
 - Solid line = DB foreign key. Dotted line = **soft reference** (ID column without FK; integrity is enforced in code).
 - `users` / `projects` appear as stubs in several diagrams; they are owned by module 1.
 - `project_id` nullable (`null`) = system-wide built-in row.
-- `user_id` FKs to `users` use `ON DELETE RESTRICT` unless noted (`INV-011`); `project_id` FKs use `ON DELETE CASCADE`.
+- `user_id` FKs to `users` use `ON DELETE RESTRICT` unless the edge is labelled otherwise (`INV-011`); `project_id` FKs use `ON DELETE CASCADE`.
 
 ## 1. Auth, RBAC & projects — [module 1](modules/auth-and-access.md)
 
 ```mermaid
 erDiagram
     users ||--o{ user_sessions : "has (cascade)"
-    users ||--o{ system_user_roles : "granted"
+    users ||--o{ system_user_roles : "granted (cascade)"
     roles ||--o{ system_user_roles : "assigned"
     roles ||--o{ role_permissions : "has"
     permissions ||--o{ role_permissions : "in"
     users ||--o{ projects : "owns (restrict)"
     projects ||--o{ project_members : "has (cascade)"
-    users ||--o{ project_members : "member"
+    users ||--o{ project_members : "member (cascade)"
     roles ||--o{ project_members : "role"
 
     users {
@@ -64,6 +64,7 @@ erDiagram
     features ||--o{ feature_set_items : "restrict"
     dataset_artifacts ||--o{ dataset_artifact_features : "cascade"
     features |o--o{ dataset_artifact_features : "set null"
+    feature_sets |o--o{ dataset_artifact_features : "source_feature_set_id (set null)"
     dataset_artifacts ||--o{ dataset_artifact_feature_sets : "cascade"
     feature_sets ||--o{ dataset_artifact_feature_sets : "cascade"
 
@@ -94,6 +95,7 @@ erDiagram
         string artifact_id PK
         string feature_key PK
         string feature_id FK
+        string source_feature_set_id FK
     }
     system_column_metadata {
         string metadata_id PK

@@ -14,7 +14,7 @@ This file is the **only routing table** for architecture docs. Other entry point
 | 1 — Overview | [`02-data-and-lifecycle-flows.md`](02-data-and-lifecycle-flows.md) | Training and Inference → Investigation → Insight flows; shared contracts `C1–C5`; state machines. |
 | 1 — Overview | [`04-data-model-erd.md`](04-data-model-erd.md) | Which tables exist, how they relate, which module owns them. |
 | 2 — Modules | [`modules/`](modules/) (6 bounded contexts) | What each module owns, which contracts it provides, its state machines and traps. |
-| 3 — Rules | [`03-system-invariants.md`](03-system-invariants.md) | Architecture principles `P-01..P-04` and invariants `INV-001..016` that no change may break, and how each is enforced. |
+| 3 — Rules | [`03-system-invariants.md`](03-system-invariants.md) | Architecture principles (`P-NN`) and invariants (`INV-NNN`) that no change may break, and how each is enforced. |
 
 [`docs/research/high-level-design.md`](../research/high-level-design.md) is the original research design (K8s, MinIO, Apache AGE). It is **not** as-built; when it disagrees with this folder, this folder wins.
 

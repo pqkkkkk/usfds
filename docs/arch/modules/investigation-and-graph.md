@@ -15,7 +15,7 @@
 | Cases | `fraud_cases` | Unique `(project_id, event_id)` and `(project_id, case_code)`. `user_id` here is the **transaction subject**, not the investigator / owner. `project_id`, `detection_job_id`, `model_version_id` are soft references (no DB FK). |
 | Blacklist | `entity_blacklist` | Partial unique index `WHERE status = 'ACTIVE'` on `(project_id, entity_type, entity_value)`; `source_case_id → fraud_cases.case_id`. |
 | Audit trail | `audit_logs` | Append-only; indexed by `(entity_type, entity_id)` and `project_id`. |
-| Graph cache (in memory) | `LadybugNetworkGraphService` LRU + TTL cache | Size / TTL / buffer pool from `USFDS_GRAPH_CACHE_*`; refreshed when the warehouse `source_fingerprint` changes. |
+| Graph cache (in memory) | `LadybugNetworkGraphService` LRU + TTL cache | Size / TTL from `USFDS_GRAPH_CACHE_MAX_ENTRIES` / `USFDS_GRAPH_CACHE_TTL_SECONDS`, buffer pool from `USFDS_GRAPH_BUFFER_POOL_MB`; refreshed when the warehouse `source_fingerprint` changes. |
 
 ## 3. Shared contracts
 

@@ -17,7 +17,7 @@ Identify the domain and read the corresponding documentation before implementing
 | Task status, dependencies, file ownership | `.plan/BOARD.md`, master plan `.plan/parallel_agent_setup.md` |
 | Writing / running tests | skill `usfds-testing` (`.claude/skills/usfds-testing/SKILL.md`) |
 
-Every task must respect `docs/arch/03-system-invariants.md` (principles `P-01..P-04`, invariants `INV-001..016`). If a request does not clearly fall under any row, ask me for the relevant Notion link first; if Notion is unreachable, ask me to download the documentation into `docs/`. <!-- [26-11-28] -->
+Every task must respect `docs/arch/03-system-invariants.md` (all `P-NN` principles and `INV-NNN` invariants). If a request does not clearly fall under any row, ask me for the relevant Notion link first; if Notion is unreachable, ask me to download the documentation into `docs/`. <!-- [26-11-28] -->
 
 ---
 

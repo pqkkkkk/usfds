@@ -40,14 +40,14 @@ Read this file for **every** task (plan and review).
 - **Rule:** `usfds-core` depends only on ports (abstract classes). Concrete adapters live in `usfds-infra` and are wired at composition roots (`usfds-server/providers`, `usfds-worker/main`). Stateful engines (warehouse store, graph DB) are always behind a port. **Sole exception:** job executors may import compute libraries directly.
 - **Conformance:** repositories, `IFileStorage`, dispatchers, notifiers, compute providers, token / password providers are ports. `ProjectWarehouse`, the LadybugDB graph implementation and some API-called DuckDB readers live in core.
 - **Gaps:** `ISS-057`.
-- **Enforcement:** Tier 1 — `INV-005` import guard + `test_core_engine_imports_limited_to_allowlist` (frozen, shrink-only allowlist of core files importing `duckdb` / `ladybug`).
+- **Enforcement:** Tier 1 — `INV-005` import guard + `test_core_engine_imports_limited_to_allowlist` (frozen, shrink-only allowlist of core files importing `duckdb` / `ladybug`; files named `executor.py` are exempt). The guard sees direct imports only; services that reach DuckDB through `create_bounded_duckdb_connection` / `duckdb_io` are covered by Tier 3 and listed in `ISS-057`.
 
 ---
 
 ## Group A — Security, authorization & project isolation
 
 ### `INV-001` — Authenticated-by-default API & safe CORS
-- **Rule:** Every FastAPI route outside `PUBLIC_ALLOWLIST` (`/health`, `/api/health`, `/api/v1/auth/{mode,login,refresh,logout}`) goes through an auth dependency (`get_actor_context` / `get_current_user` / `require_system_permission`). If `USFDS_CORS_ORIGINS` contains `*`, `allow_credentials` must be `False` (`ISS-014`).
+- **Rule:** Every FastAPI route outside `PUBLIC_ROUTES_ALLOWLIST` (`/health`, `/api/health`, `/api/v1/auth/{mode,login,refresh,logout}`) goes through an auth dependency (`get_actor_context` / `get_current_user` / `require_system_permission`). Routes in `MANUAL_SESSION_AUTH_ALLOWLIST` manage their DB session manually (`INV-008`) but must still reject unauthenticated calls with `401`. If `USFDS_CORS_ORIGINS` contains `*`, `allow_credentials` must be `False` (`ISS-014`).
 - **Enforcement:** Tier 1 — `usfds-server/tests/test_route_security_guard.py` + `test_auth_and_rbac_api.py`.
 
 ### `INV-002` — Project isolation & anti-404-oracle
@@ -98,7 +98,7 @@ Read this file for **every** task (plan and review).
 - **Enforcement:** Tier 1 (`usfds-worker/tests/test_worker_guards.py`) + Tier 2 (`test_queue_mode_api.py`, `test_queue_timeout_api.py`, `test_remote_poller.py`) + Tier 3.
 
 ### `INV-016` — No pandas for data processing
-- **Rule:** New code never imports `pandas` in `usfds-core`, `usfds-infra`, `usfds-server`, or `usfds-worker`. Use bounded DuckDB (`INV-007`) or PyArrow; at the model fit / predict boundary pass NumPy / Arrow. Legacy files are frozen in a shrink-only allowlist; migrating a file means removing its entry.
+- **Rule:** New code never uses `pandas` in `usfds-core`, `usfds-infra`, `usfds-server`, or `usfds-worker` — neither `import pandas` nor DataFrame producers such as DuckDB `.df()` / `.fetchdf()` or Arrow `.to_pandas()`. Use bounded DuckDB (`INV-007`) or PyArrow; at the model fit / predict boundary pass NumPy / Arrow. Legacy files are frozen in a shrink-only allowlist; migrating a file means removing its entry.
 - **Enforcement:** Tier 1 — `test_pandas_imports_limited_to_allowlist` + `test_pandas_allowlist_has_no_stale_entries` (`usfds-core/tests/test_architecture_guards.py`). Migration: `ISS-055`.
 
 ---
@@ -120,7 +120,7 @@ Read this file for **every** task (plan and review).
 
 ### `INV-011` — Safe deletion & zero orphans
 - **Rule:**
-  - In-use resources cannot be deleted: dataset with an active job → `409`; feature with dependents / in a `FeatureSet` / used by an `ACTIVE` rule → `400`; `CORE` metadata → `400`; project with active jobs → `400`; active / in-use rule (`ISS-002`).
+  - In-use resources cannot be deleted: dataset with an active job → `409`; feature with dependents / in a `FeatureSet` / used by an `ACTIVE` rule → `400`; `CORE` metadata → `400`; project with active jobs → `400`. Deleting an active / in-use rule is not guarded yet (`ISS-002`).
   - Deleting a DB record that owns files (e.g. `delete_dataset`) also deletes its artifacts on `IFileStorage` (`ISS-017`). `user_id` foreign keys use `ON DELETE RESTRICT` (`ISS-023`).
 - **Enforcement:** Tier 2 (`test_dataset_api.py`, `test_feature_api.py`, `test_migrations.py`) + Tier 3.
 

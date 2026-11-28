@@ -58,6 +58,13 @@ flowchart LR
 | Research doc | Move `docs/arch/high-level-design.md` → `docs/research/high-level-design.md` unchanged (Vietnamese, labelled historical). | Not as-built; keeps agents from reading it as truth. |
 | Config / Env | — | |
 
+### Post-review decisions (26-11-28, `usfds-review` PASS WITH NOTES)
+- **Tunable numbers dropped from arch docs on purpose** (DuckDB 2 threads / 512MB, graph cache 4 / 600 s, pool 10+10, presigned TTL, row threshold, timeouts, preview / tail sizes, graph caps): they are defaults that drift and, per `P-01`, belong to configuration. Arch docs name the setting or env var instead. Contract shapes are kept (C5 column list in module 6, fixed presigned file set in module 3).
+- `P-04` executor exception is encoded in the guard (`executor.py` exempt) instead of only in prose.
+- `INV-016` guard also catches DataFrame producers (`.df()`, `.fetchdf()`, `.fetch_df()`, `.to_pandas()`); allowlist 40 files.
+- Principle / invariant ranges (`P-01..P-04`, `INV-001..016`) are written only in `03`; other files say "all `P-NN` / `INV-NNN`" to avoid range drift.
+- `AGENTS.md` omits `cli` from `./scripts/test.sh` targets (user rule 2) while the script and `usfds-testing` still support it.
+
 ### Edge cases & risks
 - Translation drift: meaning changes while translating. Mitigation: translate section-by-section, keep every INV rule and contract bullet 1:1; reviewer diff check in `usfds-review`.
 - INV count `001..015` → `001..016` is referenced in skills, template, `AGENTS.md`. Update live references; leave historical `.plan/*` and dated issue files untouched. File name `03-system-invariants.md` is kept (Q1).
@@ -137,7 +144,10 @@ Checkpoint log:
 - 26-11-28 M3 done: core `216 passed, 15 skipped`; 0 broken links (arch, AGENTS, README, design-system, skills); routing table only in `docs/arch/README.md`; 0 Vietnamese chars in scope; `.claude/skills` == `.agents/skills`; 16/16 Mermaid parse; notes: `usfds-backend-change` stale link to deleted `implementation-level-design.md` fixed; `usfds-testing` keeps `cli` in the `./scripts/test.sh` usage line because the script still runs it; Notion link label translated.
 
 ## 7. Review hotspots
-- (after implementation)
+- `usfds-core/tests/test_architecture_guards.py` — `PANDAS_IMPORT_ALLOWLIST` / `CORE_ENGINE_IMPORT_ALLOWLIST` and `CORE_ENGINE_EXEMPT_FILENAMES` (M1): frozen lists define what legacy code may still do; any later addition silently re-legalizes a violation. `usfds-review` treats additions as BLOCKER. The exemption matches by file name only, so any core file named `executor.py` may import duckdb/ladybug. Guards see direct imports and `.df()`-style producers; `importlib` and helper-mediated DuckDB use are not detected.
+- `docs/arch/03-system-invariants.md` — principles P-01..P-04 and INV-016 (M2): new rules every future plan/review applies; check wording matches intent (esp. P-03 interactive-read exception, P-01 env vs system metadata split).
+- `docs/arch/04-data-model-erd.md` (M2): hand-written from the ORM; FK delete behaviour labels drive INV-011 reasoning. No drift test.
+- `AGENTs.md` MANDATORY section (M3): rules 1, 5, 7, 8 of the old list were merged into §0 / skills; confirm nothing you rely on was lost.
 
 ## 8. Open questions
 1. ~~Rename 03?~~ → **Keep `03-system-invariants.md`** (user, 26-11-28).

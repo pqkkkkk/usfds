@@ -194,6 +194,7 @@ PANDAS_IMPORT_ALLOWLIST: frozenset[str] = frozenset({
 	"usfds-core/src/usfds_core/services/inference/scoring_service.py",
 	"usfds-core/src/usfds_core/services/insight_report/engine.py",
 	"usfds-core/src/usfds_core/services/investigation/behavior_profile.py",
+	"usfds-core/src/usfds_core/services/investigation/duckdb_engine.py",
 	"usfds-core/src/usfds_core/services/investigation/explainability.py",
 	"usfds-core/src/usfds_core/services/investigation/network_graph.py",
 	"usfds-core/src/usfds_core/services/preprocessing/cleansers/base_cleanser.py",
@@ -222,7 +223,11 @@ PANDAS_IMPORT_ALLOWLIST: frozenset[str] = frozenset({
 	"usfds-server/src/usfds_server/routers/rule_router.py",
 	"usfds-worker/src/usfds_worker/handlers.py",
 })
+# DataFrame producers that bring pandas in without importing it (e.g. DuckDB `.df()`, Arrow `.to_pandas()`).
+PANDAS_PRODUCER_METHODS: frozenset[str] = frozenset({"df", "fetchdf", "fetch_df", "to_pandas"})
 CORE_ENGINE_LIBS: frozenset[str] = frozenset({"duckdb", "ladybug"})
+# P-04 exception: job executors may import compute libraries directly.
+CORE_ENGINE_EXEMPT_FILENAMES: frozenset[str] = frozenset({"executor.py"})
 CORE_ENGINE_IMPORT_ALLOWLIST: frozenset[str] = frozenset({
 	# Legacy debt tracked in ISS-057. Never add entries; remove them as files migrate.
 	"usfds-core/src/usfds_core/services/data_management/duckdb_io.py",
@@ -236,30 +241,59 @@ CORE_ENGINE_IMPORT_ALLOWLIST: frozenset[str] = frozenset({
 })
 
 
-def _files_importing(src_roots: tuple[str, ...], libs: frozenset[str]) -> set[str]:
-	found: set[str] = set()
+def _scanned_files(src_roots: tuple[str, ...]) -> list[Path]:
+	files: list[Path] = []
 	for src_root in src_roots:
-		for py_file in _iter_python_files(REPO_ROOT / src_root):
-			if any(module.split(".", 1)[0] in libs for _, module in _extract_imported_modules(py_file)):
-				found.add(py_file.relative_to(REPO_ROOT).as_posix())
-	return found
+		root = REPO_ROOT / src_root
+		assert root.is_dir(), f"Guarded source root missing: {root}"
+		files.extend(_iter_python_files(root))
+	return files
+
+
+def _files_importing(src_roots: tuple[str, ...], libs: frozenset[str]) -> set[str]:
+	return {
+		py_file.relative_to(REPO_ROOT).as_posix()
+		for py_file in _scanned_files(src_roots)
+		if any(module.split(".", 1)[0] in libs for _, module in _extract_imported_modules(py_file))
+	}
+
+
+def _calls_pandas_producer(file_path: Path) -> bool:
+	tree = ast.parse(file_path.read_text(encoding="utf-8"), filename=str(file_path))
+	return any(
+		isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+		and node.func.attr in PANDAS_PRODUCER_METHODS and not node.args
+		for node in ast.walk(tree)
+	)
+
+
+def _files_using_pandas() -> set[str]:
+	"""Files that import pandas or create pandas DataFrames via DuckDB/Arrow producers."""
+	return _files_importing(PANDAS_SCANNED_SRC_ROOTS, frozenset({"pandas"})) | {
+		py_file.relative_to(REPO_ROOT).as_posix()
+		for py_file in _scanned_files(PANDAS_SCANNED_SRC_ROOTS)
+		if _calls_pandas_producer(py_file)
+	}
 
 
 def test_pandas_imports_limited_to_allowlist():
 	"""INV-016: pandas is forbidden for data processing; only frozen legacy files may still import it."""
-	new_files = _files_importing(PANDAS_SCANNED_SRC_ROOTS, frozenset({"pandas"})) - PANDAS_IMPORT_ALLOWLIST
+	new_files = _files_using_pandas() - PANDAS_IMPORT_ALLOWLIST
 	assert not new_files, "pandas is forbidden (INV-016); use DuckDB/PyArrow instead in:\n" + "\n".join(sorted(new_files))
 
 
 def test_pandas_allowlist_has_no_stale_entries():
 	"""INV-016: the allowlist only shrinks; remove entries for files that no longer import pandas."""
-	stale = PANDAS_IMPORT_ALLOWLIST - _files_importing(PANDAS_SCANNED_SRC_ROOTS, frozenset({"pandas"}))
-	assert not stale, "Remove from PANDAS_IMPORT_ALLOWLIST (no longer import pandas):\n" + "\n".join(sorted(stale))
+	stale = PANDAS_IMPORT_ALLOWLIST - _files_using_pandas()
+	assert not stale, "Remove from PANDAS_IMPORT_ALLOWLIST (no longer use pandas):\n" + "\n".join(sorted(stale))
 
 
 def test_core_engine_imports_limited_to_allowlist():
-	"""P-04: usfds-core reaches duckdb/ladybug engines through ports; only frozen legacy files import them directly."""
-	actual = _files_importing(("usfds-core/src",), CORE_ENGINE_LIBS)
+	"""P-04: usfds-core reaches duckdb/ladybug engines through ports; only job executors and frozen legacy files import them directly."""
+	actual = {
+		rel for rel in _files_importing(("usfds-core/src",), CORE_ENGINE_LIBS)
+		if rel.rsplit("/", 1)[-1] not in CORE_ENGINE_EXEMPT_FILENAMES
+	}
 	new_files = actual - CORE_ENGINE_IMPORT_ALLOWLIST
 	stale = CORE_ENGINE_IMPORT_ALLOWLIST - actual
 	assert not new_files, "Direct duckdb/ladybug import in usfds-core (P-04); put it behind a port:\n" + "\n".join(sorted(new_files))
