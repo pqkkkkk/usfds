@@ -18,7 +18,6 @@ class TrainingRunPayload(BaseModel):
     hyperparameters: Dict[str, Any] = Field(default_factory=dict)
     compute_target: str = "local"
     timeout_seconds: Optional[int] = None
-    timeout_seconds: Optional[int] = None
 
 
 class TrainingRunResult(BaseModel):
