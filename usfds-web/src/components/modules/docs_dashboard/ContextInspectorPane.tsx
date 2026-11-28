@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
 	X,
 	Bug,
@@ -62,10 +62,13 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 	const [isEditingMd, setIsEditingMd] = useState(false);
 	const [editBuffer, setEditBuffer] = useState('');
 	const [saving, setSaving] = useState(false);
+	const contentRef = useRef<HTMLDivElement>(null);
+	const [anchorError, setAnchorError] = useState<string | null>(null);
 
 	useEffect(() => {
 		setIsEditingMd(false);
 		setShowFullFile(false);
+		setAnchorError(null);
 		if (!target || target.type !== 'file') {
 			setFileData(null);
 			setFileError(null);
@@ -73,10 +76,13 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 		}
 		let cancelled = false;
 		setFileLoading(true);
+		setFileData(null);
 		setFileError(null);
+		const ref = target.fileRef;
+		const fileRef = /#(?!L\d+(?:-L?\d+)?$)/.test(ref) ? ref.split('#', 1)[0] : ref;
 
 		docsDashboardApi
-			.getFile(target.fileRef)
+			.getFile(fileRef)
 			.then((data) => {
 				if (!cancelled) {
 					setFileData(data);
@@ -98,6 +104,20 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 			cancelled = true;
 		};
 	}, [target]);
+
+	useEffect(() => {
+		if (!target || target.type !== 'file' || !fileData || fileLoading || isEditingMd) return;
+		const fragment = target.fileRef.split('#')[1];
+		if (!fragment || /^L\d+(?:-L?\d+)?$/.test(fragment)) return;
+		const heading = Array.from(contentRef.current?.querySelectorAll<HTMLElement>('[data-doc-heading]') ?? [])
+			.find((element) => element.dataset.docHeading === fragment);
+		if (heading) {
+			heading.scrollIntoView({ block: 'start' });
+			setAnchorError(null);
+		} else {
+			setAnchorError(`Không tìm thấy mục #${fragment} trong ${fileData.path}.`);
+		}
+	}, [target, fileData, fileLoading, isEditingMd]);
 
 	if (!target) {
 		return null;
@@ -131,7 +151,7 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 
 		return (
 			<aside
-				className={`w-[480px] xl:w-[540px] shrink-0 border-l flex flex-col h-full overflow-hidden shadow-2xl ${panelSurface}`}
+				className={`fixed inset-0 z-40 w-full lg:static lg:w-[480px] xl:w-[540px] shrink-0 border-l flex flex-col h-full overflow-hidden shadow-2xl ${panelSurface}`}
 			>
 				{/* Header */}
 				<div
@@ -171,6 +191,7 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 					<button
 						type="button"
 						onClick={onClose}
+						aria-label="Đóng bảng ngữ cảnh"
 						className={`p-1.5 rounded-lg transition ${
 							isLight
 								? 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200/70'
@@ -407,7 +428,7 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 
 	return (
 		<aside
-			className={`w-[500px] xl:w-[600px] shrink-0 border-l flex flex-col h-full overflow-hidden shadow-2xl ${panelSurface}`}
+			className={`fixed inset-0 z-40 w-full lg:static lg:w-[500px] xl:w-[600px] shrink-0 border-l flex flex-col h-full overflow-hidden shadow-2xl ${panelSurface}`}
 		>
 			{/* Header */}
 			<div
@@ -462,6 +483,7 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 					<button
 						type="button"
 						onClick={onClose}
+						aria-label="Đóng bảng ngữ cảnh"
 						className={`p-1.5 rounded-lg transition ${
 							isLight
 								? 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200/70'
@@ -474,7 +496,7 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 			</div>
 
 			{/* Content */}
-			<div className="flex-1 overflow-y-auto p-5">
+			<div ref={contentRef} className="flex-1 overflow-y-auto p-5">
 				{fileLoading && (
 					<div className="text-xs font-mono text-zinc-400">Đang đọc file...</div>
 				)}
@@ -483,6 +505,7 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 						{fileError}
 					</div>
 				)}
+				{anchorError && <div role="alert" className="text-xs text-rose-400">{anchorError}</div>}
 				{fileData && !fileLoading && (
 					<div className="space-y-3">
 						{isEditingMd ? (
@@ -515,6 +538,7 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 							<div className={`p-4 rounded-xl border ${cardSurface}`}>
 								<RichDocRenderer
 									markdown={fileData.content}
+									sourcePath={fileData.path}
 									isLight={isLight}
 									onSelectIssue={onSelectIssue}
 									onSelectFileRef={onSelectFileRef}
