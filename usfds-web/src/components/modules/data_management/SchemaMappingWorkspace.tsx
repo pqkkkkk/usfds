@@ -1039,7 +1039,7 @@ export const SchemaMappingWorkspace = ({
 
 									{/* Row 5: label */}
 									<tr className="hover:bg-dark-900/40 transition">
-										<td className="py-3.5 px-4">
+										<td className="py-3.5 px-4 align-top">
 											<div className="flex items-start gap-3">
 												<div className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 shrink-0 mt-0.5">
 													<Flame className="w-3.5 h-3.5" />
@@ -1058,7 +1058,7 @@ export const SchemaMappingWorkspace = ({
 												</div>
 											</div>
 										</td>
-										<td className="py-3.5 px-4">
+										<td className="py-3.5 px-4 align-top">
 											<div className="flex items-center gap-2">
 												<ArrowRight className="w-3.5 h-3.5 text-slate-500 hidden sm:block shrink-0" />
 												<select
@@ -1075,113 +1075,35 @@ export const SchemaMappingWorkspace = ({
 												</select>
 											</div>
 										</td>
-										<td className="py-3.5 px-4 font-mono text-slate-300">
-											<span className="text-slate-500">Nhãn mục tiêu:</span> 0 = Hợp lệ, 1 = Gian lận
-										</td>
-										<td className="py-3.5 px-4">
-											<span className="font-mono text-xs text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-												{distinctLabelValues.length > 0
-													? distinctLabelValues.slice(0, 4).join(' / ')
-													: '"0 / 1"'}
-											</span>
-										</td>
-										<td className="py-3.5 px-4 text-center text-slate-600 font-mono text-xs">—</td>
-									</tr>
-
-									{/* Row 5b: Explicit label value-to-binary mapping */}
-									<tr className="bg-dark-900/30">
-										<td colSpan={5} className="px-4 py-3">
-											<div className="rounded-xl bg-dark-950/90 border border-dark-800 p-3 space-y-2.5">
-												<div className="flex flex-wrap items-center justify-between gap-2">
-													<div className="flex items-center gap-2">
-														<span className="text-[11px] font-semibold text-slate-200">
-															Ánh xạ giá trị nhãn nguồn → nhị phân chuẩn (0 = Hợp lệ, 1 = Gian lận)
-														</span>
-														{distinctLabelValues.length > 0 && labelMappingResult.isComplete && (
-															<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-																<CheckCircle2 className="w-3 h-3" aria-hidden="true" />
-																Đã ánh xạ đủ {distinctLabelValues.length} giá trị
-															</span>
-														)}
-														{!labelMappingResult.isComplete && (
-															<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30">
-																<AlertTriangle className="w-3 h-3" aria-hidden="true" />
-																{labelMappingResult.unassignedCount > 0
-																	? `Còn ${labelMappingResult.unassignedCount} giá trị chưa gán`
-																	: 'Khóa nhãn nguồn không được rỗng hoặc trùng lặp'}
-															</span>
-														)}
-													</div>
-													{distinctLabelValues.length === 0 && (
-														<button
-															type="button"
-															onClick={() =>
-																setLabelMappingEntries((prev) => [
-																	...prev,
-																	{ raw: '', target: '', isManual: true },
-																])
-															}
-															className="px-2.5 py-1 rounded-lg bg-dark-800 hover:bg-dark-750 text-slate-200 border border-dark-700 text-[11px] font-medium transition flex items-center gap-1"
-														>
-															<Plus className="w-3 h-3 text-brand-400" aria-hidden="true" />
-															<span>Thêm giá trị nhãn</span>
-														</button>
-													)}
-												</div>
-
-												{labelMappingEntries.length === 0 ? (
-													<p className="text-[11px] text-slate-400">
-														Artifact RAW chưa có danh sách giá trị phân biệt — giữ trống nếu cột nhãn đã là{' '}
-														<code className="font-mono text-slate-300">0 / 1</code> hoặc nhấn &ldquo;Thêm giá trị nhãn&rdquo; để khai báo thủ công.
-													</p>
-												) : (
-													<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-														{labelMappingEntries.map((entry, idx) => (
-															<div
-																key={entry.isManual ? `manual-${idx}` : entry.raw}
-																className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-dark-900 border border-dark-800"
-															>
-																{entry.isManual ? (
-																	<input
-																		type="text"
-																		value={entry.raw}
-																		onChange={(e) => {
-																			const nextVal = e.target.value;
-																			setLabelMappingEntries((prev) =>
-																				prev.map((item, i) =>
-																					i === idx ? { ...item, raw: nextVal } : item
-																				)
-																			);
-																		}}
-																		placeholder="Giá trị nguồn (vd: Y)"
-																		className="w-28 px-2 py-1 bg-dark-950 border border-dark-700 rounded text-xs font-mono text-slate-200 focus:outline-none focus:border-brand-500"
-																	/>
-																) : (
-																	<code className="font-mono text-xs text-slate-200 bg-dark-950 px-2 py-0.5 rounded border border-dark-800 truncate max-w-[140px]">
-																		{entry.raw}
-																	</code>
-																)}
+										<td className="py-3.5 px-4 align-top">
+											<div className="space-y-1.5">
+												{distinctLabelValues.length > 0 ? (
+													<div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+														{labelMappingEntries.map((entry) => (
+															<div key={entry.raw} className="flex items-center gap-1.5">
+																<code
+																	title={entry.raw}
+																	className="font-mono text-xs text-slate-200 bg-dark-900 px-2 py-1 rounded border border-dark-700 truncate max-w-[110px]"
+																>
+																	{entry.raw}
+																</code>
 																<ArrowRight className="w-3 h-3 text-slate-500 shrink-0" aria-hidden="true" />
 																<select
-																	aria-label={
-																		entry.isManual
-																			? 'Giá trị nhị phân thủ công'
-																			: `Ánh xạ giá trị nhãn ${entry.raw}`
-																	}
+																	aria-label={`Ánh xạ giá trị nhãn ${entry.raw}`}
 																	value={entry.target === '' ? '' : String(entry.target)}
 																	onChange={(e) => {
 																		const val = e.target.value;
 																		const parsed: LabelDraftAssignment =
 																			val === '0' ? 0 : val === '1' ? 1 : '';
 																		setLabelMappingEntries((prev) =>
-																			prev.map((item, i) =>
-																				i === idx ? { ...item, target: parsed } : item
+																			prev.map((item) =>
+																				item.raw === entry.raw ? { ...item, target: parsed } : item
 																			)
 																		);
 																	}}
-																	className={`flex-1 px-2 py-1 bg-dark-950 border rounded text-xs font-mono focus:outline-none focus:border-brand-500 ${
+																	className={`flex-1 min-w-[115px] px-2 py-1 bg-dark-900 border rounded text-xs font-mono focus:outline-none focus:border-brand-500 ${
 																		entry.target === ''
-																			? 'border-amber-500/50 text-amber-300'
+																			? 'border-amber-500/60 text-amber-300'
 																			: 'border-dark-700 text-slate-200'
 																	}`}
 																>
@@ -1189,26 +1111,111 @@ export const SchemaMappingWorkspace = ({
 																	<option value="0">0 — Hợp lệ</option>
 																	<option value="1">1 — Gian lận</option>
 																</select>
-																{entry.isManual && (
-																	<button
-																		type="button"
-																		aria-label="Xóa giá trị nhãn thủ công"
-																		onClick={() =>
-																			setLabelMappingEntries((prev) =>
-																				prev.filter((_, i) => i !== idx)
-																			)
-																		}
-																		className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-500/10"
-																	>
-																		<Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-																	</button>
-																)}
 															</div>
 														))}
+													</div>
+												) : (
+													<>
+														{labelMappingEntries.length > 0 && (
+															<div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+																{labelMappingEntries.map((entry, idx) => (
+																	<div key={`manual-${idx}`} className="flex items-center gap-1.5">
+																		<input
+																			type="text"
+																			value={entry.raw}
+																			onChange={(e) => {
+																				const nextVal = e.target.value;
+																				setLabelMappingEntries((prev) =>
+																					prev.map((item, i) =>
+																						i === idx ? { ...item, raw: nextVal } : item
+																					)
+																				);
+																			}}
+																			placeholder="Giá trị nguồn"
+																			className="w-24 px-2 py-1 bg-dark-900 border border-dark-700 rounded text-xs font-mono text-slate-200 focus:outline-none focus:border-brand-500"
+																		/>
+																		<ArrowRight className="w-3 h-3 text-slate-500 shrink-0" aria-hidden="true" />
+																		<select
+																			aria-label="Giá trị nhị phân thủ công"
+																			value={entry.target === '' ? '' : String(entry.target)}
+																			onChange={(e) => {
+																				const val = e.target.value;
+																				const parsed: LabelDraftAssignment =
+																					val === '0' ? 0 : val === '1' ? 1 : '';
+																				setLabelMappingEntries((prev) =>
+																					prev.map((item, i) =>
+																						i === idx ? { ...item, target: parsed } : item
+																					)
+																				);
+																			}}
+																			className={`flex-1 min-w-[110px] px-2 py-1 bg-dark-900 border rounded text-xs font-mono focus:outline-none focus:border-brand-500 ${
+																				entry.target === ''
+																					? 'border-amber-500/60 text-amber-300'
+																					: 'border-dark-700 text-slate-200'
+																			}`}
+																		>
+																			<option value="">Chưa gán</option>
+																			<option value="0">0 — Hợp lệ</option>
+																			<option value="1">1 — Gian lận</option>
+																		</select>
+																		<button
+																			type="button"
+																			aria-label="Xóa giá trị nhãn thủ công"
+																			onClick={() =>
+																				setLabelMappingEntries((prev) =>
+																					prev.filter((_, i) => i !== idx)
+																				)
+																			}
+																			className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 shrink-0"
+																		>
+																			<Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+																		</button>
+																	</div>
+																))}
+															</div>
+														)}
+														<div className="flex items-center gap-2">
+															{labelMappingEntries.length === 0 && (
+																<span className="text-[11px] font-mono text-slate-400">
+																	Mặc định 0 / 1
+																</span>
+															)}
+															<button
+																type="button"
+																onClick={() =>
+																	setLabelMappingEntries((prev) => [
+																		...prev,
+																		{ raw: '', target: '', isManual: true },
+																	])
+																}
+																className="px-2 py-0.5 rounded bg-dark-800 hover:bg-dark-750 text-slate-300 border border-dark-700 text-[11px] font-medium transition inline-flex items-center gap-1"
+															>
+																<Plus className="w-3 h-3 text-brand-400" aria-hidden="true" />
+																<span>Thêm giá trị nhãn</span>
+															</button>
+														</div>
+													</>
+												)}
+												{!labelMappingResult.isComplete && (
+													<div className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-300">
+														<AlertTriangle className="w-3 h-3 shrink-0" aria-hidden="true" />
+														<span>
+															{labelMappingResult.unassignedCount > 0
+																? `Còn ${labelMappingResult.unassignedCount} chưa gán`
+																: 'Giá trị bị trống hoặc trùng'}
+														</span>
 													</div>
 												)}
 											</div>
 										</td>
+										<td className="py-3.5 px-4 align-top">
+											<span className="font-mono text-xs text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+												{distinctLabelValues.length > 0
+													? distinctLabelValues.slice(0, 4).join(' / ')
+													: '"0 / 1"'}
+											</span>
+										</td>
+										<td className="py-3.5 px-4 align-top text-center text-slate-600 font-mono text-xs">—</td>
 									</tr>
 
 									{/* Dynamic Required DOMAIN columns */}

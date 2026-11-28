@@ -542,11 +542,13 @@ class TestDataMappingService(unittest.TestCase):
                 ),
             )
 
-        # (c3) Canonical 0/1 and BOOLEAN true/false without label_value_mapping pass normally
+        # (c3) Native BOOLEAN (Parquet) true/false without label_value_mapping pass normally
         bool_df = self.raw_df.copy()
         bool_df["fraud_flag"] = [False, False, True, False, False, False, False, False, True, False]
-        bool_path = f"datasets/{self.dataset_id}/raw/bool_labels.csv"
-        self._save_df_to_storage(bool_df, bool_path)
+        bool_path = f"datasets/{self.dataset_id}/raw/bool_labels.parquet"
+        bool_buf = io.BytesIO()
+        bool_df.to_parquet(bool_buf, index=False)
+        self.storage.save_bytes(bool_path, bool_buf.getvalue())
         bool_art = DatasetArtifact(
             dataset_id=self.dataset_id,
             pipeline_stage=PipelineStage.RAW,
@@ -566,6 +568,45 @@ class TestDataMappingService(unittest.TestCase):
         )
         mapped_bool_df = pd.read_parquet(io.BytesIO(self.storage.read_bytes(mapped_bool.output_paths["mapped"])))
         self.assertEqual(mapped_bool_df[SystemColumn.LABEL.value].tolist(), [0, 0, 1, 0, 0, 0, 0, 0, 1, 0])
+
+        # (c4) CSV with Yes/No strings preserves literal strings (not coerced to BOOLEAN true/false)
+        yes_no_df = self.raw_df.copy()
+        yes_no_df["Is Fraud?"] = ["No", "No", "Yes", "No", "No", "No", "No", "No", "Yes", "No"]
+        yes_no_path = f"datasets/{self.dataset_id}/raw/yes_no_labels.csv"
+        self._save_df_to_storage(yes_no_df, yes_no_path)
+        yes_no_art = DatasetArtifact(
+            dataset_id=self.dataset_id,
+            pipeline_stage=PipelineStage.RAW,
+            storage_path=yes_no_path,
+            output_paths={"raw": yes_no_path},
+        )
+        with self.assertRaises(ValueError) as ctx_yn:
+            self.service.map_dataset(
+                self.dataset_id,
+                yes_no_art,
+                DataMappingConfig(
+                    event_id_column="tx_id",
+                    time_column="tx_time",
+                    amount_column="tx_amount",
+                    user_id_column="customer_id",
+                    target_column="Is Fraud?",
+                ),
+            )
+        self.assertIn("No", str(ctx_yn.exception))
+        mapped_yn = self.service.map_dataset(
+            self.dataset_id,
+            yes_no_art,
+            DataMappingConfig(
+                event_id_column="tx_id",
+                time_column="tx_time",
+                amount_column="tx_amount",
+                user_id_column="customer_id",
+                target_column="Is Fraud?",
+                label_value_mapping={"No": 0, "Yes": 1},
+            ),
+        )
+        mapped_yn_df = pd.read_parquet(io.BytesIO(self.storage.read_bytes(mapped_yn.output_paths["mapped"])))
+        self.assertEqual(mapped_yn_df[SystemColumn.LABEL.value].tolist(), [0, 0, 1, 0, 0, 0, 0, 0, 1, 0])
 
     def test_map_dataset_preserves_null_labels_and_warns_on_single_class(self):
         """ISS-047: Null/blank labels remain NULL (never coerced to 0) and single-class mapped labels emit a warning."""

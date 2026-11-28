@@ -372,8 +372,11 @@ describe('Cross-Module Feature Integration (M4)', () => {
 			/>
 		);
 
+		const labelColSelect = await screen.findByLabelText(/Cột nguồn cho label/i);
 		const select1 = await screen.findByLabelText(/Ánh xạ giá trị nhãn 1/i) as HTMLSelectElement;
 		const select2 = await screen.findByLabelText(/Ánh xạ giá trị nhãn 2/i) as HTMLSelectElement;
+		expect(select1.closest('tr')).toBe(labelColSelect.closest('tr'));
+		expect(select2.closest('tr')).toBe(labelColSelect.closest('tr'));
 		expect(select1.value).toBe('1');
 		expect(select2.value).toBe('');
 		await waitFor(() => {
@@ -388,7 +391,7 @@ describe('Cross-Module Feature Integration (M4)', () => {
 			expect(latestConfig2?.label_value_mapping).toEqual({ '1': 0, '2': 1 });
 		});
 
-		// Case 3: legacy RAW artifact without distinct_values supports manual mapping entry
+		// Case 3: legacy RAW artifact without distinct_values supports manual mapping entry inline in label row
 		cleanup();
 		const rawArtifactLegacy: DatasetArtifactResponse = {
 			...rawArtifactStr,
@@ -408,7 +411,9 @@ describe('Cross-Module Feature Integration (M4)', () => {
 			/>
 		);
 
+		const legacyLabelColSelect = await screen.findByLabelText(/Cột nguồn cho label/i);
 		const addManualBtn = await screen.findByRole('button', { name: /Thêm giá trị nhãn/i });
+		expect(addManualBtn.closest('tr')).toBe(legacyLabelColSelect.closest('tr'));
 		expect(latestValid3).toBe(true);
 		fireEvent.click(addManualBtn);
 		const rawInput = await screen.findByPlaceholderText(/Giá trị nguồn/i);

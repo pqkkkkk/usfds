@@ -476,6 +476,7 @@ def test_profiling_collects_distinct_values_for_low_cardinality_columns(tmp_path
 		{
 			"tx_id": [f"TX_{i:03d}" for i in range(25)],
 			"is_fraud": ["legit"] * 20 + ["fraud"] * 5,
+			"Is Fraud?": ["No"] * 20 + ["Yes"] * 5,
 		}
 	)
 	csv_path = tmp_path / "profile_distinct.csv"
@@ -487,11 +488,15 @@ def test_profiling_collects_distinct_values_for_low_cardinality_columns(tmp_path
 
 	for summary in (summary_pandas, summary_duckdb):
 		lbl_field = summary.get_field("is_fraud")
+		yn_field = summary.get_field("Is Fraud?")
 		id_field = summary.get_field("tx_id")
 		assert lbl_field is not None
+		assert yn_field is not None
 		assert id_field is not None
 		assert lbl_field.unique_count == 2
 		assert lbl_field.distinct_values == ["fraud", "legit"]
+		assert yn_field.unique_count == 2
+		assert yn_field.distinct_values == ["No", "Yes"]
 		assert id_field.unique_count == 25
 		assert id_field.distinct_values == []
 
