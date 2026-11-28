@@ -1,7 +1,7 @@
 # Plan: Architecture docs — dedupe, principles, ERD, English rewrite
 
 > **Task ID:** `arch_docs_principles_english` · **Issues:** ISS-054 (new, this task); raises ISS-055..058 (conformance gaps, not fixed here) · **Spec:** user review 26-11-28 (9 points) · —
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Approved (26-11-28)
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Done (26-11-28)
 
 ## 1. Context (facts)
 - Routing info is written 3 times: `AGENTS.md` §0, `usfds-plan` SKILL step 1, `docs/arch/README.md` §2.
