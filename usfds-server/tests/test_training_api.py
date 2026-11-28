@@ -701,3 +701,126 @@ def test_compute_targets_endpoint_enforces_project_rbac_and_syncs_remote_run(
         app.dependency_overrides.pop(get_remote_provider_registry, None)
 
 
+def test_get_training_run_releases_db_session_before_remote_poll(client, monkeypatch):
+    """ISS-009: GET /runs/{run_id} releases DB session/connection before calling provider.poll()."""
+    from usfds_core.domain.entities.enums import ExecutionType, TrainingRunStatus
+    from usfds_core.domain.entities.model import Model, TrainingRun
+    from usfds_core.domain.entities.system import Project
+    from usfds_core.domain.schemas.training_payload import (
+        RemoteJobStatus,
+        RemoteTrainingJobSpec,
+        TrainingRunResult,
+    )
+    from usfds_core.services.training.providers.base_provider import (
+        IRemoteComputeProvider,
+        RemoteProviderRegistry,
+    )
+    from usfds_infra.database import (
+        SqliteModelRepository,
+        SqliteModelVersionRepository,
+        SqliteProjectRepository,
+        SqliteTrainingRunRepository,
+        SqlUserRepository,
+        session_scope,
+    )
+    from usfds_server.config import settings as server_settings
+    from usfds_server.providers.training import get_remote_provider_registry
+
+    project_id = uuid4()
+    model_id = uuid4()
+    run_id = uuid4()
+    observed_checkedout: list[int] = []
+
+    class _SessionInspectingProvider(IRemoteComputeProvider):
+        @property
+        def provider_id(self) -> str:
+            return "modal"
+
+        @property
+        def display_name(self) -> str:
+            return "Modal Serverless"
+
+        def is_available(self):
+            return True, None
+
+        def submit(self, job_spec: RemoteTrainingJobSpec) -> str:
+            return "sb-1"
+
+        def poll(self, external_job_id: str, timeout_seconds: float = 5.0) -> RemoteJobStatus:
+            assert dependencies._engine is not None
+            observed_checkedout.append(dependencies._engine.pool.checkedout())
+            return RemoteJobStatus(
+                state="COMPLETED",
+                result=TrainingRunResult(
+                    run_id=run_id,
+                    is_success=True,
+                    metrics={"accuracy": 0.93, "f1_score": 0.91},
+                    artifact_uri=f"models/{model_id}/runs/{run_id}/model.joblib",
+                    checksum_sha256="deadbeef",
+                    framework="scikit-learn",
+                    duration_seconds=9,
+                ),
+            )
+
+    fake_registry = RemoteProviderRegistry()
+    fake_registry.register(_SessionInspectingProvider())
+
+    monkeypatch.setattr(server_settings, "auth_mode", "local_auto")
+    monkeypatch.setattr(server_settings, "remote_poller_enabled", False)
+
+    app.dependency_overrides[get_remote_provider_registry] = lambda: fake_registry
+    try:
+        with TestClient(app) as tc:
+            with session_scope(dependencies._session_factory) as session:
+                admin = SqlUserRepository(session).get_by_username("admin")
+                assert admin is not None
+                SqliteProjectRepository(session).save(
+                    Project(project_id=project_id, user_id=admin.user_id, project_name="PollHygieneProj")
+                )
+                SqliteModelRepository(session).save(
+                    Model(
+                        model_id=model_id,
+                        project_id=project_id,
+                        user_id=admin.user_id,
+                        model_name="random_forest",
+                        execution_type=ExecutionType.BUILTIN,
+                    )
+                )
+                SqliteTrainingRunRepository(session).save(
+                    TrainingRun(
+                        run_id=run_id,
+                        project_id=project_id,
+                        user_id=admin.user_id,
+                        model_id=model_id,
+                        run_name="modal-sb-run",
+                        status=TrainingRunStatus.RUNNING,
+                        compute_target="modal",
+                        external_job_id="sb-1",
+                        compute_metadata={"provider": "modal", "resolved_target": "modal"},
+                        created_by="admin",
+                    )
+                )
+
+            res = tc.get(
+                f"/api/v1/training/runs/{run_id}",
+                params={"project_id": str(project_id)},
+            )
+            assert res.status_code == 200, res.text
+            data = res.json()["data"]
+            assert data["status"] == "COMPLETED"
+            assert data["version_id"] is not None
+            assert observed_checkedout == [0], (
+                f"Expected 0 DB connections checked out during provider.poll(), got {observed_checkedout}"
+            )
+
+            with session_scope(dependencies._session_factory) as session:
+                versions = SqliteModelVersionRepository(session).list_by_model(
+                    model_id, project_id=project_id
+                )
+                assert len(versions) == 1
+                assert str(versions[0].version_id) == data["version_id"]
+    finally:
+        app.dependency_overrides.pop(get_remote_provider_registry, None)
+
+
+

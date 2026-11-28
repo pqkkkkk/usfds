@@ -8,11 +8,6 @@ from usfds_core.domain.schemas.project_schema import (
     ProjectRawSchema,
     SchemaValidationResult,
 )
-from usfds_core.services.data_management.duckdb_io import (
-    duckdb_type_to_logical_type,
-    duckdb_type_to_physical_dtype,
-    quote_ident,
-)
 
 
 class ProjectSchemaValidator:
@@ -179,6 +174,12 @@ class ProjectSchemaValidator:
         source_dataset_id: Optional[Union[UUID, str]] = None,
     ) -> ProjectRawSchema:
         """Extracts a ProjectRawSchema from a registered DuckDB view without loading into pandas."""
+        from usfds_core.services.data_management.duckdb_io import (
+            duckdb_type_to_logical_type,
+            duckdb_type_to_physical_dtype,
+            quote_ident,
+        )
+
         v = quote_ident(view_name)
         described = conn.execute(f"DESCRIBE SELECT * FROM {v}").fetchall()
         col_types = [(str(row[0]), str(row[1])) for row in described]
@@ -215,6 +216,12 @@ class ProjectSchemaValidator:
         allow_missing_target: bool = True,
     ) -> SchemaValidationResult:
         """Validates a DuckDB view against the locked ProjectRawSchema (BR-PM-02) without pandas."""
+        from usfds_core.services.data_management.duckdb_io import (
+            duckdb_type_to_logical_type,
+            duckdb_type_to_physical_dtype,
+            quote_ident,
+        )
+
         schema = (
             raw_schema
             if isinstance(raw_schema, ProjectRawSchema)

@@ -43,6 +43,7 @@ class RoutingTrainingDispatcher(ITrainingRunDispatcher):
 		self,
 		payload: TrainingRunPayload,
 		resource_tier: str = "cpu",
+		runtime_profile: str = "tabular-sklearn",
 		metadata: Optional[Dict[str, object]] = None,
 	) -> RemoteTrainingJobSpec:
 		"""Generate presigned GET/PUT URLs for all inputs and expected outputs without leaking storage secrets."""
@@ -84,6 +85,7 @@ class RoutingTrainingDispatcher(ITrainingRunDispatcher):
 		return RemoteTrainingJobSpec(
 			payload=payload,
 			resource_tier=tier,
+			runtime_profile=runtime_profile or "tabular-sklearn",
 			read_urls=read_urls,
 			write_urls=write_urls,
 			metadata=dict(metadata or {}),
@@ -94,6 +96,7 @@ class RoutingTrainingDispatcher(ITrainingRunDispatcher):
 		payload: TrainingRunPayload,
 		provider_id: str,
 		resource_tier: str = "cpu",
+		runtime_profile: str = "tabular-sklearn",
 		metadata: Optional[Dict[str, object]] = None,
 	) -> str:
 		provider = self.provider_registry.get(provider_id)
@@ -107,8 +110,21 @@ class RoutingTrainingDispatcher(ITrainingRunDispatcher):
 		job_spec = self.build_remote_job_spec(
 			payload=payload,
 			resource_tier=resource_tier,
+			runtime_profile=runtime_profile,
 			metadata=metadata,
 		)
+		spec_path = f"models/{payload.model_id}/runs/{payload.run_id}/remote_job_spec.json"
+		self.file_storage.save_bytes(spec_path, job_spec.model_dump_json().encode("utf-8"))
+		spec_get_url = self.file_storage.generate_presigned_download_url(
+			spec_path,
+			expires_in=self.presigned_ttl_seconds,
+		)
+		if not spec_get_url:
+			raise ValueError(
+				"Remote compute requires an S3-compatible storage backend supporting presigned download URLs."
+			)
+		job_spec.metadata["spec_get_url"] = spec_get_url
+		job_spec.metadata["spec_storage_path"] = spec_path
 		return provider.submit(job_spec)
 
 	def dispatch_run(self, payload: TrainingRunPayload) -> None:

@@ -4,7 +4,7 @@ from email.policy import default as default_email_policy
 import json
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
 
 from usfds_core.domain.entities.auth import ActorContext
@@ -15,14 +15,44 @@ from usfds_core.domain.schemas.training_config import TrainingRunConfig
 from usfds_core.repositories.base_user_repo import IUserRepository
 from usfds_core.services.auth.access_logic import effective_scope
 from usfds_core.services.auth.authz_service import AuthzService
+from usfds_core.services.training.compute_policy import ComputeSelectionPolicy
+from usfds_core.services.training.providers.base_provider import RemoteProviderRegistry
 from usfds_core.services.training.training_service import (
     ModelLineageGraph,
     TrainingOrchestrationService,
 )
+from usfds_core.storage.base_storage import IFileStorage
+from usfds_infra.database import session_scope
+from usfds_infra.database.repos.auth import (
+    SqlPermissionRepository,
+    SqlProjectMemberRepository,
+    SqlRoleRepository,
+    SqlUserRepository,
+    SqlUserSessionRepository,
+)
 from usfds_infra.job_queue import JOB_PLUGIN_DRY_RUN, QUEUE_TRAINING
+from usfds_server import dependencies as _server_deps
 from usfds_server.config import settings
-from usfds_server.dependencies import get_actor_context, get_authz_service, get_job_queue, get_training_service
-from usfds_server.providers.auth import get_user_repo
+from usfds_server.dependencies import (
+    get_actor_context,
+    get_authz_service,
+    get_job_queue,
+    get_storage,
+    get_training_service,
+)
+from usfds_server.providers.auth import (
+    get_auth_service,
+    get_authz_service as build_authz_service,
+    get_current_user,
+    get_password_hasher,
+    get_token_provider,
+    get_user_repo,
+)
+from usfds_server.providers.training import (
+    build_training_service_for_session,
+    get_compute_selection_policy,
+    get_remote_provider_registry,
+)
 from usfds_server.schemas.base_response import ApiResponse, CursorPage, ResourceOwnerDto
 from usfds_server.schemas.pagination import (
     DEFAULT_PAGE_LIMIT,
@@ -781,6 +811,62 @@ def get_compute_targets(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
+def _resolve_authz_in_session(
+    session,
+    authorization: Optional[str],
+) -> tuple[ActorContext, AuthzService]:
+    user_repo = SqlUserRepository(session)
+    auth_service = get_auth_service(
+        user_repo=user_repo,
+        session_repo=SqlUserSessionRepository(session),
+        role_repo=SqlRoleRepository(session),
+        password_hasher=get_password_hasher(),
+        token_provider=get_token_provider(),
+    )
+    current_user = get_current_user(
+        authorization=authorization,
+        auth_service=auth_service,
+        user_repo=user_repo,
+    )
+    authz = build_authz_service(
+        user_repo=user_repo,
+        role_repo=SqlRoleRepository(session),
+        permission_repo=SqlPermissionRepository(session),
+        member_repo=SqlProjectMemberRepository(session),
+    )
+    actor = authz.get_actor_context(current_user.user_id)
+    return actor, authz
+
+
+def _get_training_run_with_session_poll(
+    run_id: UUID,
+    project_id: UUID,
+    actor: ActorContext,
+    authz: AuthzService,
+    service: TrainingOrchestrationService,
+    user_repo: IUserRepository,
+) -> ApiResponse[TrainingRunResponse]:
+    authz.require_project_scope(actor, "training:read", project_id)
+    run = service.get_training_run(run_id)
+    if run.project_id is None or run.project_id != project_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"TrainingRun '{run_id}' not found in project '{project_id}'.",
+        )
+    authz.require_project_permission(actor, "training:read", project_id, owner_id=run.user_id)
+    if run.status == TrainingRunStatus.RUNNING and run.external_job_id:
+        try:
+            run = service.sync_remote_run(run.run_id)
+        except Exception:
+            pass
+    artifact_id = service.get_run_dataset_artifact_id(run.run_id)
+    owner = resolve_owners(user_repo, [run.user_id]).get(run.user_id)
+    return ApiResponse.ok(
+        data=_to_training_run_response(run, dataset_artifact_id=artifact_id, owner=owner),
+        message="Training run retrieved successfully",
+    )
+
+
 @router.get(
     "/runs/{run_id}",
     response_model=ApiResponse[TrainingRunResponse],
@@ -789,32 +875,113 @@ def get_compute_targets(
 def get_training_run(
     run_id: UUID,
     project_id: UUID = Query(..., description="Project ID"),
-    actor: ActorContext = Depends(get_actor_context),
-    authz: AuthzService = Depends(get_authz_service),
-    service: TrainingOrchestrationService = Depends(get_training_service),
-    user_repo: IUserRepository = Depends(get_user_repo),
+    request: Request = None,
+    authorization: Optional[str] = Header(default=None),
+    storage: IFileStorage = Depends(get_storage),
+    provider_registry: RemoteProviderRegistry = Depends(get_remote_provider_registry),
+    compute_policy: ComputeSelectionPolicy = Depends(get_compute_selection_policy),
 ) -> ApiResponse[TrainingRunResponse]:
-    authz.require_project_scope(actor, "training:read", project_id)
-    try:
-        run = service.get_training_run(run_id)
-        if run.project_id is None or run.project_id != project_id:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"TrainingRun '{run_id}' not found in project '{project_id}'.",
+    overrides = getattr(getattr(request, "app", None), "dependency_overrides", {}) if request else {}
+    session_factory = _server_deps._session_factory
+
+    if session_factory is None or any(
+        dep in overrides
+        for dep in (get_training_service, get_actor_context, get_authz_service, get_user_repo)
+    ):
+        # Fallback for unit tests overriding service/auth dependencies without a real DB session factory
+        try:
+            if session_factory is not None:
+                with session_scope(session_factory) as session:
+                    actor, authz = _resolve_authz_in_session(session, authorization)
+                    if get_actor_context in overrides:
+                        actor = overrides[get_actor_context]()
+                    if get_authz_service in overrides:
+                        authz = overrides[get_authz_service]()
+                    service = (
+                        overrides[get_training_service]()
+                        if get_training_service in overrides
+                        else build_training_service_for_session(
+                            session, storage, provider_registry, compute_policy
+                        )
+                    )
+                    user_repo = (
+                        overrides[get_user_repo]()
+                        if get_user_repo in overrides
+                        else SqlUserRepository(session)
+                    )
+                    return _get_training_run_with_session_poll(
+                        run_id, project_id, actor, authz, service, user_repo
+                    )
+            service = overrides[get_training_service]()
+            actor = overrides[get_actor_context]()
+            authz = overrides[get_authz_service]()
+            user_repo = overrides[get_user_repo]()
+            return _get_training_run_with_session_poll(
+                run_id, project_id, actor, authz, service, user_repo
             )
-        authz.require_project_permission(actor, "training:read", project_id, owner_id=run.user_id)
-        if run.status == TrainingRunStatus.RUNNING and run.external_job_id:
-            try:
-                run = service.sync_remote_run(run.run_id)
-            except Exception:
-                # Best-effort on-demand sync; background RemoteTrainingPoller retries on transient failures.
-                pass
-        artifact_id = service.get_run_dataset_artifact_id(run.run_id)
-        owner = resolve_owners(user_repo, [run.user_id]).get(run.user_id)
-        return ApiResponse.ok(
-            data=_to_training_run_response(run, dataset_artifact_id=artifact_id, owner=owner),
-            message="Training run retrieved successfully",
-        )
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    try:
+        # Phase 1: short DB session for authz + run snapshot; closes before network I/O
+        poll_provider = None
+        external_job_id: Optional[str] = None
+        with session_scope(session_factory) as session:
+            actor, authz = _resolve_authz_in_session(session, authorization)
+            authz.require_project_scope(actor, "training:read", project_id)
+            service = build_training_service_for_session(
+                session, storage, provider_registry, compute_policy
+            )
+            run = service.get_training_run(run_id)
+            if run.project_id is None or run.project_id != project_id:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"TrainingRun '{run_id}' not found in project '{project_id}'.",
+                )
+            authz.require_project_permission(actor, "training:read", project_id, owner_id=run.user_id)
+
+            if run.status == TrainingRunStatus.RUNNING and run.external_job_id:
+                provider_id = (
+                    run.compute_metadata.get("provider")
+                    if isinstance(run.compute_metadata, dict)
+                    else None
+                ) or run.compute_target
+                if provider_id:
+                    poll_provider = provider_registry.get(str(provider_id))
+                    if poll_provider is not None:
+                        external_job_id = run.external_job_id
+
+            if poll_provider is None or external_job_id is None:
+                artifact_id = service.get_run_dataset_artifact_id(run.run_id)
+                owner = resolve_owners(SqlUserRepository(session), [run.user_id]).get(run.user_id)
+                return ApiResponse.ok(
+                    data=_to_training_run_response(run, dataset_artifact_id=artifact_id, owner=owner),
+                    message="Training run retrieved successfully",
+                )
+
+        # Phase 2: network poll with NO DB session held open
+        remote_status = None
+        try:
+            remote_status = poll_provider.poll(external_job_id)
+        except Exception:
+            # Best-effort on-demand sync; background RemoteTrainingPoller retries on transient failures.
+            remote_status = None
+
+        # Phase 3: short DB session to persist terminal state (if any) and read final DTO
+        with session_scope(session_factory) as session:
+            service = build_training_service_for_session(
+                session, storage, provider_registry, compute_policy
+            )
+            if remote_status is not None and remote_status.state not in ("PENDING", "RUNNING"):
+                run = service.apply_remote_status(run_id, remote_status)
+            else:
+                run = service.get_training_run(run_id)
+            artifact_id = service.get_run_dataset_artifact_id(run.run_id)
+            owner = resolve_owners(SqlUserRepository(session), [run.user_id]).get(run.user_id)
+            return ApiResponse.ok(
+                data=_to_training_run_response(run, dataset_artifact_id=artifact_id, owner=owner),
+                message="Training run retrieved successfully",
+            )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 

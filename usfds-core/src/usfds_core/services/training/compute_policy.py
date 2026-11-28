@@ -59,6 +59,48 @@ class ComputeSelectionPolicy:
 		combined = " ".join(tokens)
 		return any(keyword in combined for keyword in self.thresholds.gpu_frameworks)
 
+	@staticmethod
+	def _match_profile_token(token: str) -> Optional[str]:
+		t = token.strip().lower()
+		if not t:
+			return None
+		if any(k in t for k in ("pyg", "dgl", "gnn", "graph")):
+			return "dl-pyg-gpu"
+		if any(k in t for k in ("pytorch", "torch", "tensorflow", "keras")):
+			return "dl-pytorch-gpu"
+		if any(k in t for k in ("lightgbm", "lgbm")):
+			return "tabular-lightgbm"
+		if "onnx" in t:
+			return "tabular-onnx"
+		if any(k in t for k in ("xgboost", "xgb")):
+			return "tabular-gbdt"
+		if any(k in t for k in ("scikit-learn", "sklearn", "random_forest", "randomforest")):
+			return "tabular-sklearn"
+		return None
+
+	def resolve_runtime_profile(
+		self,
+		model: Optional[Model] = None,
+		plugin_framework: Optional[str] = None,
+	) -> str:
+		"""Resolve an isolated container runtime profile for the model / plugin framework."""
+		if plugin_framework:
+			matched = self._match_profile_token(plugin_framework)
+			if matched:
+				return matched
+		if model is not None:
+			if isinstance(model.default_hyperparameters, dict):
+				fw = model.default_hyperparameters.get("framework")
+				if fw:
+					matched = self._match_profile_token(str(fw))
+					if matched:
+						return matched
+			for hint in (model.model_name or "", model.description or ""):
+				matched = self._match_profile_token(hint)
+				if matched:
+					return matched
+		return "tabular-sklearn"
+
 	def resolve(
 		self,
 		requested_target: str = "auto",
@@ -69,6 +111,7 @@ class ComputeSelectionPolicy:
 	) -> ComputeRecommendation:
 		req = (requested_target or "local").strip().lower()
 		needs_gpu = self._requires_gpu(model=model, plugin_framework=plugin_framework)
+		runtime_profile = self.resolve_runtime_profile(model=model, plugin_framework=plugin_framework)
 		row_count = artifact.row_count if artifact is not None else None
 
 		if req in ("local", "worker"):
@@ -76,6 +119,7 @@ class ComputeSelectionPolicy:
 				requested_target=req,
 				resolved_target=req,
 				resource_tier="cpu",
+				runtime_profile=runtime_profile,
 				provider=None,
 				selection_reason="Người dùng chọn chạy huấn luyện cục bộ / worker.",
 			)
@@ -94,6 +138,7 @@ class ComputeSelectionPolicy:
 					requested_target="auto",
 					resolved_target="local",
 					resource_tier="cpu",
+					runtime_profile=runtime_profile,
 					provider=None,
 					selection_reason=(
 						f"Không có remote compute provider khả dụng{suffix}; tự động chuyển về local."
@@ -105,6 +150,7 @@ class ComputeSelectionPolicy:
 					requested_target="auto",
 					resolved_target=provider.provider_id,
 					resource_tier="gpu",
+					runtime_profile=runtime_profile,
 					provider=provider.provider_id,
 					selection_reason=(
 						f"Mô hình Deep Learning / Graph phù hợp chạy GPU trên {provider.display_name}."
@@ -116,6 +162,7 @@ class ComputeSelectionPolicy:
 					requested_target="auto",
 					resolved_target=provider.provider_id,
 					resource_tier="cpu",
+					runtime_profile=runtime_profile,
 					provider=provider.provider_id,
 					selection_reason=(
 						f"Tập dữ liệu lớn ({row_count:,} dòng >= {self.thresholds.row_count_threshold:,}); "
@@ -128,6 +175,7 @@ class ComputeSelectionPolicy:
 				requested_target="auto",
 				resolved_target="local",
 				resource_tier="cpu",
+				runtime_profile=runtime_profile,
 				provider=None,
 				selection_reason=(
 					f"Mô hình dạng bảng với tập dữ liệu {row_desc} (< {self.thresholds.row_count_threshold:,} dòng); "
@@ -151,6 +199,7 @@ class ComputeSelectionPolicy:
 			requested_target=req,
 			resolved_target=provider.provider_id,
 			resource_tier=tier,
+			runtime_profile=runtime_profile,
 			provider=provider.provider_id,
 			selection_reason=f"Người dùng chọn chạy trên {provider.display_name} ({tier.upper()}).",
 		)
