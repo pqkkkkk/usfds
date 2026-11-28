@@ -1,51 +1,54 @@
-# Nền tảng Thiết kế Giao diện (UI/UX Design Foundation)
+# UI/UX Design Foundation
+<!-- [26-11-28] English translation (content unchanged). -->
 
-Tài liệu này định nghĩa hệ thống thiết kế cơ sở (**Design System Foundations**), cấu trúc bố cục chuẩn (**Global Layout Architecture**), kiến trúc Design Tokens 3 lớp, và các chuẩn mực tương tác/khả năng tiếp cận (**Accessibility & Interaction Guidelines**) cho toàn bộ hệ thống **USFDS** (Unified System for Fraud Detection & Scoring).
+This document defines the **Design System Foundations**, the **Global Layout Architecture**, the three-layer design token architecture, and the **Accessibility & Interaction Guidelines** for the whole **USFDS** (Unified System for Fraud Detection & Scoring).
 
-> Tài liệu được xây dựng dựa trên tiêu chuẩn thiết kế Fintech/Data-Dense từ bộ công cụ `ui-ux-pro-max` và kiến trúc `design-system` (Three-Layer Token Architecture).
-
----
-
-## 1. Triết lý Thiết kế & Định hướng Thị giác (Visual Direction)
-
-### 1.1. Hồ sơ Thiết kế (Design Profile)
-- **Phong cách chủ đạo:** **Dark Mode (OLED / Midnight Slate)** kết hợp **Emerald/Blue Accents**.
-- **Ngữ cảnh sử dụng:** Nền tảng phân tích tài chính và phát hiện gian lận phức tạp; người dùng (Data Scientist, Fraud Analyst) làm việc liên tục nhiều giờ với bảng dữ liệu lớn, ma trận nhầm lẫn (Confusion Matrix), và cây phả hệ (DAG).
-- **Design Dials (Thang đo chuẩn hóa):**
-  - **Variance (6/10 - Balanced / Modern):** Cân đối giữa tính tin cậy của doanh nghiệp tài chính (Enterprise Gateway) và giao diện công nghệ AI hiện đại.
-  - **Density (8/10 - Dense / Dashboard):** Mật độ dữ liệu cao, khoảng cách gọn gàng (8px/12px padding), giảm thiểu khoảng trắng vô nghĩa, tối ưu không gian hiển thị bảng và đồ thị.
-  - **Motion (4/10 - Subtle Micro-interactions):** Chuyển động vi mô nhẹ nhàng (150ms - 250ms), tuyệt đối không lạm dụng hiệu ứng làm chậm thao tác người dùng; tôn trọng thiết lập `prefers-reduced-motion`.
-
-### 1.2. Nguyên tắc Thiết kế Cốt lõi
-1. **High Contrast & Low Eye-Strain:** Tối ưu hóa màu nền tối sâu (`#020617` / `#0B0F19`) giúp bảo vệ thị lực và làm nổi bật các điểm dị biệt gian lận (Anomalies).
-2. **Dual-Encoding for Safety (Mã hóa kép):** Tuyệt đối không dùng màu sắc làm tín hiệu duy nhất để biểu thị trạng thái (chống mù màu). Mọi trạng thái quan trọng (`PASSED`, `WARNING`, `FAILED`) luôn đi kèm Icon SVG chuẩn hóa và nhãn văn bản.
-3. **No Emoji as UI Icons:** Toàn bộ biểu tượng trong giao diện phải sử dụng thư viện Vector SVG chuẩn hóa (`Lucide-React` hoặc `Heroicons`), có `aria-hidden="true"` hoặc nhãn hỗ trợ đọc màn hình.
-4. **Predictable & Traceable:** Mọi tác vụ chạy ngầm phải có phản hồi tiến trình rõ ràng (Non-blocking); mọi phiên bản dữ liệu/mô hình đều liên kết với cây Lineage bất biến.
+> Based on the Fintech / data-dense design standards of the `ui-ux-pro-max` toolkit and the `design-system` Three-Layer Token Architecture.
+>
+> UI copy is Vietnamese (skill `usfds-frontend-change`); this document is English.
 
 ---
 
-## 2. Kiến trúc Design Tokens 3 lớp (Three-Layer Token Architecture)
+## 1. Design Philosophy & Visual Direction
 
-Áp dụng chuẩn kiến trúc: `Primitive Tokens` $\to$ `Semantic Tokens` $\to$ `Component Tokens`.
+### 1.1. Design Profile
+- **Primary style:** **Dark Mode (OLED / Midnight Slate)** with **Emerald/Blue Accents**.
+- **Usage context:** A complex financial analytics and fraud detection platform; users (Data Scientist, Fraud Analyst) work for hours with large data tables, confusion matrices, and lineage trees (DAG).
+- **Design Dials:**
+  - **Variance (6/10 - Balanced / Modern):** Balances the trustworthiness of a financial enterprise (Enterprise Gateway) with a modern AI-tech interface.
+  - **Density (8/10 - Dense / Dashboard):** High data density, compact spacing (8px/12px padding), minimal meaningless whitespace, space optimized for tables and charts.
+  - **Motion (4/10 - Subtle Micro-interactions):** Light micro-motion (150ms - 250ms); never overuse effects that slow the user down; respect `prefers-reduced-motion`.
+
+### 1.2. Core Design Principles
+1. **High Contrast & Low Eye-Strain:** Deep dark backgrounds (`#020617` / `#0B0F19`) protect eyesight and make fraud anomalies stand out.
+2. **Dual-Encoding for Safety:** Never use color as the only status signal (color-blindness). Every important status (`PASSED`, `WARNING`, `FAILED`) always comes with a standard SVG icon and a text label.
+3. **No Emoji as UI Icons:** All UI icons use a standard vector SVG library (`Lucide-React` or `Heroicons`), with `aria-hidden="true"` or a screen-reader label.
+4. **Predictable & Traceable:** Every background task gives clear, non-blocking progress feedback; every data / model version links to an immutable lineage tree.
+
+---
+
+## 2. Three-Layer Token Architecture
+
+Architecture: `Primitive Tokens` $\to$ `Semantic Tokens` $\to$ `Component Tokens`.
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│  Component Tokens (Tầng 3: Biến cho từng component)    │
+│  Component Tokens (Layer 3: per-component variables)   │
 │  --stepper-node-size, --table-row-height, --dag-border │
 ├────────────────────────────────────────────────────────┤
-│  Semantic Tokens (Tầng 2: Ý nghĩa nghiệp vụ & Theme)   │
+│  Semantic Tokens (Layer 2: business meaning & theme)   │
 │  --color-background, --color-surface, --color-accent   │
 ├────────────────────────────────────────────────────────┤
-│  Primitive Tokens (Tầng 1: Giá trị vật lý thô)         │
+│  Primitive Tokens (Layer 1: raw physical values)       │
 │  --color-slate-900, --color-blue-500, --space-4        │
 └────────────────────────────────────────────────────────┘
 ```
 
-### 2.1. Tầng 1: Primitive Tokens (Giá trị thô cơ sở)
+### 2.1. Layer 1: Primitive Tokens
 
 ```css
 :root {
-  /* Slate Scale (Nền và chữ) */
+  /* Slate Scale (background and text) */
   --primitives-slate-950: #020617;
   --primitives-slate-900: #0F172A;
   --primitives-slate-850: #111827;
@@ -106,7 +109,7 @@ Tài liệu này định nghĩa hệ thống thiết kế cơ sở (**Design Sys
 
 ---
 
-### 2.2. Tầng 2: Semantic Tokens (Ý nghĩa nghiệp vụ & Theme)
+### 2.2. Layer 2: Semantic Tokens (business meaning & theme)
 
 ```css
 :root {
@@ -122,8 +125,8 @@ Tài liệu này định nghĩa hệ thống thiết kế cơ sở (**Design Sys
   --color-border-focus:       var(--primitives-blue-500);
 
   /* Typography / Foreground */
-  --color-text-primary:       var(--primitives-slate-50);  /* #F8FAFC - Tiêu đề, số liệu */
-  --color-text-secondary:     var(--primitives-slate-400); /* #94A3B8 - Nhãn, mô tả */
+  --color-text-primary:       var(--primitives-slate-50);  /* #F8FAFC - Headings, figures */
+  --color-text-secondary:     var(--primitives-slate-400); /* #94A3B8 - Labels, descriptions */
   --color-text-muted:         var(--primitives-slate-500); /* #64748B - Placeholder */
   --color-text-inverse:       var(--primitives-slate-950);
 
@@ -140,7 +143,7 @@ Tài liệu này định nghĩa hệ thống thiết kế cơ sở (**Design Sys
   --color-danger:             var(--primitives-red-500);     /* #EF4444 */
   --color-danger-bg:          rgba(239, 68, 68, 0.12);
 
-  /* Pipeline Stage Tokens (Nhận diện vòng đời dữ liệu FDS) */
+  /* Pipeline Stage Tokens (FDS data lifecycle identification) */
   --stage-raw-color:          var(--primitives-blue-500);
   --stage-raw-bg:             rgba(59, 130, 246, 0.12);
   --stage-mapped-color:       var(--primitives-emerald-400);
@@ -165,8 +168,8 @@ html[data-theme="light"] {
   --color-border-subtle:      rgba(15, 23, 42, 0.08);
   --color-border-focus:       var(--primitives-blue-600);
 
-  --color-text-primary:       var(--primitives-slate-900); /* #0F172A - Tiêu đề, số liệu */
-  --color-text-secondary:     var(--primitives-slate-600); /* #475569 - Nhãn, mô tả */
+  --color-text-primary:       var(--primitives-slate-900); /* #0F172A - Headings, figures */
+  --color-text-secondary:     var(--primitives-slate-600); /* #475569 - Labels, descriptions */
   --color-text-muted:         var(--primitives-slate-500); /* #64748B - Placeholder */
   --color-text-inverse:       #FFFFFF;
 
@@ -178,7 +181,7 @@ html[data-theme="light"] {
 
 ---
 
-### 2.3. Tầng 3: Component Tokens (Tokens định danh thành phần)
+### 2.3. Layer 3: Component Tokens
 
 ```css
 :root {
@@ -209,40 +212,40 @@ html[data-theme="light"] {
 
 ---
 
-## 3. Hệ thống Typography & Phông chữ Chuyên biệt
+## 3. Typography & Specialized Fonts
 
-Hệ thống kết hợp **2 họ phông chữ bổ trợ nhau**:
-1. **Giao diện & Văn bản chung (UI Copy):** `Inter`, `-apple-system`, `sans-serif`.
-   - Độ rõ nét vượt trội ở kích thước nhỏ (11px - 13px), hỗ trợ hiển thị tiếng Việt chuẩn UTF-8.
-2. **Số liệu tài chính, Checksum, Mã định danh & Schema (Tabular Code Font):** `Fira Code` hoặc `JetBrains Mono`.
-   - **Bắt buộc kích hoạt:** `font-variant-numeric: tabular-nums;` để các con số căn thẳng hàng tuyệt đối trong bảng phân tích tài chính.
+The system combines **2 complementary font families**:
+1. **Interface & general text (UI copy):** `Inter`, `-apple-system`, `sans-serif`.
+   - Excellent legibility at small sizes (11px - 13px); renders Vietnamese UTF-8 correctly.
+2. **Financial figures, checksums, identifiers & schema (tabular code font):** `Fira Code` or `JetBrains Mono`.
+   - **Mandatory:** `font-variant-numeric: tabular-nums;` so numbers align exactly in financial analysis tables.
 
-### Thang kích thước Typography (Type Scale)
+### Type Scale
 
-| Token | Size / Line-height | Weight | Ứng dụng |
+| Token | Size / Line-height | Weight | Usage |
 | :--- | :--- | :--- | :--- |
-| `text-display` | 24px / 32px | 700 (Bold) | Tiêu đề trang chính (Page Title) |
-| `text-heading-lg`| 18px / 24px | 600 (Semi-bold) | Tiêu đề phân khu, Modal Header |
-| `text-heading-md`| 15px / 20px | 600 (Semi-bold) | Tiêu đề Card, Drawer Inspector Header |
-| `text-body` | 13px / 18px | 400 (Regular) | Nội dung bảng, mô tả, form text |
-| `text-caption` | 11px / 16px | 500 (Medium) | Meta labels, Tag badge, Header bảng (Uppercase) |
-| `text-code` | 12px / 16px | 500 (Mono) | UUID, SHA-256 Checksum, Tên cột canonical (`event_id`) |
+| `text-display` | 24px / 32px | 700 (Bold) | Page title |
+| `text-heading-lg`| 18px / 24px | 600 (Semi-bold) | Section title, modal header |
+| `text-heading-md`| 15px / 20px | 600 (Semi-bold) | Card title, drawer inspector header |
+| `text-body` | 13px / 18px | 400 (Regular) | Table content, descriptions, form text |
+| `text-caption` | 11px / 16px | 500 (Medium) | Meta labels, tag badges, table headers (uppercase) |
+| `text-code` | 12px / 16px | 500 (Mono) | UUID, SHA-256 checksum, canonical column names (`event_id`) |
 
 ---
 
-## 4. Kiến trúc Bố cục Toàn cục (Global Shell Architecture)
+## 4. Global Shell Architecture
 
 ```
 +--------------------------------------------------------------------------------------------------------------------+
-| TOPBAR (56px) - Cố định                                                                                            |
+| TOPBAR (56px) - Fixed                                                                                              |
 | [Shield Logo] USFDS | [Project Selector: "E-Commerce Fraud 2026" v] | [Omnisearch (Ctrl+K)] | [Worker: OK] [Noti] [DS]   |
 +---------------+----------------------------------------------------------------------------------------------------+
-| SIDEBAR       | MAIN VIEWPORT (Tự động scroll độc lập)                                                             |
+| SIDEBAR       | MAIN VIEWPORT (scrolls independently)                                                              |
 | (240px)       |                                                                                                    |
 |               | [Breadcrumb / Page Action Toolbar]                                                                 |
 | - Data Hub    |----------------------------------------------------------------------------------------------------|
 | - Detection   |                                                                                                    |
-| - Rules       |  NỘI DUNG WORKSPACE                                                                                |
+| - Rules       |  WORKSPACE CONTENT                                                                                 |
 | - Investigate |                                                                                                    |
 | - Reports     |                                                                                                    |
 |               |                                                                                                    |
@@ -253,62 +256,62 @@ Hệ thống kết hợp **2 họ phông chữ bổ trợ nhau**:
 ```
 
 ### 4.1. Top Navigation Bar
-- **Project Context Switcher:** Chuyển đổi ngữ cảnh làm việc giữa các bài toán khác nhau. Toàn bộ dữ liệu dưới thanh này đều chịu ràng buộc của Project ID được chọn.
-- **Global Omnisearch (Phím tắt `Ctrl + K` hoặc `Cmd + K`):** Hỗ trợ tìm kiếm tức thì Dataset, Model, Rule, hoặc Transaction ID.
-- **System Health Indicator:** Chấm trạng thái xanh/vàng/đỏ của Engine ngầm (`usfds-core` service).
+- **Project Context Switcher:** Switches the working context between problems. All data below this bar is scoped to the selected project ID.
+- **Global Omnisearch (`Ctrl + K` or `Cmd + K`):** Instant search for datasets, models, rules, or transaction IDs.
+- **System Health Indicator:** Green / yellow / red dot for the background engine (`usfds-core` service).
 
 ### 4.2. Side Navigation Bar
-- Có khả năng thu gọn (Collapse: 240px $\to$ 64px) để mở rộng diện tích làm việc cho bảng dữ liệu lớn hoặc đồ thị Lineage DAG.
-- Phân nhóm chức năng logic rõ ràng theo vòng đời: **Data Preparation** $\to$ **Detection & Modeling** $\to$ **Investigation** $\to$ **Reporting & Insights**.
+- Collapsible (240px $\to$ 64px) to give more room to large tables or the lineage DAG.
+- Functions grouped by lifecycle: **Data Preparation** $\to$ **Detection & Modeling** $\to$ **Investigation** $\to$ **Reporting & Insights**.
 
 ---
 
-## 5. Quy chuẩn Chi tiết cho các Mẫu Giao diện Dùng chung (Component Specifications)
+## 5. Shared Component Specifications
 
-### 5.1. Workspace Stepper (Điều hướng Pipeline Tuyến tính & Rẽ nhánh)
-- **Mục đích:** Hướng dẫn người dùng qua các bước chuẩn bị dữ liệu (`RAW` $\to$ `MAPPED` $\to$ `PRE_PROCESSED`).
-- **Các trạng thái (States):**
-  - **`Completed`:** Vòng tròn xanh lục với Icon Check (`✓`), click được để xem lại kết quả bước trước.
-  - **`Active`:** Vòng tròn viền xanh dương phát sáng (`box-shadow: var(--shadow-glow-blue)`), chứa số bước hiện tại.
-  - **`Locked`:** Màu xám mờ (`--primitives-slate-700`), `cursor: not-allowed`.
-  - **`Forked Badge`:** Khi người dùng rẽ nhánh từ một node cũ, trên thanh Stepper hiển thị nhãn phụ: *"🌿 Branch: [Branch Name] (Forked from Artifact #X)"*.
+### 5.1. Workspace Stepper (linear & branching pipeline navigation)
+- **Purpose:** Guides the user through data preparation steps (`RAW` $\to$ `MAPPED` $\to$ `PRE_PROCESSED`).
+- **States:**
+  - **`Completed`:** Green circle with a check icon (`✓`); clickable to review the previous step's result.
+  - **`Active`:** Glowing blue-outlined circle (`box-shadow: var(--shadow-glow-blue)`) showing the current step number.
+  - **`Locked`:** Dim gray (`--primitives-slate-700`), `cursor: not-allowed`.
+  - **`Forked Badge`:** When the user branches from an older node, the stepper shows a secondary label: *"🌿 Branch: [Branch Name] (Forked from Artifact #X)"*.
 
-### 5.2. Interactive High-Density Data Grid (Bảng dữ liệu mật độ cao)
-- **Sticky Column:** Cột đầu tiên (Transaction ID hoặc Dataset Name) luôn cố định khi cuộn ngang màn hình.
-- **Column Header Health Bar:** Phía dưới tên mỗi cột trong bảng có một thanh mini bar cao 3px:
-  - Màu xanh lục: Tỷ lệ giá trị hợp lệ (`100% - null%`).
-  - Màu xám/đỏ: Tỷ lệ ô trống khuyết thiếu (`null%`).
-- **Virtual Scrolling:** Bắt buộc áp dụng để render mượt mà danh sách hàng nghìn dòng dữ liệu.
+### 5.2. Interactive High-Density Data Grid
+- **Sticky Column:** The first column (transaction ID or dataset name) stays fixed on horizontal scroll.
+- **Column Header Health Bar:** A 3px mini bar under each column name:
+  - Green: share of valid values (`100% - null%`).
+  - Gray / red: share of missing values (`null%`).
+- **Virtual Scrolling:** Mandatory, to render lists of thousands of rows smoothly.
 
-### 5.3. Interactive Lineage Canvas (Sơ đồ phả hệ DAG)
-- Dựng trên Canvas/SVG tương tác:
-  - Hỗ trợ chuột: Zoom in/out bằng con lăn, kéo rê (Pan) vùng hiển thị, phím tắt `Space + Drag`.
-  - **Node Selection:** Khi click vào một node, node đó nhận viền sáng (`--border-focus`), đồng thời kích hoạt Drawer Inspector bên phải.
-  - **Edge Styling:** Đường nối cong mượt (Bézier curves) có hướng mũi tên chỉ rõ dòng chảy dữ liệu.
+### 5.3. Interactive Lineage Canvas (DAG)
+- Built on interactive Canvas / SVG:
+  - Mouse: zoom with the wheel, pan by dragging, shortcut `Space + Drag`.
+  - **Node Selection:** Clicking a node highlights its border (`--border-focus`) and opens the inspector drawer on the right.
+  - **Edge Styling:** Smooth Bézier curves with arrowheads showing data flow direction.
 
-### 5.4. Slide-over Inspector Drawer (Bảng chi tiết bên phải)
-- Chiều rộng: 480px - 560px, trượt ra từ bên phải màn hình.
-- Không che lấp toàn màn hình giúp người dùng vừa quan sát cây phả hệ/bảng dữ liệu vừa đối chiếu thông số chi tiết.
-- Chia thành các Tab chuẩn hóa: `Overview`, `Data Profiling`, `Validation Report`, `Configuration JSON`.
+### 5.4. Slide-over Inspector Drawer
+- Width 480px - 560px, slides in from the right.
+- Does not cover the whole screen, so the user can watch the lineage tree / table while comparing details.
+- Standard tabs: `Overview`, `Data Profiling`, `Validation Report`, `Configuration JSON`.
 
 ### 5.5. Async Task Progress & Toast Feedback
-- **Non-blocking UX:** Khi thực hiện tác vụ nặng (Feature Engineering hoặc Huấn luyện mô hình), hệ thống hiển thị thanh tiến trình nhỏ cố định ở góc dưới bên phải màn hình.
-- Người dùng có thể chuyển sang màn hình khác làm việc mà không bị gián đoạn.
-- Khi tác vụ hoàn tất: Bắn thông báo Toast kèm nút hành động **`[ View Result ➔ ]`**.
+- **Non-blocking UX:** During heavy tasks (feature engineering or model training), a small fixed progress bar shows in the bottom-right corner.
+- The user can move to other screens without interruption.
+- On completion: show a toast with the action button **`[ View Result ➔ ]`**.
 
 ---
 
-## 6. Hướng dẫn Khả năng Tiếp cận (Accessibility & WCAG 2.1 AA)
+## 6. Accessibility (WCAG 2.1 AA)
 
-Để đảm bảo hệ thống đạt chuẩn doanh nghiệp và vượt qua các bài kiểm thử UX:
+To meet enterprise standards and pass UX testing:
 
-1. **Tỷ lệ Tương phản Màu (Contrast Ratio):**
-   - Văn bản chuẩn (`--color-text-primary` trên `--color-surface`): Đạt tỷ lệ tối thiểu **7:1** (vượt chuẩn AAA).
-   - Văn bản phụ (`--color-text-secondary` trên `--color-surface`): Đạt tỷ lệ tối thiểu **4.5:1** (chuẩn AA).
-2. **Keyboard Navigation (Điều hướng bằng bàn phím):**
-   - Mọi nút, liên kết, ô nhập liệu, và node trên DAG phải có thể truy cập bằng phím `Tab`.
-   - Vòng chỉ thị tiêu điểm (`:focus-visible`): Sử dụng `--focus-ring` viền kép rõ ràng, không được dùng `outline: none` mà không có viền thay thế.
-3. **Giảm thiểu Chuyển động (Motion Safety):**
+1. **Contrast Ratio:**
+   - Primary text (`--color-text-primary` on `--color-surface`): at least **7:1** (AAA).
+   - Secondary text (`--color-text-secondary` on `--color-surface`): at least **4.5:1** (AA).
+2. **Keyboard Navigation:**
+   - Every button, link, input, and DAG node is reachable with `Tab`.
+   - Focus indicator (`:focus-visible`): use the clear double `--focus-ring`; never `outline: none` without a replacement.
+3. **Motion Safety:**
    ```css
    @media (prefers-reduced-motion: reduce) {
      *, ::before, ::after {
@@ -317,6 +320,6 @@ Hệ thống kết hợp **2 họ phông chữ bổ trợ nhau**:
      }
    }
    ```
-4. **Hỗ trợ Screen Reader:**
-   - Các bảng dữ liệu phức tạp phải có `caption`, các cột có thuộc tính `scope="col"`.
-   - Các thanh tiến trình phải gắn `role="progressbar"`, `aria-valuenow`, `aria-valuemin="0"`, `aria-valuemax="100"`.
+4. **Screen Reader Support:**
+   - Complex data tables have a `caption`; columns have `scope="col"`.
+   - Progress bars carry `role="progressbar"`, `aria-valuenow`, `aria-valuemin="0"`, `aria-valuemax="100"`.

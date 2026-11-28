@@ -126,14 +126,15 @@ flowchart LR
   - [x] [docs] `04-data-model-erd.md` from ORM tables
   - [x] [docs] move `high-level-design.md` to `docs/research/`
   - [x] [verify] M2 checks in §5
-- [ ] **M3 — Entry points & skills** (docs, skills)
-  - [ ] [docs] `AGENTS.md` dedupe + cli removal; `README.md` package list (+worker, −cli/agent, SQLite/PostgreSQL); `design-system.md` English
-  - [ ] [docs] skills: INV range, file names, "Tenancy" heading, plan step 1 pointer; mirror to `.agents/skills`
-  - [ ] [verify] M3 checks + `./scripts/test.sh core`
+- [x] **M3 — Entry points & skills** (docs, skills)
+  - [x] [docs] `AGENTS.md` dedupe + cli removal; `README.md` package list (+worker, −cli/agent, SQLite/PostgreSQL); `design-system.md` English
+  - [x] [docs] skills: INV range, file names, "Tenancy" heading, plan step 1 pointer; mirror to `.agents/skills`
+  - [x] [verify] M3 checks + `./scripts/test.sh core`
 
 Checkpoint log:
-- 26-11-28 M2 done: 0 `path:line` refs, 0 Vietnamese chars, 27/27 tables in ERD, 16/16 Mermaid diagrams parse (mermaid 12.3), 0 broken links, size 65.5KB vs 77.0KB before (+7.3KB ERD); notes: `docs/arch/modules/training-and-models.md` spec link adds `detection/training/suc-spec.md`; 2 intentional "tenant" mentions (negation + rename history).
 - 26-11-28 M1 done: core `216 passed, 15 skipped`; guards red first (2 failed listing 39 + 8 files), green after allowlists; notes: pandas count 39 not 42 (AST vs grep).
+- 26-11-28 M2 done: 0 `path:line` refs, 0 Vietnamese chars, 27/27 tables in ERD, 16/16 Mermaid diagrams parse (mermaid 12.3), 0 broken links, size 65.5KB vs 77.0KB before (+7.3KB ERD); notes: `docs/arch/modules/training-and-models.md` spec link adds `detection/training/suc-spec.md`; 2 intentional "tenant" mentions (negation + rename history).
+- 26-11-28 M3 done: core `216 passed, 15 skipped`; 0 broken links (arch, AGENTS, README, design-system, skills); routing table only in `docs/arch/README.md`; 0 Vietnamese chars in scope; `.claude/skills` == `.agents/skills`; 16/16 Mermaid parse; notes: `usfds-backend-change` stale link to deleted `implementation-level-design.md` fixed; `usfds-testing` keeps `cli` in the `./scripts/test.sh` usage line because the script still runs it; Notion link label translated.
 
 ## 7. Review hotspots
 - (after implementation)

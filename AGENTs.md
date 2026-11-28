@@ -10,14 +10,14 @@ Identify the domain and read the corresponding documentation before implementing
 
 | Request touches... | Read first |
 | --- | --- |
-| Architecture, module contracts & system invariants | `docs/arch/README.md` → relevant `docs/arch/modules/*.md` + `docs/arch/03-system-invariants.md` (and `01`/`02` for runtime/data flows) |
+| Architecture, modules, data model, principles & invariants | `docs/arch/README.md` — the single routing table for architecture docs <!-- [26-11-28] --> |
 | Design system | `docs/design-system.md` |
-| Use case specification | `docs/features/**/suc-spec.md`, and all sub items of Notion page [Đặc tả use case hệ thống](https://app.notion.com/p/c-t-use-case-h-th-ng-3f9b99c6a95080989f01e692219f6fe7) |
+| Use case specification | `docs/features/**/suc-spec.md`, and all sub items of Notion page [System use case specification](https://app.notion.com/p/c-t-use-case-h-th-ng-3f9b99c6a95080989f01e692219f6fe7) |
 | Known issues / bugs | `docs/issues/README.md` (index, IDs `ISS-NNN`) |
 | Task status, dependencies, file ownership | `.plan/BOARD.md`, master plan `.plan/parallel_agent_setup.md` |
 | Writing / running tests | skill `usfds-testing` (`.claude/skills/usfds-testing/SKILL.md`) |
 
-If a request does not clearly fall under any specific documentation row, ask me for document link in Notion or other relevant sources first.
+Every task must respect `docs/arch/03-system-invariants.md` (principles `P-01..P-04`, invariants `INV-001..016`). If a request does not clearly fall under any row, ask me for the relevant Notion link first; if Notion is unreachable, ask me to download the documentation into `docs/`. <!-- [26-11-28] -->
 
 ---
 
@@ -37,7 +37,7 @@ Several AI agents work on this repo at the same time. Follow these skills (in `.
 - **Task model:** 1 task = 1 agent session = 1 plan file `.plan/<task_slug>.md`. The user decides which issues (`ISS-NNN`) form a task. The agent implements the whole task alone. Milestones are checkpoints inside the plan, not stop points. If the scope looks too broad or too small, propose splitting or merging **issues**; never split the task.
 - **Review model:** the user reviews `Design & Approach`, §4.5 Invariant Impact, acceptance tests, adversarial review verdict (`usfds-review`), and the **Review hotspots** listed in the final report, not every line of code.
 - **Board claiming for parallel runs:** when running multiple agents concurrently, mark the task `In progress` on `main`'s `.plan/BOARD.md` right after plan approval so other sessions' `C1` conflict checks detect owned files.
-- **Single test entrypoint:** `./scripts/test.sh [core|infra|server|worker|cli|web]`. Python is pinned to 3.12.
+- **Single test entrypoint:** `./scripts/test.sh [core|infra|server|worker|web]`. Python is pinned to 3.12.
 - **Hot-spot files** (shared registries) are append-only; see skill `usfds-plan` for the list.
 - **Schema changes** only through Alembic revisions (`python -m usfds_infra.database.migrate revision "..."`), one per task.
 
@@ -87,10 +87,10 @@ Stop at the first true statement:
 
 * **Formatting:**
   * **TypeScript / React (`usfds-web`):** Tabs in new files (follow the file's existing style when editing), semicolons mandatory, One True Brace Style (1TBS).
-  * **Python (`usfds-core`, `usfds-infra`, `usfds-server`, `usfds-worker`, `usfds-cli`):** Tabs in new files (follow the file's existing indentation when editing); no semicolons. Never reformat untouched lines.
+  * **Python (`usfds-core`, `usfds-infra`, `usfds-server`, `usfds-worker`):** Tabs in new files (follow the file's existing indentation when editing); no semicolons. Never reformat untouched lines.
 * **Naming Conventions:**
   * `camelCase`: Variables and functions in `usfds-web`.
-  * `snake_case`: Variables and functions in Python packages (`usfds-core`, `usfds-infra`, `usfds-server`, `usfds-worker`, `usfds-cli`).
+  * `snake_case`: Variables and functions in Python packages (`usfds-core`, `usfds-infra`, `usfds-server`, `usfds-worker`).
   * `UPPER_SNAKE_CASE`: Constants and globals.
   * `_prefix`: Internal or private functions.
 
@@ -102,21 +102,18 @@ Follow current design system guidelines for consistency in UI components, typogr
 
 ## Documentation Location
 
-All documentation are maintained in the Notion page [Task](https://app.notion.com/p/325b99c6a9508074ba72e26e509260bf?v=325b99c6a9508078acdc000cad8d9232). For any additional context or clarification, ask me a Notion link for rapid searching. Documentation in `docs/` serves as a local reference and should be kept in sync with Notion.
+All documentation is maintained in the Notion page [Task](https://app.notion.com/p/325b99c6a9508074ba72e26e509260bf?v=325b99c6a9508078acdc000cad8d9232). Documentation in `docs/` is the local reference and is kept in sync with Notion. Architecture docs (`docs/arch/`), `AGENTS.md`, `README.md` and `docs/design-system.md` are written in English. <!-- [26-11-28] -->
 
 **Agent Modification Policy:** Request user approval before editing any file in `docs/`. Append a `[YY-MM-DD]` comment to all approved edits.
 
 ---
 
 # CRITICAL IMPORTANT: MANDATORY AGENT DIRECTIVE
+<!-- [26-11-28] Deduplicated: workflow steps live in the skills of §0.1; Notion rules live in §0. -->
 
 Before modifying codebase logic, databases, routes, or assets:
 
-1. You MUST read this entire `/README.md` document first.
-2. Ensure no custom UI for API keys is generated. Rely strictly on standard `.env.example` configurations.
-3. Do not delete or rename this file. Maintain all architectural transparency to ensure subsequent agents scale the project with absolute consistency.
-4. After receiving a task, always plan first (skill `usfds-plan`) and ask clarifying questions. Upon approval, write the acceptance tests first (skill `usfds-task-workflow`). Track progress in the task's own plan file `.plan/<task>.md`.
-5. After completing the task, run an independent adversarial review (skill `usfds-review`) and request final approval with the report format of `usfds-task-workflow` (including Review hotspots and review verdict). After approval, rebase/sync with `origin/main` if needed, sync `docs/arch/` if contracts/invariants changed (`INV-015`), update `CHANGELOG.md`, `.plan/BOARD.md` and the issue status in `docs/issues/` on `task/<slug>`, and push directly to the remote branch (`git push -u origin task/<slug>`) to open/merge a PR (never merge directly into local `main`).
-6. **Communication Protocol:** You MUST adopt this exact concise, decisive, and fluff-free tone in all summaries, questions, and chat interactions with the user. Stop guessing; state the facts.
-7. If request don't have corresponding documentation, always ask me for relevant Notion link before proceeding.
-8. If cannot connect to Notion, ask me download necessary documentation into `docs`.
+1. Ensure no custom UI for API keys is generated. Rely strictly on standard `.env.example` configurations.
+2. Do not delete or rename `README.md` or this file. Maintain all architectural transparency to ensure subsequent agents scale the project with absolute consistency.
+3. Follow the lifecycle in §0.1 end to end: `usfds-plan` (stop for approval) → `usfds-task-workflow` (tests first, final report, push after approval) → `usfds-review` before the final report. Never skip a phase.
+4. **Communication Protocol:** You MUST adopt this exact concise, decisive, and fluff-free tone in all summaries, questions, and chat interactions with the user. Stop guessing; state the facts.
