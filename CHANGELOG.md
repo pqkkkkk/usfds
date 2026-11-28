@@ -2,6 +2,13 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTS.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-28 — Docs Dashboard Review Redesign
+Plan: `.plan/docs_dashboard_review_redesign.md` · Board: `.plan/BOARD.md`
+
+- Web: redesigned the internal dashboard and plan review; linked declared architecture references and evidence-based suggestions to source documents and diagrams, preserving editing and draft protection.
+- Recovery: made long scope verdicts compact, distinguished Mermaid library load failures from rendering errors, and added document load retry.
+- Verified: `web` (`pretest 3 passed`, `34 files / 105 passed`, build and lint successful with warnings); independent review passed.
+
 ## 2026-11-28 — ISS-059: Agent Context Refinement, Design System As-Built Sync & Tier-1 Guards
 Plan: `.plan/agent_context_and_guard_refinement.md` · Board: `.plan/BOARD.md`
 

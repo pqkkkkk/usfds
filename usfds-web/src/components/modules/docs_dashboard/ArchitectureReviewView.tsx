@@ -6,10 +6,11 @@ import { MermaidDiagram } from './MermaidDiagram';
 interface ArchitectureReviewViewProps {
 	isLight: boolean;
 	onSelectFileRef: (path: string) => void;
+	initialDiagramId?: string;
 }
 
-export const ArchitectureReviewView: React.FC<ArchitectureReviewViewProps> = ({ isLight, onSelectFileRef }) => {
-	const { diagram, selectDiagram, loading, code, error, retry } = useDocsArchitecture();
+export const ArchitectureReviewView: React.FC<ArchitectureReviewViewProps> = ({ isLight, onSelectFileRef, initialDiagramId }) => {
+	const { diagram, selectDiagram, loading, code, error, retry } = useDocsArchitecture(initialDiagramId);
 	const groups = Array.from(new Set(ARCHITECTURE_DIAGRAMS.map((item) => item.group)));
 	return (
 		<div className="flex-1 min-w-0 flex flex-col md:flex-row overflow-auto">
@@ -38,6 +39,7 @@ export const ArchitectureReviewView: React.FC<ArchitectureReviewViewProps> = ({ 
 			</nav>
 			<section className="flex-1 min-w-0 overflow-auto p-5 md:p-8">
 				<div className="max-w-6xl mx-auto">
+					<p className={`mb-3 text-sm ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Chọn sơ đồ để đối chiếu với tài liệu kiến trúc nguồn.</p>
 					<h2 className="text-xl font-semibold">{diagram.title}</h2>
 					<p className={`mt-2 text-xs ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
 						Nguồn: <button type="button" className="underline underline-offset-2" onClick={() => onSelectFileRef(`${diagram.path}#${headingSlug(diagram.heading)}`)}>{diagram.path}</button>

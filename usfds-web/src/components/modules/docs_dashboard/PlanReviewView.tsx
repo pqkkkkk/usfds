@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
 	CheckCircle2,
 	AlertTriangle,
@@ -22,10 +22,11 @@ import {
 	BookOpen,
 	ClipboardCheck,
 } from 'lucide-react';
-import {
-	docsDashboardApi,
-	type ParsedPlan,
-} from '@/api/docsDashboardApi';
+import type { ParsedPlan } from '@/api/docsDashboardApi';
+import { usePlanReview } from '@/hooks/usePlanReview';
+import { usePlanArchitectureLinks } from '@/hooks/usePlanArchitectureLinks';
+import { ARCHITECTURE_DIAGRAMS } from '@/utils/docsArchitecture';
+import type { InspectorTarget } from './ContextInspectorPane';
 import {
 	RichDocRenderer,
 	InlineSmartText,
@@ -42,9 +43,12 @@ interface PlanReviewViewProps {
 	onSelectPlan: (slug: string) => void;
 	onPlanUpdated: (updated: ParsedPlan) => void;
 	onRefreshOverview: () => Promise<void>;
+	onDirtyChange?: (dirty: boolean) => void;
+	onSelectDiagram?: (diagramId: string) => void;
+	inspectorSelection?: InspectorTarget;
+	externalEditLocked?: boolean;
+	onSavingChange?: (saving: boolean) => void;
 }
-
-type PlanViewTab = 'review' | 'spec' | 'full' | 'editor';
 
 interface CollapsibleCardProps {
 	id: string;
@@ -82,9 +86,9 @@ const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
 				type="button"
 				onClick={() => onToggle(id)}
 				aria-expanded={isOpen}
-				className={`w-full px-5 py-4 flex items-center justify-between gap-4 text-left transition ${headerHover}`}
+				className={`w-full px-5 py-4 flex flex-wrap items-center justify-between gap-4 text-left transition ${headerHover}`}
 			>
-				<div className="flex items-center gap-3 min-w-0">
+				<div className="flex flex-1 basis-64 items-center gap-3 min-w-0">
 					<span className={isLight ? 'text-zinc-400' : 'text-zinc-500'}>
 						{isOpen ? (
 							<ChevronDown className="w-4 h-4" />
@@ -94,14 +98,14 @@ const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
 					</span>
 					<span className="shrink-0">{icon}</span>
 					<span
-						className={`text-sm font-bold truncate ${
+						className={`min-w-0 break-words text-sm font-bold ${
 							isLight ? 'text-zinc-900' : 'text-zinc-100'
 						}`}
 					>
 						{title}
 					</span>
 				</div>
-				{badge && <div className="shrink-0 flex items-center gap-2">{badge}</div>}
+				{badge && <div className="min-w-0 max-w-full flex items-center gap-2 break-words">{badge}</div>}
 			</button>
 
 			{isOpen && (
@@ -126,6 +130,11 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 	onSelectPlan,
 	onPlanUpdated,
 	onRefreshOverview,
+	onDirtyChange,
+	onSelectDiagram,
+	inspectorSelection,
+	externalEditLocked = false,
+	onSavingChange,
 }) => {
 	const containerWidthClass = wideLayout ? 'max-w-6xl' : 'max-w-5xl';
 	const isDoneOrInProgress =
@@ -134,39 +143,15 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 		plan.status.toLowerCase().includes('review') ||
 		plan.hotspots.length > 0;
 
-	const [activeTab, setActiveTab] = useState<PlanViewTab>(
-		plan.validation.status === 'legacy' ? 'full' : 'review'
-	);
-	const [selectedMilestoneFilter, setSelectedMilestoneFilter] =
-		useState<string>('ALL');
-	const [testMilestoneFilter, setTestMilestoneFilter] = useState<string>('ALL');
-	const [rawBuffer, setRawBuffer] = useState(plan.raw);
-	const [saving, setSaving] = useState(false);
-	const [newQuestion, setNewQuestion] = useState('');
-
-	// Progressive disclosure: ALL sections collapsed by default so user opens each card on demand
-	const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-
-	// Per-milestone collapse inside §6
-	const [collapsedMilestones, setCollapsedMilestones] = useState<
-		Record<number, boolean>
-	>({});
-
-	useEffect(() => {
-		setRawBuffer(plan.raw);
-	}, [plan.raw]);
-
-	useEffect(() => {
-		setSelectedMilestoneFilter('ALL');
-		setTestMilestoneFilter('ALL');
-		setOpenSections({});
-		setCollapsedMilestones({});
-		setActiveTab(plan.validation.status === 'legacy' ? 'full' : 'review');
-	}, [plan.slug, plan.validation.status]);
-
-	const toggleSection = (id: string) => {
-		setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
-	};
+	const {
+		dirty, activeTab, setActiveTab, selectedMilestoneFilter, setSelectedMilestoneFilter,
+		testMilestoneFilter, setTestMilestoneFilter, rawBuffer, setRawBuffer, saving, error,
+		newQuestion, setNewQuestion, openSections, collapsedMilestones, setCollapsedMilestones,
+		toggleSection, handleStatusChange, handleToggleCheckbox, handleAddQuestion, handleSaveRaw,
+	} = usePlanReview(plan, onPlanUpdated, onRefreshOverview, onDirtyChange, onSavingChange, externalEditLocked);
+	const architecture = usePlanArchitectureLinks(plan, onSelectFileRef, inspectorSelection);
+	const scopeText = cleanMarkdownPlain(plan.scopeVerdict);
+	const scopeLabel = scopeText.match(/^(?:OK|TOO-BROAD|TOO-SMALL)\b/i)?.[0] ?? scopeText;
 
 	const todayShort = new Date().toISOString().slice(2, 10);
 
@@ -177,63 +162,6 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 		{ label: 'Review', value: 'Review' },
 		{ label: `Done (${todayShort})`, value: `Done (${todayShort})` },
 	];
-
-	const handleStatusChange = async (newStatus: string) => {
-		setSaving(true);
-		try {
-			const updated = await docsDashboardApi.updatePlanStatus(plan.slug, newStatus);
-			onPlanUpdated(updated);
-			await onRefreshOverview();
-		} finally {
-			setSaving(false);
-		}
-	};
-
-	const handleToggleCheckbox = async (
-		lineNumber: number,
-		currentChecked: boolean
-	) => {
-		setSaving(true);
-		try {
-			const updated = await docsDashboardApi.togglePlanCheckbox(
-				plan.slug,
-				lineNumber,
-				!currentChecked
-			);
-			onPlanUpdated(updated);
-		} finally {
-			setSaving(false);
-		}
-	};
-
-	const handleAddQuestion = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!newQuestion.trim()) {
-			return;
-		}
-		setSaving(true);
-		try {
-			const updated = await docsDashboardApi.appendPlanQuestion(
-				plan.slug,
-				newQuestion.trim()
-			);
-			setNewQuestion('');
-			onPlanUpdated(updated);
-		} finally {
-			setSaving(false);
-		}
-	};
-
-	const handleSaveRaw = async () => {
-		setSaving(true);
-		try {
-			await docsDashboardApi.saveFile(plan.filePath, rawBuffer);
-			await onRefreshOverview();
-			setActiveTab('review');
-		} finally {
-			setSaving(false);
-		}
-	};
 
 	// Compute milestone & manual E2E completion stats
 	const totalCheckItems = plan.milestones.reduce(
@@ -332,10 +260,10 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 	const sec9Raw = findSectionContent('9.');
 
 	return (
-		<div className="flex flex-col h-full overflow-hidden">
+		<div className="flex flex-col h-full overflow-y-auto md:overflow-hidden">
 			{/* 1. Clean Top Plan Decision & Metadata Header */}
 			<div
-				className={`px-8 py-5 border-b space-y-4 shrink-0 ${
+				className={`px-4 md:px-8 py-5 border-b space-y-4 shrink-0 ${
 					isLight
 						? 'bg-white border-zinc-200'
 						: 'bg-[#0f0f12] border-zinc-800/90'
@@ -343,7 +271,7 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 			>
 				<div className={`${containerWidthClass} mx-auto space-y-3.5`}>
 					<div className="flex flex-wrap items-start justify-between gap-4">
-						<div className="space-y-2 min-w-0 flex-1">
+						<div className="space-y-2 min-w-0 flex-[1_1_100%] xl:flex-[1_1_0%]">
 							<div className="flex flex-wrap items-center gap-2">
 								<span
 									className={`px-2.5 py-0.5 rounded-md font-mono text-xs font-semibold border ${
@@ -433,7 +361,7 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 								{plan.status.toLowerCase().startsWith('draft') && (
 									<button
 										type="button"
-										disabled={saving}
+										disabled={saving || dirty || externalEditLocked}
 										onClick={() =>
 											handleStatusChange(`Approved (${todayShort})`)
 										}
@@ -459,21 +387,14 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 										Đổi trạng thái:
 									</span>
 									<select
-										disabled={saving}
-										value={
-											quickStatuses.find((st) =>
-												plan.status
-													.toLowerCase()
-													.startsWith(
-														st.label.split(' ')[0].toLowerCase()
-													)
-											)?.value || plan.status
-										}
+										disabled={saving || dirty || externalEditLocked}
+										value={plan.status}
 										onChange={(e) => handleStatusChange(e.target.value)}
 										className={`text-xs font-mono font-bold bg-transparent focus:outline-none cursor-pointer ${
 											isLight ? 'text-zinc-900' : 'text-blue-400'
 										}`}
 									>
+										{!quickStatuses.some((st) => st.value === plan.status) && <option value={plan.status}>{plan.status}</option>}
 										{quickStatuses.map((st) => (
 											<option
 												key={st.label}
@@ -660,8 +581,57 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 			</div>
 
 			{/* 2. Centered, Breathable Main Viewport (max-w-5xl / max-w-6xl mx-auto) */}
-			<div className="flex-1 overflow-y-auto px-8 py-8">
+			<div className="flex-1 md:overflow-y-auto px-4 py-6 md:px-8 md:py-8">
 				<div className={`${containerWidthClass} mx-auto space-y-5`}>
+					{activeTab === 'review' && (
+						<section aria-labelledby="plan-review-summary" className={`rounded-xl border p-5 ${isLight ? 'border-zinc-200 bg-white' : 'border-zinc-800 bg-zinc-900'}`}>
+							<h2 id="plan-review-summary" className="text-sm font-semibold">Tóm tắt review</h2>
+							<p className={`mt-2 text-sm leading-6 ${isLight ? 'text-zinc-700' : 'text-zinc-300'}`}>
+								{plan.goal || 'Plan chưa khai báo mục tiêu.'}
+							</p>
+							<div className={`mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
+								<span>{plan.mermaidBlocks.length} sơ đồ thiết kế</span>
+								<span>{plan.acceptanceTests.length} kiểm thử chấp nhận</span>
+								<span>{plan.openQuestions.length} câu hỏi mở</span>
+							</div>
+						</section>
+					)}
+					{activeTab !== 'editor' && (
+						<section aria-labelledby="plan-architecture-links" className={`rounded-xl border p-5 ${isLight ? 'border-zinc-200 bg-white' : 'border-zinc-800 bg-zinc-900'}`}>
+							<h2 id="plan-architecture-links" className="text-base font-semibold">Liên kết kiến trúc</h2>
+							<p className={`mt-1 text-sm ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Đối chiếu nguồn được nhắc đến và gợi ý theo file tác động.</p>
+							{architecture.error && <p role="alert" className="mt-3 text-sm text-rose-500">{architecture.error}</p>}
+							<div className="mt-4 grid gap-5 lg:grid-cols-2">
+								{([
+									{ title: 'Đã khai báo', items: architecture.declared },
+									{ title: 'Gợi ý', items: architecture.suggested },
+								]).map(({ title, items }) => (
+									<div key={title}>
+										<h3 className="text-sm font-semibold">{title}</h3>
+										{items.length === 0 ? <p className="mt-2 text-sm text-zinc-500">Không có liên kết phù hợp.</p> : (
+											<ul className="mt-2 space-y-3">
+												{items.map((link) => {
+													const diagram = ARCHITECTURE_DIAGRAMS.find((item) => item.id === link.diagramId);
+													return <li key={`${link.label}-${link.path}`} className="text-sm">
+														<button type="button" className="break-all text-left text-blue-500 underline underline-offset-2" onClick={() => void architecture.openLink(link)}>{link.label}</button>
+														<p className={`mt-1 break-words text-xs ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Nguồn: {link.evidence}</p>
+														{diagram && onSelectDiagram && <button type="button" className="mt-1 text-xs text-blue-500 underline underline-offset-2" onClick={() => onSelectDiagram(diagram.id)}>Xem sơ đồ {diagram.title}</button>}
+													</li>;
+												})}
+											</ul>
+										)}
+									</div>
+								))}
+							</div>
+						</section>
+					)}
+					{dirty && <p role="status" className="mb-3 text-sm text-amber-600">Lưu bản nháp Markdown trước khi thay đổi trạng thái, checklist hoặc câu hỏi.</p>}
+					{externalEditLocked && <p role="status" className="mb-3 text-sm text-amber-600">Lưu hoặc bỏ bản nháp trong bảng ngữ cảnh trước khi sửa plan.</p>}
+					{error && (
+						<div role="alert" className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-sm text-rose-500">
+							{error}
+						</div>
+					)}
 					{/* Schema Warnings Box if any */}
 					{plan.validation.status === 'warning' && (
 						<div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-1.5">
@@ -693,13 +663,13 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 								badge={
 									plan.scopeVerdict ? (
 										<span
-											className={`px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold border ${
+											className={`min-w-0 px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold border ${
 												isLight
 													? 'bg-blue-50 text-blue-700 border-blue-200'
 													: 'bg-blue-500/15 text-blue-300 border-blue-500/30'
 											}`}
 										>
-											Scope: {cleanMarkdownPlain(plan.scopeVerdict.split('.')[0])}
+											Scope: {scopeLabel}
 										</span>
 									) : null
 								}
@@ -1015,7 +985,7 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 										/>
 										<button
 											type="submit"
-											disabled={saving || !newQuestion.trim()}
+											disabled={saving || dirty || externalEditLocked || !newQuestion.trim()}
 											className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white flex items-center gap-1.5 transition disabled:opacity-40"
 										>
 											<Plus className="w-3.5 h-3.5" />
@@ -1148,7 +1118,7 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 													>
 														<button
 															type="button"
-															disabled={saving}
+															disabled={saving || dirty || externalEditLocked}
 															aria-label={`Đánh dấu E2E dòng ${item.lineNumber}`}
 															onClick={() =>
 																handleToggleCheckbox(
@@ -1504,7 +1474,7 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 														<div className="flex items-center gap-2.5 min-w-0 flex-1">
 															<button
 																type="button"
-																disabled={saving}
+																disabled={saving || dirty || externalEditLocked}
 																onClick={() =>
 																	handleToggleCheckbox(
 																		m.lineNumber,
@@ -1574,7 +1544,7 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 																>
 																	<button
 																		type="button"
-																		disabled={saving}
+																		disabled={saving || dirty || externalEditLocked}
 																		onClick={() =>
 																			handleToggleCheckbox(
 																				item.lineNumber,
@@ -1683,7 +1653,7 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 								</span>
 								<button
 									type="button"
-									disabled={saving}
+									disabled={saving || externalEditLocked}
 									onClick={handleSaveRaw}
 									className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition"
 								>
@@ -1692,6 +1662,7 @@ export const PlanReviewView: React.FC<PlanReviewViewProps> = ({
 								</button>
 							</div>
 							<textarea
+								disabled={saving || externalEditLocked}
 								value={rawBuffer}
 								onChange={(e) => setRawBuffer(e.target.value)}
 								className={`w-full h-[68vh] p-4 rounded-xl border text-xs font-mono focus:outline-none focus:border-blue-500 leading-6 ${

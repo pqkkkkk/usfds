@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { docsDashboardApi } from '@/api/docsDashboardApi';
 import { ARCHITECTURE_DIAGRAMS, extractArchitectureDiagram } from '@/utils/docsArchitecture';
 
-export function useDocsArchitecture() {
-	const [selectedId, setSelectedId] = useState(ARCHITECTURE_DIAGRAMS[0].id);
+export function useDocsArchitecture(initialId?: string) {
+	const [selectedId, setSelectedId] = useState(initialId ?? ARCHITECTURE_DIAGRAMS[0].id);
 	const [retryCount, setRetryCount] = useState(0);
 	const [result, setResult] = useState<{ id: string; version: number; code: string; error: string | null } | null>(null);
 	const diagram = ARCHITECTURE_DIAGRAMS.find((item) => item.id === selectedId) ?? ARCHITECTURE_DIAGRAMS[0];
