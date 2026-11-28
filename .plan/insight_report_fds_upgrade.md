@@ -166,33 +166,39 @@ Tuân thủ `docs/design-system.md` (Dark Mode OLED, Dual-Encoding icon + badge,
 
 ## 6. Milestones & to-do (checkpoints, not stop points: all tests green at each)
 
-- [ ] **M1 — Nâng cấp DuckDB OLAP Engine & Report Builder** (`usfds-core`): Toàn bộ công thức FDS chuẩn hóa, chỉ số mới và HTML export hoạt động chính xác với unit tests xanh.
-  - [ ] [tests] Viết các acceptance tests M1 trong `usfds-core/tests/test_insight_report_service.py` và xác nhận fail đúng lý do
-  - [ ] [core] Sửa & mở rộng `compute_executive_overview` (Missed Fraud/VDR/bps, tách REJECT vs REVIEW, Customer Insult Rate chuẩn, Funnel đơn điệu, Daily Trend theo `tx_timestamp`, Case SLA/MTTR/Aging/Analyst với ngưỡng `CRITICAL ≤ 4h`, `HIGH ≤ 24h`, `MEDIUM ≤ 72h`) trong `engine.py`
-  - [ ] [core] Sửa & mở rộng `compute_effectiveness_analysis` (Rule `false_alert_rate`, `unique_catch`, `is_small_sample` khi `n < 30`, `fp_samples`/`fn_samples`; Calibration `equal_width`/`equal_count` + Brier + ECE; Lift/Gain Top-K + KS; Dual-Threshold & Cost-Aware Simulator cho cả `hybrid` và `model_only`; Model Comparison + PSI Drift) trong `engine.py`
-  - [ ] [core] Sửa & mở rộng `compute_typology_and_patterns` (tách 24h `confirmed_fraud_rate` vs `flagged_rate`; `segment_analytics` đa chiều trên 5 cột `ProjectWarehouse` + Amount kèm `is_small_sample`; sửa `total_tx_count` của `top_flagged_subjects`; bổ sung `watchlist_summary` impact) trong `engine.py`
-  - [ ] [core] Cập nhật `service.py` (optional `model_version_repo`/`model_repo`) và `report_builder.py` (Executive Audit mới + HTML/Print template chuẩn)
-  - [ ] [verify] `./scripts/test.sh core`
+- [x] **M1 — Nâng cấp DuckDB OLAP Engine & Report Builder** (`usfds-core`): Toàn bộ công thức FDS chuẩn hóa, chỉ số mới và HTML export hoạt động chính xác với unit tests xanh.
+  - [x] [tests] Viết các acceptance tests M1 trong `usfds-core/tests/test_insight_report_service.py` và xác nhận fail đúng lý do
+  - [x] [core] Sửa & mở rộng `compute_executive_overview` (Missed Fraud/VDR/bps, tách REJECT vs REVIEW, Customer Insult Rate chuẩn, Funnel đơn điệu, Daily Trend theo `tx_timestamp`, Case SLA/MTTR/Aging/Analyst với ngưỡng `CRITICAL ≤ 4h`, `HIGH ≤ 24h`, `MEDIUM ≤ 72h`) trong `engine.py`
+  - [x] [core] Sửa & mở rộng `compute_effectiveness_analysis` (Rule `false_alert_rate`, `unique_catch`, `is_small_sample` khi `n < 30`, `fp_samples`/`fn_samples`; Calibration `equal_width`/`equal_count` + Brier + ECE; Lift/Gain Top-K + KS; Dual-Threshold & Cost-Aware Simulator cho cả `hybrid` và `model_only`; Model Comparison + PSI Drift) trong `engine.py`
+  - [x] [core] Sửa & mở rộng `compute_typology_and_patterns` (tách 24h `confirmed_fraud_rate` vs `flagged_rate`; `segment_analytics` đa chiều trên 5 cột `ProjectWarehouse` + Amount kèm `is_small_sample`; sửa `total_tx_count` của `top_flagged_subjects`; bổ sung `watchlist_summary` impact) trong `engine.py`
+  - [x] [core] Cập nhật `service.py` (optional `model_version_repo`/`model_repo`) và `report_builder.py` (Executive Audit mới + HTML/Print template chuẩn)
+  - [x] [verify] `./scripts/test.sh core`
 
-- [ ] **M2 — Đồng bộ API Provider & Analytics Worker** (`usfds-server`, `usfds-worker`): Cả chế độ inline và queue worker đều trả đầy đủ metadata model & payload mới.
-  - [ ] [tests] Bổ sung integration tests M2 trong `usfds-server/tests/test_insight_report_api.py`
-  - [ ] [server] Cập nhật `usfds-server/src/usfds_server/providers/insight.py` để truyền `model_repo` và `model_version_repo`
-  - [ ] [worker] Cập nhật `usfds-worker/src/usfds_worker/handlers.py` (`handle_insight_report`) để truyền `SqliteModelRepository` và `SqliteModelVersionRepository`
-  - [ ] [verify] `./scripts/test.sh server worker`
+- [x] **M2 — Đồng bộ API Provider & Analytics Worker** (`usfds-server`, `usfds-worker`): Cả chế độ inline và queue worker đều trả đầy đủ metadata model & payload mới.
+  - [x] [tests] Bổ sung integration tests M2 trong `usfds-server/tests/test_insight_report_api.py`
+  - [x] [server] Cập nhật `usfds-server/src/usfds_server/providers/insight.py` để truyền `model_repo` và `model_version_repo`
+  - [x] [worker] Cập nhật `usfds-worker/src/usfds_worker/handlers.py` (`handle_insight_report`) để truyền `SqliteModelRepository` và `SqliteModelVersionRepository`
+  - [x] [verify] `./scripts/test.sh server worker`
 
-- [ ] **M3 — Tái thiết kế 4 Tab Insight & Report + Metric Tooltips** (`usfds-web`): Giao diện 100% tiếng Việt, tổ chức mạch lạc theo quyết định nghiệp vụ, có tooltip giải thích từng metric.
-  - [ ] [tests] Viết Vitest + MSW tests M3 tại `usfds-web/src/components/modules/reports/InsightReportTabs.test.tsx`
-  - [ ] [web] Cập nhật `usfds-web/src/types/insightReport.ts` và tạo `MetricInfoTooltip.tsx`
-  - [ ] [web] Nâng cấp `ExecutiveOverviewTab.tsx` (6 KPI mới + Daily Trend + Funnel chuẩn + Case SLA/Aging/Analyst)
-  - [ ] [web] Nâng cấp `EffectivenessTab.tsx` (Model Health Strip, Rule Unique Catch + FP/FN Samples, Calibration Reliability Curve, Top-K Lift/Gain, Dual-Threshold Cost-Aware Simulator hiển thị song song Hybrid & Model-only, Model Comparison & PSI)
-  - [ ] [web] Nâng cấp `TypologiesPatternsTab.tsx` (24h 2 đường tách biệt, Segment Hit-Rate Matrix đa chiều, Top Subjects & Watchlist Impact) và `ComplianceReportCenterTab.tsx` (bỏ XGBoost hardcode, mở bản in HTML/PDF chuẩn)
-  - [ ] [verify] `./scripts/test.sh web` và `npm run build` (`tsc -b && vite build`)
+- [x] **M3 — Tái thiết kế 4 Tab Insight & Report + Metric Tooltips** (`usfds-web`): Giao diện 100% tiếng Việt, tổ chức mạch lạc theo quyết định nghiệp vụ, có tooltip giải thích từng metric.
+  - [x] [tests] Viết Vitest + MSW tests M3 tại `usfds-web/src/components/modules/reports/InsightReportTabs.test.tsx`
+  - [x] [web] Cập nhật `usfds-web/src/types/insightReport.ts` và tạo `MetricInfoTooltip.tsx`
+  - [x] [web] Nâng cấp `ExecutiveOverviewTab.tsx` (6 KPI mới + Daily Trend + Funnel chuẩn + Case SLA/Aging/Analyst)
+  - [x] [web] Nâng cấp `EffectivenessTab.tsx` (Model Health Strip, Rule Unique Catch + FP/FN Samples, Calibration Reliability Curve, Top-K Lift/Gain, Dual-Threshold Cost-Aware Simulator hiển thị song song Hybrid & Model-only, Model Comparison & PSI)
+  - [x] [web] Nâng cấp `TypologiesPatternsTab.tsx` (24h 2 đường tách biệt, Segment Hit-Rate Matrix đa chiều, Top Subjects & Watchlist Impact) và `ComplianceReportCenterTab.tsx` (bỏ XGBoost hardcode, mở bản in HTML/PDF chuẩn)
+  - [x] [verify] `./scripts/test.sh web` và `npm run build` (`tsc -b && vite build`)
 
 Checkpoint log:
-- (chưa bắt đầu — chờ lệnh triển khai)
+- 26-11-28 M1: `./scripts/test.sh core` → `197 passed, 15 skipped, 169 warnings in 14.97s` (PASS core). Toàn bộ 7 acceptance tests M1 xanh; không có sai lệch ngoài kế hoạch.
+- 26-11-28 M2: `./scripts/test.sh server worker` → server `60 passed, 120 warnings in 53.34s`, worker `10 passed, 4 warnings in 6.06s` (PASS server, PASS worker). Model labels & upgraded payload verified end-to-end.
+- 26-11-28 M3: `cd usfds-web && npm run build && npm run lint && npm test` → `28 passed (28)`, `61 passed (61)` (PASS web). Lưu ý: `npm ci` gặp lỗi SSL proxy sandbox (`SELF_SIGNED_CERT_IN_CHAIN`) nên đã nhân bản `node_modules` cục bộ vào worktree bằng `cp -cR` (gitignored) để chạy Vitest/build/lint.
 
 ## 7. Review hotspots (filled in after implementation)
-- (điền sau khi hoàn tất triển khai)
+1. `usfds-core/src/usfds_core/services/insight_report/engine.py:694-725` (M1): Phân biệt `ground_truth_coverage` (`FULL` vs `FLAGGED_ONLY`) — quyết định khi nào trả `None` cho `missed_fraud_amount`, `value_detection_rate`, `net_fraud_loss_bps`, `customer_insult_rate` thay vì trả `0` giả tạo ở `VERIFIED_ONLY`; kiểm chứng bởi `test_overview_missed_fraud_vdr_bps_and_insult_rate_separation` và `test_overview_verified_only_returns_null_for_fn_tn_metrics_and_monotonic_funnel`.
+2. `usfds-core/src/usfds_core/services/insight_report/engine.py:1213-1338` & `usfds-web/src/components/modules/reports/EffectivenessTab.tsx:47-93` (M1, M3): Mô phỏng ngưỡng kép `(tau_review, tau_reject)` bằng phép trừ tích lũy `FLAGGED(tau_review) - REJECT(tau_reject)` cho cả `hybrid` và `model_only` — rủi ro sai lệch nếu điều kiện `REJECT` không phải tập con của `FLAGGED` hoặc `tau_reject < tau_review`; kiểm chứng bởi `test_effectiveness_calibration_lift_ks_psi_and_dual_threshold_simulator` và `test_report_tabs_render_metrics_tooltips_and_verified_only_guard`.
+3. `usfds-core/src/usfds_core/services/insight_report/engine.py:1563-1627` (M1): Công thức Rule `unique_catch` (`len(rule_codes) == 1 AND has_ai_hit = 0`) và giữ alias `verified_fpr = false_alert_rate` — sai sót ở đây sẽ quy nhầm luật dư thừa thành độc nhất hoặc làm vỡ consumer cũ; kiểm chứng bởi `test_effectiveness_rule_unique_catch_far_small_sample_and_fp_fn_samples`.
+4. `usfds-core/src/usfds_core/services/insight_report/report_builder.py:449-650` (M1): Escape HTML (`html.escape`) trong `_render_html_document` cho cả SAR Dossier và Executive Audit Report khi bỏ `<pre>` để xuất bảng HTML/in A4; kiểm chứng bởi `test_compliance_html_export_renders_structured_report_without_raw_pre`.
+5. `usfds-server/src/usfds_server/providers/insight.py:28-51` & `usfds-worker/src/usfds_worker/handlers.py:390-401` (M2): Đồng bộ inject `model_version_repo` và `model_repo` ở cả chế độ sync API và analytics queue worker để `model_comparison` và `SAR` không rớt về UUID rút gọn khác nhau giữa 2 backend; kiểm chứng bởi `test_api_reports_return_upgraded_payload_and_model_labels` và `test_insight_report_runs_on_analytics_worker_queue_in_queue_mode`.
 
 ## 8. Open questions
 - `—` (Đã chốt toàn bộ ngày 26-11-27: (1) Đã tạo `ISS-046` và cập nhật `docs/features/insight_report/suc-spec.md`; (2) Chốt `Small Sample` `n < 30` và SLA `CRITICAL ≤ 4h`, `HIGH ≤ 24h`, `MEDIUM ≤ 72h`; (3) Dual-Threshold Simulator hiển thị song song cả 2 chế độ **Hybrid (AI + Luật)** và **Chỉ AI (Model-only)**.)

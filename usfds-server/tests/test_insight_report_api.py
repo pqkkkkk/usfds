@@ -217,3 +217,143 @@ def test_insight_report_queue_mode_maps_worker_lookup_error_to_404(client_queue_
 
 	assert res.status_code == 404, res.text
 	assert client_queue_mode.job_queue.jobs[-1]["failed_reason"].startswith("LookupError:")
+
+
+def test_api_reports_return_upgraded_payload_and_model_labels(tmp_path):
+	"""SUC-22..25, BR-IR-01, ISS-046: API returns new OLAP keys, resolved model labels, structured HTML, and enforces project isolation."""
+	old_db, old_storage = settings.db_path, settings.storage_dir
+	settings.db_path, settings.storage_dir = str(tmp_path / "upgraded_reports.db"), str(tmp_path / "storage")
+	try:
+		with TestClient(app) as client:
+			from usfds_core.domain.entities.case import Case, CaseStatus
+			from usfds_core.domain.entities.enums import RiskLevel, RuleAction
+			from usfds_core.domain.entities.model import Model, ModelVersion
+			from usfds_infra.database import (
+				SqliteModelRepository,
+				SqliteModelVersionRepository,
+				SqlUserRepository,
+			)
+			from usfds_infra.database.case_repositories import SqliteCaseRepository
+
+			project_id, other_project_id, job_id = uuid4(), uuid4(), uuid4()
+			session_gen = get_db()
+			session = next(session_gen)
+			actor_id = SqlUserRepository(session).get_by_username("admin").user_id
+			SqliteProjectRepository(session).save(
+				Project(project_id=project_id, user_id=actor_id, project_name="FDS Upgraded API")
+			)
+			SqliteProjectRepository(session).save(
+				Project(project_id=other_project_id, user_id=actor_id, project_name="Isolated Other Project")
+			)
+
+			model = Model(model_name="fraud_gbdt", display_name="FraudNet GBDT", user_id=actor_id, project_id=project_id)
+			SqliteModelRepository(session).save(model)
+			mv = ModelVersion(
+				model_id=model.model_id,
+				semver="1.2.0",
+				artifact_uri="models/fraudnet.bin",
+				project_id=project_id,
+				user_id=actor_id,
+			)
+			SqliteModelVersionRepository(session).save(mv)
+
+			rows = []
+			for i in range(24):
+				is_fraud = 1 if i < 6 else 0
+				score = 0.90 if is_fraud else round(0.05 + (i % 4) * 0.05, 2)
+				action = "REJECT" if is_fraud and i < 3 else ("REVIEW" if is_fraud and i < 5 else "ALLOW")
+				rows.append({
+					"event_id": f"API-EV-{i}",
+					"user_id": f"U-API-{i % 5}",
+					"timestamp": f"2026-11-{1 + (i // 12):02d}T{i % 24:02d}:00:00Z",
+					"amount": 500.0 if is_fraud else 50.0,
+					"model_score": score,
+					"rule_action": "REJECT" if i == 0 else "ALLOW",
+					"final_action": action,
+					"is_flagged": 1 if action != "ALLOW" else 0,
+					"triggered_rules": json.dumps(["R_VEL"]) if i == 0 else "[]",
+					"label": is_fraud,
+					"merchant_category": "RETAIL" if i % 2 == 0 else "TRAVEL",
+					"device_id": f"DEV-{i % 3}",
+				})
+			output_rel = f"datasets/{project_id}/inferences/{job_id}/predictions.parquet"
+			get_storage().save_bytes(output_rel, pd.DataFrame(rows).to_parquet(index=False))
+
+			SqliteDetectionJobRepository(session).save(DetectionJob(
+				job_id=job_id,
+				project_id=project_id,
+				user_id=actor_id,
+				model_version_id=mv.version_id,
+				job_name="Upgraded Scan",
+				output_path=output_rel,
+				score_threshold=0.5,
+				status=DetectionJobStatus.COMPLETED,
+				total_records=24,
+				fraud_records=5,
+				created_at=datetime(2026, 11, 2, 12, 0, tzinfo=timezone.utc),
+			))
+			SqliteCaseRepository(session).save(Case(
+				project_id=project_id,
+				event_id="API-EV-0",
+				user_id="U-API-0",
+				tx_timestamp=datetime(2026, 11, 1, 0, 0, tzinfo=timezone.utc),
+				amount=500.0,
+				final_action=RuleAction.REJECT,
+				dataset_artifact_id=None,
+				detection_job_id=job_id,
+				model_version_id=mv.version_id,
+				case_code="CASE-API-1",
+				model_score=0.90,
+				status=CaseStatus.RESOLVED_FRAUD,
+				priority=RiskLevel.CRITICAL,
+				resolution_reason="VELOCITY_ATTACK",
+				resolution_summary="Verified",
+				created_at=datetime(2026, 11, 1, 1, 0, tzinfo=timezone.utc),
+				resolved_at=datetime(2026, 11, 1, 3, 0, tzinfo=timezone.utc),
+				resolved_by="analyst_api",
+			))
+			session.commit()
+			session_gen.close()
+
+			params = {"project_id": str(project_id)}
+			ov = client.get("/api/v1/reports/overview", params=params)
+			assert ov.status_code == 200, ov.text
+			ov_data = ov.json()["data"]
+			assert "case_sla" in ov_data
+			assert ov_data["kpis"]["value_detection_rate"] is not None
+			assert ov_data["kpis"]["missed_fraud_amount"] == 500.0
+
+			eff = client.get("/api/v1/reports/effectiveness", params=params)
+			assert eff.status_code == 200, eff.text
+			eff_data = eff.json()["data"]
+			assert "score_drift" in eff_data
+			assert "lift_gain_curve" in eff_data
+			assert "model_health" in eff_data
+			assert len(eff_data["model_comparison"]) == 1
+			assert eff_data["model_comparison"][0]["model_name"] == "FraudNet GBDT"
+			assert eff_data["model_comparison"][0]["display_label"] == "FraudNet GBDT v1.2.0"
+
+			pat = client.get("/api/v1/reports/patterns", params=params)
+			assert pat.status_code == 200, pat.text
+			pat_data = pat.json()["data"]
+			assert pat_data["segment_analytics"]["merchant_category"]["available"] is True
+			assert pat_data["segment_analytics"]["device_id"]["available"] is True
+
+			summary = client.get("/api/v1/reports/executive-summary", params=params)
+			assert summary.status_code == 200, summary.text
+			assert "case_sla" in summary.json()["data"]["section_2_operations_funnel"]
+
+			exp_html = client.get(
+				"/api/v1/reports/export",
+				params={**params, "report_type": "executive", "file_format": "html"},
+			)
+			assert exp_html.status_code == 200, exp_html.text
+			assert "<table" in exp_html.text and "@media print" in exp_html.text
+
+			# BR-IR-01 cross-project isolation: other project sees 0 transactions
+			other_ov = client.get("/api/v1/reports/overview", params={"project_id": str(other_project_id)})
+			assert other_ov.status_code == 200
+			assert other_ov.json()["data"]["kpis"]["gross_scanned_count"] == 0
+	finally:
+		settings.db_path, settings.storage_dir = old_db, old_storage
+

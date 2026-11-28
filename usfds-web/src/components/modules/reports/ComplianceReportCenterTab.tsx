@@ -39,7 +39,6 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 	const [preparedBy, setPreparedBy] = useState<string>('');
 	const [reviewerNotes, setReviewerNotes] = useState<string>('');
 
-	// Load project cases for SAR Dossier selection
 	const { data: casesPage } = useQuery({
 		queryKey: ['cases-for-sar', projectId],
 		queryFn: () => investigationApi.list(projectId, { page: 1, page_size: 100 }),
@@ -58,15 +57,21 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 		}
 	}, [initialCaseId, availableCases, selectedCaseId]);
 
-	// Fetch SAR Dossier preview
-	const { data: sarData, isLoading: isLoadingSar } = useQuery({
+	const {
+		data: sarData,
+		isLoading: isLoadingSar,
+		error: sarError,
+	} = useQuery({
 		queryKey: ['report-sar', projectId, selectedCaseId, preparedBy, reviewerNotes],
 		queryFn: () => insightReportApi.getSarDossier(projectId, selectedCaseId, preparedBy, reviewerNotes),
 		enabled: Boolean(projectId && template === 'SAR_DOSSIER' && selectedCaseId),
 	});
 
-	// Fetch Executive Audit Report preview
-	const { data: execData, isLoading: isLoadingExec } = useQuery({
+	const {
+		data: execData,
+		isLoading: isLoadingExec,
+		error: execError,
+	} = useQuery({
 		queryKey: ['report-exec', projectId, scope, preparedBy, reviewerNotes],
 		queryFn: () => insightReportApi.getExecutiveSummary(projectId, scope, preparedBy, reviewerNotes),
 		enabled: Boolean(projectId && template === 'EXECUTIVE_AUDIT_REPORT'),
@@ -97,13 +102,16 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 	const s4 = sarData?.section_4_narrative_and_typology;
 	const s5 = sarData?.section_5_mitigation_and_audit;
 	const execKpis = execData?.section_1_financial_kpis;
+	const execSla = execData?.section_2_operations_funnel?.case_sla;
+	const execModelHealth = execData?.section_3_policy_and_model_effectiveness?.model_health;
+	const execRules = execData?.section_3_policy_and_model_effectiveness?.rule_leaderboard || [];
+	const execWatchlist = execData?.section_5_watchlist_and_governance?.watchlist_summary;
 
 	return (
 		<div className="space-y-6">
-			{/* Configuration & Export Control Bar */}
+			{/* Thanh cấu hình & xuất báo cáo */}
 			<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-5 space-y-4">
 				<div className="flex flex-wrap items-center justify-between gap-4">
-					{/* Template Switcher */}
 					<div className="flex items-center gap-2 bg-dark-950 p-1 rounded-xl border border-dark-800">
 						<button
 							type="button"
@@ -114,7 +122,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 									: 'text-slate-400 hover:text-slate-200'
 							}`}
 						>
-							<ClipboardCheck size={14} />
+							<ClipboardCheck size={14} aria-hidden="true" />
 							<span>Báo cáo kiểm toán gian lận & chính sách điều hành</span>
 						</button>
 						<button
@@ -126,12 +134,11 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 									: 'text-slate-400 hover:text-slate-200'
 							}`}
 						>
-							<ShieldAlert size={14} />
+							<ShieldAlert size={14} aria-hidden="true" />
 							<span>Hồ sơ báo cáo giao dịch đáng ngờ (SAR)</span>
 						</button>
 					</div>
 
-					{/* Export Buttons */}
 					{canExportReport && (
 						<div className="flex flex-wrap items-center gap-2">
 							<button
@@ -140,7 +147,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
 								className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors cursor-pointer"
 							>
-								<Printer size={14} />
+								<Printer size={14} aria-hidden="true" />
 								<span>In / lưu PDF</span>
 							</button>
 							<button
@@ -149,7 +156,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
 								className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 disabled:opacity-40 text-slate-200 border border-dark-700 text-xs font-medium transition-colors cursor-pointer"
 							>
-								<FileText size={14} className="text-cyan-400" />
+								<FileText size={14} className="text-cyan-400" aria-hidden="true" />
 								<span>.MD</span>
 							</button>
 							<button
@@ -158,7 +165,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
 								className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 disabled:opacity-40 text-slate-200 border border-dark-700 text-xs font-medium transition-colors cursor-pointer"
 							>
-								<FileCode2 size={14} className="text-amber-400" />
+								<FileCode2 size={14} className="text-amber-400" aria-hidden="true" />
 								<span>.JSON</span>
 							</button>
 							<button
@@ -167,14 +174,13 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								disabled={template === 'SAR_DOSSIER' && !selectedCaseId}
 								className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 disabled:opacity-40 text-slate-200 border border-dark-700 text-xs font-medium transition-colors cursor-pointer"
 							>
-								<FileSpreadsheet size={14} className="text-emerald-400" />
+								<FileSpreadsheet size={14} className="text-emerald-400" aria-hidden="true" />
 								<span>.CSV</span>
 							</button>
 						</div>
 					)}
 				</div>
 
-				{/* Metadata & Case Parameters */}
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-dark-800">
 					{template === 'SAR_DOSSIER' && (
 						<div>
@@ -191,7 +197,7 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								) : (
 									availableCases.map((c) => (
 										<option key={c.case_id} value={c.case_id}>
-											[{c.status}] Event {c.event_id} • User {c.user_id} • {formatCurrency(c.amount)}
+											[{c.status}] Sự kiện {c.event_id} • {c.user_id} • {formatCurrency(c.amount)}
 										</option>
 									))
 								)}
@@ -227,28 +233,30 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 				</div>
 			</div>
 
-			{/* Interactive Document Preview */}
+			{/* Xem trước báo cáo */}
 			{template === 'SAR_DOSSIER' ? (
-				isLoadingSar ? (
+				sarError ? (
+					<div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-6 text-xs text-rose-300">
+						Không thể tải hồ sơ SAR: {(sarError as Error).message}
+					</div>
+				) : isLoadingSar ? (
 					<div className="h-96 bg-dark-900 border border-dark-700/80 rounded-xl animate-pulse" />
 				) : !sarData || !s1 || !s2 || !s3 || !s4 || !s5 ? (
 					<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-10 text-center text-xs text-slate-400">
-						Chọn một hồ sơ đã chuyển ở trên để xem trước hồ sơ SAR gồm 5 phần.
+						Chọn một hồ sơ điều tra ở trên để xem trước hồ sơ SAR gồm 5 phần.
 					</div>
 				) : (
 					<div className="bg-dark-900 border border-dark-700/80 rounded-xl p-6 space-y-6">
-						{/* Document Header */}
 						<div className="border-b border-dark-700 pb-4 flex flex-wrap items-start justify-between gap-4">
 							<div>
 								<div className="text-[11px] font-mono uppercase tracking-widest text-brand-400">
-									REGULATORY COMPLIANCE DOSSIER • {sarData.report_id}
+									HỒ SƠ TUÂN THỦ SAR • {sarData.report_id}
 								</div>
 								<h2 className="text-lg font-bold text-slate-100 mt-1">
 									Báo cáo giao dịch đáng ngờ (SAR) — Hồ sơ {s1.case_code} (Sự kiện {s2.primary_event_id})
 								</h2>
 								<p className="text-xs text-slate-400 font-mono mt-1">
-									Project: {sarData.project_name} • Prepared By: {sarData.prepared_by} • Generated:{' '}
-									{sarData.generated_at}
+									Dự án: {sarData.project_name} • Người lập: {sarData.prepared_by} • Khởi tạo: {sarData.generated_at}
 								</p>
 							</div>
 							<span className="px-3 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 font-mono text-xs font-bold text-emerald-300">
@@ -256,7 +264,6 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							</span>
 						</div>
 
-						{/* Part I & Part II */}
 						<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 							<div className="bg-dark-950 border border-dark-800 rounded-xl p-4 space-y-2">
 								<h3 className="text-xs font-bold uppercase tracking-wider text-brand-300">
@@ -264,15 +271,11 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 								</h3>
 								<div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
 									<div className="text-slate-400">Mã hồ sơ:</div>
-									<div className="text-slate-200 truncate">
-										{s1.case_code} ({s1.case_id.slice(0, 8)})
-									</div>
-									<div className="text-slate-400">Người dùng liên quan (`user_id`):</div>
+									<div className="text-slate-200 truncate">{s1.case_code} ({s1.case_id.slice(0, 8)})</div>
+									<div className="text-slate-400">Người dùng liên quan:</div>
 									<div className="text-slate-100 font-bold">{s1.subject_user_id}</div>
 									<div className="text-slate-400">Mức ưu tiên / điểm:</div>
-									<div className="text-amber-300">
-										{s1.priority} ({s1.priority_score})
-									</div>
+									<div className="text-amber-300">{s1.priority} ({s1.priority_score})</div>
 									<div className="text-slate-400">Chuyên viên xử lý:</div>
 									<div className="text-slate-200">{s1.resolved_by}</div>
 									<div className="text-slate-400">Trạng thái danh sách đen:</div>
@@ -293,9 +296,9 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 									<div className="text-emerald-400 font-bold text-sm">
 										{formatCurrency(s2.primary_amount)} ({s2.final_action})
 									</div>
-									<div className="text-slate-400">Mức phơi nhiễm đối tượng:</div>
+									<div className="text-slate-400">Tổng phơi nhiễm đối tượng:</div>
 									<div className="text-amber-300">
-										{formatCurrency(s2.total_subject_exposure)} ({s2.subject_flagged_tx_count} txs)
+										{formatCurrency(s2.total_subject_exposure)} ({s2.subject_flagged_tx_count} GD)
 									</div>
 									<div className="text-slate-400">Thời điểm sự kiện:</div>
 									<div className="text-slate-200">{s2.primary_tx_timestamp}</div>
@@ -303,25 +306,24 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							</div>
 						</div>
 
-						{/* Part III: Hybrid Detection Evidence */}
+						{/* Phần III: Bằng chứng phát hiện (Mô hình AI + SHAP + Luật) */}
 						<div className="bg-dark-950 border border-dark-800 rounded-xl p-4 space-y-4">
 							<div className="flex items-center justify-between">
 								<h3 className="text-xs font-bold uppercase tracking-wider text-cyan-300">
-									Phần III — Bằng chứng phát hiện kết hợp (XGBoost + SHAP + luật)
+									Phần III — Bằng chứng phát hiện kết hợp (Mô hình AI + SHAP + Luật)
 								</h3>
 								<span className="text-xs font-mono px-2.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-300">
-									Điểm XGBoost: {s3.model_score != null ? s3.model_score.toFixed(4) : 'Không có'}
+									Điểm mô hình AI: {s3.model_score != null ? s3.model_score.toFixed(4) : 'Không có'}
 								</span>
 							</div>
 
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-								{/* Top SHAP */}
 								<div>
 									<div className="text-[11px] font-semibold uppercase text-slate-400 mb-2">
 										Đóng góp đặc trưng SHAP hàng đầu
 									</div>
 									{(s3.top_feature_contributions || []).length === 0 ? (
-										<div className="text-xs text-slate-500">No SHAP telemetry recorded</div>
+										<div className="text-xs text-slate-500">Chưa ghi nhận dữ liệu giải thích SHAP</div>
 									) : (
 										<div className="space-y-1.5">
 											{s3.top_feature_contributions.map((sc) => (
@@ -330,14 +332,9 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 													className="flex items-center justify-between text-xs font-mono bg-dark-900 px-3 py-1.5 rounded border border-dark-800"
 												>
 													<span className="text-slate-200">
-														{sc.feature_name} ={' '}
-														<span className="text-slate-400">{String(sc.feature_value)}</span>
+														{sc.feature_name} = <span className="text-slate-400">{String(sc.feature_value)}</span>
 													</span>
-													<span
-														className={
-															sc.shap_value >= 0 ? 'text-rose-400 font-bold' : 'text-emerald-400'
-														}
-													>
+													<span className={sc.shap_value >= 0 ? 'text-rose-400 font-bold' : 'text-emerald-400'}>
 														{sc.shap_value >= 0 ? '+' : ''}
 														{sc.shap_value.toFixed(4)}
 													</span>
@@ -347,13 +344,12 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 									)}
 								</div>
 
-								{/* Triggered Rules */}
 								<div>
 									<div className="text-[11px] font-semibold uppercase text-slate-400 mb-2">
 										Luật chính sách đã kích hoạt
 									</div>
 									{(s3.violated_rules || []).length === 0 ? (
-										<div className="text-xs text-slate-500">No deterministic rules triggered</div>
+										<div className="text-xs text-slate-500">Không có luật xác định nào bị kích hoạt</div>
 									) : (
 										<div className="space-y-1.5">
 											{s3.violated_rules.map((tr) => (
@@ -377,17 +373,12 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							</div>
 						</div>
 
-						{/* Part IV: Investigation Narrative */}
 						<div className="bg-dark-950 border border-dark-800 rounded-xl p-4 space-y-2">
 							<h3 className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
-								<Sparkles size={13} />
-								<span>
-									Phần IV — Diễn giải điều tra & loại hình ({s4.fraud_typology_label})
-								</span>
+								<Sparkles size={13} aria-hidden="true" />
+								<span>Phần IV — Diễn giải điều tra & loại hình ({s4.fraud_typology_label})</span>
 							</h3>
-							<p className="text-xs text-slate-200 leading-relaxed">
-								{s4.automated_technical_narrative}
-							</p>
+							<p className="text-xs text-slate-200 leading-relaxed">{s4.automated_technical_narrative}</p>
 							{s4.analyst_resolution_summary && (
 								<div className="text-xs font-mono text-emerald-300 pt-1">
 									Tóm tắt xử lý của chuyên viên: {s4.analyst_resolution_summary}
@@ -395,19 +386,17 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 							)}
 						</div>
 
-						{/* Part V: Immutable Chain-of-Custody Audit Trail */}
 						<div className="bg-dark-950 border border-dark-800 rounded-xl p-4 space-y-2">
 							<h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-								Phần V — Giảm thiểu & nhật ký kiểm toán chuỗi lưu giữ bất biến (
-								{(s5.audit_trail || []).length} events)
+								Phần V — Giảm thiểu & nhật ký kiểm toán chuỗi lưu giữ bất biến ({(s5.audit_trail || []).length} sự kiện)
 							</h3>
 							<div className="overflow-x-auto">
 								<table className="w-full text-left border-collapse text-xs font-mono">
 									<thead>
 										<tr className="border-b border-dark-800 text-[11px] text-slate-400">
-											<th className="py-1.5 px-2">Timestamp (UTC)</th>
-											<th className="py-1.5 px-2">Actor</th>
-											<th className="py-1.5 px-2">Thao tác</th>
+											<th className="py-1.5 px-2">Thời gian (UTC)</th>
+											<th className="py-1.5 px-2">Tác nhân</th>
+											<th className="py-1.5 px-2">Hành động</th>
 											<th className="py-1.5 px-2">Ghi chú / chi tiết</th>
 										</tr>
 									</thead>
@@ -428,6 +417,10 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 						</div>
 					</div>
 				)
+			) : execError ? (
+				<div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-6 text-xs text-rose-300">
+					Không thể tải báo cáo kiểm toán điều hành: {(execError as Error).message}
+				</div>
 			) : isLoadingExec ? (
 				<div className="h-96 bg-dark-900 border border-dark-700/80 rounded-xl animate-pulse" />
 			) : !execData || !execKpis ? null : (
@@ -435,53 +428,79 @@ export const ComplianceReportCenterTab: React.FC<ComplianceReportCenterTabProps>
 					<div className="border-b border-dark-700 pb-4 flex flex-wrap items-start justify-between gap-4">
 						<div>
 							<div className="text-[11px] font-mono uppercase tracking-widest text-brand-400">
-								EXECUTIVE AUDIT REPORT • {execData.report_id}
+								BÁO CÁO KIỂM TOÁN ĐIỀU HÀNH • {execData.report_id}
 							</div>
 							<h2 className="text-lg font-bold text-slate-100 mt-1">
 								Báo cáo kiểm toán gian lận & chính sách điều hành — {execData.project_name}
 							</h2>
 							<p className="text-xs text-slate-400 font-mono mt-1">
-								Prepared By: {execData.prepared_by} • Generated: {execData.generated_at} • Ground Truth:{' '}
-								{execKpis.label_source}
+								Người lập: {execData.prepared_by} • Khởi tạo: {execData.generated_at} • Nguồn nhãn: {execKpis.label_source}
 							</p>
 						</div>
-						<button
-							type="button"
-							onClick={() => triggerDownload('md')}
-							className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-xs text-slate-200 border border-dark-700 cursor-pointer"
-						>
-							<Download size={13} />
-							<span>Xuất báo cáo đầy đủ</span>
-						</button>
+						{canExportReport && (
+							<button
+								type="button"
+								onClick={() => triggerDownload('html')}
+								className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-xs text-slate-200 border border-dark-700 cursor-pointer"
+							>
+								<Download size={13} aria-hidden="true" />
+								<span>Tải bản HTML chuẩn in</span>
+							</button>
+						)}
 					</div>
 
-					{/* Executive Summary Preview Grid */}
-					<div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono">
+					{/* Lưới tóm tắt KPI mới */}
+					<div className="grid grid-cols-2 md:grid-cols-3 gap-4 font-mono tabular-nums">
 						<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
-							<div className="text-[11px] text-slate-400">Gross Scanned</div>
+							<div className="text-[11px] text-slate-400">Tổng khối lượng quét</div>
 							<div className="text-base font-bold text-slate-100 mt-1">
 								{formatCurrency(execKpis.gross_scanned_volume)}
 							</div>
+							<div className="text-[11px] text-slate-500">{execKpis.gross_scanned_count ?? 0} giao dịch</div>
 						</div>
 						<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
-							<div className="text-[11px] text-emerald-400">Confirmed Fraud Prevented</div>
+							<div className="text-[11px] text-emerald-400">Gian lận ngăn chặn (VDR)</div>
 							<div className="text-base font-bold text-emerald-400 mt-1">
-								{formatCurrency(execKpis.confirmed_fraud_loss_prevented)}
+								{formatCurrency(execKpis.confirmed_fraud_loss_prevented)} (
+								{execKpis.value_detection_rate != null ? `${(execKpis.value_detection_rate * 100).toFixed(1)}%` : '—'})
 							</div>
+							<div className="text-[11px] text-slate-500">{execKpis.confirmed_fraud_count ?? 0} ca đã chặn</div>
 						</div>
 						<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
-							<div className="text-[11px] text-rose-400">Ma sát FP (tỷ lệ phiền toái)</div>
+							<div className="text-[11px] text-rose-400">Gian lận lọt lưới (bps)</div>
 							<div className="text-base font-bold text-rose-400 mt-1">
-								{formatCurrency(execKpis.false_positive_friction_volume)} (
-								{((execKpis.insult_rate ?? 0) * 100).toFixed(2)}%)
+								{execKpis.missed_fraud_amount != null ? formatCurrency(execKpis.missed_fraud_amount) : '—'}
+							</div>
+							<div className="text-[11px] text-slate-500">
+								{execKpis.net_fraud_loss_bps != null ? `${execKpis.net_fraud_loss_bps.toFixed(1)} bps` : 'Chưa có nhãn ALLOW'}
 							</div>
 						</div>
 						<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
-							<div className="text-[11px] text-cyan-400">Độ chính xác (Precision) đã xác minh</div>
-							<div className="text-base font-bold text-cyan-400 mt-1">
-								{execKpis.verified_precision != null
-									? `${(execKpis.verified_precision * 100).toFixed(1)}%`
-									: '—'}
+							<div className="text-[11px] text-amber-400">Customer Insult Rate</div>
+							<div className="text-base font-bold text-amber-300 mt-1">
+								{execKpis.customer_insult_rate != null ? `${(execKpis.customer_insult_rate * 100).toFixed(2)}%` : '—'}
+							</div>
+							<div className="text-[11px] text-slate-500">
+								Ma sát: {formatCurrency(execKpis.false_positive_friction_volume)}
+							</div>
+						</div>
+						<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
+							<div className="text-[11px] text-cyan-400">MTTR P50 &amp; Quá hạn SLA</div>
+							<div className="text-base font-bold text-cyan-300 mt-1">
+								{execSla?.mttr_p50_hours != null ? `${execSla.mttr_p50_hours.toFixed(1)}h` : '—'}
+							</div>
+							<div className="text-[11px] text-slate-500">
+								Quá SLA: {execSla?.sla_breach_count ?? 0} hồ sơ
+							</div>
+						</div>
+						<div className="bg-dark-950 border border-dark-800 rounded-lg p-3">
+							<div className="text-[11px] text-slate-400">Sức khỏe AI (KS / PSI)</div>
+							<div className="text-base font-bold text-slate-100 mt-1">
+								KS {execModelHealth?.ks_statistic != null ? execModelHealth.ks_statistic.toFixed(3) : '—'} · PSI{' '}
+								{execModelHealth?.psi != null ? execModelHealth.psi.toFixed(3) : '—'}
+							</div>
+							<div className="text-[11px] text-slate-500">
+								{execRules.length} luật · {execWatchlist?.active_blacklist_count ?? 0} danh sách đen
 							</div>
 						</div>
 					</div>

@@ -3,13 +3,25 @@ from fastapi import Depends
 from usfds_core.services.insight_report.service import InsightReportService
 from usfds_infra.database import (
 	SqliteDetectionJobRepository,
+	SqliteModelRepository,
+	SqliteModelVersionRepository,
 	SqliteProjectRepository,
 	SqliteRuleRepository,
 	SqliteRuleVersionRepository,
 )
 from usfds_infra.storage.local_storage import LocalFileStorage
 from usfds_infra.database.case_repositories import SqliteAuditRepository, SqliteBlacklistRepository, SqliteCaseRepository
-from usfds_server.providers.repos import get_detection_job_repo, get_case_repo, get_blacklist_repo, get_audit_repo, get_project_repo, get_rule_repo, get_rule_version_repo
+from usfds_server.providers.repos import (
+	get_audit_repo,
+	get_blacklist_repo,
+	get_case_repo,
+	get_detection_job_repo,
+	get_model_repo,
+	get_model_version_repo,
+	get_project_repo,
+	get_rule_repo,
+	get_rule_version_repo,
+)
 from usfds_server.dependencies import get_storage
 
 
@@ -22,6 +34,8 @@ def get_insight_report_service(
 	rule_repo: SqliteRuleRepository = Depends(get_rule_repo),
 	rule_version_repo: SqliteRuleVersionRepository = Depends(get_rule_version_repo),
 	storage: LocalFileStorage = Depends(get_storage),
+	model_version_repo: SqliteModelVersionRepository = Depends(get_model_version_repo),
+	model_repo: SqliteModelRepository = Depends(get_model_repo),
 ) -> InsightReportService:
 	return InsightReportService(
 		project_repo=project_repo,
@@ -32,4 +46,6 @@ def get_insight_report_service(
 		rule_repo=rule_repo,
 		rule_version_repo=rule_version_repo,
 		file_storage=storage,
+		model_version_repo=model_version_repo,
+		model_repo=model_repo,
 	)
