@@ -2,6 +2,12 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-28 — ISS-009 (Đợt 1): Remote Training Sandbox Hardening & Runtime Profile Isolation
+Plan: `.plan/remote_training_sandbox_hardening.md` · Board: `.plan/BOARD.md`
+
+- Core (`__init__.py`, `services/__init__.py`, `domain/schemas/training_payload.py`, `services/{project_management/schema_validator,training/{compute_policy,executor,training_service,remote_entrypoint,models/trainer_factory,dispatchers/routing_dispatcher}}.py`): removed eager wildcard `import *` (without `__getattr__`) and resolved latent circular import in `schema_validator.py`; added `runtime_profile` resolution (`tabular-sklearn`, `tabular-gbdt`, `tabular-lightgbm`, `tabular-onnx`, `dl-pytorch-gpu`, `dl-pyg-gpu`), `python -m usfds_core.services.training.remote_entrypoint` (`__USFDS_RESULT_JSON__:`), `model_bundle.zip`-only upload for `SCRIPT` plugins, and `timeout_seconds` propagation.
+- Infra & Server (`usfds_infra/compute/{modal_images,modal_provider}.py`, removed `modal_app.py`, `usfds_server/{config,providers/training,routers/training_router}.py`, `deploy/.env.example`): migrated from manual `modal deploy` to zero-deploy `App.lookup` + `modal.Sandbox.create` with pinned `scikit-learn>=1.4.0,<1.6.0` profile images, loopback S3 URL guard, `MODAL_TOKEN_ID`/`MODAL_TOKEN_SECRET` env placeholders, and 3-phase DB-session-free `GET /runs/{run_id}` polling; verified `core`, `infra` (`55 passed`), `server`, `worker`.
+
 ## 2026-11-25 — ISS-009: Remote Training Compute (Multi-Provider, Modal, In-Server Poller & Auto Selection)
 Plan: `.plan/remote_training_compute.md` · Board: `.plan/BOARD.md`
 
