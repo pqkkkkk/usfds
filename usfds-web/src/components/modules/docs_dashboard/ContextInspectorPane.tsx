@@ -9,11 +9,8 @@ import {
 	Save,
 	Edit3,
 } from 'lucide-react';
-import {
-	docsDashboardApi,
-	type ParsedIssue,
-	type FileSnippetResponse,
-} from '@/api/docsDashboardApi';
+import type { ParsedIssue } from '@/api/docsDashboardApi';
+import { useDocsInspector } from '@/hooks/useDocsInspector';
 import {
 	RichDocRenderer,
 	cleanMarkdownPlain,
@@ -34,6 +31,10 @@ interface ContextInspectorPaneProps {
 	onSelectFileRef: (fileRef: string) => void;
 	onSelectPlan: (slug: string) => void;
 	onRefreshOverview: () => Promise<void>;
+	onDirtyChange?: (dirty: boolean) => void;
+	onSavingChange?: (saving: boolean) => void;
+	externalEditLocked?: boolean;
+	refreshVersion?: number;
 }
 
 const ISSUE_STATUS_OPTIONS = [
@@ -54,55 +55,21 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 	onSelectFileRef,
 	onSelectPlan,
 	onRefreshOverview,
+	onDirtyChange,
+	onSavingChange,
+	externalEditLocked = false,
+	refreshVersion = 0,
 }) => {
-	const [fileData, setFileData] = useState<FileSnippetResponse | null>(null);
-	const [fileLoading, setFileLoading] = useState(false);
-	const [fileError, setFileError] = useState<string | null>(null);
-	const [showFullFile, setShowFullFile] = useState(false);
-	const [isEditingMd, setIsEditingMd] = useState(false);
-	const [editBuffer, setEditBuffer] = useState('');
-	const [saving, setSaving] = useState(false);
+	const {
+		fileData, fileLoading, fileError, showFullFile, setShowFullFile,
+		isEditingMd, setIsEditingMd, editBuffer, setEditBuffer, saving, actionError,
+		dirty, updateStatus, saveMarkdown,
+	} = useDocsInspector(target, onRefreshOverview, onDirtyChange, onSavingChange, refreshVersion);
 	const contentRef = useRef<HTMLDivElement>(null);
 	const [anchorError, setAnchorError] = useState<string | null>(null);
 
 	useEffect(() => {
-		setIsEditingMd(false);
-		setShowFullFile(false);
 		setAnchorError(null);
-		if (!target || target.type !== 'file') {
-			setFileData(null);
-			setFileError(null);
-			return;
-		}
-		let cancelled = false;
-		setFileLoading(true);
-		setFileData(null);
-		setFileError(null);
-		const ref = target.fileRef;
-		const fileRef = /#(?!L\d+(?:-L?\d+)?$)/.test(ref) ? ref.split('#', 1)[0] : ref;
-
-		docsDashboardApi
-			.getFile(fileRef)
-			.then((data) => {
-				if (!cancelled) {
-					setFileData(data);
-					setEditBuffer(data.content);
-				}
-			})
-			.catch((err) => {
-				if (!cancelled) {
-					setFileError(err instanceof Error ? err.message : String(err));
-				}
-			})
-			.finally(() => {
-				if (!cancelled) {
-					setFileLoading(false);
-				}
-			});
-
-		return () => {
-			cancelled = true;
-		};
 	}, [target]);
 
 	useEffect(() => {
@@ -136,17 +103,11 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 	if (target.type === 'issue') {
 		const issue = issues.find((iss) => iss.id === target.issueId);
 
-		const handleStatusChange = async (newStatus: string) => {
+		const handleStatusChange = (newStatus: string) => {
 			if (!issue) {
 				return;
 			}
-			setSaving(true);
-			try {
-				await docsDashboardApi.updateIssueStatus(issue.id, newStatus);
-				await onRefreshOverview();
-			} finally {
-				setSaving(false);
-			}
+			void updateStatus(issue.id, newStatus);
 		};
 
 		return (
@@ -205,6 +166,8 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 
 				{/* Body */}
 				<div className="flex-1 overflow-y-auto p-5 space-y-5">
+					{externalEditLocked && <p role="status" className="text-sm text-amber-600">Lưu hoặc bỏ bản nháp ở màn hình chính trước khi sửa.</p>}
+					{actionError && <div role="alert" className="text-sm text-rose-500">{actionError}</div>}
 					{!issue ? (
 						<div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-400">
 							Không tìm thấy thông tin cho {target.issueId} trong docs/issues/.
@@ -280,7 +243,7 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 											<button
 												key={opt}
 												type="button"
-												disabled={saving}
+												disabled={saving || externalEditLocked}
 												onClick={() => handleStatusChange(opt)}
 												className={`px-2.5 py-1 rounded-md text-xs font-mono transition border ${
 													active
@@ -399,23 +362,8 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 	// File or Code Snippet Inspector
 	const isMarkdownFile = fileData?.path.endsWith('.md');
 
-	const handleSaveMd = async () => {
-		if (!fileData) {
-			return;
-		}
-		setSaving(true);
-		try {
-			await docsDashboardApi.saveFile(fileData.path, editBuffer);
-			setFileData({
-				...fileData,
-				content: editBuffer,
-				snippet: editBuffer,
-			});
-			setIsEditingMd(false);
-			await onRefreshOverview();
-		} finally {
-			setSaving(false);
-		}
+	const handleClose = () => {
+		if (!dirty || window.confirm('Có bản nháp chưa lưu. Bạn có muốn bỏ các thay đổi này?')) onClose();
 	};
 
 	const vscodeHref = fileData
@@ -453,6 +401,7 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 					{fileData && isMarkdownFile && (
 						<button
 							type="button"
+							disabled={saving || externalEditLocked}
 							onClick={() => setIsEditingMd(!isEditingMd)}
 							className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 border transition ${
 								isEditingMd
@@ -482,7 +431,7 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 					)}
 					<button
 						type="button"
-						onClick={onClose}
+						onClick={handleClose}
 						aria-label="Đóng bảng ngữ cảnh"
 						className={`p-1.5 rounded-lg transition ${
 							isLight
@@ -497,6 +446,8 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 
 			{/* Content */}
 			<div ref={contentRef} className="flex-1 overflow-y-auto p-5">
+				{externalEditLocked && <p role="status" className="mb-3 text-sm text-amber-600">Lưu hoặc bỏ bản nháp ở màn hình chính trước khi sửa.</p>}
+				{actionError && <div role="alert" className="mb-3 text-sm text-rose-500">{actionError}</div>}
 				{fileLoading && (
 					<div className="text-xs font-mono text-zinc-400">Đang đọc file...</div>
 				)}
@@ -516,8 +467,8 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 									</span>
 									<button
 										type="button"
-										disabled={saving}
-										onClick={handleSaveMd}
+										disabled={saving || externalEditLocked}
+										onClick={() => void saveMarkdown()}
 										className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition"
 									>
 										<Save className="w-3.5 h-3.5" />
@@ -525,6 +476,7 @@ export const ContextInspectorPane: React.FC<ContextInspectorPaneProps> = ({
 									</button>
 								</div>
 								<textarea
+									disabled={saving || externalEditLocked}
 									value={editBuffer}
 									onChange={(e) => setEditBuffer(e.target.value)}
 									className={`w-full h-[65vh] p-4 rounded-xl border text-xs font-mono focus:outline-none focus:border-blue-500 leading-6 ${

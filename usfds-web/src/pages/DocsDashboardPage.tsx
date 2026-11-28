@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
 	ArrowLeft,
@@ -20,18 +20,11 @@ import {
 	PanelLeftClose,
 	PanelLeftOpen,
 } from 'lucide-react';
-import {
-	docsDashboardApi,
-	type DocsOverviewResponse,
-	type ParsedPlan,
-} from '@/api/docsDashboardApi';
 import { useTheme } from '@/hooks/useTheme';
+import { useDocsDashboard } from '@/hooks/useDocsDashboard';
 import { PlanReviewView } from '@/components/modules/docs_dashboard/PlanReviewView';
 import { ArchitectureReviewView } from '@/components/modules/docs_dashboard/ArchitectureReviewView';
-import {
-	ContextInspectorPane,
-	type InspectorTarget,
-} from '@/components/modules/docs_dashboard/ContextInspectorPane';
+import { ContextInspectorPane } from '@/components/modules/docs_dashboard/ContextInspectorPane';
 import {
 	RichDocRenderer,
 	InlineSmartText,
@@ -40,210 +33,22 @@ import {
 	splitStatusAndNote,
 } from '@/components/modules/docs_dashboard/RichDocRenderer';
 
-type DashboardSection = 'board' | 'plan-detail' | 'issues' | 'specs' | 'architecture';
-
 export const DocsDashboardPage: React.FC = () => {
 	const navigate = useNavigate();
 	const { isLight, toggleTheme } = useTheme();
-	const [overview, setOverview] = useState<DocsOverviewResponse | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-
-	const [activeSection, setActiveSection] = useState<DashboardSection>('board');
-	const [selectedPlanSlug, setSelectedPlanSlug] = useState<string>('user_management_rbac');
-	const [selectedSpecPath, setSelectedSpecPath] = useState<string>(
-		'docs/arch/README.md'
-	);
-	const [specContent, setSpecContent] = useState<string>('');
-	const [isEditingSpec, setIsEditingSpec] = useState(false);
-	const [savingSpec, setSavingSpec] = useState(false);
-
-	// Inspector right split-pane state
-	const [inspectorTarget, setInspectorTarget] = useState<InspectorTarget>(null);
-
-	// Filters for Issues view
-	const [issueSearch, setIssueSearch] = useState('');
-	const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
-	const [statusFilter, setStatusFilter] = useState<string>('ALL');
-	const [areaFilter, setAreaFilter] = useState<string>('ALL');
-
-	// Show legacy plans inside the Plans tab sidebar
-	const [showLegacyPlans, setShowLegacyPlans] = useState(false);
-	const [isPlanSidebarCollapsed, setIsPlanSidebarCollapsed] = useState(false);
-
-	const fetchOverview = useCallback(async () => {
-		setLoading(true);
-		setError(null);
-		try {
-			const data = await docsDashboardApi.getOverview();
-			setOverview(data);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : String(err));
-		} finally {
-			setLoading(false);
-		}
-	}, []);
-
-	useEffect(() => {
-		void fetchOverview();
-	}, [fetchOverview]);
-
-	useEffect(() => {
-		if (activeSection !== 'specs' || !selectedSpecPath) {
-			return;
-		}
-		setIsEditingSpec(false);
-		docsDashboardApi
-			.getFile(selectedSpecPath)
-			.then((res) => setSpecContent(res.content))
-			.catch((err) => setSpecContent(`Lỗi đọc file: ${String(err)}`));
-	}, [activeSection, selectedSpecPath]);
-
-	const handleSelectIssue = useCallback((issueId: string) => {
-		setInspectorTarget({ type: 'issue', issueId });
-	}, []);
-
-	const handleSelectFileRef = useCallback((fileRef: string) => {
-		setInspectorTarget({ type: 'file', fileRef });
-	}, []);
-
-	const handleSelectPlan = useCallback((slug: string) => {
-		const cleanSlug = slug
-			.replace(/^\[`?([^\]]+?)`?\]\([^)]+\)$/, '$1')
-			.replace(/`/g, '')
-			.replace(/^\.plan\//, '')
-			.replace(/\.md$/, '')
-			.trim();
-		setSelectedPlanSlug(cleanSlug);
-		setActiveSection('plan-detail');
-	}, []);
-
-	const selectedPlan: ParsedPlan | undefined = useMemo(() => {
-		return overview?.plans.find((p) => p.slug === selectedPlanSlug);
-	}, [overview, selectedPlanSlug]);
-
-	const allAreas = useMemo(() => {
-		if (!overview) {
-			return [];
-		}
-		const s = new Set<string>();
-		overview.issues.forEach((i) => i.area.forEach((a) => s.add(a)));
-		return Array.from(s).sort();
-	}, [overview]);
-
-	const filteredIssues = useMemo(() => {
-		if (!overview) {
-			return [];
-		}
-		return overview.issues.filter((iss) => {
-			if (priorityFilter !== 'ALL' && iss.priority !== priorityFilter) {
-				return false;
-			}
-			if (statusFilter !== 'ALL') {
-				const stLower = iss.status.toLowerCase();
-				if (statusFilter === 'OPEN' && !stLower.startsWith('open')) {
-					return false;
-				}
-				if (statusFilter === 'NEEDS_SPEC' && !stLower.includes('needs spec')) {
-					return false;
-				}
-				if (
-					statusFilter === 'PLANNED' &&
-					!stLower.includes('planned') &&
-					!stLower.includes('in progress')
-				) {
-					return false;
-				}
-				if (statusFilter === 'RESOLVED' && !stLower.startsWith('resolved')) {
-					return false;
-				}
-			}
-			if (areaFilter !== 'ALL' && !iss.area.includes(areaFilter)) {
-				return false;
-			}
-			if (issueSearch.trim()) {
-				const q = issueSearch.toLowerCase();
-				const matchId = iss.id.toLowerCase().includes(q);
-				const matchTitle = iss.title.toLowerCase().includes(q);
-				const matchBody = iss.bodyMarkdown.toLowerCase().includes(q);
-				return matchId || matchTitle || matchBody;
-			}
-			return true;
-		});
-	}, [overview, priorityFilter, statusFilter, areaFilter, issueSearch]);
-
-	const handlePlanUpdated = (updated: ParsedPlan) => {
-		if (!overview) {
-			return;
-		}
-		setOverview({
-			...overview,
-			plans: overview.plans.map((p) => (p.slug === updated.slug ? updated : p)),
-		});
-	};
-
-	const handleSaveSpec = async () => {
-		setSavingSpec(true);
-		try {
-			await docsDashboardApi.saveFile(selectedSpecPath, specContent);
-			setIsEditingSpec(false);
-			await fetchOverview();
-		} finally {
-			setSavingSpec(false);
-		}
-	};
-
-	// Extract task slugs listed on BOARD.md
-	const boardTaskSlugs = useMemo(() => {
-		if (!overview) {
-			return new Set<string>();
-		}
-		const slugs = new Set<string>();
-		for (const row of overview.board.activeTaskRows) {
-			const cell = row[0] || '';
-			const m = cell.match(/\[`?([^\]]+?)`?\]/);
-			if (m) {
-				slugs.add(m[1].trim());
-			}
-		}
-		return slugs;
-	}, [overview]);
-
-	const sidebarPlans = useMemo(() => {
-		if (!overview) {
-			return [];
-		}
-		return overview.plans.filter(
-			(p) =>
-				showLegacyPlans ||
-				boardTaskSlugs.has(p.slug) ||
-				p.validation.status === 'valid'
-		);
-	}, [overview, showLegacyPlans, boardTaskSlugs]);
-
-	const boardPlans = useMemo(() => {
-		if (!overview) {
-			return [];
-		}
-		const list: ParsedPlan[] = [];
-		for (const slug of boardTaskSlugs) {
-			const found = overview.plans.find((p) => p.slug === slug);
-			if (found) {
-				list.push(found);
-			}
-		}
-		return list;
-	}, [overview, boardTaskSlugs]);
-
-	const schemaWarningCount = useMemo(() => {
-		if (!overview) {
-			return 0;
-		}
-		const planWarns = overview.plans.filter(
-			(p) => boardTaskSlugs.has(p.slug) && p.validation.status === 'warning'
-		).length;
-		return planWarns + overview.issueLinterWarnings.length;
-	}, [overview, boardTaskSlugs]);
+	const {
+		overview, loading, error, fetchOverview, handlePlanUpdated, refreshVersion,
+		selectedSpecPath, setSelectedSpecPath, specContent, setSpecContent,
+		isEditingSpec, setIsEditingSpec, savingSpec, specError, specLoading, specDirty, setSpecDirty,
+		handleSaveSpec, activeSection, selectedPlanSlug, inspectorTarget, setInspectorTarget,
+		planDirty, setPlanDirty, inspectorDirty, setInspectorDirty, confirmDiscard, selectSection,
+		planSaving, setPlanSaving, inspectorSaving, setInspectorSaving,
+		issueSearch, setIssueSearch, priorityFilter, setPriorityFilter, statusFilter, setStatusFilter,
+		areaFilter, setAreaFilter, showLegacyPlans, setShowLegacyPlans, isPlanSidebarCollapsed,
+		setIsPlanSidebarCollapsed, handleSelectIssue, handleSelectFileRef, handleSelectPlan,
+		selectedPlan, allAreas, filteredIssues, sidebarPlans, boardPlans, schemaWarningCount,
+		selectedArchitectureId, openArchitectureDiagram,
+	} = useDocsDashboard();
 
 	// True-Black (Dark) vs Clean Paper (Light) surfaces scoped to Docs Dashboard
 	const rootBg = isLight
@@ -270,7 +75,7 @@ export const DocsDashboardPage: React.FC = () => {
 				<div className="flex items-center gap-3">
 					<button
 						type="button"
-						onClick={() => navigate('/projects')}
+						onClick={() => { if (confirmDiscard(planDirty || specDirty || inspectorDirty)) navigate('/projects'); }}
 						className={`px-3 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition ${
 							isLight
 								? 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-700'
@@ -326,7 +131,7 @@ export const DocsDashboardPage: React.FC = () => {
 				>
 					<button
 						type="button"
-						onClick={() => setActiveSection('board')}
+						onClick={() => selectSection('board')}
 						className={`px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
 							activeSection === 'board'
 								? 'bg-blue-600 text-white font-semibold shadow-sm'
@@ -341,7 +146,7 @@ export const DocsDashboardPage: React.FC = () => {
 
 					<button
 						type="button"
-						onClick={() => setActiveSection('plan-detail')}
+						onClick={() => selectSection('plan-detail')}
 						className={`px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
 							activeSection === 'plan-detail'
 								? 'bg-blue-600 text-white font-semibold shadow-sm'
@@ -356,7 +161,7 @@ export const DocsDashboardPage: React.FC = () => {
 
 					<button
 						type="button"
-						onClick={() => setActiveSection('issues')}
+						onClick={() => selectSection('issues')}
 						className={`px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
 							activeSection === 'issues'
 								? 'bg-blue-600 text-white font-semibold shadow-sm'
@@ -371,7 +176,7 @@ export const DocsDashboardPage: React.FC = () => {
 
 					<button
 						type="button"
-						onClick={() => setActiveSection('architecture')}
+						onClick={() => selectSection('architecture')}
 						className={`px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
 							activeSection === 'architecture'
 								? 'bg-blue-600 text-white font-semibold shadow-sm'
@@ -386,7 +191,7 @@ export const DocsDashboardPage: React.FC = () => {
 
 					<button
 						type="button"
-						onClick={() => setActiveSection('specs')}
+						onClick={() => selectSection('specs')}
 						className={`px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
 							activeSection === 'specs'
 								? 'bg-blue-600 text-white font-semibold shadow-sm'
@@ -431,7 +236,7 @@ export const DocsDashboardPage: React.FC = () => {
 
 					<button
 						type="button"
-						onClick={() => void fetchOverview()}
+						onClick={() => { if (confirmDiscard(planDirty || specDirty || inspectorDirty)) void fetchOverview(); }}
 						className={`px-3 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition ${
 							isLight
 								? 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-700'
@@ -456,15 +261,19 @@ export const DocsDashboardPage: React.FC = () => {
 					)}
 
 					{activeSection === 'architecture' && (
-						<ArchitectureReviewView isLight={isLight} onSelectFileRef={handleSelectFileRef} />
+						<ArchitectureReviewView isLight={isLight} onSelectFileRef={handleSelectFileRef} initialDiagramId={selectedArchitectureId} />
 					)}
 
 					{/* =========================================================
 					    SECTION 1: TASK BOARD (NO LEFT SIDEBAR, ONLY TASKS)
 					   ========================================================= */}
 					{activeSection === 'board' && overview && (
-						<div className="flex-1 overflow-y-auto px-8 py-8">
+						<div className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8">
 							<div className="max-w-5xl mx-auto space-y-8">
+								<div>
+									<h1 className="text-2xl font-semibold">Tổng quan công việc</h1>
+									<p className={`mt-2 text-sm ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>Theo dõi task, issue và mở plan để review.</p>
+								</div>
 								{/* Summary Stat Cards */}
 								<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 									<div className={`p-5 rounded-2xl border ${cardBg}`}>
@@ -837,7 +646,7 @@ export const DocsDashboardPage: React.FC = () => {
 					    SECTION 2: PLANS (WITH DEDICATED PLAN LIST SIDEBAR)
 					   ========================================================= */}
 					{activeSection === 'plan-detail' && (
-						<div className="flex-1 flex overflow-hidden">
+						<div className="flex-1 flex flex-col md:flex-row overflow-hidden">
 							{/* Dedicated Left Sidebar ONLY for Plans section */}
 							{isPlanSidebarCollapsed ? (
 								<div
@@ -859,7 +668,7 @@ export const DocsDashboardPage: React.FC = () => {
 								</div>
 							) : (
 								<aside
-									className={`w-64 shrink-0 border-r flex flex-col overflow-hidden ${sidebarBg}`}
+									className={`w-full max-h-28 md:w-64 md:max-h-none shrink-0 border-b md:border-b-0 md:border-r flex flex-col overflow-hidden ${sidebarBg}`}
 								>
 									<div
 										className={`px-4 py-3.5 border-b flex items-center justify-between gap-2 ${
@@ -912,7 +721,7 @@ export const DocsDashboardPage: React.FC = () => {
 												<button
 													key={p.slug}
 													type="button"
-													onClick={() => setSelectedPlanSlug(p.slug)}
+													onClick={() => handleSelectPlan(p.slug)}
 													className={`w-full min-w-0 text-left px-4 py-3.5 transition flex flex-col gap-1.5 ${
 														isSelected
 															? isLight
@@ -991,9 +800,10 @@ export const DocsDashboardPage: React.FC = () => {
 							)}
 
 							{/* Plan Review Workbench */}
-							<div className="flex-1 min-w-0 overflow-hidden">
+							<div className="flex-1 min-w-0 min-h-0 overflow-hidden">
 								{selectedPlan && (
 									<PlanReviewView
+										key={selectedPlan.slug}
 										plan={selectedPlan}
 										isLight={isLight}
 										wideLayout={isPlanSidebarCollapsed}
@@ -1002,7 +812,15 @@ export const DocsDashboardPage: React.FC = () => {
 										onSelectPlan={handleSelectPlan}
 										onPlanUpdated={handlePlanUpdated}
 										onRefreshOverview={fetchOverview}
+										onDirtyChange={setPlanDirty}
+										onSavingChange={setPlanSaving}
+										externalEditLocked={inspectorDirty || inspectorSaving || savingSpec || planSaving}
+										inspectorSelection={inspectorTarget}
+										onSelectDiagram={openArchitectureDiagram}
 									/>
+								)}
+								{overview && !selectedPlan && (
+									<p className="m-8 text-sm text-zinc-500">Chọn một plan để bắt đầu review.</p>
 								)}
 							</div>
 						</div>
@@ -1013,6 +831,14 @@ export const DocsDashboardPage: React.FC = () => {
 					   ========================================================= */}
 					{activeSection === 'issues' && overview && (
 						<div className="flex-1 flex flex-col overflow-hidden">
+							<div className={`px-4 pt-5 md:px-8 ${topbarBg}`}>
+								<div className="max-w-5xl mx-auto">
+									<h1 className="text-xl font-semibold">Danh sách vấn đề</h1>
+									<p className={`mt-1 text-sm ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
+										Tìm vấn đề, xem nguồn và plan phụ trách.
+									</p>
+								</div>
+							</div>
 							{/* Filter Bar */}
 							<div
 								className={`px-8 py-4 border-b flex flex-wrap items-center justify-between gap-3 shrink-0 ${topbarBg}`}
@@ -1116,7 +942,7 @@ export const DocsDashboardPage: React.FC = () => {
 							</div>
 
 							{/* Issues Table inside centered container */}
-							<div className="flex-1 overflow-y-auto px-8 py-6">
+							<div className="flex-1 overflow-y-auto px-4 py-6 md:px-8">
 								<div className="max-w-5xl mx-auto space-y-4">
 									{overview.issueLinterWarnings.length > 0 && (
 										<div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400 space-y-1">
@@ -1311,9 +1137,9 @@ export const DocsDashboardPage: React.FC = () => {
 					    SECTION 4: SPECS & ARCHITECTURE DOCS
 					   ========================================================= */}
 					{activeSection === 'specs' && overview && (
-						<div className="flex-1 flex overflow-hidden">
+						<div className="flex-1 flex flex-col md:flex-row overflow-hidden">
 							<div
-								className={`w-72 border-r overflow-y-auto p-3.5 space-y-1.5 ${sidebarBg}`}
+								className={`w-full max-h-44 md:w-72 md:max-h-none shrink-0 border-b md:border-b-0 md:border-r overflow-y-auto p-3.5 space-y-1.5 ${sidebarBg}`}
 							>
 								<div
 									className={`text-[11px] font-mono uppercase px-2.5 py-1.5 font-semibold ${
@@ -1326,7 +1152,7 @@ export const DocsDashboardPage: React.FC = () => {
 									<button
 										key={df.path}
 										type="button"
-										onClick={() => setSelectedSpecPath(df.path)}
+										onClick={() => { if (df.path !== selectedSpecPath && confirmDiscard(specDirty)) { setSpecDirty(false); setSelectedSpecPath(df.path); } }}
 										className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-mono transition flex flex-col gap-0.5 ${
 											selectedSpecPath === df.path
 												? isLight
@@ -1343,19 +1169,20 @@ export const DocsDashboardPage: React.FC = () => {
 								))}
 							</div>
 
-							<div className="flex-1 overflow-y-auto px-8 py-8">
+							<div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 md:px-8 md:py-8">
 								<div className="max-w-4xl mx-auto space-y-5">
 									<div
 										className={`flex items-center justify-between px-5 py-3.5 rounded-2xl border ${cardBg}`}
 									>
-										<div className="font-mono text-xs text-blue-400 font-semibold">
-											{selectedSpecPath}
+										<div className="min-w-0">
+											<h1 className="text-base font-semibold">Tài liệu nguồn</h1>
+											<div className="mt-1 truncate font-mono text-xs text-blue-400">{selectedSpecPath}</div>
 										</div>
 										<div className="flex items-center gap-2">
 											{isEditingSpec && (
 												<button
 													type="button"
-													disabled={savingSpec}
+													disabled={savingSpec || planSaving || inspectorDirty || inspectorSaving}
 													onClick={() => void handleSaveSpec()}
 													className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5"
 												>
@@ -1365,6 +1192,7 @@ export const DocsDashboardPage: React.FC = () => {
 											)}
 											<button
 												type="button"
+												disabled={savingSpec || planSaving || inspectorDirty || inspectorSaving || specLoading || (!!specError && !isEditingSpec)}
 												onClick={() => setIsEditingSpec(!isEditingSpec)}
 												className={`px-3.5 py-1.5 rounded-xl border text-xs flex items-center gap-1.5 ${
 													isLight
@@ -1378,16 +1206,22 @@ export const DocsDashboardPage: React.FC = () => {
 										</div>
 									</div>
 
-									{isEditingSpec ? (
+									{specLoading ? <p role="status">Đang tải tài liệu...</p> : isEditingSpec ? (
 										<textarea
+											disabled={savingSpec || planSaving || inspectorDirty || inspectorSaving}
 											value={specContent}
-											onChange={(e) => setSpecContent(e.target.value)}
+											onChange={(e) => { setSpecContent(e.target.value); setSpecDirty(true); }}
 											className={`w-full h-[72vh] p-5 rounded-2xl border text-xs font-mono focus:outline-none focus:border-blue-500 leading-6 ${
 												isLight
 													? 'bg-white border-zinc-200 text-zinc-900'
 													: 'bg-[#121215] border-zinc-800 text-zinc-200'
 											}`}
 										/>
+									) : specError ? (
+										<div role="alert" className="text-sm text-rose-500">
+											<p>{specError}</p>
+											<button type="button" className="mt-2 underline" onClick={() => { if (confirmDiscard(inspectorDirty)) void fetchOverview(); }}>Thử lại</button>
+										</div>
 									) : (
 										<div className={`p-8 rounded-2xl border ${cardBg}`}>
 											<RichDocRenderer
@@ -1400,6 +1234,8 @@ export const DocsDashboardPage: React.FC = () => {
 											/>
 										</div>
 									)}
+									{isEditingSpec && specError && <div role="alert" className="text-sm text-rose-500">{specError}</div>}
+									{(planSaving || inspectorDirty || inspectorSaving) && <p role="status" className="text-sm text-amber-600">Lưu hoặc bỏ bản nháp ở khung khác trước khi sửa tài liệu.</p>}
 								</div>
 							</div>
 						</div>
@@ -1416,6 +1252,10 @@ export const DocsDashboardPage: React.FC = () => {
 					onSelectFileRef={handleSelectFileRef}
 					onSelectPlan={handleSelectPlan}
 					onRefreshOverview={fetchOverview}
+					onDirtyChange={setInspectorDirty}
+					onSavingChange={setInspectorSaving}
+					externalEditLocked={planDirty || planSaving || specDirty || savingSpec}
+					refreshVersion={refreshVersion}
 				/>
 			</div>
 		</div>

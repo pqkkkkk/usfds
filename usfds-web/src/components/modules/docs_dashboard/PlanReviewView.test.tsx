@@ -241,7 +241,7 @@ describe('PlanReviewView & MermaidDiagram', () => {
 		});
 	});
 
-	it('renders Review Mode & Agent Spec tabs without toggle-all button and collapses sections by default', () => {
+	it('shows the review summary while keeping detailed sections collapsed', () => {
 		const plan = parsePlanMarkdown(
 			SAMPLE_V2_PLAN,
 			'test_feature',
@@ -255,10 +255,20 @@ describe('PlanReviewView & MermaidDiagram', () => {
 		expect(screen.queryByText(/Mở tất cả các mục/i)).not.toBeInTheDocument();
 		expect(screen.getByText('Chuẩn Template v2 (§1–§9)')).toBeInTheDocument();
 
-		// All sections collapsed initially
-		expect(screen.queryByText('Deliver feature X cleanly.')).not.toBeInTheDocument();
+		expect(screen.getByText('Deliver feature X cleanly.')).toBeInTheDocument();
 		expect(screen.queryByTestId('mock-mermaid-svg')).not.toBeInTheDocument();
 		expect(screen.queryByText('test_item_list_returns_200')).not.toBeInTheDocument();
+	});
+
+	it('shows_a_compact_scope_verdict_without_hiding_details', () => {
+		const raw = SAMPLE_V2_PLAN.replace('**Scope:** OK', '**Scope:** TOO-BROAD — Chi tiết phạm vi rất dài và cần xem trong nội dung.');
+		const plan = parsePlanMarkdown(raw, 'test_feature', '.plan/test_feature.md', '');
+		renderPlanView(plan);
+		const button = screen.getByRole('button', { name: /§2\. Mục tiêu/ });
+		expect(button).toHaveTextContent('Scope: TOO-BROAD');
+		expect(button).not.toHaveTextContent('Chi tiết phạm vi');
+		fireEvent.click(button);
+		expect(screen.getByText(/Chi tiết phạm vi rất dài/)).toBeInTheDocument();
 	});
 
 	it('expands §2.5 to render Mermaid SVG, toggles raw source, and switches cleanly to Agent Spec', async () => {
@@ -323,7 +333,7 @@ describe('PlanReviewView & MermaidDiagram', () => {
 		);
 
 		expect(
-			await screen.findByText(/Lỗi cú pháp Mermaid: Syntax error in graph/i)
+			await screen.findByText(/Không thể render sơ đồ Mermaid: Syntax error in graph/i)
 		).toBeInTheDocument();
 		expect(screen.getByText(/INVALID_MERMAID \?\?\?/)).toBeInTheDocument();
 	});
@@ -410,5 +420,98 @@ describe('PlanReviewView & MermaidDiagram', () => {
 		);
 		expect(container.querySelector('.max-w-6xl')).toBeInTheDocument();
 		expect(container.querySelector('.max-w-5xl')).not.toBeInTheDocument();
+	});
+
+	it('preserves_dashboard_edit_actions', async () => {
+		const plan = parsePlanMarkdown(SAMPLE_V2_PLAN, 'test_feature', '.plan/test_feature.md', '');
+		const requests: Record<string, unknown>[] = [];
+		server.use(http.post('/__docs_api/plan/action', async ({ request }) => {
+			requests.push((await request.json()) as Record<string, unknown>);
+			return HttpResponse.json({ success: true, data: plan });
+		}));
+		const { onPlanUpdated } = renderPlanView(plan);
+		fireEvent.click(screen.getByRole('button', { name: /Duyệt Plan/ }));
+		await waitFor(() => expect(requests[0]).toMatchObject({ slug: 'test_feature', action: 'update_status' }));
+		fireEvent.click(screen.getByRole('button', { name: /§8\./ }));
+		fireEvent.change(screen.getByPlaceholderText(/Ghi thêm câu hỏi/), { target: { value: 'Cần kiểm tra?' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Thêm vào §8' }));
+		await waitFor(() => expect(requests[1]).toMatchObject({ action: 'append_question', question: 'Cần kiểm tra?' }));
+		expect(onPlanUpdated).toHaveBeenCalledTimes(2);
+	});
+
+	it('keeps_unsaved_edits_and_reports_save_failure', async () => {
+		const plan = parsePlanMarkdown(SAMPLE_V2_PLAN, 'test_feature', '.plan/test_feature.md', '');
+		server.use(http.put('/__docs_api/file', () => HttpResponse.json(
+			{ success: false, error: 'Không thể lưu bản nháp' }, { status: 500 }
+		)));
+		renderPlanView(plan);
+		fireEvent.click(screen.getByRole('button', { name: 'Sửa Markdown' }));
+		const editor = screen.getByRole('textbox');
+		fireEvent.change(editor, { target: { value: 'Bản nháp chưa lưu' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi vào .md' }));
+		expect(await screen.findByRole('alert')).toHaveTextContent('Không thể lưu bản nháp');
+		expect(editor).toHaveValue('Bản nháp chưa lưu');
+	});
+
+	it('blocks_plan_mutations_until_the_markdown_draft_is_saved', () => {
+		const plan = parsePlanMarkdown(SAMPLE_V2_PLAN, 'test_feature', '.plan/test_feature.md', '');
+		renderPlanView(plan);
+		fireEvent.click(screen.getByRole('button', { name: 'Sửa Markdown' }));
+		fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bản nháp' } });
+		fireEvent.click(screen.getByRole('button', { name: /Review Mode/ }));
+		expect(screen.getByRole('button', { name: /Duyệt Plan/ })).toBeDisabled();
+		fireEvent.click(screen.getByRole('button', { name: /§9\. Kiểm thử E2E thủ công/ }));
+		expect(screen.getByRole('button', { name: `Đánh dấu E2E dòng ${plan.manualE2eItems[0].lineNumber}` })).toBeDisabled();
+		expect(screen.getByText(/Lưu bản nháp Markdown trước/)).toBeInTheDocument();
+	});
+
+	it('blocks_plan_mutations_while_an_inspector_draft_exists', () => {
+		const plan = parsePlanMarkdown(SAMPLE_V2_PLAN, 'test_feature', '.plan/test_feature.md', '');
+		render(<PlanReviewView plan={plan} externalEditLocked onSelectIssue={vi.fn()} onSelectFileRef={vi.fn()} onSelectPlan={vi.fn()} onPlanUpdated={vi.fn()} onRefreshOverview={vi.fn().mockResolvedValue(undefined)} />);
+		expect(screen.getByRole('button', { name: /Duyệt Plan/ })).toBeDisabled();
+		fireEvent.click(screen.getByRole('button', { name: 'Sửa Markdown' }));
+		expect(screen.getByRole('textbox')).toBeDisabled();
+	});
+
+	it('handles_legacy_missing_and_unknown_architecture_references', async () => {
+		const plan = parsePlanMarkdown(`${SAMPLE_V2_PLAN}\nINV-009`, 'test_feature', '.plan/test_feature.md', '');
+		server.use(http.get('/__docs_api/file', () => HttpResponse.json({
+			success: true,
+			data: { path: 'docs/arch/03-system-invariants.md', content: '# No matching heading' },
+		})));
+		renderPlanView(plan);
+		fireEvent.click(screen.getByRole('button', { name: 'INV-009' }));
+		expect(await screen.findByRole('alert')).toHaveTextContent('Không tìm thấy mục duy nhất cho INV-009');
+	});
+
+	it('ignores_stale_architecture_response', async () => {
+		const first = parsePlanMarkdown(`${SAMPLE_V2_PLAN}\nINV-009`, 'first', '.plan/first.md', '');
+		const second = parsePlanMarkdown(SAMPLE_V2_PLAN, 'second', '.plan/second.md', '');
+		let resolveFile: ((response: Response) => void) | undefined;
+		server.use(http.get('/__docs_api/file', () => new Promise<Response>((resolve) => { resolveFile = resolve; })));
+		const onSelectFileRef = vi.fn();
+		const props = { onSelectIssue: vi.fn(), onSelectFileRef, onSelectPlan: vi.fn(), onPlanUpdated: vi.fn(), onRefreshOverview: vi.fn().mockResolvedValue(undefined) };
+		const { rerender } = render(<PlanReviewView plan={first} {...props} />);
+		fireEvent.click(screen.getByRole('button', { name: 'INV-009' }));
+		await waitFor(() => expect(resolveFile).toBeDefined());
+		rerender(<PlanReviewView plan={second} {...props} />);
+		resolveFile?.(HttpResponse.json({ success: true, data: { content: '### `INV-009` — Test' } }));
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'INV-009' })).not.toBeInTheDocument());
+		expect(onSelectFileRef).not.toHaveBeenCalled();
+	});
+
+	it('does_not_override_a_newer_inspector_selection', async () => {
+		const plan = parsePlanMarkdown(`${SAMPLE_V2_PLAN}\nINV-009`, 'first', '.plan/first.md', '');
+		let resolveFile: ((response: Response) => void) | undefined;
+		server.use(http.get('/__docs_api/file', () => new Promise<Response>((resolve) => { resolveFile = resolve; })));
+		const onSelectFileRef = vi.fn();
+		const props = { plan, onSelectIssue: vi.fn(), onSelectFileRef, onSelectPlan: vi.fn(), onPlanUpdated: vi.fn(), onRefreshOverview: vi.fn().mockResolvedValue(undefined) };
+		const { rerender } = render(<PlanReviewView {...props} inspectorSelection={null} />);
+		fireEvent.click(screen.getByRole('button', { name: 'INV-009' }));
+		await waitFor(() => expect(resolveFile).toBeDefined());
+		rerender(<PlanReviewView {...props} inspectorSelection={{ type: 'issue', issueId: 'ISS-101' }} />);
+		resolveFile?.(HttpResponse.json({ success: true, data: { content: '### `INV-009` — Test' } }));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(onSelectFileRef).not.toHaveBeenCalled();
 	});
 });

@@ -28,7 +28,7 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({
 	const dialogRef = useRef<HTMLDivElement>(null);
 
 	const [svg, setSvg] = useState<string>('');
-	const [renderError, setRenderError] = useState<string | null>(null);
+	const [renderError, setRenderError] = useState<{ kind: 'load' | 'render'; message: string } | null>(null);
 	const [showSource, setShowSource] = useState(false);
 	const [copied, setCopied] = useState(false);
 	const [isFullscreen, setIsFullscreen] = useState(false);
@@ -36,7 +36,7 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({
 
 	const trimmedCode = code.trim();
 	const effectiveError = !trimmedCode
-		? 'Sơ đồ Mermaid trống.'
+		? { kind: 'render' as const, message: 'Sơ đồ Mermaid trống.' }
 		: renderError;
 
 	useEffect(() => {
@@ -46,9 +46,18 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({
 		let cancelled = false;
 
 		const renderDiagram = async () => {
+			let mermaid;
 			try {
 				const mermaidMod = await import('mermaid');
-				const mermaid = mermaidMod.default;
+				mermaid = mermaidMod.default;
+			} catch (err) {
+				if (!cancelled) {
+					setSvg('');
+					setRenderError({ kind: 'load', message: err instanceof Error ? err.message : String(err) });
+				}
+				return;
+			}
+			try {
 				mermaid.initialize({
 					startOnLoad: false,
 					securityLevel: 'strict',
@@ -64,9 +73,7 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({
 			} catch (err) {
 				if (!cancelled) {
 					setSvg('');
-					setRenderError(
-						err instanceof Error ? err.message : String(err)
-					);
+					setRenderError({ kind: 'render', message: err instanceof Error ? err.message : String(err) });
 				}
 			}
 		};
@@ -207,7 +214,10 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({
 							<AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
 							<div>
 								<div className="font-semibold">
-									Lỗi cú pháp Mermaid: {effectiveError}
+									{effectiveError.kind === 'load'
+										? 'Không thể tải Mermaid. Kiểm tra server và tải lại trang: '
+										: 'Không thể render sơ đồ Mermaid: '}
+									{effectiveError.message}
 								</div>
 							</div>
 						</div>
