@@ -240,10 +240,15 @@ class ComplianceReportBuilder:
 				"funnel": overview.get("funnel", []),
 				"queue_breakdown": overview.get("queue_breakdown", {}),
 				"financial_trends": overview.get("financial_trends", []),
+				"case_sla": overview.get("case_sla", {}),
 			},
 			"section_3_policy_and_model_effectiveness": {
 				"attribution": effectiveness.get("attribution", {}),
 				"rule_leaderboard": effectiveness.get("rule_leaderboard", []),
+				"model_health": effectiveness.get("model_health", {}),
+				"score_drift": effectiveness.get("score_drift", {}),
+				"lift_gain_curve": effectiveness.get("lift_gain_curve", []),
+				"model_comparison": effectiveness.get("model_comparison", []),
 			},
 			"section_4_typologies_and_patterns": {
 				"typology_breakdown": patterns.get("typology_breakdown", []),
@@ -252,6 +257,7 @@ class ComplianceReportBuilder:
 					h for h in patterns.get("hourly_distribution", []) if h.get("is_peak_risk")
 				],
 				"amount_brackets": patterns.get("amount_brackets", []),
+				"segment_analytics": patterns.get("segment_analytics", {}),
 			},
 			"section_5_watchlist_and_governance": {
 				"top_flagged_subjects": patterns.get("top_flagged_subjects", []),
@@ -359,17 +365,26 @@ class ComplianceReportBuilder:
 	def format_executive_markdown(report: dict[str, Any]) -> str:
 		"""Formats an Executive Audit Report dictionary into Markdown."""
 		kpis = report.get("section_1_financial_kpis", {})
+		s2 = report.get("section_2_operations_funnel", {})
+		case_sla = s2.get("case_sla", {})
 		s3 = report.get("section_3_policy_and_model_effectiveness", {})
 		attr = s3.get("attribution", {})
 		rules = s3.get("rule_leaderboard", [])
+		mh = s3.get("model_health", {})
+		drift = s3.get("score_drift", {})
 		s4 = report.get("section_4_typologies_and_patterns", {})
 		s5 = report.get("section_5_watchlist_and_governance", {})
 
-		prec_str = (
-			f"{kpis.get('verified_precision', 0) * 100:.1f}%"
-			if kpis.get("verified_precision") is not None
-			else "—"
-		)
+		prec_str = f"{kpis['verified_precision'] * 100:.1f}%" if kpis.get("verified_precision") is not None else "—"
+		vdr_str = f"{kpis['value_detection_rate'] * 100:.1f}%" if kpis.get("value_detection_rate") is not None else "—"
+		missed_str = f"${kpis['missed_fraud_amount']:,.2f} ({kpis.get('net_fraud_loss_bps', 0.0):.1f} bps)" if kpis.get("missed_fraud_amount") is not None else "—"
+		insult_str = f"{kpis['customer_insult_rate'] * 100:.2f}%" if kpis.get("customer_insult_rate") is not None else "—"
+		mttr_p50 = f"{case_sla['mttr_p50_hours']:.1f}h" if case_sla.get("mttr_p50_hours") is not None else "—"
+		mttr_p90 = f"{case_sla['mttr_p90_hours']:.1f}h" if case_sla.get("mttr_p90_hours") is not None else "—"
+		ks_str = f"{mh['ks_statistic']:.3f}" if mh.get("ks_statistic") is not None else "—"
+		brier_str = f"{mh['brier_score']:.4f}" if mh.get("brier_score") is not None else "—"
+		ece_str = f"{mh['ece']:.4f}" if mh.get("ece") is not None else "—"
+		psi_str = f"{drift['psi']:.4f} ({drift.get('status', '')})" if drift.get("psi") is not None else "—"
 
 		lines = [
 			f"# EXECUTIVE FRAUD & POLICY AUDIT REPORT — {report['project_name']}",
@@ -378,38 +393,39 @@ class ComplianceReportBuilder:
 			f"- **Generated At (UTC):** `{report['generated_at']}`",
 			f"- **Project ID:** `{report['project_id']}`",
 			f"- **Prepared By:** `{report['prepared_by']}`",
-			f"- **Ground-Truth Mode:** `{kpis.get('label_source', 'VERIFIED_WITH_DATASET_FALLBACK')}`",
+			f"- **Ground-Truth Mode:** `{kpis.get('label_source', 'VERIFIED_WITH_DATASET_FALLBACK')}` (`{kpis.get('ground_truth_coverage', 'FULL')}`)",
 			"",
 			"---",
 			"",
 			"## 1. Executive Financial & Operational KPIs",
 			f"- **Gross Scanned Volume:** `${kpis.get('gross_scanned_volume', 0.0):,.2f}` (`{kpis.get('gross_scanned_count', 0):,}` transactions)",
-			f"- **Total Exposure / Amount at Risk:** `${kpis.get('amount_at_risk', 0.0):,.2f}` (`{kpis.get('flagged_tx_count', 0):,}` flagged)",
-			f"- **Confirmed Fraud Loss Prevented (ROI):** `${kpis.get('confirmed_fraud_loss_prevented', 0.0):,.2f}` (`{kpis.get('confirmed_fraud_count', 0):,}` cases)",
-			f"- **False Positive Friction Volume:** `${kpis.get('false_positive_friction_volume', 0.0):,.2f}` (Insult Rate: `{kpis.get('insult_rate', 0.0) * 100:.2f}%`)",
+			f"- **Confirmed Fraud Prevented & VDR:** `${kpis.get('confirmed_fraud_loss_prevented', 0.0):,.2f}` (`{kpis.get('confirmed_fraud_count', 0):,}` cases · VDR: `{vdr_str}`)",
+			f"- **Missed Fraud & Net Loss:** `{missed_str}`",
+			f"- **Customer Insult Rate & Friction:** `{insult_str}` (`${kpis.get('false_positive_friction_volume', 0.0):,.2f}` — Hard Decline `${kpis.get('hard_false_decline_amount', 0.0):,.2f}` / Soft Review `${kpis.get('soft_review_friction_amount', 0.0):,.2f}`)",
 			f"- **Verified Precision & Alert-to-Fraud Ratio:** `{prec_str}` (`{kpis.get('alert_to_fraud_label', '—')}`)",
-			f"- **Case Resolution SLA:** `{kpis.get('case_resolution_rate', 0.0) * 100:.1f}%` (`{kpis.get('resolved_cases', 0)}/{kpis.get('total_cases', 0)}` resolved, `{kpis.get('critical_high_backlog', 0)}` Critical/High backlog)",
+			f"- **Case Resolution & SLA:** `{kpis.get('case_resolution_rate', 0.0) * 100:.1f}%` (`{kpis.get('resolved_cases', 0)}/{kpis.get('total_cases', 0)}` resolved · MTTR P50/P90: `{mttr_p50}` / `{mttr_p90}` · SLA Breach: `{case_sla.get('sla_breach_count', 0)}`)",
 			"",
-			"## 2. AI vs. Rule Catch Attribution",
+			"## 2. AI Model Health & Catch Attribution",
 			f"- **Total Caught Fraud:** `{attr.get('total_caught_fraud_count', 0)}` cases (`${attr.get('total_caught_fraud_amount', 0.0):,.2f}`)",
-			f"- **AI-Exclusive Catch Rate:** `{attr.get('ai_exclusive_catch_rate', 0.0) * 100:.1f}%`",
-			f"- **Consensus / Overlap Rate:** `{attr.get('consensus_overlap_rate', 0.0) * 100:.1f}%`",
-			f"- **Rule-Exclusive Catch Rate:** `{attr.get('rule_exclusive_catch_rate', 0.0) * 100:.1f}%`",
+			f"- **AI-Exclusive / Overlap / Rule-Exclusive:** `{attr.get('ai_exclusive_catch_rate', 0.0) * 100:.1f}%` / `{attr.get('consensus_overlap_rate', 0.0) * 100:.1f}%` / `{attr.get('rule_exclusive_catch_rate', 0.0) * 100:.1f}%`",
+			f"- **Model Health:** KS `{ks_str}` · Brier `{brier_str}` · ECE `{ece_str}` · Score Drift (PSI) `{psi_str}`",
 			"",
 			"## 3. Rule Ground-Truth Leaderboard",
-			"| Rule Code | Rule Name | Status | Action | Hits | Verified TP | Verified FP | Verified FPR | Fraud Caught ($) | Health Tag |",
-			"| :--- | :--- | :--- | :--- | ---: | ---: | ---: | ---: | ---: | :--- |",
+			"| Rule Code | Rule Name | Status | Action | Hits | Verified TP | Verified FP | FAR | Unique Catch ($) | Fraud Caught ($) | Health Tag |",
+			"| :--- | :--- | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :--- |",
 		]
 		for r in rules:
-			fpr_s = f"{r['verified_fpr'] * 100:.1f}%" if r.get("verified_fpr") is not None else "—"
+			far_val = r.get("false_alert_rate", r.get("verified_fpr"))
+			far_s = f"{far_val * 100:.1f}%" if far_val is not None else "—"
+			small_tag = " [n<30]" if r.get("is_small_sample") else ""
 			lines.append(
-				f"| `{r['rule_code']}` | {r['rule_name']} | `{r['status']}` | `{r['action']}` | {r['total_hits']} | {r['verified_tp']} | {r['verified_fp']} | {fpr_s} | ${r['fraud_value_caught']:,.2f} | `{r['policy_health_tag']}` |"
+				f"| `{r['rule_code']}` | {r['rule_name']} | `{r['status']}` | `{r['action']}` | {r['total_hits']} | {r['verified_tp']} | {r['verified_fp']} | {far_s} | ${r.get('unique_catch_amount', 0.0):,.2f} ({r.get('unique_catch_count', 0)}) | ${r['fraud_value_caught']:,.2f} | `{r['policy_health_tag']}{small_tag}` |"
 			)
 
 		lines.extend([
 			"",
 			"## 4. Fraud Typologies & Amount Bracket Risk Profile",
-			"| Amount Bracket | Total Tx | Flagged Tx | Flag Rate | Amount at Risk ($) | Confirmed Fraud ($) |",
+			"| Amount Bracket | Total Tx | Flagged Tx | Alert Rate | Amount at Risk ($) | Confirmed Fraud ($) |",
 			"| :--- | ---: | ---: | ---: | ---: | ---: |",
 		])
 		for b in s4.get("amount_brackets", []):
@@ -421,13 +437,219 @@ class ComplianceReportBuilder:
 		lines.extend([
 			"",
 			"## 5. Watchlist & Governance Summary",
-			f"- **Active Blacklisted Entities:** `{wl.get('active_blacklist_count', 0)}`",
+			f"- **Active Blacklisted Entities:** `{wl.get('active_blacklist_count', 0)}` (Matched Tx: `{wl.get('matched_tx_count', 0)}`, Exposure: `${wl.get('matched_amount', 0.0):,.2f}`)",
 			f"- **Removed Historical Entries:** `{wl.get('removed_blacklist_count', 0)}`",
 		])
 		if report.get("reviewer_notes"):
 			lines.append(f"- **Reviewer Notes:** {report['reviewer_notes']}")
 
 		return "\n".join(lines) + "\n"
+
+	@staticmethod
+	def _render_html_document(payload: dict[str, Any], is_sar: bool) -> str:
+		"""Renders a structured, print-ready A4 HTML document with KPI cards and tables (SUC-25)."""
+		esc = html.escape
+		report_id = esc(str(payload.get("report_id") or "REPORT"))
+		project_name = esc(str(payload.get("project_name") or ""))
+		generated_at = esc(str(payload.get("generated_at") or ""))
+		prepared_by = esc(str(payload.get("prepared_by") or ""))
+		notes = esc(str(payload.get("reviewer_notes") or ""))
+
+		css = """
+			@page { size: A4; margin: 14mm; }
+			body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 28px; color: #0f172a; line-height: 1.5; font-size: 13px; background: #ffffff; }
+			.header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+			.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #0284c7; }
+			h1 { font-size: 20px; margin: 4px 0 6px; color: #0f172a; }
+			h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: #1e293b; border-left: 3px solid #0284c7; padding-left: 8px; margin: 22px 0 10px; }
+			.meta { font-size: 12px; color: #475569; }
+			.kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 12px 0 18px; }
+			.kpi-card { border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; background: #f8fafc; }
+			.kpi-label { font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 600; }
+			.kpi-value { font-size: 17px; font-weight: 700; font-family: 'JetBrains Mono', ui-monospace, monospace; margin-top: 4px; color: #0f172a; }
+			.kpi-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+			table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 12px; }
+			th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; }
+			th { background: #f1f5f9; font-weight: 600; color: #334155; font-size: 11px; text-transform: uppercase; }
+			td.num, th.num { text-align: right; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+			.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; border: 1px solid #cbd5e1; background: #f1f5f9; }
+			.narrative { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; }
+			@media print { body { margin: 0; } .no-print { display: none; } table { page-break-inside: auto; } tr { page-break-inside: avoid; } }
+		"""
+
+		if is_sar:
+			s1 = payload["section_1_identification"]
+			s2 = payload["section_2_financial_summary"]
+			s3 = payload["section_3_detection_evidence"]
+			s4 = payload["section_4_narrative_and_typology"]
+			s5 = payload["section_5_mitigation_and_audit"]
+
+			tx_rows = "".join(
+				f"<tr><td>{esc(str(tx['event_id']))}</td><td>{esc(str(tx['tx_timestamp']))}</td>"
+				f"<td class='num'>${tx['amount']:,.2f}</td><td>{esc(str(tx['final_action']))}</td>"
+				f"<td class='num'>{('%0.4f' % tx['model_score']) if tx.get('model_score') is not None else '—'}</td>"
+				f"<td>{esc(str(tx['status']))}</td></tr>"
+				for tx in s2.get("transactions", [])
+			) or "<tr><td colspan='6'>No linked transactions</td></tr>"
+
+			rule_rows = "".join(
+				f"<tr><td>{esc(r['rule_code'])}</td><td>{esc(r['rule_name'])}</td>"
+				f"<td>{esc(r['action'])}</td><td>{esc(r['trigger_reason'])}</td></tr>"
+				for r in s3.get("violated_rules", [])
+			) or "<tr><td colspan='4'>No deterministic rules triggered (AI-Exclusive)</td></tr>"
+
+			shap_rows = "".join(
+				f"<tr><td>{esc(f['feature_name'])}</td><td>{esc(str(f['feature_value']))}</td>"
+				f"<td class='num'>{f['shap_value']:+.4f}</td><td>{esc(f['direction'])}</td></tr>"
+				for f in s3.get("top_feature_contributions", [])
+			) or "<tr><td colspan='4'>No SHAP feature contributions recorded</td></tr>"
+
+			audit_rows = "".join(
+				f"<tr><td>{esc(log['created_at'])}</td><td>{esc(log['actor'])}</td>"
+				f"<td>{esc(log['action'])}</td><td>{esc(log.get('note') or '—')}</td></tr>"
+				for log in s5.get("audit_trail", [])
+			) or "<tr><td colspan='4'>No audit records</td></tr>"
+
+			body_html = f"""
+			<div class="header">
+				<div>
+					<div class="eyebrow">Suspicious Activity Report (SAR Dossier) &bull; {report_id}</div>
+					<h1>Hồ sơ Giao dịch Đáng ngờ &mdash; {esc(s1['case_code'])}</h1>
+					<div class="meta">Dự án: <strong>{project_name}</strong> &bull; Người lập: <strong>{prepared_by}</strong> &bull; Khởi tạo (UTC): {generated_at}</div>
+				</div>
+				<span class="badge">{esc(s1['verdict'])}</span>
+			</div>
+			<div class="kpi-grid">
+				<div class="kpi-card"><div class="kpi-label">Đối tượng (Subject)</div><div class="kpi-value">{esc(s1['subject_user_id'])}</div><div class="kpi-sub">Priority: {esc(s1['priority'])} ({s1['priority_score']})</div></div>
+				<div class="kpi-card"><div class="kpi-label">Giá trị giao dịch chính</div><div class="kpi-value">${s2['primary_amount']:,.2f}</div><div class="kpi-sub">Action: {esc(s2['final_action'])} &bull; Event {esc(s2['primary_event_id'])}</div></div>
+				<div class="kpi-card"><div class="kpi-label">Tổng phơi nhiễm</div><div class="kpi-value">${s2['total_subject_exposure']:,.2f}</div><div class="kpi-sub">Blacklist: {'ACTIVE' if s5.get('is_subject_blacklisted') else 'NO'}</div></div>
+			</div>
+			<h2>Phần I &amp; II — Giao dịch liên quan</h2>
+			<table>
+				<thead><tr><th>Event ID</th><th>Thời gian (UTC)</th><th class="num">Số tiền</th><th>Hành động</th><th class="num">AI Score</th><th>Trạng thái</th></tr></thead>
+				<tbody>{tx_rows}</tbody>
+			</table>
+			<h2>Phần III — Bằng chứng phát hiện (Luật &amp; SHAP)</h2>
+			<table>
+				<thead><tr><th>Mã luật</th><th>Tên luật</th><th>Hành động</th><th>Điều kiện kích hoạt</th></tr></thead>
+				<tbody>{rule_rows}</tbody>
+			</table>
+			<table>
+				<thead><tr><th>Đặc trưng</th><th>Giá trị</th><th class="num">SHAP</th><th>Chiều tác động</th></tr></thead>
+				<tbody>{shap_rows}</tbody>
+			</table>
+			<h2>Phần IV — Diễn giải &amp; Phân loại ({esc(s4['fraud_typology_label'])})</h2>
+			<div class="narrative">
+				<p>{esc(s4['automated_technical_narrative'])}</p>
+				<p><strong>Kết luận chuyên viên:</strong> {esc(s4['analyst_resolution_summary'])}</p>
+				{f"<p><strong>Ghi chú rà soát:</strong> {notes}</p>" if notes else ""}
+			</div>
+			<h2>Phần V — Nhật ký kiểm toán bất biến (Audit Trail)</h2>
+			<table>
+				<thead><tr><th>Thời gian (UTC)</th><th>Chuyên viên</th><th>Hành động</th><th>Ghi chú</th></tr></thead>
+				<tbody>{audit_rows}</tbody>
+			</table>
+			"""
+		else:
+			kpis = payload.get("section_1_financial_kpis", {})
+			s2 = payload.get("section_2_operations_funnel", {})
+			case_sla = s2.get("case_sla", {})
+			s3 = payload.get("section_3_policy_and_model_effectiveness", {})
+			mh = s3.get("model_health", {})
+			drift = s3.get("score_drift", {})
+			s4 = payload.get("section_4_typologies_and_patterns", {})
+			s5 = payload.get("section_5_watchlist_and_governance", {})
+			wl = s5.get("watchlist_summary", {})
+
+			vdr_str = f"{kpis['value_detection_rate'] * 100:.1f}%" if kpis.get("value_detection_rate") is not None else "—"
+			missed_str = f"${kpis['missed_fraud_amount']:,.2f}" if kpis.get("missed_fraud_amount") is not None else "—"
+			bps_str = f"{kpis['net_fraud_loss_bps']:.1f} bps" if kpis.get("net_fraud_loss_bps") is not None else "—"
+			insult_str = f"{kpis['customer_insult_rate'] * 100:.2f}%" if kpis.get("customer_insult_rate") is not None else "—"
+			prec_str = f"{kpis['verified_precision'] * 100:.1f}%" if kpis.get("verified_precision") is not None else "—"
+			mttr_str = f"{case_sla['mttr_p50_hours']:.1f}h / {case_sla['mttr_p90_hours']:.1f}h" if case_sla.get("mttr_p50_hours") is not None else "—"
+			ks_str = f"{mh['ks_statistic']:.3f}" if mh.get("ks_statistic") is not None else "—"
+			brier_str = f"{mh['brier_score']:.4f}" if mh.get("brier_score") is not None else "—"
+			ece_str = f"{mh['ece']:.4f}" if mh.get("ece") is not None else "—"
+			psi_str = f"{drift['psi']:.4f} ({esc(str(drift.get('status', '')))})" if drift.get("psi") is not None else "—"
+
+			funnel_rows = "".join(
+				f"<tr><td>{esc(str(f['label']))}</td><td class='num'>{f['tx_count']:,}</td>"
+				f"<td class='num'>${f['amount']:,.2f}</td><td class='num'>{f['conversion_rate'] * 100:.1f}%</td></tr>"
+				for f in s2.get("funnel", [])
+			)
+			rule_rows = "".join(
+				f"<tr><td>{esc(r['rule_code'])}</td><td>{esc(r['rule_name'])}</td><td>{esc(r['action'])}</td>"
+				f"<td class='num'>{r['total_hits']}</td><td class='num'>{r['verified_tp']} / {r['verified_fp']}</td>"
+				f"<td class='num'>{('%0.1f%%' % (r['false_alert_rate'] * 100)) if r.get('false_alert_rate') is not None else '—'}</td>"
+				f"<td class='num'>${r.get('unique_catch_amount', 0.0):,.2f} ({r.get('unique_catch_count', 0)})</td>"
+				f"<td class='num'>${r['fraud_value_caught']:,.2f}</td>"
+				f"<td><span class='badge'>{esc(r['policy_health_tag'])}{' [n&lt;30]' if r.get('is_small_sample') else ''}</span></td></tr>"
+				for r in s3.get("rule_leaderboard", [])
+			) or "<tr><td colspan='9'>Chưa ghi nhận luật kích hoạt</td></tr>"
+
+			bracket_rows = "".join(
+				f"<tr><td>{esc(b['label'])}</td><td class='num'>{b['total_count']:,}</td>"
+				f"<td class='num'>{b['flagged_count']:,}</td><td class='num'>{b['flag_rate'] * 100:.1f}%</td>"
+				f"<td class='num'>${b['amount_at_risk']:,.2f}</td><td class='num'>${b['confirmed_fraud_amount']:,.2f}</td></tr>"
+				for b in s4.get("amount_brackets", [])
+			)
+
+			body_html = f"""
+			<div class="header">
+				<div>
+					<div class="eyebrow">Executive Fraud &amp; Policy Audit Report &bull; {report_id}</div>
+					<h1>Báo cáo Kiểm toán Gian lận &amp; Chính sách &mdash; {project_name}</h1>
+					<div class="meta">Người lập: <strong>{prepared_by}</strong> &bull; Khởi tạo (UTC): {generated_at} &bull; Chế độ nhãn: {esc(str(kpis.get('label_source', '')))}</div>
+				</div>
+				<span class="badge">{esc(str(kpis.get('ground_truth_coverage', 'FULL')))}</span>
+			</div>
+			<h2>1. Chỉ số Điều hành &amp; Tài chính (VDR, Missed Fraud, Insult Rate, SLA)</h2>
+			<div class="kpi-grid">
+				<div class="kpi-card"><div class="kpi-label">Tổng khối lượng quét</div><div class="kpi-value">${kpis.get('gross_scanned_volume', 0.0):,.2f}</div><div class="kpi-sub">{kpis.get('gross_scanned_count', 0):,} giao dịch</div></div>
+				<div class="kpi-card"><div class="kpi-label">Gian lận ngăn chặn (VDR)</div><div class="kpi-value">${kpis.get('confirmed_fraud_loss_prevented', 0.0):,.2f} ({vdr_str})</div><div class="kpi-sub">{kpis.get('confirmed_fraud_count', 0):,} ca gian lận</div></div>
+				<div class="kpi-card"><div class="kpi-label">Gian lận lọt lưới (Missed Fraud)</div><div class="kpi-value">{missed_str}</div><div class="kpi-sub">Net Fraud Loss: {bps_str}</div></div>
+				<div class="kpi-card"><div class="kpi-label">Customer Insult Rate</div><div class="kpi-value">{insult_str}</div><div class="kpi-sub">Hard Decline: ${kpis.get('hard_false_decline_amount', 0.0):,.2f} &bull; Soft Review: ${kpis.get('soft_review_friction_amount', 0.0):,.2f}</div></div>
+				<div class="kpi-card"><div class="kpi-label">Precision &amp; Alert:Fraud</div><div class="kpi-value">{prec_str}</div><div class="kpi-sub">Ratio: {esc(str(kpis.get('alert_to_fraud_label', '—')))}</div></div>
+				<div class="kpi-card"><div class="kpi-label">Vận hành SLA &amp; MTTR</div><div class="kpi-value">{kpis.get('case_resolution_rate', 0.0) * 100:.1f}%</div><div class="kpi-sub">MTTR P50/P90: {mttr_str} &bull; Quá SLA: {case_sla.get('sla_breach_count', 0)}</div></div>
+			</div>
+			<h2>2. Phễu Chuyển đổi 4 Tầng</h2>
+			<table>
+				<thead><tr><th>Giai đoạn</th><th class="num">Số GD</th><th class="num">Giá trị ($)</th><th class="num">Tỷ lệ / Tổng quét</th></tr></thead>
+				<tbody>{funnel_rows}</tbody>
+			</table>
+			<h2>3. Sức khỏe Mô hình AI (KS / Brier / ECE / PSI) &amp; Hiệu quả Tập luật</h2>
+			<div class="kpi-grid">
+				<div class="kpi-card"><div class="kpi-label">KS Statistic</div><div class="kpi-value">{ks_str}</div></div>
+				<div class="kpi-card"><div class="kpi-label">Brier Score / ECE</div><div class="kpi-value">{brier_str} / {ece_str}</div></div>
+				<div class="kpi-card"><div class="kpi-label">Score Drift (PSI)</div><div class="kpi-value">{psi_str}</div></div>
+			</div>
+			<table>
+				<thead><tr><th>Mã luật</th><th>Tên luật</th><th>Action</th><th class="num">Hits</th><th class="num">TP / FP</th><th class="num">FAR</th><th class="num">Unique Catch</th><th class="num">Ngăn chặn ($)</th><th>Trạng thái</th></tr></thead>
+				<tbody>{rule_rows}</tbody>
+			</table>
+			<h2>4. Phân khúc Theo Khoảng Số tiền &amp; Danh sách đen</h2>
+			<table>
+				<thead><tr><th>Khoảng tiền</th><th class="num">Tổng GD</th><th class="num">Bị gắn cờ</th><th class="num">Alert Rate</th><th class="num">Rủi ro ($)</th><th class="num">Ngăn chặn ($)</th></tr></thead>
+				<tbody>{bracket_rows}</tbody>
+			</table>
+			<div class="narrative">
+				<strong>Danh sách theo dõi (Watchlist):</strong> {wl.get('active_blacklist_count', 0)} thực thể đang chặn &bull;
+				{wl.get('matched_tx_count', 0)} giao dịch liên quan (${wl.get('matched_amount', 0.0):,.2f}).
+				{f"<br/><strong>Ghi chú rà soát:</strong> {notes}" if notes else ""}
+			</div>
+			"""
+
+		return f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<title>{report_id}</title>
+<style>{css}</style>
+</head>
+<body>
+{body_html}
+</body>
+</html>"""
 
 	@staticmethod
 	def format_report_export(
@@ -475,8 +697,9 @@ class ComplianceReportBuilder:
 			else:
 				writer.writerow([
 					"rule_code", "rule_name", "status", "action", "total_hits",
-					"verified_cases", "verified_tp", "verified_fp", "verified_fpr",
-					"fraud_value_caught", "policy_health_tag",
+					"verified_cases", "verified_tp", "verified_fp", "false_alert_rate",
+					"unique_catch_count", "unique_catch_amount", "fraud_value_caught",
+					"is_small_sample", "policy_health_tag",
 				])
 				for r in payload.get("section_3_policy_and_model_effectiveness", {}).get("rule_leaderboard", []):
 					writer.writerow([
@@ -488,34 +711,22 @@ class ComplianceReportBuilder:
 						r["verified_cases"],
 						r["verified_tp"],
 						r["verified_fp"],
-						r["verified_fpr"],
+						r.get("false_alert_rate", r.get("verified_fpr")),
+						r.get("unique_catch_count", 0),
+						r.get("unique_catch_amount", 0.0),
 						r["fraud_value_caught"],
+						r.get("is_small_sample", False),
 						r["policy_health_tag"],
 					])
 			return buf.getvalue().encode("utf-8"), f"{report_id}.csv", "text/csv; charset=utf-8"
+
+		if fmt == "html":
+			html_doc = ComplianceReportBuilder._render_html_document(payload, is_sar=is_sar)
+			return html_doc.encode("utf-8"), f"{report_id}.html", "text/html; charset=utf-8"
 
 		md_text = (
 			ComplianceReportBuilder.format_sar_markdown(payload)
 			if is_sar
 			else ComplianceReportBuilder.format_executive_markdown(payload)
 		)
-
-		if fmt == "html":
-			escaped_md = html.escape(md_text)
-			html_doc = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>{html.escape(report_id)}</title>
-<style>
-	body {{ font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; margin: 32px; color: #0f172a; line-height: 1.5; }}
-	pre {{ white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; font-size: 12px; background: #f8fafc; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px; }}
-</style>
-</head>
-<body>
-<pre>{escaped_md}</pre>
-</body>
-</html>"""
-			return html_doc.encode("utf-8"), f"{report_id}.html", "text/html; charset=utf-8"
-
 		return md_text.encode("utf-8"), f"{report_id}.md", "text/markdown; charset=utf-8"

@@ -166,13 +166,13 @@ Tuân thủ `docs/design-system.md` (Dark Mode OLED, Dual-Encoding icon + badge,
 
 ## 6. Milestones & to-do (checkpoints, not stop points: all tests green at each)
 
-- [ ] **M1 — Nâng cấp DuckDB OLAP Engine & Report Builder** (`usfds-core`): Toàn bộ công thức FDS chuẩn hóa, chỉ số mới và HTML export hoạt động chính xác với unit tests xanh.
-  - [ ] [tests] Viết các acceptance tests M1 trong `usfds-core/tests/test_insight_report_service.py` và xác nhận fail đúng lý do
-  - [ ] [core] Sửa & mở rộng `compute_executive_overview` (Missed Fraud/VDR/bps, tách REJECT vs REVIEW, Customer Insult Rate chuẩn, Funnel đơn điệu, Daily Trend theo `tx_timestamp`, Case SLA/MTTR/Aging/Analyst với ngưỡng `CRITICAL ≤ 4h`, `HIGH ≤ 24h`, `MEDIUM ≤ 72h`) trong `engine.py`
-  - [ ] [core] Sửa & mở rộng `compute_effectiveness_analysis` (Rule `false_alert_rate`, `unique_catch`, `is_small_sample` khi `n < 30`, `fp_samples`/`fn_samples`; Calibration `equal_width`/`equal_count` + Brier + ECE; Lift/Gain Top-K + KS; Dual-Threshold & Cost-Aware Simulator cho cả `hybrid` và `model_only`; Model Comparison + PSI Drift) trong `engine.py`
-  - [ ] [core] Sửa & mở rộng `compute_typology_and_patterns` (tách 24h `confirmed_fraud_rate` vs `flagged_rate`; `segment_analytics` đa chiều trên 5 cột `ProjectWarehouse` + Amount kèm `is_small_sample`; sửa `total_tx_count` của `top_flagged_subjects`; bổ sung `watchlist_summary` impact) trong `engine.py`
-  - [ ] [core] Cập nhật `service.py` (optional `model_version_repo`/`model_repo`) và `report_builder.py` (Executive Audit mới + HTML/Print template chuẩn)
-  - [ ] [verify] `./scripts/test.sh core`
+- [x] **M1 — Nâng cấp DuckDB OLAP Engine & Report Builder** (`usfds-core`): Toàn bộ công thức FDS chuẩn hóa, chỉ số mới và HTML export hoạt động chính xác với unit tests xanh.
+  - [x] [tests] Viết các acceptance tests M1 trong `usfds-core/tests/test_insight_report_service.py` và xác nhận fail đúng lý do
+  - [x] [core] Sửa & mở rộng `compute_executive_overview` (Missed Fraud/VDR/bps, tách REJECT vs REVIEW, Customer Insult Rate chuẩn, Funnel đơn điệu, Daily Trend theo `tx_timestamp`, Case SLA/MTTR/Aging/Analyst với ngưỡng `CRITICAL ≤ 4h`, `HIGH ≤ 24h`, `MEDIUM ≤ 72h`) trong `engine.py`
+  - [x] [core] Sửa & mở rộng `compute_effectiveness_analysis` (Rule `false_alert_rate`, `unique_catch`, `is_small_sample` khi `n < 30`, `fp_samples`/`fn_samples`; Calibration `equal_width`/`equal_count` + Brier + ECE; Lift/Gain Top-K + KS; Dual-Threshold & Cost-Aware Simulator cho cả `hybrid` và `model_only`; Model Comparison + PSI Drift) trong `engine.py`
+  - [x] [core] Sửa & mở rộng `compute_typology_and_patterns` (tách 24h `confirmed_fraud_rate` vs `flagged_rate`; `segment_analytics` đa chiều trên 5 cột `ProjectWarehouse` + Amount kèm `is_small_sample`; sửa `total_tx_count` của `top_flagged_subjects`; bổ sung `watchlist_summary` impact) trong `engine.py`
+  - [x] [core] Cập nhật `service.py` (optional `model_version_repo`/`model_repo`) và `report_builder.py` (Executive Audit mới + HTML/Print template chuẩn)
+  - [x] [verify] `./scripts/test.sh core`
 
 - [ ] **M2 — Đồng bộ API Provider & Analytics Worker** (`usfds-server`, `usfds-worker`): Cả chế độ inline và queue worker đều trả đầy đủ metadata model & payload mới.
   - [ ] [tests] Bổ sung integration tests M2 trong `usfds-server/tests/test_insight_report_api.py`
@@ -189,7 +189,7 @@ Tuân thủ `docs/design-system.md` (Dark Mode OLED, Dual-Encoding icon + badge,
   - [ ] [verify] `./scripts/test.sh web` và `npm run build` (`tsc -b && vite build`)
 
 Checkpoint log:
-- (chưa bắt đầu — chờ lệnh triển khai)
+- 26-11-28 M1: `./scripts/test.sh core` → `197 passed, 15 skipped, 169 warnings in 14.97s` (PASS core). Toàn bộ 7 acceptance tests M1 xanh; không có sai lệch ngoài kế hoạch.
 
 ## 7. Review hotspots (filled in after implementation)
 - (điền sau khi hoàn tất triển khai)

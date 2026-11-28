@@ -13,6 +13,8 @@ from usfds_core.repositories.base_case_repo import (
 	ICaseRepository,
 )
 from usfds_core.repositories.base_detection_job_repo import IDetectionJobRepository
+from usfds_core.repositories.base_model_repo import IModelRepository
+from usfds_core.repositories.base_model_version_repo import IModelVersionRepository, format_model_version_label
 from usfds_core.repositories.base_project_repo import IProjectRepository
 from usfds_core.repositories.base_rule_repo import IRuleRepository, IRuleVersionRepository
 from usfds_core.services.insight_report.engine import DuckDBInsightEngine
@@ -39,6 +41,8 @@ class InsightReportService:
 		rule_repo: Optional[IRuleRepository] = None,
 		rule_version_repo: Optional[IRuleVersionRepository] = None,
 		file_storage: Optional[IFileStorage] = None,
+		model_version_repo: Optional[IModelVersionRepository] = None,
+		model_repo: Optional[IModelRepository] = None,
 	):
 		self.project_repo = project_repo
 		self.detection_job_repo = detection_job_repo
@@ -48,6 +52,8 @@ class InsightReportService:
 		self.rule_repo = rule_repo
 		self.rule_version_repo = rule_version_repo
 		self.file_storage = file_storage
+		self.model_version_repo = model_version_repo
+		self.model_repo = model_repo
 
 	def _validate_project(self, project_id: UUID) -> str:
 		if not self.project_repo:
@@ -140,6 +146,50 @@ class InsightReportService:
 
 		return completed_jobs, filtered_jobs, filtered_cases, rules_with_versions, blacklist_entries
 
+	def _resolve_model_labels(
+		self,
+		jobs: list[DetectionJob],
+		cases: list[Case],
+	) -> dict[str, dict[str, str]]:
+		"""Resolve human-readable model name & semver for every model_version_id in scope."""
+		version_ids: set[UUID] = set()
+		for j in jobs:
+			if j.model_version_id:
+				version_ids.add(j.model_version_id)
+		for c in cases:
+			if c.model_version_id:
+				version_ids.add(c.model_version_id)
+		labels: dict[str, dict[str, str]] = {}
+		model_cache: dict[UUID, str] = {}
+		for vid in version_ids:
+			vid_str = str(vid)
+			mv = self.model_version_repo.get_by_id(vid) if self.model_version_repo else None
+			if mv is None:
+				labels[vid_str] = {
+					"model_version_id": vid_str,
+					"model_name": f"Model-{vid_str[:8]}",
+					"semver": "",
+					"display_label": f"Model-{vid_str[:8]}",
+				}
+				continue
+			if mv.model_id not in model_cache:
+				model_obj = self.model_repo.get_by_id(mv.model_id) if self.model_repo else None
+				model_name = (
+					(model_obj.display_name or model_obj.model_name)
+					if model_obj
+					else f"Model-{str(mv.model_id)[:8]}"
+				)
+				model_cache[mv.model_id] = model_name
+			m_name = model_cache[mv.model_id]
+			ver_label = format_model_version_label(mv.semver)
+			labels[vid_str] = {
+				"model_version_id": vid_str,
+				"model_name": m_name,
+				"semver": ver_label,
+				"display_label": f"{m_name} {ver_label}",
+			}
+		return labels
+
 	def _build_engine(
 		self,
 		project_id: UUID,
@@ -156,6 +206,7 @@ class InsightReportService:
 			date_from=date_from,
 			date_to=date_to,
 		)
+		model_labels = self._resolve_model_labels(filtered_jobs, filtered_cases)
 		engine = DuckDBInsightEngine(
 			file_storage=self.file_storage,
 			jobs=filtered_jobs,
@@ -165,6 +216,7 @@ class InsightReportService:
 			label_source=label_source,
 			date_from=date_from,
 			date_to=date_to,
+			model_labels=model_labels,
 		)
 		return engine, completed_jobs
 
