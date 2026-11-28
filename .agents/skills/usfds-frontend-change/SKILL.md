@@ -5,7 +5,7 @@ description: How to change the USFDS React web app (usfds-web) — layering (com
 
 # USFDS frontend change
 
-Read first: `docs/design-system.md` (tokens, layout, accessibility) and the feature's `docs/features/**/user-flow-and-ui-design.md` if it exists.
+Read first: `docs/design-system.md` (tokens, layout, accessibility), skill `usfds-ui-design` (Operate-mode UX shaping, layout/hardening, Vietnamese copy, UI audit/polish), and the feature's `docs/features/**/user-flow-and-ui-design.md` if it exists.
 
 ## Layers (dependencies point downward only)
 

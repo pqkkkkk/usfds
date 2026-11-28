@@ -32,6 +32,7 @@ Several AI agents work on this repo at the same time. Follow these skills (in `.
 | Review | `usfds-review` | Independent adversarial audit of diff against `docs/arch/03-system-invariants.md` & `modules/*.md` before Final Report |
 | Backend | `usfds-backend-change` | Layer map, Alembic migrations, append-only hot spots |
 | Frontend | `usfds-frontend-change` | Design system, Vietnamese UI copy, react-query, MSW tests |
+| UI Design | `usfds-ui-design` | Operate-mode UX shaping, layout/hardening, Vietnamese copy clarity, and A11y/Theme/UX polish for `usfds-web` <!-- [26-11-28] --> |
 | Tests | `usfds-testing` | `./scripts/test.sh` (no Docker), fixtures, PostgreSQL & architecture/route security guards |
 
 - **Task model:** 1 task = 1 agent session = 1 plan file `.plan/<task_slug>.md`. The user decides which issues (`ISS-NNN`) form a task. The agent implements the whole task alone. Milestones are checkpoints inside the plan, not stop points. If the scope looks too broad or too small, propose splitting or merging **issues**; never split the task.
