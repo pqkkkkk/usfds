@@ -78,5 +78,11 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-045 | Investigation Assign flow has no owner role and Workbench loads full source files | improvement | investigation, server, web | P2 | Resolved (26-11-22) <!-- [26-11-22] --> | [investigation_redesign](../../.plan/investigation_redesign.md) <!-- [26-11-22] --> | [11-22](11-22-2026.md) |
 | ISS-046 | Insight & Report metric formula inaccuracies and missing real-world FDS analytics | improvement | insight-report, server, worker, web | P2 | Resolved (26-11-28) <!-- [26-11-28] --> | [insight_report_fds_upgrade](../../.plan/insight_report_fds_upgrade.md) <!-- [26-11-27] --> | [11-27](11-27-2026.md) |
 | ISS-047 | Raw label values not parsed or mapped to binary 0/1 during schema mapping and analytics | bug | data-management, insight-report, rule-engine, server, web | P1 | Resolved (26-11-28) <!-- [26-11-28] --> | [raw_label_parsing_and_mapping](../../.plan/raw_label_parsing_and_mapping.md) <!-- [26-11-26] --> | [11-26](11-26-2026.md) |
+| ISS-048 | `ProjectService._check_active_workloads` skips SQL `TrainingRun` check | bug | server, training | P1 | Open <!-- [26-11-27] --> | — | [11-27](11-27-2026.md) |
+| ISS-049 | Built-in batch inference executes `apply_domain_feature_engineers` twice per job | bug | inference, data-management | P2 | Open <!-- [26-11-27] --> | — | [11-27](11-27-2026.md) |
+| ISS-050 | `BuiltinModelTrainer` & inference ignore dynamic `non_ml_columns`, leaking `IDENTIFIER` columns | bug | training, inference, data-management | P1 | Open <!-- [26-11-27] --> | — | [11-27](11-27-2026.md) |
+| ISS-051 | Plugin bundler hardcodes `main.py`; `PRE_PROCESSED` pipeline not copied to model run dir | bug | training, inference | P2 | Open <!-- [26-11-27] --> | — | [11-27](11-27-2026.md) |
+| ISS-052 | `feature_router` read endpoints skip `GrantScope.OWN` owner filtering | security | auth, server, data-management | P2 | Open <!-- [26-11-27] --> | — | [11-27](11-27-2026.md) |
+| ISS-053 | `validate_rule_condition` checks `raw_schema` only and rejects `model_score` / `model.score` | bug | rule-engine, inference | P2 | Open <!-- [26-11-27] --> | — | [11-27](11-27-2026.md) |
 
 Older resolved bugs (pre-ISS numbering) are kept in [`docs/bugs.md`](../bugs.md).

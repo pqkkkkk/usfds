@@ -10,7 +10,7 @@ Identify the domain and read the corresponding documentation before implementing
 
 | Request touches... | Read first |
 | --- | --- |
-| Architecture of codebase | `docs/arch/high-level-design.md`, `docs/arch/implementation-level-design.md` |
+| Architecture, module contracts & system invariants | `docs/arch/README.md` → relevant `docs/arch/modules/*.md` + `docs/arch/03-system-invariants.md` (and `01`/`02` for runtime/data flows) |
 | Design system | `docs/design-system.md` |
 | Use case specification | `docs/features/**/suc-spec.md`, and all sub items of Notion page [Đặc tả use case hệ thống](https://app.notion.com/p/c-t-use-case-h-th-ng-3f9b99c6a95080989f01e692219f6fe7) |
 | Known issues / bugs | `docs/issues/README.md` (index, IDs `ISS-NNN`) |
@@ -27,14 +27,15 @@ Several AI agents work on this repo at the same time. Follow these skills (in `.
 
 | Phase | Skill | Output |
 | --- | --- | --- |
-| Plan | `usfds-plan` | `.plan/<task>.md` from the template, with `Design & Approach` (Mermaid + decisions/risks), Dependencies & Conflicts verdict, and acceptance tests. **Stop for user approval.** |
+| Plan | `usfds-plan` | `.plan/<task>.md` from the template, with `Design & Approach` (Mermaid + decisions/risks), Dependencies & Conflicts verdict, **§4.5 System Invariant & Blast-Radius Impact**, and acceptance tests. **Stop for user approval.** |
 | Implement | `usfds-task-workflow` | Tests first, then code, in your own git worktree/branch `task/<slug>` |
+| Review | `usfds-review` | Independent adversarial audit of diff against `docs/arch/03-system-invariants.md` & `modules/*.md` before Final Report |
 | Backend | `usfds-backend-change` | Layer map, Alembic migrations, append-only hot spots |
 | Frontend | `usfds-frontend-change` | Design system, Vietnamese UI copy, react-query, MSW tests |
-| Tests | `usfds-testing` | `./scripts/test.sh` (no Docker), fixtures, PostgreSQL compatibility guard |
+| Tests | `usfds-testing` | `./scripts/test.sh` (no Docker), fixtures, PostgreSQL & architecture/route security guards |
 
 - **Task model:** 1 task = 1 agent session = 1 plan file `.plan/<task_slug>.md`. The user decides which issues (`ISS-NNN`) form a task. The agent implements the whole task alone. Milestones are checkpoints inside the plan, not stop points. If the scope looks too broad or too small, propose splitting or merging **issues**; never split the task.
-- **Review model:** the user reviews `Design & Approach`, acceptance tests, and the **Review hotspots** listed in the final report, not every line of code.
+- **Review model:** the user reviews `Design & Approach`, §4.5 Invariant Impact, acceptance tests, adversarial review verdict (`usfds-review`), and the **Review hotspots** listed in the final report, not every line of code.
 - **Board claiming for parallel runs:** when running multiple agents concurrently, mark the task `In progress` on `main`'s `.plan/BOARD.md` right after plan approval so other sessions' `C1` conflict checks detect owned files.
 - **Single test entrypoint:** `./scripts/test.sh [core|infra|server|worker|cli|web]`. Python is pinned to 3.12.
 - **Hot-spot files** (shared registries) are append-only; see skill `usfds-plan` for the list.
@@ -115,7 +116,7 @@ Before modifying codebase logic, databases, routes, or assets:
 2. Ensure no custom UI for API keys is generated. Rely strictly on standard `.env.example` configurations.
 3. Do not delete or rename this file. Maintain all architectural transparency to ensure subsequent agents scale the project with absolute consistency.
 4. After receiving a task, always plan first (skill `usfds-plan`) and ask clarifying questions. Upon approval, write the acceptance tests first (skill `usfds-task-workflow`). Track progress in the task's own plan file `.plan/<task>.md`.
-5. After completing the task, request final approval with the report format of `usfds-task-workflow` (including Review hotspots). After approval, rebase/sync with `origin/main` if needed, update `CHANGELOG.md`, `.plan/BOARD.md` and the issue status in `docs/issues/` on `task/<slug>`, and push directly to the remote branch (`git push -u origin task/<slug>`) to open/merge a PR (never merge directly into local `main`).
+5. After completing the task, run an independent adversarial review (skill `usfds-review`) and request final approval with the report format of `usfds-task-workflow` (including Review hotspots and review verdict). After approval, rebase/sync with `origin/main` if needed, sync `docs/arch/` if contracts/invariants changed (`INV-015`), update `CHANGELOG.md`, `.plan/BOARD.md` and the issue status in `docs/issues/` on `task/<slug>`, and push directly to the remote branch (`git push -u origin task/<slug>`) to open/merge a PR (never merge directly into local `main`).
 6. **Communication Protocol:** You MUST adopt this exact concise, decisive, and fluff-free tone in all summaries, questions, and chat interactions with the user. Stop guessing; state the facts.
 7. If request don't have corresponding documentation, always ask me for relevant Notion link before proceeding.
 8. If cannot connect to Notion, ask me download necessary documentation into `docs`.

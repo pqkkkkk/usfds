@@ -49,6 +49,17 @@ flowchart LR
 | C4 | Public contract change | No / Yes: <endpoint/payload> → consumers: <...> |
 | C5 | Shared UI shell change | No / Yes: <file> |
 
+## 4.5 System Invariant & Blast-Radius Impact (user reviews this section)
+<!-- Check against docs/arch/03-system-invariants.md (INV-001..015) and docs/arch/02-data-and-lifecycle-flows.md (C1–C5). -->
+| Check | Touched? | How invariant / contract is preserved (or N/A) |
+|---|---|---|
+| Auth / Project / `OWN` scope (`INV-001..003`) | No / Yes | <routes, permission codes, `project_id`, `owner_id` checks> |
+| File I/O / Sandbox / Remote Creds (`INV-004`) | No / Yes | <presigned URL, upload cap, AST/timeout, zero-cred> |
+| Layering / PG Compat / Large Data (`INV-005..007`) | No / Yes | <Alembic rev, DuckDB bounded, no core→infra import> |
+| Queue / Delete / Concurrency (`INV-008,011,012`) | No / Yes | <idempotency, in-use 409/400, orphan cleanup, `expected_version`> |
+| Shared Contracts (`C1–C5`) & Formulas (`INV-009,010,013`) | No / Yes | <producers & consumers checked; fail-fast; metric math> |
+| Architecture Doc-Sync (`INV-015`) | No / Yes | <`docs/arch/*` files to update at PR time, or `—`> |
+
 ## 5. Acceptance tests (user reviews this section)
 | Milestone | Test | Given | When | Then | Covers |
 |---|---|---|---|---|---|

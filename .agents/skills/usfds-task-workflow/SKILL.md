@@ -38,9 +38,14 @@ At the end of each milestone:
 - Hot-spot files: append only.
 
 ## 3. Verify
-- `./scripts/test.sh <every package you touched>` must be green, including the PostgreSQL-compatibility guards.
+- `./scripts/test.sh <every package you touched>` must be green, including the PostgreSQL-compatibility and architecture/route security guards (`test_pg_compat_guard.py`, `test_migrations.py`, `test_architecture_guards.py`, `test_route_security_guard.py`, `test_worker_guards.py`).
 - Web: `npm run build && npm run lint && npm test` in `usfds-web`.
 - Never claim green without pasting the summary line of the test output.
+
+## 3.5 Independent Adversarial Review (before Final report)
+- After all milestones pass step 3, run skill **`usfds-review`** (prefer launching an independent subagent on the diff + plan + `docs/arch/03-system-invariants.md` + relevant `docs/arch/modules/<module>.md`).
+- If the review returns **`CHANGES REQUIRED`** (any `BLOCKER`), fix every blocker, re-run `./scripts/test.sh`, and re-verify before reporting to the user.
+- Carry any remaining **`RISK`** notes directly into the Final Report's **Review hotspots**.
 
 ## 4. Final report (exact format)
 
@@ -50,6 +55,7 @@ At the end of each milestone:
 **Milestones:** M1 ✅ <one line> · M2 ✅ ... (matches plan §6 checkpoint log)
 **Tests:** <package>: <N passed, M failed> (paste summary lines)
 **Acceptance tests:** all <K> from plan §5 implemented: yes/no (list deviations)
+**Adversarial review (`usfds-review`):** <PASS | PASS WITH NOTES> (<summary of fixed blockers / remaining risks or `None`>)
 
 **Changed files:** <count>
 - `<path>`: <one line>
@@ -61,7 +67,7 @@ At the end of each milestone:
 **Assumptions made:** <list or —>
 **Not done / follow-ups:** <list or —, with proposed ISS entries>
 **Manual E2E to run:** <copy §9 checklist or —>
-**Merge notes:** Alembic revision `<id>` (down_revision `<id>`) · hot-spot edits: <files> · CHANGELOG/BOARD lines to add: <text>
+**Merge notes:** Alembic revision `<id>` (down_revision `<id>`) · hot-spot edits: <files> · `docs/arch/` sync (`INV-015`): <files or —> · CHANGELOG/BOARD lines to add: <text>
 ```
 
 ### How to choose review hotspots (2–5 per milestone)
@@ -78,5 +84,6 @@ Also copy the hotspots into plan §7.
 ## 5. After user approval (push & PR)
 Done by the agent on `task/<task_slug>` (never merge directly into local `main`):
 - Fetch and rebase onto `origin/main` if needed; if there is an Alembic revision, update `down_revision` to the current head and re-run `./scripts/test.sh`.
+- **Architecture Doc-Sync (`INV-015`):** If the task changed any shared contract (`C1–C5`), state machine, queue/storage layout, module boundary, or invariant, update the corresponding `docs/arch/` file(s) with a `[YY-MM-DD]` comment in this same branch.
 - Update `CHANGELOG.md`, `.plan/BOARD.md`, and the ISS status in `docs/issues/` (both the dated file and `README.md`). Set the plan's status to `Done (YY-MM-DD)`.
 - Commit and push directly to the corresponding remote branch: `git push -u origin task/<task_slug>` (so the user can review and merge via PR).

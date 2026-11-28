@@ -46,6 +46,12 @@ Every SQL statement executed on SQLite is also compiled for PostgreSQL (G2) and 
   - Compare timezone-aware datetimes.
   - No raw SQL in repositories.
 
+## Architecture & Security Fitness Guards (always on in core, server, worker tests)
+Enforced automatically by `./scripts/test.sh` (mapped to `docs/arch/03-system-invariants.md`):
+- `usfds-core/tests/test_architecture_guards.py`: Clean Architecture import guard (`INV-005`), Worker Executor zero-repo guard (`INV-005`), Bounded DuckDB no-full-pandas guard (`INV-007`), Two-Tier `FEATURE_ENGINEERED` contract (`INV-009`), and `BR-DT-07` hybrid decision precedence (`INV-013`).
+- `usfds-server/tests/test_route_security_guard.py`: every FastAPI route outside `PUBLIC_ROUTES_ALLOWLIST` must declare an auth dependency (`INV-001`), every project-scoped route must require `get_actor_context` (`INV-002`), CORS `*` disables credentials (`INV-001`), and routers never import ORM models directly (`INV-005`).
+- `usfds-worker/tests/test_worker_guards.py`: `JOB_*` and `QUEUE_*` constants in `usfds-infra`, `usfds-worker/main.py`, and `InlineJobQueue` stay 1-1 synchronized, and deterministic errors stay in `NON_RETRYABLE_ERRORS` (`INV-008`).
+
 ## Writing acceptance tests
 - Name tests as business sentences, e.g. `test_delete_dataset_used_by_training_run_returns_409`. One requirement per test, tagged in the docstring with SUC/BR/ISS.
 - Assert observable behavior: HTTP status, the `ApiResponse` envelope (`success`, `statusCode`, `data`), DB state, storage objects, queued jobs. Do not assert private functions.
