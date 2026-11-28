@@ -30,3 +30,4 @@
 | [`feature_management`](feature_management.md) | ISS-040 | Done (26-11-24) | M1–M5 | `system_metadata_management`, `own_scope_access_control`, `large_data_analytics_duckdb`, `graph_exploration` | per plan §3 |
 | [`data_management_duckdb`](data_management_duckdb.md) | ISS-044 | Done (26-11-25) | M1–M3 | `large_data_analytics_duckdb`, `system_metadata_management` | per plan §3 |
 | [`remote_training_compute`](remote_training_compute.md) | ISS-009 | Done (26-11-25) | M1–M3 | — | per plan §3 |
+| [`insight_report_fds_upgrade`](insight_report_fds_upgrade.md) | ISS-046 | Done (26-11-28) | M1–M3 | `large_data_analytics_duckdb` | per plan §3 |

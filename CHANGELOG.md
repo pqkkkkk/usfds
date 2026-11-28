@@ -2,6 +2,12 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-28 — ISS-046: Insight & Report FDS Upgrade (DuckDB OLAP Metrics, Dual-Threshold Simulator & 4-Tab UI)
+Plan: `.plan/insight_report_fds_upgrade.md` · Board: `.plan/BOARD.md`
+
+- Core (`services/insight_report/{engine,service,report_builder}.py`): fixed Customer Insult Rate (`FP/(TN+FP)`), REJECT vs REVIEW friction separation, monotonic 4-stage funnel, daily `tx_timestamp` trends, 24h `confirmed_fraud_rate` vs `flagged_rate`, and true user `total_tx_count`; added Missed Fraud / VDR / bps with `VERIFIED_ONLY` `ground_truth_coverage` null guards, Case SLA / MTTR / Backlog Aging / Analyst stats (`CRITICAL <= 4h`, `HIGH <= 24h`, `MEDIUM <= 72h`), Rule `false_alert_rate` / `unique_catch` / `is_small_sample` (`n < 30`) / FP & FN samples, `equal_width` & `equal_count` Calibration + Brier + ECE + KS, Top-K Lift/Gain, PSI Score Drift, Dual-Threshold Simulator (`hybrid` & `model_only`), Model Comparison, 6-dimension Segment Hit-Rate, Watchlist impact, and structured HTML/print export without `<pre>`.
+- Server, Worker & Web (`providers/insight.py`, `usfds_worker/handlers.py`, `usfds-web/src/{types/insightReport.ts,components/modules/reports/{MetricInfoTooltip,ExecutiveOverviewTab,EffectivenessTab,TypologiesPatternsTab,ComplianceReportCenterTab}.tsx}`): injected `model_version_repo` & `model_repo` in sync API & analytics worker, replaced hardcoded `"XGBoost"` labels, added Vietnamese `MetricInfoTooltip` and upgraded all 4 report tabs; verified `core` (`197 passed, 15 skipped`), `server` (`60 passed`), `worker` (`10 passed`), `web` (`28 files / 61 passed`, `npm run build && npm run lint` 0 errors).
+
 ## 2026-11-25 — ISS-009: Remote Training Compute (Multi-Provider, Modal, In-Server Poller & Auto Selection)
 Plan: `.plan/remote_training_compute.md` · Board: `.plan/BOARD.md`
 

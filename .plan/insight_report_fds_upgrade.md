@@ -1,7 +1,7 @@
 # Plan: Nâng cấp Phân hệ Insight & Report theo chuẩn nghiệp vụ FDS (tham khảo Jube)
 
 > **Task ID:** `insight_report_fds_upgrade` · **Issues:** ISS-046 · **Spec:** `docs/features/insight_report/suc-spec.md` (SUC-22..25, đã đồng bộ 26-11-27)
-> **Conflict verdict:** `PARALLEL-SAFE` · **Status:** Approved (26-11-27)
+> **Conflict verdict:** `PARALLEL-SAFE` · **Status:** Done (26-11-28)
 
 ## 1. Context (facts)
 - **Sai lệch công thức nghiệp vụ hiện tại trong `DuckDBInsightEngine` (`usfds-core/src/usfds_core/services/insight_report/engine.py`):**
