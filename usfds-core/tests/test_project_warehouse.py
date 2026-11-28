@@ -225,3 +225,98 @@ def test_warehouse_resolves_optional_entity_column_aliases(no_pandas_parquet_rea
 	assert conn.execute(
 		"SELECT event_id, device_id, ip_address, card_id, merchant_id, merchant_category FROM facts"
 	).fetchall() == [("TX-ALIAS", "DEV-ALIAS-1", "192.168.1.50", "CARD-4111", "MERCH-ALIAS-9", "GROCERY")]
+
+
+def test_warehouse_and_rule_backtest_apply_explicit_label_mapping(no_pandas_parquet_read):
+	"""ISS-047: ProjectWarehouse and InferenceService lineage preserve explicit label_value_mapping for dataset_label."""
+	from usfds_core.domain.entities.dataset import DatasetArtifact
+	from usfds_core.domain.entities.enums import ModelVersionStatus, PipelineStage
+	from usfds_core.domain.entities.model import Model, ModelVersion, TrainingRun
+	from usfds_core.repositories.in_memory_repos import (
+		InMemoryDatasetArtifactRepository,
+		InMemoryModelRepository,
+		InMemoryModelVersionRepository,
+		InMemoryTrainingRunRepository,
+	)
+
+	storage = _MemoryStorage()
+	project_id = uuid4()
+	warehouse = ProjectWarehouse(storage)
+	t0 = datetime(2026, 11, 6, tzinfo=timezone.utc)
+
+	# 1. Direct summary_metrics["label_value_mapping"] on predictions with 'fraud'/'legit' and '2'/'1'
+	job_str = _job(
+		project_id,
+		storage,
+		[_row("TX-S1", 0.9, label="fraud"), _row("TX-S2", 0.1, label="legit"), _row("TX-S3", 0.2, label="unknown")],
+		t0,
+		"str-labels",
+	)
+	job_str.summary_metrics = {"label_value_mapping": {"fraud": 1, "legit": 0}}
+	assert warehouse.write_job_facts(job_str) == warehouse.fact_key(job_str)
+
+	job_num = _job(
+		project_id,
+		storage,
+		[_row("TX-N1", 0.8, label="2"), _row("TX-N2", 0.2, label="1")],
+		t0 + timedelta(hours=1),
+		"num-labels",
+	)
+	job_num.summary_metrics = {"label_value_mapping": {"2": 1, "1": 0}}
+	assert warehouse.write_job_facts(job_num) == warehouse.fact_key(job_num)
+
+	conn = _load_facts(storage, [job_str, job_num])
+	labels_by_id = dict(conn.execute("SELECT event_id, dataset_label FROM facts").fetchall())
+	assert labels_by_id == {"TX-S1": 1, "TX-S2": 0, "TX-S3": -1, "TX-N1": 1, "TX-N2": 0}
+
+	# 2. InferenceService._trace_model_version_lineage extracts label_value_mapping from mapped_artifact.validation_report
+	artifact_repo = InMemoryDatasetArtifactRepository()
+	model_repo = InMemoryModelRepository()
+	version_repo = InMemoryModelVersionRepository()
+	run_repo = InMemoryTrainingRunRepository()
+
+	dataset_id = uuid4()
+	mapped_art = DatasetArtifact(
+		dataset_id=dataset_id,
+		pipeline_stage=PipelineStage.MAPPED,
+		storage_path=f"datasets/{dataset_id}/mapped.parquet",
+		output_paths={"mapped": f"datasets/{dataset_id}/mapped.parquet"},
+		validation_report={
+			"column_mapping": {"tx_id": "event_id", "is_fraud": "label"},
+			"label_value_mapping": {"fraud": 1, "legit": 0},
+		},
+	)
+	fe_art = DatasetArtifact(
+		dataset_id=dataset_id,
+		parent_artifact_id=mapped_art.artifact_id,
+		pipeline_stage=PipelineStage.FEATURE_ENGINEERED,
+		storage_path=f"datasets/{dataset_id}/fe",
+	)
+	artifact_repo.save(mapped_art)
+	artifact_repo.save(fe_art)
+
+	run = TrainingRun(project_id=project_id, run_name="run-lvm")
+	run_repo.save(run)
+	run_repo.link_dataset(run.run_id, fe_art.artifact_id)
+
+	model = Model(project_id=project_id, model_name="xgb_lvm")
+	model_repo.save(model)
+	version = ModelVersion(
+		project_id=project_id,
+		model_id=model.model_id,
+		run_id=run.run_id,
+		semver="1.0.0",
+		status=ModelVersionStatus.APPROVED,
+		artifact_uri=f"models/{model.model_id}/model.joblib",
+	)
+	version_repo.save(version)
+
+	inf_service = InferenceService(
+		file_storage=storage,
+		artifact_repo=artifact_repo,
+		model_repo=model_repo,
+		model_version_repo=version_repo,
+		training_run_repo=run_repo,
+	)
+	_, _, _, model_meta = inf_service._trace_model_version_lineage(version.version_id, project_id=project_id)
+	assert model_meta.get("label_value_mapping") == {"fraud": 1, "legit": 0}

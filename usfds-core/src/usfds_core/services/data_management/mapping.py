@@ -11,6 +11,10 @@ from usfds_core.domain.entities.enums import (
 )
 from usfds_core.domain.entities.system_metadata import SystemColumnMetadata
 from usfds_core.domain.schemas.artifact_output import validate_stage_outputs
+from usfds_core.domain.schemas.label_normalization import (
+    build_label_parse_sql,
+    validate_label_value_mapping,
+)
 from usfds_core.domain.schemas.preprocessing_config import (
     DataMappingConfig,
     SupportedTimeFormat,
@@ -208,6 +212,8 @@ class DataMappingService:
                 "Vui lòng hoàn tất trước khi lưu."
             )
 
+        validated_label_mapping = validate_label_value_mapping(mapping_config.label_value_mapping)
+
         # 4. Verify source file exists
         source_path = (
             parent_artifact.output_paths.get("raw")
@@ -275,11 +281,12 @@ class DataMappingService:
 
                 lbl_src = mapping_config.target_column
                 lbl_ident = quote_ident(lbl_src)
-                if raw_types[lbl_src].strip().upper() in ("BOOLEAN", "BOOL"):
-                    select_exprs[SystemColumn.LABEL.value] = f"CAST(COALESCE(CAST({lbl_ident} AS BIGINT), 0) AS BIGINT)"
-                else:
-                    lbl_num = self._numeric_parse_sql(lbl_ident)
-                    select_exprs[SystemColumn.LABEL.value] = f"CAST(COALESCE(TRY_CAST({lbl_num} AS BIGINT), 0) AS BIGINT)"
+                lbl_type = raw_types[lbl_src]
+                lbl_parsed_sql = build_label_parse_sql(lbl_ident, lbl_type, validated_label_mapping)
+                select_exprs[SystemColumn.LABEL.value] = lbl_parsed_sql
+                ratio_checks.append(
+                    ("LABEL", SystemColumn.LABEL.value, self._not_blank_sql(lbl_ident, lbl_type), lbl_parsed_sql)
+                )
 
                 for raw_col, target_col in mapping_config.optional_columns.items():
                     target_key = str(target_col).strip()
@@ -333,9 +340,29 @@ class DataMappingService:
                         ) from e
 
                     max_invalid = mapping_config.max_invalid_ratio_allowed
-                    for idx, (kind, target_key, _, _) in enumerate(ratio_checks):
+                    for idx, (kind, target_key, not_blank_sql, parsed_sql) in enumerate(ratio_checks):
                         non_blank_cnt = int(agg_row[idx * 2] or 0) if agg_row else 0
                         invalid_cnt = int(agg_row[idx * 2 + 1] or 0) if agg_row else 0
+                        if kind == "LABEL":
+                            if invalid_cnt > 0:
+                                sample_rows = conn.execute(
+                                    f'SELECT DISTINCT trim(CAST({lbl_ident} AS VARCHAR)) FROM "raw_src" '
+                                    f"WHERE ({not_blank_sql}) AND ({parsed_sql}) IS NULL "
+                                    f"ORDER BY 1 LIMIT 5"
+                                ).fetchall()
+                                samples = [str(r[0]) for r in sample_rows if r and r[0] is not None]
+                                sample_text = ", ".join(repr(s) for s in samples)
+                                if validated_label_mapping is None:
+                                    raise ValueError(
+                                        f"Cột nhãn '{lbl_src}' chứa {invalid_cnt} giá trị không phải nhị phân chuẩn (0/1). "
+                                        f"Mẫu giá trị chưa được ánh xạ: [{sample_text}]. "
+                                        "Vui lòng cung cấp label_value_mapping tường minh."
+                                    )
+                                raise ValueError(
+                                    f"Cột nhãn '{lbl_src}' chứa {invalid_cnt} giá trị chưa nằm trong label_value_mapping. "
+                                    f"Mẫu giá trị chưa được ánh xạ: [{sample_text}]."
+                                )
+                            continue
                         if non_blank_cnt > 0:
                             invalid_ratio = invalid_cnt / non_blank_cnt
                             if invalid_ratio > max_invalid:
@@ -398,6 +425,8 @@ class DataMappingService:
         report_dict["column_mapping"] = mapping_config.get_full_column_mapping()
         if mapping_config.column_semantic_types:
             report_dict["column_semantic_types"] = dict(mapping_config.column_semantic_types)
+        if validated_label_mapping is not None:
+            report_dict["label_value_mapping"] = validated_label_mapping
         report_dict["retained_columns"] = retained_columns
         report_dict["non_ml_columns"] = sorted(build_non_ml_columns(active_metadata))
         if active_metadata:

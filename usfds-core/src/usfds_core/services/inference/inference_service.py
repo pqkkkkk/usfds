@@ -442,6 +442,7 @@ class InferenceService:
         fe_path: Optional[str] = None
         prep_path: Optional[str] = None
         column_mapping: Dict[str, str] = {}
+        label_value_mapping: Optional[Dict[str, int]] = None
 
         # 1. Check companion files bundled directly inside the model version's run folder first
         if version.artifact_uri and self.file_storage:
@@ -499,12 +500,17 @@ class InferenceService:
                         if isinstance(cm, dict) and cm:
                             column_mapping = {str(k): str(v) for k, v in cm.items() if v}
 
+                    if label_value_mapping is None and isinstance(val_rep, dict):
+                        lvm = val_rep.get("label_value_mapping")
+                        if isinstance(lvm, dict) and lvm:
+                            label_value_mapping = {str(k): int(v) for k, v in lvm.items()}
+
                     if curr_artifact.parent_artifact_id:
                         curr_artifact = self.artifact_repo.get_by_id(curr_artifact.parent_artifact_id)
                     else:
                         break
 
-        meta = {
+        meta: Dict[str, Any] = {
             "model_id": str(version.model_id),
             "model_version_id": str(version.version_id),
             "model_name": model_name,
@@ -513,6 +519,8 @@ class InferenceService:
             "artifact_uri": version.artifact_uri,
             "default_threshold": version.decision_threshold,
         }
+        if label_value_mapping:
+            meta["label_value_mapping"] = label_value_mapping
         return fe_path, prep_path, column_mapping, meta
 
     def _resolve_input_source(
@@ -673,6 +681,7 @@ class InferenceService:
         fe_path: Optional[str] = None
         prep_path: Optional[str] = None
         column_mapping: Dict[str, str] = {}
+        label_value_mapping: Optional[Dict[str, int]] = None
         model_uri: Optional[str] = None
         model_meta: Dict[str, Any] = {}
         effective_threshold = score_threshold if score_threshold is not None else 0.5

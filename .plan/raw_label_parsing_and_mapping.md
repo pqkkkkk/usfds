@@ -1,7 +1,7 @@
 # Plan: Raw Label Value Mapping to Canonical Binary (`0` / `1`)
 
 > **Task ID:** `raw_label_parsing_and_mapping` · **Issues:** ISS-047 (chosen by the user) · **Spec:** `docs/features/data_management/user-flow-and-ui-design.md` (Màn hình 4 — Schema Mapping & Validation)
-> **Conflict verdict:** PARALLEL-SAFE · **Status:** Draft
+> **Conflict verdict:** PARALLEL-SAFE · **Status:** Approved (26-11-28)
 
 ## 1. Context (facts)
 - `usfds-core/src/usfds_core/services/data_management/mapping.py:276-282`: `DataMappingService` chỉ chuyển đổi cột `label` theo kiểu `BOOLEAN` hoặc `TRY_CAST(TRY_CAST(col AS DOUBLE) AS BIGINT)` rồi `COALESCE(..., 0)` và **không đưa `label` vào `ratio_checks`**. Khi file raw chứa chuỗi nhãn phổ biến (`'fraud'` / `'legit'`, `'Yes'` / `'No'`, `'true'` / `'false'` dạng chuỗi) hoặc mã hóa khác (`1`/`2`, `'A'`/`'B'`), `TRY_CAST` trả `NULL` và `COALESCE` **âm thầm biến 100% nhãn thành `0`** trong khi `validation_status` vẫn là `PASSED`. Các mã số phi nhị phân (`1`/`2`, `-1`/`1`) cũng đi thẳng vào `mapped.parquet` mà không được map về `0`/`1`.
@@ -105,29 +105,35 @@ flowchart LR
 ## 6. Milestones & to-do (checkpoints, not stop points: all tests green at each)
 The agent ticks items as it works. This is the task's only to-do list (`TODO.md` is no longer used for new work).
 
-- [ ] **M1 — Explicit Label Normalization, DuckDB Mapping/Profiling & Warehouse/Rule Parity** (`usfds-core`): hoàn tất `label_normalization.py` (`label_value_mapping`), cập nhật `DataMappingService`, `DataProfilingService`, `DataQualityValidationService`, `ProjectWarehouse`, `InferenceService` và `RuleExecutor`.
-  - [ ] [tests] Viết các acceptance tests M1 từ §5 (`test_mapping_service.py`, `test_data_management_duckdb.py`, `test_project_warehouse.py`, `test_rule_engine.py`); xác nhận fail đúng lý do
-  - [ ] [core] Tạo `usfds-core/src/usfds_core/domain/schemas/label_normalization.py`
-  - [ ] [core] Cập nhật `preprocessing_config.py`, `dataset_profiling.py`, `profiling.py`, `mapping.py`, `validation.py`
-  - [ ] [core] Cập nhật `project_warehouse.py`, `inference_service.py`, `rule_engine/executor.py`
-  - [ ] [verify] `./scripts/test.sh core`
-- [ ] **M2 — API End-to-End Verification & Worker Parity** (`usfds-server`, `usfds-worker`): xác nhận REST API `/import` và `/schema-mapping` (kể cả queue payload) trả `distinct_values`, nhận `label_value_mapping` và trả lỗi `400` rõ ràng khi còn giá trị chưa map.
-  - [ ] [tests] Viết acceptance test M2 trong `usfds-server/tests/test_dataset_api.py`; xác nhận pass cả inline và worker validation
-  - [ ] [verify] `./scripts/test.sh core infra server worker`
-- [ ] **M3 — Frontend Auto-Suggest & Value-to-Binary (`0`/`1`) Mapping UI** (`usfds-web`): tạo `labelMapping.ts` chứa danh sách gợi ý mặc định trên FE, hiển thị bảng map từng `distinct_value -> 0 / 1` tại hàng `label` của `SchemaMappingWorkspace`.
-  - [ ] [tests] Viết Vitest tests M3 trong `BulkSchemaMappingAndFE.test.tsx`; xác nhận fail đúng lý do
-  - [ ] [web] Tạo `usfds-web/src/utils/labelMapping.ts`; cập nhật `usfds-web/src/types/dataset.ts` và `usfds-web/src/components/modules/data_management/SchemaMappingWorkspace.tsx`
-  - [ ] [verify] `./scripts/test.sh core infra server worker cli web`
+- [x] **M1 — Explicit Label Normalization, DuckDB Mapping/Profiling & Warehouse/Rule Parity** (`usfds-core`): hoàn tất `label_normalization.py` (`label_value_mapping`), cập nhật `DataMappingService`, `DataProfilingService`, `DataQualityValidationService`, `ProjectWarehouse`, `InferenceService` và `RuleExecutor`.
+  - [x] [tests] Viết các acceptance tests M1 từ §5 (`test_mapping_service.py`, `test_data_management_duckdb.py`, `test_project_warehouse.py`, `test_rule_engine.py`); xác nhận fail đúng lý do
+  - [x] [core] Tạo `usfds-core/src/usfds_core/domain/schemas/label_normalization.py`
+  - [x] [core] Cập nhật `preprocessing_config.py`, `dataset_profiling.py`, `profiling.py`, `mapping.py`, `validation.py`
+  - [x] [core] Cập nhật `project_warehouse.py`, `inference_service.py`, `rule_engine/executor.py`
+  - [x] [verify] `./scripts/test.sh core`
+- [x] **M2 — API End-to-End Verification & Worker Parity** (`usfds-server`, `usfds-worker`): xác nhận REST API `/import` và `/schema-mapping` (kể cả queue payload) trả `distinct_values`, nhận `label_value_mapping` và trả lỗi `400` rõ ràng khi còn giá trị chưa map.
+  - [x] [tests] Viết acceptance test M2 trong `usfds-server/tests/test_dataset_api.py`; xác nhận pass cả inline và worker validation
+  - [x] [verify] `./scripts/test.sh core infra server worker`
+- [x] **M3 — Frontend Auto-Suggest & Value-to-Binary (`0`/`1`) Mapping UI** (`usfds-web`): tạo `labelMapping.ts` chứa danh sách gợi ý mặc định trên FE, hiển thị bảng map từng `distinct_value -> 0 / 1` tại hàng `label` của `SchemaMappingWorkspace`.
+  - [x] [tests] Viết Vitest tests M3 trong `BulkSchemaMappingAndFE.test.tsx`; xác nhận fail đúng lý do
+  - [x] [web] Tạo `usfds-web/src/utils/labelMapping.ts`; cập nhật `usfds-web/src/types/dataset.ts` và `usfds-web/src/components/modules/data_management/SchemaMappingWorkspace.tsx`
+  - [x] [verify] `./scripts/test.sh core infra server worker cli web`
 
 Checkpoint log (the agent appends one line per finished milestone):
-- —
+- 26-11-28 M1 ✅ `core`: `196 passed, 15 skipped` (`./scripts/test.sh core`); no deviations.
+- 26-11-28 M2 ✅ `infra`: `54 passed`, `server`: `61 passed`, `worker`: `10 passed`; added queue-mode companion test `test_dataset_api_schema_mapping_explicit_label_value_mapping_queue_mode`.
+- 26-11-28 M3 ✅ `web`: `27 test files, 60 tests passed` (`npm run build && npm run lint && npm test`); no deviations.
 
 ## 7. Review hotspots (filled in after implementation)
-- —
+1. `usfds-core/src/usfds_core/domain/schemas/label_normalization.py:69-133` (M1): Builds the DuckDB SQL `CASE` expression for `label` normalization — strict canonical `0`/`1`/`0.0`/`1.0`/`BOOLEAN` when `label_value_mapping` is `None`, or exact trimmed string match + unambiguous numeric equivalence (`1` ↔ `1.0`) when explicit mapping is given, leaving blanks/NaNs as `NULL`; covered by `test_map_dataset_with_explicit_label_value_mapping` and `test_map_dataset_strict_canonical_binary_and_rejects_unmapped_values` (`usfds-core/tests/test_mapping_service.py`).
+2. `usfds-core/src/usfds_core/services/data_management/mapping.py:343-366` (M1): Enforces fail-fast rejection (`invalid_cnt > 0`) on `LABEL` regardless of `max_invalid_ratio_allowed` (protecting 1–5% minority fraud classes from silent coercion) and queries up to 5 sample unmapped values; covered by `test_map_dataset_strict_canonical_binary_and_rejects_unmapped_values` and `test_dataset_api_schema_mapping_explicit_label_value_mapping` (`usfds-server/tests/test_dataset_api.py`).
+3. `usfds-core/src/usfds_core/services/warehouse/project_warehouse.py:220-260` & `usfds-core/src/usfds_core/services/inference/inference_service.py:503-524` (M1): Propagates `label_value_mapping` from `mapped_artifact.validation_report` through model-version lineage into `job.summary_metrics` so `ProjectWarehouse._copy_normalized` maps `RAW` labels consistently with `apply_label_mapping`; covered by `test_warehouse_and_rule_backtest_apply_explicit_label_mapping` (`usfds-core/tests/test_project_warehouse.py`).
+4. `usfds-core/src/usfds_core/services/data_management/validation.py:196-200,441-445` (M1): Emits single-class warning when `label` has `unique_count == 1` in both pandas and DuckDB validation paths; covered by `test_map_dataset_preserves_null_labels_and_warns_on_single_class`.
+5. `usfds-web/src/components/modules/data_management/SchemaMappingWorkspace.tsx:375-426,542-555,1095-1208` (M3): Initializes per-value binary mapping from `distinct_values` + FE default tokens (`labelMapping.ts`), blocks submission (`isFormValid = false`) whenever any `distinct_value` remains unassigned while keeping legacy RAW artifacts without `distinct_values` backward-compatible; covered by `SchemaMappingWorkspace: auto-suggests label value mapping from default list and lets user customize 0/1 mapping` (`BulkSchemaMappingAndFE.test.tsx`).
 
-## 8. Open questions
-- **Chính sách chặn giá trị nhãn chưa map ở Backend (`invalid_cnt > 0`):** Đề xuất chặn fail-fast ngay khi có bất kỳ giá trị khác rỗng nào chưa được map (thay vì ngưỡng `30%` như `timestamp`/`amount`), để minority class (1–5% fraud) không bị mất ngầm. Bạn đồng ý chứ?
-- **Khi cột raw đã là `0`/`1` và caller/API gọi trực tiếp không truyền `label_value_mapping`:** Cho phép `label_value_mapping=None` hoạt động ở chế độ kiểm tra nhị phân chặt (chỉ nhận `0`/`1`/`0.0`/`1.0`/`BOOLEAN`, từ chối chuỗi lạ thay vì tự đoán hay ép về `0`), trong khi FE vẫn luôn hiển thị và gửi `label_value_mapping` tường minh nếu có `distinct_values`. Hướng này ổn với bạn chứ?
+## 8. Open questions (Resolved 26-11-28)
+- **Chính sách chặn giá trị nhãn chưa map ở Backend (`invalid_cnt > 0`):** **Approved (26-11-28)** — Chặn fail-fast (`ValueError` → HTTP `400`) khi có bất kỳ giá trị khác rỗng nào chưa được map (`invalid_cnt > 0`), kèm tối đa 5 giá trị mẫu chưa map (không dùng ngưỡng `30%`).
+- **Khi cột raw đã là `0`/`1` và caller/API gọi trực tiếp không truyền `label_value_mapping`:** **Approved (26-11-28)** — `label_value_mapping=None` thực thi chế độ kiểm tra nhị phân chặt (`0`/`1`/`0.0`/`1.0`/`BOOLEAN` only, từ chối chuỗi lạ thay vì tự đoán hay ép về `0`), trong khi FE tự gợi ý và gửi `label_value_mapping` tường minh khi có `distinct_values`.
 
 ## 9. Manual E2E verification (post-merge)
 - [ ] Import file `ccfd-sample-datasets/11. aws-fraud-detector-samples/Transactions_CardNotPresentOnlineTransactions_100k.csv` (nhãn `'fraud'`/`'legit'`): kiểm tra FE tự gợi ý sẵn `fraud -> 1 (Gian lận)` và `legit -> 0 (Hợp lệ)` từ `distinct_values`, tạo `mapped.parquet` đủ nhãn `0`/`1`, chạy Training + Detection và xác nhận Insight & Report hiển thị đúng chỉ số TP/FP.

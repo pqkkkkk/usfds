@@ -468,3 +468,31 @@ def test_export_artifact_bundle_to_file_converts_parquet_to_csv_without_pandas(t
 		assert meta["artifact_id"] == str(artifact_id)
 
 
+def test_profiling_collects_distinct_values_for_low_cardinality_columns(tmp_path):
+	"""ISS-047: DataProfilingService collects sorted distinct_values when 1 <= unique_count <= 20 and leaves high-cardinality empty."""
+	from usfds_core.services.data_management.profiling import DataProfilingService
+
+	df = pd.DataFrame(
+		{
+			"tx_id": [f"TX_{i:03d}" for i in range(25)],
+			"is_fraud": ["legit"] * 20 + ["fraud"] * 5,
+		}
+	)
+	csv_path = tmp_path / "profile_distinct.csv"
+	df.to_csv(csv_path, index=False)
+
+	profiling_service = DataProfilingService()
+	summary_pandas = profiling_service.analyze(df)
+	summary_duckdb = profiling_service.analyze_file(csv_path)
+
+	for summary in (summary_pandas, summary_duckdb):
+		lbl_field = summary.get_field("is_fraud")
+		id_field = summary.get_field("tx_id")
+		assert lbl_field is not None
+		assert id_field is not None
+		assert lbl_field.unique_count == 2
+		assert lbl_field.distinct_values == ["fraud", "legit"]
+		assert id_field.unique_count == 25
+		assert id_field.distinct_values == []
+
+

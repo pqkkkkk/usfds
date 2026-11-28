@@ -644,3 +644,153 @@ def test_export_dataset_api_streams_zip_and_presigned_upload_without_pandas(
 			assert set(zf.namelist()) == {"train.csv", "schema_metadata.json"}
 		assert set(tmp_root.glob("usfds_ds_export_*")) == before_dirs
 
+
+def test_dataset_api_schema_mapping_explicit_label_value_mapping(client, server_settings):
+	"""ISS-047 (M2): /import returns distinct_values; /schema-mapping applies explicit label_value_mapping and rejects unmapped labels with 400."""
+	proj_res = client.post("/api/v1/projects", json={"project_name": "Label Mapping API Proj"})
+	assert proj_res.status_code == 201, proj_res.text
+	project_id = proj_res.json()["data"]["project_id"]
+
+	# 1. Dataset with 'fraud'/'legit' labels
+	csv_str_path = Path(server_settings.storage_dir) / "raw_fraud_legit.csv"
+	csv_str_path.parent.mkdir(parents=True, exist_ok=True)
+	pd.DataFrame(
+		{
+			"tx_id": [f"TX_{i}" for i in range(6)],
+			"tx_time": [f"2026-01-01 10:0{i}:00" for i in range(6)],
+			"tx_amount": [10.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+			"cust_id": [f"U_{i}" for i in range(6)],
+			"fraud_lbl": ["legit", "fraud", "legit", "legit", "fraud", "legit"],
+		}
+	).to_csv(csv_str_path, index=False)
+
+	res_imp_str = client.post(
+		"/api/v1/datasets/import",
+		json={
+			"file_path": str(csv_str_path),
+			"dataset_name": "ds_fraud_legit",
+			"project_id": project_id,
+		},
+	)
+	assert res_imp_str.status_code == 201, res_imp_str.text
+	imp_str_data = res_imp_str.json()["data"]
+	ds_str_id = imp_str_data["dataset"]["dataset_id"]
+	raw_str_prof = imp_str_data["artifacts"][0]["validation_report"]["profiling"]
+	lbl_prof_str = next(f for f in raw_str_prof["fields"] if f["name"] == "fraud_lbl")
+	assert lbl_prof_str["distinct_values"] == ["fraud", "legit"]
+
+	# 2. Schema mapping without label_value_mapping must fail 400 with sample values
+	base_map_payload = {
+		"event_id_column": "tx_id",
+		"time_column": "tx_time",
+		"amount_column": "tx_amount",
+		"user_id_column": "cust_id",
+		"target_column": "fraud_lbl",
+		"optional_columns": {},
+	}
+	res_reject = client.post(f"/api/v1/datasets/{ds_str_id}/schema-mapping", json=base_map_payload)
+	assert res_reject.status_code == 400, res_reject.text
+	err_detail = str(res_reject.json().get("detail") or res_reject.json().get("message") or res_reject.text)
+	assert "fraud" in err_detail or "legit" in err_detail
+
+	# 3. Schema mapping with explicit label_value_mapping succeeds (201) and writes canonical 0/1
+	res_ok_str = client.post(
+		f"/api/v1/datasets/{ds_str_id}/schema-mapping",
+		json={**base_map_payload, "label_value_mapping": {"fraud": 1, "legit": 0}},
+	)
+	assert res_ok_str.status_code == 201, res_ok_str.text
+	mapped_str_art = res_ok_str.json()["data"]
+	assert mapped_str_art["validation_report"]["label_value_mapping"] == {"fraud": 1, "legit": 0}
+	mapped_str_file = Path(server_settings.storage_dir) / mapped_str_art["output_paths"]["mapped"]
+	mapped_str_df = pd.read_parquet(mapped_str_file)
+	assert mapped_str_df["label"].tolist() == [0, 1, 0, 0, 1, 0]
+
+	# 4. Second dataset with '1'/'2' labels (in its own project so RAW schema lock stays consistent)
+	proj2_res = client.post("/api/v1/projects", json={"project_name": "Label Mapping API Proj 2"})
+	assert proj2_res.status_code == 201, proj2_res.text
+	project2_id = proj2_res.json()["data"]["project_id"]
+
+	csv_num_path = Path(server_settings.storage_dir) / "raw_1_2.csv"
+	pd.DataFrame(
+		{
+			"tx_id": [f"TN_{i}" for i in range(4)],
+			"tx_time": [f"2026-01-02 10:0{i}:00" for i in range(4)],
+			"tx_amount": [15.0, 25.0, 35.0, 45.0],
+			"cust_id": [f"C_{i}" for i in range(4)],
+			"fraud_lbl": [1, 2, 1, 2],
+		}
+	).to_csv(csv_num_path, index=False)
+
+	res_imp_num = client.post(
+		"/api/v1/datasets/import",
+		json={
+			"file_path": str(csv_num_path),
+			"dataset_name": "ds_num_1_2",
+			"project_id": project2_id,
+		},
+	)
+	assert res_imp_num.status_code == 201, res_imp_num.text
+	imp_num_data = res_imp_num.json()["data"]
+	ds_num_id = imp_num_data["dataset"]["dataset_id"]
+	raw_num_prof = imp_num_data["artifacts"][0]["validation_report"]["profiling"]
+	lbl_prof_num = next(f for f in raw_num_prof["fields"] if f["name"] == "fraud_lbl")
+	assert lbl_prof_num["distinct_values"] == ["1", "2"]
+
+	res_ok_num = client.post(
+		f"/api/v1/datasets/{ds_num_id}/schema-mapping",
+		json={**base_map_payload, "label_value_mapping": {"2": 1, "1": 0}},
+	)
+	assert res_ok_num.status_code == 201, res_ok_num.text
+	mapped_num_art = res_ok_num.json()["data"]
+	assert mapped_num_art["validation_report"]["label_value_mapping"] == {"2": 1, "1": 0}
+	mapped_num_file = Path(server_settings.storage_dir) / mapped_num_art["output_paths"]["mapped"]
+	mapped_num_df = pd.read_parquet(mapped_num_file)
+	assert mapped_num_df["label"].tolist() == [0, 1, 0, 1]
+
+
+def test_dataset_api_schema_mapping_explicit_label_value_mapping_queue_mode(client_queue_mode, server_settings):
+	"""ISS-047 (M2): Queue mode preserves label_value_mapping across BullMQ JSON -> worker handle_schema_mapping."""
+	proj_res = client_queue_mode.post("/api/v1/projects", json={"project_name": "Label Mapping Queue Proj"})
+	assert proj_res.status_code == 201, proj_res.text
+	project_id = proj_res.json()["data"]["project_id"]
+
+	csv_path = Path(server_settings.storage_dir) / "raw_queue_labels.csv"
+	csv_path.parent.mkdir(parents=True, exist_ok=True)
+	pd.DataFrame(
+		{
+			"tx_id": [f"TQ_{i}" for i in range(4)],
+			"tx_time": [f"2026-01-03 10:0{i}:00" for i in range(4)],
+			"tx_amount": [10.0, 20.0, 30.0, 40.0],
+			"cust_id": [f"U_{i}" for i in range(4)],
+			"fraud_lbl": ["fraud", "legit", "fraud", "legit"],
+		}
+	).to_csv(csv_path, index=False)
+
+	res_imp = client_queue_mode.post(
+		"/api/v1/datasets/import",
+		json={"file_path": str(csv_path), "dataset_name": "ds_queue_lbl", "project_id": project_id},
+	)
+	assert res_imp.status_code == 201, res_imp.text
+	ds_id = res_imp.json()["data"]["dataset"]["dataset_id"]
+
+	base_payload = {
+		"event_id_column": "tx_id",
+		"time_column": "tx_time",
+		"amount_column": "tx_amount",
+		"user_id_column": "cust_id",
+		"target_column": "fraud_lbl",
+		"optional_columns": {},
+	}
+	res_fail = client_queue_mode.post(f"/api/v1/datasets/{ds_id}/schema-mapping", json=base_payload)
+	assert res_fail.status_code == 400, res_fail.text
+
+	res_ok = client_queue_mode.post(
+		f"/api/v1/datasets/{ds_id}/schema-mapping",
+		json={**base_payload, "label_value_mapping": {"fraud": 1, "legit": 0}},
+	)
+	assert res_ok.status_code == 201, res_ok.text
+	mapped_art = res_ok.json()["data"]
+	assert mapped_art["validation_report"]["label_value_mapping"] == {"fraud": 1, "legit": 0}
+	mapped_df = pd.read_parquet(Path(server_settings.storage_dir) / mapped_art["output_paths"]["mapped"])
+	assert mapped_df["label"].tolist() == [1, 0, 1, 0]
+

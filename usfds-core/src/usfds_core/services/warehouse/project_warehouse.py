@@ -18,6 +18,10 @@ import duckdb
 import pandas as pd
 
 from usfds_core.domain.entities.detection import DetectionJob
+from usfds_core.domain.schemas.label_normalization import (
+	apply_label_mapping,
+	validate_label_value_mapping,
+)
 from usfds_core.domain.schemas.preprocessing_config import SystemColumn
 from usfds_core.domain.schemas.system_metadata import resolve_canonical_column
 from usfds_core.services.warehouse.normalization import (
@@ -213,6 +217,13 @@ class ProjectWarehouse:
 
 		threshold = safe_float(job.score_threshold, 0.5)
 		has_model = bool(job.model_version_id is not None or (job.summary_metrics or {}).get("has_model", True))
+		raw_label_mapping = (job.summary_metrics or {}).get("label_value_mapping")
+		label_value_mapping = None
+		if isinstance(raw_label_mapping, dict) and raw_label_mapping:
+			try:
+				label_value_mapping = validate_label_value_mapping(raw_label_mapping)
+			except ValueError:
+				label_value_mapping = None
 		job_id = str(job.job_id)
 		created = job.created_at or datetime.now(timezone.utc)
 		common = {
@@ -243,11 +254,9 @@ class ProjectWarehouse:
 				tx_ts = parse_tx_timestamp(raw_ts)
 				ds_label = -1
 				if lbl_col and rec.get(lbl_col) is not None:
-					try:
-						lbl_val = int(float(rec[lbl_col]))
-						ds_label = lbl_val if lbl_val in (0, 1) else -1
-					except (ValueError, TypeError):
-						ds_label = -1
+					mapped_lbl = apply_label_mapping(rec.get(lbl_col), label_value_mapping)
+					if mapped_lbl is not None:
+						ds_label = mapped_lbl
 				row = {
 					**common,
 					"event_id": str(ev_raw),

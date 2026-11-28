@@ -227,6 +227,39 @@ class TestRuleExecutor(unittest.TestCase):
         self.assertEqual(bt.sample_hits[0].event_id, "TX-1")
         self.assertIn("amount > 2000", bt.sample_hits[0].matched_clauses)
 
+    def test_warehouse_and_rule_backtest_apply_explicit_label_mapping(self):
+        """ISS-047: RuleExecutor.backtest_dataframe uses explicit label_value_mapping and strict canonical binary when omitted."""
+        import pandas as pd
+
+        df = pd.DataFrame(
+            [
+                {"event_id": "TX-1", "timestamp": "2026-10-01 01:00:00", "user_id": "U1", "amount": 5000.0, "is_fraud": "fraud"},
+                {"event_id": "TX-2", "timestamp": "2026-10-01 02:00:00", "user_id": "U2", "amount": 3000.0, "is_fraud": "legit"},
+                {"event_id": "TX-3", "timestamp": "2026-10-01 03:00:00", "user_id": "U3", "amount": 500.0, "is_fraud": "fraud"},
+                {"event_id": "TX-4", "timestamp": "2026-10-01 04:00:00", "user_id": "U4", "amount": 200.0, "is_fraud": "legit"},
+            ]
+        )
+        condition = {">": [{"var": "amount"}, 2000]}
+
+        bt_explicit = self.executor.backtest_dataframe(
+            df=df,
+            condition=condition,
+            action=RuleAction.REJECT,
+            label_value_mapping={"fraud": 1, "legit": 0},
+        )
+        self.assertEqual(bt_explicit.tp, 1)
+        self.assertEqual(bt_explicit.fp, 1)
+        self.assertEqual(bt_explicit.tn, 1)
+        self.assertEqual(bt_explicit.fn, 1)
+
+        # Without label_value_mapping, string labels ('fraud'/'legit') are not coerced to 0/1
+        bt_strict_none = self.executor.backtest_dataframe(
+            df=df,
+            condition=condition,
+            action=RuleAction.REJECT,
+        )
+        self.assertEqual((bt_strict_none.tp, bt_strict_none.fp, bt_strict_none.tn, bt_strict_none.fn), (0, 0, 0, 0))
+
 
 if __name__ == "__main__":
     unittest.main()

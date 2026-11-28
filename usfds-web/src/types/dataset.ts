@@ -114,6 +114,7 @@ export interface DataMappingConfig {
   target_column?: string;
   optional_columns: Record<string, string>;
   column_semantic_types?: Record<string, string>;
+  label_value_mapping?: Record<string, 0 | 1>;
   time_format?: 'auto' | 'iso' | 'epoch_s' | 'epoch_ms' | string;
   max_invalid_ratio_allowed?: number;
 }
@@ -165,6 +166,7 @@ export interface FieldProfilingSummary {
   unique_count: number;
   null_count: number;
   null_percentage: number;
+  distinct_values?: string[];
 }
 
 export interface DatasetProfilingSummary {

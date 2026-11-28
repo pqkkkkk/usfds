@@ -372,6 +372,263 @@ class TestDataMappingService(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             self.service.map_dataset(self.dataset_id, missing_art, config)
 
+    def test_map_dataset_with_explicit_label_value_mapping(self):
+        """ISS-047: Maps string, non-binary numeric, and many-to-one labels explicitly to canonical 0/1."""
+        # Case 1: string labels ('fraud' / 'legit')
+        str_df = self.raw_df.copy()
+        str_df["fraud_flag"] = ["legit", "legit", "fraud", "legit", "fraud"] * 2
+        str_path = f"datasets/{self.dataset_id}/raw/str_labels.csv"
+        self._save_df_to_storage(str_df, str_path)
+        str_art = DatasetArtifact(
+            dataset_id=self.dataset_id,
+            pipeline_stage=PipelineStage.RAW,
+            storage_path=str_path,
+            output_paths={"raw": str_path},
+        )
+        str_mapping = {"fraud": 1, "legit": 0}
+        mapped_str = self.service.map_dataset(
+            self.dataset_id,
+            str_art,
+            DataMappingConfig(
+                event_id_column="tx_id",
+                time_column="tx_time",
+                amount_column="tx_amount",
+                user_id_column="customer_id",
+                target_column="fraud_flag",
+                label_value_mapping=str_mapping,
+            ),
+        )
+        mapped_str_df = pd.read_parquet(io.BytesIO(self.storage.read_bytes(mapped_str.output_paths["mapped"])))
+        self.assertEqual(mapped_str_df[SystemColumn.LABEL.value].tolist(), [0, 0, 1, 0, 1] * 2)
+        self.assertEqual(mapped_str.validation_report.get("label_value_mapping"), str_mapping)
+
+        # Case 2: numeric 1/2 labels
+        num_df = self.raw_df.copy()
+        num_df["fraud_flag"] = [1, 1, 2, 1, 2] * 2
+        num_path = f"datasets/{self.dataset_id}/raw/num_labels.csv"
+        self._save_df_to_storage(num_df, num_path)
+        num_art = DatasetArtifact(
+            dataset_id=self.dataset_id,
+            pipeline_stage=PipelineStage.RAW,
+            storage_path=num_path,
+            output_paths={"raw": num_path},
+        )
+        num_mapping = {"1": 0, "2": 1}
+        mapped_num = self.service.map_dataset(
+            self.dataset_id,
+            num_art,
+            DataMappingConfig(
+                event_id_column="tx_id",
+                time_column="tx_time",
+                amount_column="tx_amount",
+                user_id_column="customer_id",
+                target_column="fraud_flag",
+                label_value_mapping=num_mapping,
+            ),
+        )
+        mapped_num_df = pd.read_parquet(io.BytesIO(self.storage.read_bytes(mapped_num.output_paths["mapped"])))
+        self.assertEqual(mapped_num_df[SystemColumn.LABEL.value].tolist(), [0, 0, 1, 0, 1] * 2)
+        self.assertEqual(mapped_num.validation_report.get("label_value_mapping"), num_mapping)
+
+        # Case 3: many-to-one mapping ('chargeback', 'fraud' -> 1; 'ok' -> 0)
+        m2o_df = self.raw_df.copy()
+        m2o_df["fraud_flag"] = ["ok", "fraud", "chargeback", "ok", "ok"] * 2
+        m2o_path = f"datasets/{self.dataset_id}/raw/m2o_labels.csv"
+        self._save_df_to_storage(m2o_df, m2o_path)
+        m2o_art = DatasetArtifact(
+            dataset_id=self.dataset_id,
+            pipeline_stage=PipelineStage.RAW,
+            storage_path=m2o_path,
+            output_paths={"raw": m2o_path},
+        )
+        m2o_mapping = {"fraud": 1, "chargeback": 1, "ok": 0}
+        mapped_m2o = self.service.map_dataset(
+            self.dataset_id,
+            m2o_art,
+            DataMappingConfig(
+                event_id_column="tx_id",
+                time_column="tx_time",
+                amount_column="tx_amount",
+                user_id_column="customer_id",
+                target_column="fraud_flag",
+                label_value_mapping=m2o_mapping,
+            ),
+        )
+        mapped_m2o_df = pd.read_parquet(io.BytesIO(self.storage.read_bytes(mapped_m2o.output_paths["mapped"])))
+        self.assertEqual(mapped_m2o_df[SystemColumn.LABEL.value].tolist(), [0, 1, 1, 0, 0] * 2)
+        self.assertEqual(mapped_m2o.validation_report.get("label_value_mapping"), m2o_mapping)
+
+    def test_map_dataset_strict_canonical_binary_and_rejects_unmapped_values(self):
+        """ISS-047: Strict canonical binary when label_value_mapping is None, fail-fast on any unmapped value, and invalid mapping validation."""
+        # (a) Raw has 'fraud'/'legit' without label_value_mapping -> fail-fast ValueError with sample values
+        str_df = self.raw_df.copy()
+        str_df["fraud_flag"] = ["legit"] * 9 + ["fraud"]  # 10% minority class (< 30%), still must fail fast!
+        str_path = f"datasets/{self.dataset_id}/raw/strict_reject.csv"
+        self._save_df_to_storage(str_df, str_path)
+        str_art = DatasetArtifact(
+            dataset_id=self.dataset_id,
+            pipeline_stage=PipelineStage.RAW,
+            storage_path=str_path,
+            output_paths={"raw": str_path},
+        )
+        with self.assertRaises(ValueError) as ctx_a:
+            self.service.map_dataset(
+                self.dataset_id,
+                str_art,
+                DataMappingConfig(
+                    event_id_column="tx_id",
+                    time_column="tx_time",
+                    amount_column="tx_amount",
+                    user_id_column="customer_id",
+                    target_column="fraud_flag",
+                ),
+            )
+        msg_a = str(ctx_a.exception)
+        self.assertTrue("fraud" in msg_a or "legit" in msg_a, msg_a)
+
+        # (b) Raw has 'A','B','C' with partial mapping {"A": 1, "B": 0} -> fail-fast mentioning 'C'
+        abc_df = self.raw_df.copy()
+        abc_df["fraud_flag"] = ["A", "B", "B", "B", "B", "B", "B", "B", "B", "C"]
+        abc_path = f"datasets/{self.dataset_id}/raw/abc_labels.csv"
+        self._save_df_to_storage(abc_df, abc_path)
+        abc_art = DatasetArtifact(
+            dataset_id=self.dataset_id,
+            pipeline_stage=PipelineStage.RAW,
+            storage_path=abc_path,
+            output_paths={"raw": abc_path},
+        )
+        with self.assertRaises(ValueError) as ctx_b:
+            self.service.map_dataset(
+                self.dataset_id,
+                abc_art,
+                DataMappingConfig(
+                    event_id_column="tx_id",
+                    time_column="tx_time",
+                    amount_column="tx_amount",
+                    user_id_column="customer_id",
+                    target_column="fraud_flag",
+                    label_value_mapping={"A": 1, "B": 0},
+                ),
+            )
+        self.assertIn("C", str(ctx_b.exception))
+
+        # (c1) Invalid mapping: value=2
+        with self.assertRaises(ValueError):
+            self.service.map_dataset(
+                self.dataset_id,
+                self.raw_artifact,
+                DataMappingConfig(
+                    event_id_column="tx_id",
+                    time_column="tx_time",
+                    amount_column="tx_amount",
+                    user_id_column="customer_id",
+                    target_column="fraud_flag",
+                    label_value_mapping={"0": 0, "1": 2},
+                ),
+            )
+
+        # (c2) Invalid mapping: duplicate keys after strip()
+        with self.assertRaises(ValueError):
+            self.service.map_dataset(
+                self.dataset_id,
+                self.raw_artifact,
+                DataMappingConfig(
+                    event_id_column="tx_id",
+                    time_column="tx_time",
+                    amount_column="tx_amount",
+                    user_id_column="customer_id",
+                    target_column="fraud_flag",
+                    label_value_mapping={"1": 1, " 1 ": 0},
+                ),
+            )
+
+        # (c3) Canonical 0/1 and BOOLEAN true/false without label_value_mapping pass normally
+        bool_df = self.raw_df.copy()
+        bool_df["fraud_flag"] = [False, False, True, False, False, False, False, False, True, False]
+        bool_path = f"datasets/{self.dataset_id}/raw/bool_labels.csv"
+        self._save_df_to_storage(bool_df, bool_path)
+        bool_art = DatasetArtifact(
+            dataset_id=self.dataset_id,
+            pipeline_stage=PipelineStage.RAW,
+            storage_path=bool_path,
+            output_paths={"raw": bool_path},
+        )
+        mapped_bool = self.service.map_dataset(
+            self.dataset_id,
+            bool_art,
+            DataMappingConfig(
+                event_id_column="tx_id",
+                time_column="tx_time",
+                amount_column="tx_amount",
+                user_id_column="customer_id",
+                target_column="fraud_flag",
+            ),
+        )
+        mapped_bool_df = pd.read_parquet(io.BytesIO(self.storage.read_bytes(mapped_bool.output_paths["mapped"])))
+        self.assertEqual(mapped_bool_df[SystemColumn.LABEL.value].tolist(), [0, 0, 1, 0, 0, 0, 0, 0, 1, 0])
+
+    def test_map_dataset_preserves_null_labels_and_warns_on_single_class(self):
+        """ISS-047: Null/blank labels remain NULL (never coerced to 0) and single-class mapped labels emit a warning."""
+        # (a) Null/blank cells in label column stay NULL and report missing warning
+        null_df = self.raw_df.copy()
+        null_df["fraud_flag"] = ["legit", "fraud", None, "legit", "", "legit", "fraud", "legit", "legit", "legit"]
+        null_path = f"datasets/{self.dataset_id}/raw/null_labels.csv"
+        self._save_df_to_storage(null_df, null_path)
+        null_art = DatasetArtifact(
+            dataset_id=self.dataset_id,
+            pipeline_stage=PipelineStage.RAW,
+            storage_path=null_path,
+            output_paths={"raw": null_path},
+        )
+        mapped_null = self.service.map_dataset(
+            self.dataset_id,
+            null_art,
+            DataMappingConfig(
+                event_id_column="tx_id",
+                time_column="tx_time",
+                amount_column="tx_amount",
+                user_id_column="customer_id",
+                target_column="fraud_flag",
+                label_value_mapping={"fraud": 1, "legit": 0},
+            ),
+        )
+        mapped_null_df = pd.read_parquet(io.BytesIO(self.storage.read_bytes(mapped_null.output_paths["mapped"])))
+        self.assertTrue(pd.isna(mapped_null_df[SystemColumn.LABEL.value].iloc[2]))
+        self.assertTrue(pd.isna(mapped_null_df[SystemColumn.LABEL.value].iloc[4]))
+        self.assertEqual(mapped_null.validation_report["column_metrics"]["label"]["null_count"], 2)
+        self.assertTrue(
+            any("label" in w and "thiếu" in w for w in mapped_null.validation_report["warnings"]),
+            mapped_null.validation_report["warnings"],
+        )
+
+        # (b) Single-class labels ('legit' only) emit single-class warning
+        single_df = self.raw_df.copy()
+        single_df["fraud_flag"] = ["legit"] * 10
+        single_path = f"datasets/{self.dataset_id}/raw/single_class.csv"
+        self._save_df_to_storage(single_df, single_path)
+        single_art = DatasetArtifact(
+            dataset_id=self.dataset_id,
+            pipeline_stage=PipelineStage.RAW,
+            storage_path=single_path,
+            output_paths={"raw": single_path},
+        )
+        mapped_single = self.service.map_dataset(
+            self.dataset_id,
+            single_art,
+            DataMappingConfig(
+                event_id_column="tx_id",
+                time_column="tx_time",
+                amount_column="tx_amount",
+                user_id_column="customer_id",
+                target_column="fraud_flag",
+                label_value_mapping={"legit": 0},
+            ),
+        )
+        self.assertTrue(
+            any("1 lớp" in w or "single" in w.lower() for w in mapped_single.validation_report["warnings"]),
+            mapped_single.validation_report["warnings"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from usfds_core.domain.entities.enums import RuleAction
 from usfds_core.domain.entities.rule import Rule, RuleVersion
+from usfds_core.domain.schemas.label_normalization import (
+    apply_label_mapping,
+    validate_label_value_mapping,
+)
 from usfds_core.domain.schemas.preprocessing_config import SystemColumn
 from usfds_core.domain.schemas.system_metadata import resolve_canonical_column
 from usfds_core.domain.schemas.rule_schemas import (
@@ -325,8 +329,10 @@ class RuleExecutor:
         user_column: Optional[str] = None,
         max_samples: int = 50,
         feature_definitions: Optional[List[Dict[str, Any]]] = None,
+        label_value_mapping: Optional[Dict[str, int]] = None,
     ) -> RuleBacktestResult:
         """Evaluates a JsonLogic condition across a historical DataFrame (SUC-12 Dry-Run / Backtest)."""
+        validated_label_mapping = validate_label_value_mapping(label_value_mapping)
         start_time = time.perf_counter()
         feature_warnings: List[str] = []
         work_df = df
@@ -394,12 +400,10 @@ class RuleExecutor:
 
             gt_val: Optional[int] = None
             if has_ground_truth and resolved_target:
-                raw_gt = clean_row.get(resolved_target)
-                if raw_gt is not None:
-                    try:
-                        gt_val = 1 if int(float(raw_gt)) == 1 or raw_gt is True else 0
-                    except (ValueError, TypeError):
-                        gt_val = 1 if str(raw_gt).strip().lower() in ("1", "true", "fraud", "yes") else 0
+                gt_val = apply_label_mapping(
+                    clean_row.get(resolved_target),
+                    validated_label_mapping,
+                )
 
             amt_val = 0.0
             if resolved_amount and clean_row.get(resolved_amount) is not None:

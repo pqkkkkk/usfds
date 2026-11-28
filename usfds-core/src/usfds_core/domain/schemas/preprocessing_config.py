@@ -168,6 +168,10 @@ class DataMappingConfig(BaseModel):
         default_factory=dict,
         description="Optional semantic type hints {mapped_column_name: SemanticColumnType} for Feature Management compatibility."
     )
+    label_value_mapping: Optional[Dict[str, int]] = Field(
+        default=None,
+        description="Explicit mapping from raw label values (e.g. {'fraud': 1, 'legit': 0}) to canonical binary 0/1."
+    )
     time_format: Union[SupportedTimeFormat, str] = Field(
         default=SupportedTimeFormat.AUTO,
         description="Expected datetime format hint ('auto', 'epoch_s', 'epoch_ms', 'iso', or custom format)"

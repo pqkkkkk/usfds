@@ -271,4 +271,153 @@ describe('Cross-Module Feature Integration (M4)', () => {
 		});
 		expect(JSON.stringify(compiled)).toContain('"var":"enriched.tx_freq_last_1h"');
 	});
+
+	it('SchemaMappingWorkspace: auto-suggests label value mapping from default list and lets user customize 0/1 mapping', async () => {
+		server.use(
+			http.get(`${API}/v1/system-metadata/columns`, () =>
+				HttpResponse.json({
+					success: true,
+					data: [
+						{ metadata_id: 'm1', column_key: 'event_id', display_name: 'Mã GD', category: 'CORE', logical_type: 'STRING', is_required: true, ml_role: 'IDENTIFIER', aliases: ['tx_id'], is_active: true, display_order: 1 },
+						{ metadata_id: 'm2', column_key: 'timestamp', display_name: 'Thời gian', category: 'CORE', logical_type: 'DATETIME', is_required: true, ml_role: 'TIMESTAMP', aliases: ['tx_time'], is_active: true, display_order: 2 },
+						{ metadata_id: 'm3', column_key: 'amount', display_name: 'Số tiền', category: 'CORE', logical_type: 'NUMERIC', is_required: true, ml_role: 'FEATURE', aliases: ['tx_amt'], is_active: true, display_order: 3 },
+						{ metadata_id: 'm4', column_key: 'user_id', display_name: 'Người dùng', category: 'CORE', logical_type: 'STRING', is_required: true, ml_role: 'IDENTIFIER', aliases: ['cust_id'], is_active: true, display_order: 4 },
+						{ metadata_id: 'm5', column_key: 'label', display_name: 'Nhãn', category: 'CORE', logical_type: 'NUMERIC', is_required: true, ml_role: 'LABEL', aliases: ['is_fraud'], is_active: true, display_order: 5 },
+					],
+				})
+			)
+		);
+
+		// Case 1: distinct_values = ['fraud', 'legit'] -> auto-suggests { fraud: 1, legit: 0 } and isValid = true
+		const rawArtifactStr: DatasetArtifactResponse = {
+			artifact_id: 'art-raw-str',
+			dataset_id: 'ds-str',
+			pipeline_stage: 'RAW',
+			storage_path: '/tmp/raw_str.csv',
+			output_paths: {},
+			row_count: 100,
+			column_count: 5,
+			schema_snapshot: {
+				tx_id: 'object',
+				tx_time: 'object',
+				tx_amt: 'float64',
+				cust_id: 'object',
+				is_fraud: 'object',
+			},
+			validation_report: {
+				profiling: {
+					row_count: 100,
+					field_count: 5,
+					field_names: ['tx_id', 'tx_time', 'tx_amt', 'cust_id', 'is_fraud'],
+					fields: [
+						{ name: 'is_fraud', dtype: 'object', unique_count: 2, null_count: 0, null_percentage: 0, distinct_values: ['fraud', 'legit'] },
+					],
+				},
+			},
+			created_at: '2026-11-28T00:00:00Z',
+		};
+
+		let latestConfig1: DataMappingConfig | null = null;
+		let latestValid1 = false;
+		renderWithProviders(
+			<SchemaMappingWorkspace
+				rawArtifact={rawArtifactStr}
+				mappedArtifact={null}
+				onConfigChange={(cfg, valid) => {
+					latestConfig1 = cfg;
+					latestValid1 = valid;
+				}}
+			/>
+		);
+
+		await waitFor(() => {
+			expect(latestValid1).toBe(true);
+			expect(latestConfig1?.label_value_mapping).toEqual({ fraud: 1, legit: 0 });
+		});
+
+		// Case 2: distinct_values = ['1', '2'] -> '1' -> 1 suggested, '2' unassigned (isValid = false) until user assigns '2' -> 0 (or edits 1 -> 0, 2 -> 1)
+		cleanup();
+		const rawArtifactNum: DatasetArtifactResponse = {
+			...rawArtifactStr,
+			artifact_id: 'art-raw-num',
+			schema_snapshot: {
+				tx_id: 'object',
+				tx_time: 'object',
+				tx_amt: 'float64',
+				cust_id: 'object',
+				is_fraud: 'int64',
+			},
+			validation_report: {
+				profiling: {
+					row_count: 100,
+					field_count: 5,
+					field_names: ['tx_id', 'tx_time', 'tx_amt', 'cust_id', 'is_fraud'],
+					fields: [
+						{ name: 'is_fraud', dtype: 'int64', unique_count: 2, null_count: 0, null_percentage: 0, distinct_values: ['1', '2'] },
+					],
+				},
+			},
+		};
+
+		let latestConfig2: DataMappingConfig | null = null;
+		let latestValid2 = true;
+		renderWithProviders(
+			<SchemaMappingWorkspace
+				rawArtifact={rawArtifactNum}
+				mappedArtifact={null}
+				onConfigChange={(cfg, valid) => {
+					latestConfig2 = cfg;
+					latestValid2 = valid;
+				}}
+			/>
+		);
+
+		const select1 = await screen.findByLabelText(/Ánh xạ giá trị nhãn 1/i) as HTMLSelectElement;
+		const select2 = await screen.findByLabelText(/Ánh xạ giá trị nhãn 2/i) as HTMLSelectElement;
+		expect(select1.value).toBe('1');
+		expect(select2.value).toBe('');
+		await waitFor(() => {
+			expect(latestValid2).toBe(false);
+		});
+
+		fireEvent.change(select1, { target: { value: '0' } });
+		fireEvent.change(select2, { target: { value: '1' } });
+
+		await waitFor(() => {
+			expect(latestValid2).toBe(true);
+			expect(latestConfig2?.label_value_mapping).toEqual({ '1': 0, '2': 1 });
+		});
+
+		// Case 3: legacy RAW artifact without distinct_values supports manual mapping entry
+		cleanup();
+		const rawArtifactLegacy: DatasetArtifactResponse = {
+			...rawArtifactStr,
+			artifact_id: 'art-raw-legacy',
+			validation_report: {},
+		};
+		let latestConfig3: DataMappingConfig | null = null;
+		let latestValid3 = false;
+		renderWithProviders(
+			<SchemaMappingWorkspace
+				rawArtifact={rawArtifactLegacy}
+				mappedArtifact={null}
+				onConfigChange={(cfg, valid) => {
+					latestConfig3 = cfg;
+					latestValid3 = valid;
+				}}
+			/>
+		);
+
+		const addManualBtn = await screen.findByRole('button', { name: /Thêm giá trị nhãn/i });
+		expect(latestValid3).toBe(true);
+		fireEvent.click(addManualBtn);
+		const rawInput = await screen.findByPlaceholderText(/Giá trị nguồn/i);
+		const targetSelect = await screen.findByLabelText(/Giá trị nhị phân thủ công/i);
+		fireEvent.change(rawInput, { target: { value: 'Y' } });
+		fireEvent.change(targetSelect, { target: { value: '1' } });
+		await waitFor(() => {
+			expect(latestValid3).toBe(true);
+			expect(latestConfig3?.label_value_mapping).toEqual({ Y: 1 });
+		});
+	});
 });
