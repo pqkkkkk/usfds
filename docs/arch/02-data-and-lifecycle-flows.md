@@ -1,83 +1,72 @@
-# 02 — End-to-End Data Flows, Shared Contracts & State Machines
-<!-- [26-11-27] Created: Backbone Training & Inference->Investigation->Insight flows, 5 cross-module contracts, and entity state machines. -->
+# 02 — Data Flows, Shared Contracts & State Machines
+<!-- [26-11-27] Created. [26-11-28] English rewrite; bug details replaced by ISS references. -->
 
-Tài liệu này ánh xạ trực tiếp 2 sơ đồ quy trình chức năng & dữ liệu gốc (`2. Functional Process` và `3. Data & Functional Process`) xuống **đúng luồng xử lý đang chạy trong code**, đồng thời chỉ rõ **5 hợp đồng dùng chung giữa các module** — nơi các thay đổi cục bộ dễ gây lỗi ngầm cho phân hệ khác nhất.
+Maps the functional process and data process designs onto the flows that run in code, and names the **5 cross-module contracts** where a local change most easily breaks another module silently.
 
----
+## 1. Flow A — Training (data prep → features → model registry)
 
-## 1. Luồng A — Training Pipeline (Data Prep → Features → Model Registry)
-
-Hệ thống áp dụng **Kiến trúc chuẩn bị dữ liệu 2 tầng (Two-Tier Data Preparation)** (xem quyết định tại [`docs/features/critical_changes.md`](../features/critical_changes.md)): tầng Data Management dừng ở dữ liệu giàu đặc trưng nhưng **bảo lưu 100% khóa định danh & thời gian** (`event_id`, `user_id`, `timestamp`), còn chuẩn hóa toán học theo họ mô hình (Tabular / Sequence / Graph) nằm ở tầng Training.
+**Two-tier data preparation** (decision: [`docs/features/critical_changes.md`](../features/critical_changes.md)): data management stops at feature-rich data that **keeps identifiers and time** (`event_id`, `user_id`, `timestamp`); model-family-specific math (tabular / sequence / graph) belongs to training.
 
 ```mermaid
 flowchart LR
-    U["Upload RAW\n(CSV/Parquet)"] --> ING["DatasetIngestionService\n(DuckDB: Lock/Validate\nProjectRawSchema)"]
-    ING -->|"RAW artifact"| MAP["DataMappingService\n(DuckDB: Canonical Columns\n+ Metadata Snapshot)"]
-    MAP -->|"MAPPED\nmapped.parquet"| FE["FeatureEngineeringService\n(Temporal Split -> Cleanser\n-> CompiledFeaturePipeline)"]
-    FE -->|"FEATURE_ENGINEERED\ntrain/test + fitted_fe.joblib"| TR["TrainingOrchestration\n& TrainingRunExecutor\n(Local / BullMQ / Modal)"]
-    FE -.->|"Optional Legacy"| PP["PreprocessingService\n(PRE_PROCESSED)"]
+    U["Upload RAW\n(CSV/Parquet)"] --> ING["DatasetIngestionService\n(DuckDB: lock/validate\nProjectRawSchema)"]
+    ING -->|"RAW artifact"| MAP["DataMappingService\n(DuckDB: canonical columns\n+ metadata snapshot)"]
+    MAP -->|"MAPPED\nmapped.parquet"| FE["FeatureEngineeringService\n(temporal split -> cleanser\n-> CompiledFeaturePipeline)"]
+    FE -->|"FEATURE_ENGINEERED\ntrain/test + fitted_fe.joblib"| TR["TrainingOrchestration\n& TrainingRunExecutor\n(local / BullMQ / Modal)"]
+    FE -.->|"optional legacy"| PP["PreprocessingService\n(PRE_PROCESSED)"]
     PP -.-> TR
-    TR -->|"Artifact + Checksum\n+ Companion FE/Mapping"| MV["ModelVersion\n(CANDIDATE -> APPROVED)"]
+    TR -->|"artifact + checksum\n+ companion FE/mapping"| MV["ModelVersion\n(CANDIDATE -> APPROVED)"]
 ```
 
-**Điểm chốt chống lỗi trên Luồng A:**
-1. **Schema Lock tại Ingestion (`BR-PM-01..03`):** Dataset RAW đầu tiên khóa `Project.raw_schema` (version 1). Các lần tải tiếp theo chấp nhận thiếu tối đa 1 cột (cột nhãn cho inference) và tự loại bỏ cột dư thừa.
-2. **Temporal Split trước Fit (Chống Data Leakage):** `FeatureEngineeringExecutionService` chia train/test theo trình tự thời gian **trước khi** fit `StandardDataCleanser`, `TARGET_RATE` encoder và `CompiledFeaturePipeline` (lưu `train_history_tail` tối đa 200k dòng vào `fitted_feature_engineers.joblib` để tính rolling nhân quả khi test/inference).
-3. **Worker không chạm DB:** `TrainingRunExecutor` chỉ nhận `TrainingRunPayload` + `IFileStorage` (hoặc `PresignedUrlStorage` trên Modal), trả `TrainingRunResult` để server/handler cập nhật `training_runs` và cấp phát `ModelVersion` (`v1, v2, ...`) một cách idempotent.
+Guard points:
+1. **Schema lock at ingestion (`BR-PM-01..03`):** the first RAW dataset locks `Project.raw_schema` (version 1). Later uploads may miss at most one column (the label, for inference) and extra columns are dropped.
+2. **Temporal split before fit (anti-leakage, `INV-009`):** train/test is split by event time **before** fitting `StandardDataCleanser`, `TARGET_RATE` encoders and `CompiledFeaturePipeline`. `train_history_tail` (≤ 200k rows) is stored in `fitted_feature_engineers.joblib` for causal rolling features at test / inference time.
+3. **Executors never touch the DB (`INV-005`, `P-03`):** `TrainingRunExecutor` receives only `TrainingRunPayload` + `IFileStorage` (or `PresignedUrlStorage` on Modal) and returns `TrainingRunResult`; the server / handler updates `training_runs` and allocates `ModelVersion` (`v1, v2, ...`) idempotently.
 
----
-
-## 2. Luồng B — Inference → Investigation → Insight Pipeline
+## 2. Flow B — Inference → Investigation → Insight
 
 ```mermaid
 flowchart LR
-    IN["Batch Input RAW\n(Artifact / Upload)"] --> INF["BatchInferenceExecutor\n(Dual-Schema Rename\n+ FE + Rule Features)"]
-    MV["APPROVED ModelVersion\n+ Companion FE/Mapping"] --> INF
-    RL["ACTIVE RuleVersions\n(JsonLogic Snapshot)"] --> INF
-    INF -->|"Hybrid Decision\nBR-DT-07"| PRED["predictions.parquet\n(S3 / Local)"]
-    PRED -->|"Post-completion\n20k-row DuckDB Stream"| WH["ProjectWarehouse\nwarehouse/{pid}/fact_transactions/\njob_{jid}.parquet"]
-    PRED -->|"Case Intake\n(REVIEW/REJECT)"| CASE["CaseService\n(fraud_cases, blacklist,\naudit_logs)"]
-    WH -->|"Dedup latest event_id"| IR["DuckDBInsightEngine\n(Overview, Effectiveness,\nPatterns, SAR/Audit)"]
+    IN["Batch input RAW\n(artifact / upload)"] --> INF["BatchInferenceExecutor\n(dual-schema rename\n+ FE + rule features)"]
+    MV["APPROVED ModelVersion\n+ companion FE/mapping"] --> INF
+    RL["ACTIVE RuleVersions\n(JsonLogic snapshot)"] --> INF
+    INF -->|"hybrid decision\nBR-DT-07"| PRED["predictions.parquet"]
+    PRED -->|"post-completion\nstreamed DuckDB write"| WH["ProjectWarehouse\nfact_transactions/job_{jid}.parquet"]
+    PRED -->|"case intake\n(REVIEW/REJECT)"| CASE["CaseService\n(fraud_cases, blacklist,\naudit_logs)"]
+    WH -->|"dedup latest event_id"| IR["DuckDBInsightEngine\n(overview, effectiveness,\npatterns, SAR/audit)"]
     CASE -->|"v_cases\nVERIFIED_CASE"| IR
-    WH -->|"Bipartite Load"| GR["LadybugNetworkGraph\n(:memory: LRU+TTL Cache)"]
+    WH -->|"bipartite load"| GR["LadybugNetworkGraph\n(:memory: LRU+TTL cache)"]
     CASE -->|"LiveRiskOverlay"| GR
 ```
 
-**Điểm chốt nghiệp vụ trên Luồng B:**
-1. **Quy tắc quyết định lai (`BR-DT-07`, `inference/executor.py`):**
-   - `Rule REJECT` → `final_action = REJECT` (`is_flagged = 1`)
-   - Ngược lại, nếu `Rule REVIEW` **hoặc** `(có model và model_score >= score_threshold)` → `final_action = REVIEW` (`is_flagged = 1`)
-   - Ngược lại → `final_action = ALLOW` (`is_flagged = 0`)
-2. **Chống trùng lặp giao dịch khi quét lại nhiều lần (`ProjectWarehouse.load_fact_table`):** Khi đọc nhiều `job_*.parquet`, DuckDB loại trùng theo `event_id`, giữ bản ghi của lần quét mới nhất (`scanned_at DESC, job_id DESC`).
-3. **Thứ tự ưu tiên nhãn sự thật trong Insight (`DuckDBInsightEngine`):** `VERIFIED_CASE` (từ `fraud_cases` đã `RESOLVED_FRAUD` / `RESOLVED_LEGITIMATE`) > `DATASET_FALLBACK` (`dataset_label` từ file đầu vào) > `UNVERIFIED`.
-4. **Live Overlay không làm hỏng cache đồ thị:** `LadybugNetworkGraphService` cache cấu trúc đồ thị `User ↔ {Device, IpAddress, Card, Merchant}` trong RAM, còn trạng thái `Case` và `EntityBlacklist` được phủ (overlay) trực tiếp ở thời điểm truy vấn.
+Business guard points:
+1. **Hybrid decision (`BR-DT-07`, `INV-013`):** `Rule REJECT` → `REJECT`; else `Rule REVIEW` **or** `(has_model and model_score >= score_threshold)` → `REVIEW`; else `ALLOW`. `is_flagged = 1` for `REJECT` / `REVIEW`.
+2. **Re-scan dedup (`ProjectWarehouse.load_fact_table`):** across many `job_*.parquet`, keep the latest record per `event_id` (`scanned_at DESC, job_id DESC`).
+3. **Ground-truth precedence in insight:** `VERIFIED_CASE` (resolved `fraud_cases`) > `DATASET_FALLBACK` (`dataset_label` from input) > `UNVERIFIED`.
+4. **Live overlay keeps the graph cache valid:** graph structure `User ↔ {Device, IpAddress, Card, Merchant}` is cached; `Case` and `EntityBlacklist` state is overlaid at query time.
 
----
+## 3. Shared contracts `C1–C5`
 
-## 3. Năm hợp đồng dùng chung giữa các module (Shared Contracts)
+When a change touches one of these, check **every** producer and consumer listed.
 
-Khi sửa bất kỳ module nào chạm tới 5 hợp đồng dưới đây, **bắt buộc** kiểm tra toàn bộ producer & consumer trong bảng:
-
-| # | Hợp đồng (Contract) | Producer (Nơi tạo) | Consumers (Nơi phụ thuộc) | Quy ước cốt lõi & Rủi ro hiện hữu |
+| # | Contract | Producer | Consumers | Core rule |
 |---|---|---|---|---|
-| **C1** | **System Column Metadata & `non_ml_columns`** | `SystemColumnMetadataService` (5 cột `CORE` bất biến: `event_id`, `timestamp`, `amount`, `user_id`, `label` + 18 cột `DOMAIN`), snapshot vào `MAPPED` artifact | `DataMappingService`, `FeatureCompiler`, `Preprocessing`, `BuiltinModelTrainer`, `BatchInferenceExecutor`, `ProjectWarehouse`, `RuleExecutor` | Mọi tra cứu cột chuẩn phải đi qua `resolve_canonical_column()`. **Rủi ro hiện có:** `BuiltinModelTrainer` & `inference/executor.py` hiện chỉ loại tập `NON_ML_COLUMNS` tĩnh thay vì đọc snapshot `non_ml_columns` động của project. |
-| **C2** | **Dataset Artifact `output_paths` & Lineage** | `Ingestion`, `DataMapping`, `FeatureEngineering`, `Preprocessing` | `TrainingOrchestrationService`, `InferenceService`, `DatasetExport` | Key cố định theo stage: `RAW={raw}`, `MAPPED={mapped}`, `FEATURE_ENGINEERED={train, fitted_engineers, [test]}`, `PRE_PROCESSED={train, test, pipeline}`. `parent_artifact_id` tạo chuỗi truy vết phả hệ. |
-| **C3** | **Model Artifact & Companion Bundle** | `TrainingRunExecutor`, `RoutingTrainingDispatcher` | `TrainingOrchestrationService`, `InferenceService`, `BatchInferenceExecutor`, `ModalTrainingProvider` | `BUILTIN` lưu `model.joblib` + `preprocessor.joblib`; `SCRIPT` đóng gói `model_bundle.zip` (`src/` + `artifacts/`). Cả hai cùng để sibling `fitted_feature_engineers.joblib` & `column_mapping.json` trong thư mục run. Remote compute chỉ cấp presigned PUT cho 11 tên file cố định. **Rủi ro hiện có (`ISS-001`):** format còn ngầm định, `PRE_PROCESSED` chưa copy `fitted_pipeline.joblib` vào thư mục run, `is_script_plugin` hardcode kiểm tra `main.py`. |
-| **C4** | **Binary Label Normalization (`0` / `1`)** | `domain/schemas/label_normalization.py` & `DataMappingService` | `Training`, `RuleExecutor` (backtest), `ProjectWarehouse` (`dataset_label`), `DuckDBInsightEngine` | Chuẩn hóa tập trung tại `label_normalization.py` (`ISS-047`, đã resolved): hỗ trợ tự nhận diện (`0/1`, `true/false`, `yes/no`, `fraud/legit`) + cấu hình tường minh (`positive_label_values`, `negative_label_values`), fail-fast cho giá trị không ánh xạ được (không còn silent `COALESCE(..., 0)`). |
-| **C5** | **Project Fact Warehouse Schema (`25` cột)** | `ProjectWarehouse.write_job_facts` (từ `predictions.parquet`) | `DuckDBInsightEngine`, `LadybugNetworkGraphService`, `BehaviorProfile` | File append-only `warehouse/{pid}/fact_transactions/job_{jid}.parquet` với 20 cột core + 5 cột thực thể tùy chọn (`device_id`, `ip_address`, `card_id`, `merchant_id`, `merchant_category`). Mọi thay đổi schema phải giữ tương thích ngược (`union_by_name=true`). |
+| **C1** | System column metadata & `non_ml_columns` | `SystemColumnMetadataService` (5 immutable `CORE` columns `event_id`, `timestamp`, `amount`, `user_id`, `label` + `DOMAIN` columns), snapshotted into the `MAPPED` artifact | Data mapping, feature compiler, preprocessing, built-in trainer, batch inference, warehouse, rule executor | Canonical column lookup only via `resolve_canonical_column()` (`INV-010`). Feature vectors exclude every column whose snapshot `ml_role != FEATURE` (`INV-009`; open gap `ISS-050`). |
+| **C2** | `DatasetArtifact.output_paths` & lineage | Ingestion, mapping, feature engineering, preprocessing | Training orchestration, inference, dataset export | Fixed keys per stage: `RAW={raw}`, `MAPPED={mapped}`, `FEATURE_ENGINEERED={train, fitted_engineers, [test]}`, `PRE_PROCESSED={train, test, pipeline}`. `parent_artifact_id` forms the lineage chain. |
+| **C3** | Model artifact & companion bundle | `TrainingRunExecutor`, `RoutingTrainingDispatcher` | Training orchestration, inference, batch inference, Modal provider | `BUILTIN` → `model.joblib` + `preprocessor.joblib`; `SCRIPT` → `model_bundle.zip` (`src/` + `artifacts/`). Both keep sibling `fitted_feature_engineers.joblib` and `column_mapping.json` in the run folder. Remote compute may write only a fixed set of presigned file names. Format is still implicit (`ISS-001`, `ISS-051`). |
+| **C4** | Binary label normalization (`0` / `1`) | `domain/schemas/label_normalization.py`, `DataMappingService` | Training, rule backtest, warehouse (`dataset_label`), insight engine | One shared normalizer: auto-detect (`0/1`, `true/false`, `yes/no`, `fraud/legit`) + explicit `positive_label_values` / `negative_label_values`; unmappable values fail fast, never silently become `0` (`INV-010`). |
+| **C5** | Project fact warehouse schema | `ProjectWarehouse.write_job_facts` (from `predictions.parquet`) | Insight engine, network graph, behavior profile | Append-only `warehouse/{pid}/fact_transactions/job_{jid}.parquet`: core columns + optional entity columns (`device_id`, `ip_address`, `card_id`, `merchant_id`, `merchant_category`). Schema changes must stay backward compatible (`union_by_name=true`). |
 
----
+## 4. State machines
 
-## 4. Vòng đời trạng thái các thực thể cốt lõi (State Machines)
-
-| Thực thể | Enum / Trường trạng thái | Luồng chuyển trạng thái hợp lệ | Ràng buộc chuyển đổi chính |
+| Entity | Status field | Valid transitions | Key constraints |
 |---|---|---|---|
-| **Dataset Artifact** | `PipelineStage` + `ValidationStatus` | `RAW → MAPPED → FEATURE_ENGINEERED [→ PRE_PROCESSED]` | Mỗi stage tạo `DatasetArtifact` mới trỏ `parent_artifact_id` về stage trước; không ghi đè artifact cũ. |
-| **TrainingRun / DetectionJob** | `TrainingRunStatus` / `DetectionJobStatus` | `PENDING → RUNNING → COMPLETED \| FAILED \| CANCELLED` | Trạng thái terminal (`COMPLETED`, `FAILED`, `CANCELLED`) là bất biến; worker/poller bỏ qua khi redelivery. |
-| **ModelVersion** | `ModelVersionStatus` | `DRAFT \| CANDIDATE → APPROVED → DEPRECATED → ARCHIVED` | Kích hoạt (`APPROVED`) phải kiểm tra artifact tồn tại + khớp SHA-256; nhiều version có thể đồng thời `APPROVED`. |
-| **Rule** | `RuleStatus` | `DRAFT ↔ ACTIVE ↔ INACTIVE` | Chỉ được `ACTIVE` sau khi `project.raw_schema` đã khóa (`BR-PM-04`) và condition hợp lệ (`BR-PM-05`). Mọi sửa đổi `condition`/`action` tạo `RuleVersion` bất biến mới. |
-| **Fraud Case** | `CaseStatus` (`case.py`) | `OPEN → IN_PROGRESS ↔ PENDING_CUSTOMER → RESOLVED_FRAUD \| RESOLVED_LEGITIMATE` *(reopen → `IN_PROGRESS`)* | Intake chỉ nhận `REVIEW`/`REJECT`, unique theo `(project_id, event_id)`. Mọi update bắt buộc khớp `expected_version` (optimistic locking). Chỉ `RESOLVED_FRAUD` mới được thêm `EntityBlacklist`. |
-| **Project** | `ProjectStatus` | `ACTIVE → ARCHIVED` | Không được archive/xóa khi còn workload đang chạy; `raw_schema` chỉ reset/unlock khi 0 datasets, 0 rules, 0 detection jobs. |
+| Dataset artifact | `PipelineStage` + `ValidationStatus` | `RAW → MAPPED → FEATURE_ENGINEERED [→ PRE_PROCESSED]` | Each stage creates a new artifact pointing to its parent; never overwrites. |
+| TrainingRun / DetectionJob | `TrainingRunStatus` / `DetectionJobStatus` | `PENDING → RUNNING → COMPLETED \| FAILED \| CANCELLED` | Terminal states are immutable; workers/pollers ignore redelivery (`INV-008`). |
+| ModelVersion | `ModelVersionStatus` | `DRAFT \| CANDIDATE → APPROVED → DEPRECATED → ARCHIVED` | `APPROVED` requires the artifact to exist and match SHA-256; several versions may be `APPROVED` at once. |
+| Rule | `RuleStatus` | `DRAFT ↔ ACTIVE ↔ INACTIVE` | `ACTIVE` only after `project.raw_schema` is locked (`BR-PM-04`) and the condition is valid (`BR-PM-05`). Any `condition` / `action` edit creates a new immutable `RuleVersion`. |
+| Fraud case | `CaseStatus` | `OPEN → IN_PROGRESS ↔ PENDING_CUSTOMER → RESOLVED_FRAUD \| RESOLVED_LEGITIMATE` (reopen → `IN_PROGRESS`) | Intake only for `REVIEW` / `REJECT`, unique per `(project_id, event_id)`. Updates must match `expected_version` (`INV-012`). Only `RESOLVED_FRAUD` may add `EntityBlacklist`. |
+| Project | `ProjectStatus` | `ACTIVE → ARCHIVED` | No archive/delete while workloads run (`INV-011`); `raw_schema` resets only with 0 datasets, 0 rules, 0 detection jobs. |
 
 > [!NOTE]
-> Codebase hiện còn tồn tại 2 phân hệ legacy song song (`InvestigationCase`/`InvestigationStatus` và `Deployment`/`Pipeline` cho online inference). Các tính năng mới **chỉ phát triển trên** `Case`/`CaseService` và `DetectionJob`/`ModelVersion`.
+> Two legacy subsystems still exist: `InvestigationCase` / `InvestigationStatus` and `Deployment` / `Pipeline` (online inference). New work builds only on `Case` / `CaseService` and `DetectionJob` / `ModelVersion`.

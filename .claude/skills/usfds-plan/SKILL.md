@@ -28,7 +28,7 @@ After reading the sources, judge whether the given issues form a sensible single
 
 1. **Collect sources.** Read in this order, stop when you have enough:
    - Every issue given in the prompt (`docs/issues/README.md` → dated file) and its existing plan, if any.
-   - Architecture & invariants: `docs/arch/README.md` → the relevant `docs/arch/modules/<module>.md` + `docs/arch/03-system-invariants.md` (and `01`/`02` if touching runtime, queues, storage, or cross-module flows).
+   - Architecture & invariants: follow the routing table in `docs/arch/README.md` (it always includes `03-system-invariants.md`). <!-- [26-11-28] -->
    - The related spec in `docs/features/**/suc-spec.md`. If none exists and the task changes behavior, ask the user for the Notion link (see `AGENTs.md`).
    - `.plan/BOARD.md` (who is doing what, which files are owned).
    - The code you will touch. Never plan from memory: cite `path:line`.
@@ -36,7 +36,7 @@ After reading the sources, judge whether the given issues form a sensible single
 3. **Write Design & Approach (§2.5).** Summarize the architecture, API/RBAC/schema contracts, and edge cases/concurrency risks. Include as many Mermaid diagrams as needed when the task crosses layers or changes workflow/state/schema (see Mermaid rules below).
 4. **Analyze dependencies, conflicts & invariant impact (§4 & §4.5).**
    - Check parallel conflicts against `.plan/BOARD.md` (§4).
-   - Fill **§4.5 System Invariant & Blast-Radius Impact**: explicitly evaluate which invariants (`INV-001`..`INV-015` in `docs/arch/03-system-invariants.md`) and shared contracts (`C1–C5` in `docs/arch/02-data-and-lifecycle-flows.md`) this task touches, how each is preserved, and whether `docs/arch/` must be updated (`INV-015`).
+   - Fill **§4.5 System Invariant & Blast-Radius Impact**: explicitly evaluate which principles and invariants (every `P-NN` and `INV-NNN` in `docs/arch/03-system-invariants.md`) and shared contracts (`C1–C5` in `docs/arch/02-data-and-lifecycle-flows.md`) this task touches, how each is preserved, and whether `docs/arch/` must be updated (`INV-015`).
 5. **Define milestones and the to-do list** (§6). Order milestones so each one ends with all tests green, typically one per layer (core+infra → server → web). Give each milestone its own acceptance tests and a nested checklist of concrete items tagged `[tests] [core] [infra] [server] [worker] [web] [docs] [verify]`. The plan is the task's only to-do list.
 6. **Write acceptance tests (§5)** as Given/When/Then with the exact test function names, plus **Manual E2E (§9)** for anything SQLite/mocks cannot cover.
 7. **Write the plan** to `.plan/<task_slug>.md` using [template.md](template.md). Do not add extra top-level sections; write `—` for a section that does not apply.

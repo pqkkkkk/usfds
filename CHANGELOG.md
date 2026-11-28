@@ -2,6 +2,15 @@
 
 Completed work, newest first. Updated at merge time (see `AGENTs.md` §0.1). Issue IDs refer to `docs/issues/README.md`.
 
+## 2026-11-28 — ISS-054: Architecture Docs Dedupe, English Rewrite, Principles P-01..P-04 & INV-016
+Plan: `.plan/arch_docs_principles_english.md` · Board: `.plan/BOARD.md`
+
+- Docs (`docs/arch/**`, `AGENTs.md`, `README.md`, `docs/design-system.md`): rewritten in English; single routing table in `docs/arch/README.md`; removed `file.py:NNN` line refs and bug copies (now `ISS-NNN` only); removed `usfds-cli` / `usfds-agent` and "multi-tenant" framing (single organization, `Project` = workspace isolation boundary); added architecture principles `P-01..P-04` and invariant `INV-016` (no pandas) to `03-system-invariants.md`; added relations-level ERD `04-data-model-erd.md` (27 tables); renamed `modules/auth-and-tenancy.md` → `auth-and-access.md`; moved `high-level-design.md` → `docs/research/`.
+- Guards (`usfds-core/tests/test_architecture_guards.py`): `test_pandas_imports_limited_to_allowlist`, `test_pandas_allowlist_has_no_stale_entries` (incl. DataFrame producers `.df()` / `.fetchdf()` / `.to_pandas()`), `test_core_engine_imports_limited_to_allowlist` (P-04; `executor.py` exempt); frozen shrink-only allowlists (39 pandas files, 8 core engine files).
+- Skills (`.claude/skills/**`, mirrored to `.agents/skills/**`): references to `P-NN` / `INV-NNN`, removed stale `implementation-level-design.md` link.
+- Issues: added `docs/issues/11-28-2026.md` (ISS-054 resolved; ISS-055..058 open: pandas removal, compute isolation, DI gaps, system-metadata configurability).
+- Verified: `core` (`216 passed, 15 skipped`); 0 broken relative links; 16/16 Mermaid diagrams parse; `docs/arch` contains no `file.py:NNN` refs or Vietnamese text.
+
 ## 2026-11-28 — ISS-046: Insight & Report FDS Upgrade (DuckDB OLAP Metrics, Dual-Threshold Simulator & 4-Tab UI)
 Plan: `.plan/insight_report_fds_upgrade.md` · Board: `.plan/BOARD.md`
 

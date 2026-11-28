@@ -1,62 +1,54 @@
-# USFDS As-Built Architecture Documentation
-<!-- [26-11-27] Created: 3-tier As-Built architecture index & navigation map. -->
+# USFDS As-Built Architecture
+<!-- [26-11-27] Created. [26-11-28] English rewrite; single routing source; principles, INV-016, ERD added; research doc moved out. -->
 
-Thư mục `docs/arch/` là **nguồn sự thật về kiến trúc đang vận hành thực tế (As-Built)** của hệ thống USFDS, phục vụ song song hai mục đích:
-1. **Cho người duyệt (Human):** Đối chiếu nhanh ranh giới module, hợp đồng dữ liệu và rủi ro toàn hệ thống khi review `.plan/*.md` hoặc PR.
-2. **Cho AI Agent:** Có đủ bối cảnh từ tổng quát đến chi tiết trước khi lên kế hoạch (`usfds-plan`), cài đặt (`usfds-task-workflow`) và phản biện (`usfds-review`).
+`docs/arch/` is the **source of truth for the architecture as it runs today**. It serves human reviewers (checking plans and PRs against module boundaries, contracts and risks) and AI agents (context before `usfds-plan`, `usfds-task-workflow`, `usfds-review`).
 
----
+This file is the **only routing table** for architecture docs. Other entry points (`AGENTS.md`, skills) link here instead of copying it.
 
-## 1. Cấu trúc 3 tầng & Liên kết với góc nhìn thiết kế gốc
+## 1. Layers
 
-Hệ thống giữ nguyên 4 góc nhìn thiết kế tổng quan (từ bộ tài liệu thiết kế gốc trên Google Drive và [`high-level-design.md`](high-level-design.md)), nhưng chuẩn hóa lại theo đúng codebase thực tế và phân cấp độ chi tiết thành 3 tầng:
-
-| Tầng | Tài liệu | Góc nhìn tương ứng | Trả lời câu hỏi gì? |
-|---|---|---|---|
-| **Tầng 0 — Điều hướng** | [`README.md`](README.md) *(file này)* | Bản đồ tổng | Chạm vào phần nào của hệ thống thì cần đọc tài liệu nào? |
-| **Tầng 1 — Tổng quan & Luồng chính** | [`01-context-and-runtime.md`](01-context-and-runtime.md) | System Boundary + Logical Component + Deployment | Hệ thống gồm những package/process/storage nào, chạy ở chế độ nào, kết nối ra sao? |
-| **Tầng 1 — Tổng quan & Luồng chính** | [`02-data-and-lifecycle-flows.md`](02-data-and-lifecycle-flows.md) | Functional Process + Data & Functional Process | Dữ liệu đi qua luồng Training và Inference→Investigation→Insight như thế nào? Các hợp đồng dùng chung giữa module là gì? |
-| **Tầng 2 — Chi tiết phân hệ** | [`modules/`](modules/) *(6 Bounded Contexts)* | Module Ownership & Contracts | Mỗi phân hệ sở hữu bảng/file nào, cung cấp contract gì, có state machine và bẫy kỹ thuật nào? |
-| **Tầng 3 — Bất biến xuyên suốt** | [`03-system-invariants.md`](03-system-invariants.md) | Cross-cutting Rules & Guardrails | Những quy tắc kỹ thuật & nghiệp vụ nào **không được phép phá vỡ**, và được kiểm chứng bằng test tự động hay review? |
-
-> [!NOTE]
-> [`high-level-design.md`](high-level-design.md) giữ vai trò tài liệu bối cảnh/nghiên cứu ban đầu (khái niệm K8s, MinIO, Apache AGE). Khi có sai khác với code đang chạy, các file `01-*`, `02-*`, `03-*` và `modules/*` là nguồn sự thật hiện hành (`implementation-level-design.md` cũ đã được xóa vì lỗi thời).
-
----
-
-## 2. Bản đồ định tuyến: Chạm vào X → Đọc file nào trước?
-
-| Khi task chạm tới... | Đọc bắt buộc (theo thứ tự) | Đặc tả nghiệp vụ chi tiết (`docs/features/`) |
+| Layer | Document | Answers |
 |---|---|---|
-| **Mọi task** (lên plan & review) | [`03-system-invariants.md`](03-system-invariants.md) | — |
-| Auth, Users, Roles, RBAC, Project membership, Storage presigned auth | [`01-context-and-runtime.md`](01-context-and-runtime.md) → [`modules/auth-and-tenancy.md`](modules/auth-and-tenancy.md) | [`project_management/suc-spec.md`](../features/project_management/suc-spec.md) |
-| Dataset ingestion, Schema mapping, System metadata, Feature management, Preprocessing | [`02-data-and-lifecycle-flows.md`](02-data-and-lifecycle-flows.md) → [`modules/data-and-features.md`](modules/data-and-features.md) | [`data_management/`](../features/data_management/), [`feature_management/context-modeling.md`](../features/feature_management/context-modeling.md), [`critical_changes.md`](../features/critical_changes.md) |
-| Model training, Built-in/Plugin trainers, Model versions, Lineage, Remote compute (Modal) | [`01-context-and-runtime.md`](01-context-and-runtime.md) → [`02-data-and-lifecycle-flows.md`](02-data-and-lifecycle-flows.md) → [`modules/training-and-models.md`](modules/training-and-models.md) | [`detection/suc-spec.md`](../features/detection/suc-spec.md) |
-| Detection jobs, Online/Batch inference, Rule engine, JsonLogic, Backtest | [`02-data-and-lifecycle-flows.md`](02-data-and-lifecycle-flows.md) → [`modules/detection-and-rules.md`](modules/detection-and-rules.md) | [`detection/suc-spec.md`](../features/detection/suc-spec.md) |
-| Case management, Blacklist/Watchlist, Behavior profile, Network graph (LadybugDB) | [`02-data-and-lifecycle-flows.md`](02-data-and-lifecycle-flows.md) → [`modules/investigation-and-graph.md`](modules/investigation-and-graph.md) | [`investigation/suc-spec.md`](../features/investigation/suc-spec.md) |
-| ProjectWarehouse (DuckDB), Insight metrics, SAR / Executive reports | [`02-data-and-lifecycle-flows.md`](02-data-and-lifecycle-flows.md) → [`modules/insight-and-warehouse.md`](modules/insight-and-warehouse.md) | [`insight_report/suc-spec.md`](../features/insight_report/suc-spec.md) |
-| Worker queues, BullMQ, Storage backend, DB migrations, Docker/Env | [`01-context-and-runtime.md`](01-context-and-runtime.md) → [`03-system-invariants.md`](03-system-invariants.md) | — |
+| 0 — Navigation | `README.md` (this file) | What do I read when I touch X? |
+| 1 — Overview | [`01-context-and-runtime.md`](01-context-and-runtime.md) | Which packages, processes and storage exist; runtime modes; queues; storage key layout. |
+| 1 — Overview | [`02-data-and-lifecycle-flows.md`](02-data-and-lifecycle-flows.md) | Training and Inference → Investigation → Insight flows; shared contracts `C1–C5`; state machines. |
+| 1 — Overview | [`04-data-model-erd.md`](04-data-model-erd.md) | Which tables exist, how they relate, which module owns them. |
+| 2 — Modules | [`modules/`](modules/) (6 bounded contexts) | What each module owns, which contracts it provides, its state machines and traps. |
+| 3 — Rules | [`03-system-invariants.md`](03-system-invariants.md) | Architecture principles (`P-NN`) and invariants (`INV-NNN`) that no change may break, and how each is enforced. |
 
----
+[`docs/research/high-level-design.md`](../research/high-level-design.md) is the original research design (K8s, MinIO, Apache AGE). It is **not** as-built; when it disagrees with this folder, this folder wins.
 
-## 3. Quy tắc dừng độ chi tiết ("The Stop Rule")
+## 2. Routing: touching X → read first
 
-Để tài liệu luôn ngắn gọn và không lỗi thời sau mỗi lần refactor:
+| Task touches... | Read (in order) | Business spec (`docs/features/`) |
+|---|---|---|
+| **Every task** (plan & review) | [`03-system-invariants.md`](03-system-invariants.md) | — |
+| Auth, users, roles, RBAC, project membership, presigned storage auth | [`01`](01-context-and-runtime.md) → [`modules/auth-and-access.md`](modules/auth-and-access.md) | [`project_management/suc-spec.md`](../features/project_management/suc-spec.md) |
+| Dataset ingestion, schema mapping, system metadata, feature management, preprocessing | [`02`](02-data-and-lifecycle-flows.md) → [`modules/data-and-features.md`](modules/data-and-features.md) | [`data_management/`](../features/data_management/), [`feature_management/context-modeling.md`](../features/feature_management/context-modeling.md), [`critical_changes.md`](../features/critical_changes.md) |
+| Model training, built-in / plugin trainers, model versions, lineage, remote compute | [`01`](01-context-and-runtime.md) → [`02`](02-data-and-lifecycle-flows.md) → [`modules/training-and-models.md`](modules/training-and-models.md) | [`detection/suc-spec.md`](../features/detection/suc-spec.md) |
+| Detection jobs, batch inference, rule engine, JsonLogic, backtest | [`02`](02-data-and-lifecycle-flows.md) → [`modules/detection-and-rules.md`](modules/detection-and-rules.md) | [`detection/suc-spec.md`](../features/detection/suc-spec.md) |
+| Cases, blacklist, behavior profile, network graph | [`02`](02-data-and-lifecycle-flows.md) → [`modules/investigation-and-graph.md`](modules/investigation-and-graph.md) | [`investigation/suc-spec.md`](../features/investigation/suc-spec.md) |
+| ProjectWarehouse, insight metrics, SAR / executive reports | [`02`](02-data-and-lifecycle-flows.md) → [`modules/insight-and-warehouse.md`](modules/insight-and-warehouse.md) | [`insight_report/suc-spec.md`](../features/insight_report/suc-spec.md) |
+| Tables, columns, migrations | [`04-data-model-erd.md`](04-data-model-erd.md) → owning module | — |
+| Worker queues, BullMQ, storage backend, Docker / env | [`01`](01-context-and-runtime.md) | — |
 
-- **PHẢI ghi trong `docs/arch/`:**
-  - Ranh giới trách nhiệm giữa package và giữa 6 domain module (ai sở hữu bảng/file nào).
-  - Hợp đồng dùng chung (Shared Contracts) mà ≥ 2 module cùng đọc/ghi (format artifact, cột hệ thống, schema `ProjectWarehouse`, payload queue, quy ước `project_id`/`user_id`).
-  - Vòng đời trạng thái (State Machines) của thực thể cốt lõi.
-  - Bất biến kỹ thuật & nghiệp vụ (`INV-001..N`) và các lỗi/bẫy xuyên module đã biết.
-- **KHÔNG ghi trong `docs/arch/`:**
-  - Danh sách chi tiết từng cột ORM, từng tham số hàm, từng component React, hay thuật toán nội bộ của 1 hàm (code + docstring + `docs/features/**/suc-spec.md` là nguồn sự thật cho những phần đó).
-- **Quy tắc kiểm thử độ chi tiết:** Nếu một dòng phải sửa chỉ vì đổi tên biến/hàm nội bộ trong 1 module → **quá chi tiết, loại bỏ**. Nếu đổi nó có thể làm 1 module khác sai ngầm mà test cục bộ vẫn xanh → **bắt buộc phải ghi**.
+## 3. Stop Rule (level of detail)
 
----
+- **Write in `docs/arch/`:**
+  - Responsibility boundaries between packages and the 6 modules (who owns which table / storage prefix).
+  - Shared contracts read or written by ≥ 2 modules (artifact formats, system columns, warehouse schema, queue payloads, `project_id` / `user_id` conventions).
+  - State machines of core entities.
+  - Principles, invariants, and known cross-module traps.
+- **Do not write in `docs/arch/`:**
+  - Every ORM column, function parameter, React component, or a function's internal algorithm (code, docstrings and `docs/features/**` own those).
+  - Line numbers (`file.py:NNN`) — they drift. Name the file or symbol.
+  - Bug details. Open bugs live only in `docs/issues/`; arch docs reference them by `ISS-NNN` and state the architectural consequence in one line.
+- **Test:** if a line must change because an internal name changed inside one module → too detailed, remove it. If changing it could silently break another module while local tests stay green → it must be written here.
 
-## 4. Quy tắc đồng bộ tài liệu (Doc-Sync Policy)
+## 4. Doc-sync policy (`INV-015`)
 
-Mỗi PR thay đổi bất kỳ mục nào sau đây **bắt buộc** cập nhật `docs/arch/` tương ứng (kèm comment `[YY-MM-DD]` theo `AGENTs.md`) trước khi merge:
-- Thêm/xóa package, router mới, BullMQ queue/job mới, storage prefix mới, hoặc chế độ runtime mới → cập nhật `01-context-and-runtime.md`.
-- Thay đổi luồng dữ liệu, định dạng artifact/warehouse/schema contract hoặc state machine → cập nhật `02-data-and-lifecycle-flows.md` và `modules/<module>.md`.
-- Thêm/sửa/gỡ bất biến hoặc chuyển một bất biến từ Review Checklist sang Automation Test → cập nhật `03-system-invariants.md`.
+Any PR that changes one of the following updates `docs/arch/` in the same PR, with a `[YY-MM-DD]` comment:
+- Package, router, BullMQ queue/job, storage prefix, or runtime mode added/removed → `01-context-and-runtime.md`.
+- Data flow, artifact / warehouse / schema contract, or state machine → `02-data-and-lifecycle-flows.md` and `modules/<module>.md`.
+- Table or relation added/removed/renamed → `04-data-model-erd.md`.
+- Principle or invariant added/changed/removed, or moved from review to an automated guard → `03-system-invariants.md`.

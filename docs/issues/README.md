@@ -84,5 +84,10 @@ Search tips: `grep -rn "ISS-017" docs/ .plan/` · `grep -n "| P0" docs/issues/RE
 | ISS-051 | Plugin bundler hardcodes `main.py`; `PRE_PROCESSED` pipeline not copied to model run dir | bug | training, inference | P2 | Open <!-- [26-11-27] --> | — | [11-27](11-27-2026.md) |
 | ISS-052 | `feature_router` read endpoints skip `GrantScope.OWN` owner filtering | security | auth, server, data-management | P2 | Open <!-- [26-11-27] --> | — | [11-27](11-27-2026.md) |
 | ISS-053 | `validate_rule_condition` checks `raw_schema` only and rejects `model_score` / `model.score` | bug | rule-engine, inference | P2 | Open <!-- [26-11-27] --> | — | [11-27](11-27-2026.md) |
+| ISS-054 | Architecture docs duplicated, partly stale, Vietnamese, and missing principles / ERD | docs | docs, agents | P2 | Resolved (26-11-28) <!-- [26-11-28] --> | [arch_docs_principles_english](../../.plan/arch_docs_principles_english.md) <!-- [26-11-28] --> | [11-28](11-28-2026.md) |
+| ISS-055 | pandas still used for data processing in 40 source files (INV-016) | tech-debt | data-management, preprocessing, training, inference, rule-engine, warehouse, insight-report, investigation, server, worker | P2 | Open <!-- [26-11-28] --> | — | [11-28](11-28-2026.md) |
+| ISS-056 | Computation still runs in API; only training runs on remote compute (P-03) | tech-debt | server, worker, training, inference, rule-engine, data-management, insight-report | P2 | Open <!-- [26-11-28] --> | — | [11-28](11-28-2026.md) |
+| ISS-057 | `usfds-core` uses duckdb / ladybug engines directly instead of ports (P-04) | tech-debt | warehouse, investigation, inference, insight-report, data-management | P3 | Open <!-- [26-11-28] --> | — | [11-28](11-28-2026.md) |
+| ISS-058 | Business-significant values hardcoded instead of system metadata (P-01) | tech-debt | data-management, investigation, warehouse, server, web | P3 | Open <!-- [26-11-28] --> | — | [11-28](11-28-2026.md) |
 
 Older resolved bugs (pre-ISS numbering) are kept in [`docs/bugs.md`](../bugs.md).

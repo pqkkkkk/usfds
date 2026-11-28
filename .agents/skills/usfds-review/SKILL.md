@@ -13,13 +13,13 @@ Tests prove that *intended* paths pass. This review exists to catch **everything
 
 ## Required inputs (read in this order)
 1. `.plan/<task_slug>.md` (goal, §2.5 contracts/decisions, §4.5 invariant impact, §5 acceptance tests).
-2. `docs/arch/03-system-invariants.md` (all 15 invariants `INV-001`..`INV-015`).
+2. `docs/arch/03-system-invariants.md` (all principles `P-NN` and invariants `INV-NNN`). <!-- [26-11-28] -->
 3. Relevant `docs/arch/modules/<module>.md` and `docs/arch/02-data-and-lifecycle-flows.md` (Shared Contracts `C1–C5`).
 4. The full diff: `git diff origin/main...HEAD` (or `git diff main...HEAD` / working-tree diff) + test output summary.
 
 ## Adversarial audit checklist (check every applicable item)
 
-### 1. Security, RBAC & Tenancy (`INV-001` – `INV-004`)
+### 1. Security, RBAC & Project Isolation (`INV-001` – `INV-004`)
 - **Auth & Public exposure:** Are any new routes missing `get_actor_context` / `require_system_permission`? Did CORS or presigned URL authorization weaken?
 - **Project isolation & Anti-404-oracle:** On `GET /{id}` and mutations, is `project_id` verified *before* leaking existence? Can a caller pass a resource ID from Project B while authenticated in Project A?
 - **`GrantScope.OWN` parity:** Do list endpoints filter by `owner_id` (`resolve_project_list_owner`), and do single-get/update/delete endpoints check `owner_id=record.user_id`?
@@ -33,7 +33,8 @@ Tests prove that *intended* paths pass. This review exists to catch **everything
 
 ### 3. Resource Lifecycle, Concurrency & Scale (`INV-006`, `INV-007`, `INV-008`, `INV-011`, `INV-012`)
 - **Delete & In-Use guards:** Can an in-use entity be deleted? Does deleting a DB record leave orphan files on `IFileStorage`? Does deletion work identically on SQLite **and** PostgreSQL?
-- **Large data / RAM (`INV-007`):** Did any API/analytics/data-management/investigation path re-introduce full-file `pd.read_csv`/`pd.read_parquet` or unbounded DuckDB connections?
+- **Large data / RAM (`INV-007`, `INV-016`):** Did any API/analytics/data-management/investigation path re-introduce full-file `pd.read_csv`/`pd.read_parquet`, a new `pandas` import, or unbounded DuckDB connections?
+- **Principles (`P-NN`):** Any new hardcoded business value instead of system metadata? New `if/else` on a type instead of port + registry? New computation in a router instead of a job? New concrete engine import in `usfds-core`? **Was `PANDAS_IMPORT_ALLOWLIST` or `CORE_ENGINE_IMPORT_ALLOWLIST` extended?** Any addition is a `BLOCKER` (allowlists only shrink). <!-- [26-11-28] -->
 - **Concurrency & Queue safety:** Are state transitions idempotent on redelivery? Are `Case` updates checked with `expected_version`? Is any DB session held open across network/subprocess I/O? Are deterministic errors marked non-retryable (`UnrecoverableError`)?
 - **PostgreSQL & Migrations:** If schema changed, is there a single Alembic head, proper `ON DELETE` FKs, and zero SQLite-only SQL?
 

@@ -1,4 +1,4 @@
-"""Automated architecture & invariant fitness guards for usfds-core (INV-005, INV-007, INV-009, INV-013)."""
+"""Automated architecture & invariant fitness guards for usfds-core (INV-005, INV-007, INV-009, INV-013, INV-016, P-04)."""
 import ast
 from pathlib import Path
 
@@ -170,3 +170,131 @@ def test_hybrid_decision_precedence_invariants():
 	assert summary["reject_count"] == 1
 	assert summary["review_count"] == 2
 	assert summary["allow_count"] == 1
+
+
+# INV-016 / P-04: frozen allowlists that may only shrink. [26-11-28]
+REPO_ROOT = CORE_SRC_ROOT.parents[2]
+PANDAS_SCANNED_SRC_ROOTS: tuple[str, ...] = (
+	"usfds-core/src",
+	"usfds-infra/src",
+	"usfds-server/src",
+	"usfds-worker/src",
+)
+PANDAS_IMPORT_ALLOWLIST: frozenset[str] = frozenset({
+	# Legacy debt tracked in ISS-055. Never add entries; remove them as files migrate.
+	"usfds-core/src/usfds_core/services/data_management/profiling.py",
+	"usfds-core/src/usfds_core/services/data_management/service.py",
+	"usfds-core/src/usfds_core/services/data_management/validation.py",
+	"usfds-core/src/usfds_core/services/features/compiler.py",
+	"usfds-core/src/usfds_core/services/features/feature_service.py",
+	"usfds-core/src/usfds_core/services/features/script_runner.py",
+	"usfds-core/src/usfds_core/services/inference/executor.py",
+	"usfds-core/src/usfds_core/services/inference/inference_service.py",
+	"usfds-core/src/usfds_core/services/inference/prediction_results.py",
+	"usfds-core/src/usfds_core/services/inference/scoring_service.py",
+	"usfds-core/src/usfds_core/services/insight_report/engine.py",
+	"usfds-core/src/usfds_core/services/investigation/behavior_profile.py",
+	"usfds-core/src/usfds_core/services/investigation/duckdb_engine.py",
+	"usfds-core/src/usfds_core/services/investigation/explainability.py",
+	"usfds-core/src/usfds_core/services/investigation/network_graph.py",
+	"usfds-core/src/usfds_core/services/preprocessing/cleansers/base_cleanser.py",
+	"usfds-core/src/usfds_core/services/preprocessing/cleansers/standard_cleanser.py",
+	"usfds-core/src/usfds_core/services/preprocessing/cleansers/timestamp_normalizer.py",
+	"usfds-core/src/usfds_core/services/preprocessing/cleansers/type_coercer.py",
+	"usfds-core/src/usfds_core/services/preprocessing/feature_engineering/base_engineer.py",
+	"usfds-core/src/usfds_core/services/preprocessing/feature_engineering/credit_card_engineer.py",
+	"usfds-core/src/usfds_core/services/preprocessing/feature_engineering/velocity_engineer.py",
+	"usfds-core/src/usfds_core/services/preprocessing/feature_engineering_service.py",
+	"usfds-core/src/usfds_core/services/preprocessing/leaked_feature_engineering_service.py",
+	"usfds-core/src/usfds_core/services/preprocessing/pipeline_builder.py",
+	"usfds-core/src/usfds_core/services/preprocessing/preprocessing_service.py",
+	"usfds-core/src/usfds_core/services/preprocessing/splitters/base_splitter.py",
+	"usfds-core/src/usfds_core/services/preprocessing/splitters/temporal_splitter.py",
+	"usfds-core/src/usfds_core/services/preprocessing/transformations/scalers.py",
+	"usfds-core/src/usfds_core/services/project_management/schema_validator.py",
+	"usfds-core/src/usfds_core/services/rule_engine/executor.py",
+	"usfds-core/src/usfds_core/services/training/models/builtin_trainer.py",
+	"usfds-core/src/usfds_core/services/training/models/script_trainer.py",
+	"usfds-core/src/usfds_core/services/training/plugins/validator.py",
+	"usfds-core/src/usfds_core/services/warehouse/normalization.py",
+	"usfds-core/src/usfds_core/services/warehouse/project_warehouse.py",
+	"usfds-server/src/usfds_server/routers/detection_router.py",
+	"usfds-server/src/usfds_server/routers/investigation_router.py",
+	"usfds-server/src/usfds_server/routers/rule_router.py",
+	"usfds-worker/src/usfds_worker/handlers.py",
+})
+# DataFrame producers that bring pandas in without importing it (e.g. DuckDB `.df()`, Arrow `.to_pandas()`).
+PANDAS_PRODUCER_METHODS: frozenset[str] = frozenset({"df", "fetchdf", "fetch_df", "to_pandas"})
+CORE_ENGINE_LIBS: frozenset[str] = frozenset({"duckdb", "ladybug"})
+# P-04 exception: job executors may import compute libraries directly.
+CORE_ENGINE_EXEMPT_FILENAMES: frozenset[str] = frozenset({"executor.py"})
+CORE_ENGINE_IMPORT_ALLOWLIST: frozenset[str] = frozenset({
+	# Legacy debt tracked in ISS-057. Never add entries; remove them as files migrate.
+	"usfds-core/src/usfds_core/services/data_management/duckdb_io.py",
+	"usfds-core/src/usfds_core/services/features/compiler.py",
+	"usfds-core/src/usfds_core/services/inference/prediction_results.py",
+	"usfds-core/src/usfds_core/services/insight_report/engine.py",
+	"usfds-core/src/usfds_core/services/investigation/behavior_profile.py",
+	"usfds-core/src/usfds_core/services/investigation/duckdb_engine.py",
+	"usfds-core/src/usfds_core/services/investigation/network_graph.py",
+	"usfds-core/src/usfds_core/services/warehouse/project_warehouse.py",
+})
+
+
+def _scanned_files(src_roots: tuple[str, ...]) -> list[Path]:
+	files: list[Path] = []
+	for src_root in src_roots:
+		root = REPO_ROOT / src_root
+		assert root.is_dir(), f"Guarded source root missing: {root}"
+		files.extend(_iter_python_files(root))
+	return files
+
+
+def _files_importing(src_roots: tuple[str, ...], libs: frozenset[str]) -> set[str]:
+	return {
+		py_file.relative_to(REPO_ROOT).as_posix()
+		for py_file in _scanned_files(src_roots)
+		if any(module.split(".", 1)[0] in libs for _, module in _extract_imported_modules(py_file))
+	}
+
+
+def _calls_pandas_producer(file_path: Path) -> bool:
+	tree = ast.parse(file_path.read_text(encoding="utf-8"), filename=str(file_path))
+	return any(
+		isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+		and node.func.attr in PANDAS_PRODUCER_METHODS and not node.args
+		for node in ast.walk(tree)
+	)
+
+
+def _files_using_pandas() -> set[str]:
+	"""Files that import pandas or create pandas DataFrames via DuckDB/Arrow producers."""
+	return _files_importing(PANDAS_SCANNED_SRC_ROOTS, frozenset({"pandas"})) | {
+		py_file.relative_to(REPO_ROOT).as_posix()
+		for py_file in _scanned_files(PANDAS_SCANNED_SRC_ROOTS)
+		if _calls_pandas_producer(py_file)
+	}
+
+
+def test_pandas_imports_limited_to_allowlist():
+	"""INV-016: pandas is forbidden for data processing; only frozen legacy files may still import it."""
+	new_files = _files_using_pandas() - PANDAS_IMPORT_ALLOWLIST
+	assert not new_files, "pandas is forbidden (INV-016); use DuckDB/PyArrow instead in:\n" + "\n".join(sorted(new_files))
+
+
+def test_pandas_allowlist_has_no_stale_entries():
+	"""INV-016: the allowlist only shrinks; remove entries for files that no longer import pandas."""
+	stale = PANDAS_IMPORT_ALLOWLIST - _files_using_pandas()
+	assert not stale, "Remove from PANDAS_IMPORT_ALLOWLIST (no longer use pandas):\n" + "\n".join(sorted(stale))
+
+
+def test_core_engine_imports_limited_to_allowlist():
+	"""P-04: usfds-core reaches duckdb/ladybug engines through ports; only job executors and frozen legacy files import them directly."""
+	actual = {
+		rel for rel in _files_importing(("usfds-core/src",), CORE_ENGINE_LIBS)
+		if rel.rsplit("/", 1)[-1] not in CORE_ENGINE_EXEMPT_FILENAMES
+	}
+	new_files = actual - CORE_ENGINE_IMPORT_ALLOWLIST
+	stale = CORE_ENGINE_IMPORT_ALLOWLIST - actual
+	assert not new_files, "Direct duckdb/ladybug import in usfds-core (P-04); put it behind a port:\n" + "\n".join(sorted(new_files))
+	assert not stale, "Remove from CORE_ENGINE_IMPORT_ALLOWLIST (no longer import duckdb/ladybug):\n" + "\n".join(sorted(stale))

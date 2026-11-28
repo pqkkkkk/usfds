@@ -8,14 +8,16 @@
 ---
 
 ## 2. Project Structure
-The repository is organized into modular packages under the `usfds-*` prefix:
+<!-- [26-11-28] Synced with docs/arch/01-context-and-runtime.md. -->
+The repository is organized into modular packages under the `usfds-*` prefix (packages not listed are out of current scope):
 
-- **`usfds-core`**: Core domain models, business logic, ML pipelines, and abstract interfaces (repositories, storage).
-- **`usfds-infra`**: Infrastructure implementations, including SQLite database persistence (WAL mode) and local filesystem storage.
-- **`usfds-server`**: Local application runtime and REST API service (FastAPI) powering the desktop backend.
-- **`usfds-web`**: User interface frontend providing interactive dashboards, model management, and visual analytics.
-- **`usfds-cli`**: Command-line interface for headless execution of pipelines, training runs, and inspection.
-- **`usfds-agent`**: Intelligent assistant integration for conversational queries, investigation, and analysis workflows.
+- **`usfds-core`**: Domain models, business logic, ML pipelines, and ports (repositories, storage, compute).
+- **`usfds-infra`**: Infrastructure adapters: SQLAlchemy persistence (SQLite in WAL mode locally, PostgreSQL in client–server), Alembic migrations, local / S3 storage, BullMQ queue, Modal remote compute.
+- **`usfds-server`**: FastAPI REST API and composition root.
+- **`usfds-worker`**: BullMQ consumer that runs heavy jobs (training, batch inference, data pipeline, analytics).
+- **`usfds-web`**: React UI (browser SPA or Electron desktop): dashboards, model management, investigation, visual analytics.
+
+Architecture, data model, principles and invariants: [`docs/arch/README.md`](docs/arch/README.md).
 
 ---
 
@@ -71,3 +73,5 @@ With client-server architecture:
 |            +---------------+               +------------+ |
 +-----------------------------------------------------------+
 ```
+
+In client–server mode, `usfds-worker` consumes heavy jobs from BullMQ on PostgreSQL, and training can optionally run on Modal remote compute. Runtime details: [`docs/arch/01-context-and-runtime.md`](docs/arch/01-context-and-runtime.md). <!-- [26-11-28] -->

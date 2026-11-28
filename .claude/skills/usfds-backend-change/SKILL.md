@@ -5,7 +5,7 @@ description: Where and how to change USFDS backend code following its Clean Arch
 
 # USFDS backend change
 
-Read first: `docs/arch/implementation-level-design.md` (layers) and the feature spec in `docs/features/**`.
+Read first: `docs/arch/README.md` (routing; always `03-system-invariants.md`, plus `04-data-model-erd.md` for tables) and the feature spec in `docs/features/**`. <!-- [26-11-28] -->
 
 ## Layer map (dependencies point downward only)
 
@@ -25,7 +25,7 @@ Read first: `docs/arch/implementation-level-design.md` (layers) and the feature 
 - **Hot spots** (append-only, never reorder or reformat): `domain/entities/enums.py`, `database/models.py`, `database/repositories.py`, `database/__init__.py`, `database/seed_rbac.py`, `server/dependencies.py` (provider re-exports), `providers/repos.py`, `server/api.py` (router list), `server/config.py`, `worker/main.py` (handler maps), `job_queue/bullmq_queue.py` (constants), `deploy/.env.example`.
 - **Auth & RBAC:** Every new endpoint must enforce authentication and permission/scope checks (`PROJECT` vs `OWN`, per `ISS-006`/`ISS-042`/`ISS-043`) using the existing auth dependencies in `usfds-server/src/usfds_server/providers/auth.py` and `usfds_core/services/auth/authz_service.py`. Never accept untrusted `user_id` from request bodies.
 - **Config:** new settings go in `usfds-server/src/usfds_server/config.py` with an `USFDS_*` env var and a line in `deploy/.env.example`. No UI for secrets or API keys.
-- **Heavy work** (pandas/DuckDB on large files, training, inference) runs in a service invoked through a dispatcher or queue job, never inline in an `async def` endpoint.
+- **Heavy work** (DuckDB on large files, training, inference) runs as a job invoked through a dispatcher or queue, never inline in an endpoint (`P-03`). No new `pandas` imports (`INV-016`); new engines go behind a port with the adapter in `usfds-infra` (`P-04`); business values go into system metadata, not constants (`P-01`). <!-- [26-11-28] -->
 - **Code style:** tabs in new files (some old files use spaces: follow the file); no semicolons. Do not reformat untouched lines. Remove obsolete code cleanly when a task explicitly drops a feature/column; use `# DEPRECATED [YY-MM-DD]: reason` only when keeping temporary fallback code. Tag unrelated problems with `# TODO: ISS-NNN` and add the issue to `docs/issues/`.
 
 ## Migrations (Alembic, ISS-020)

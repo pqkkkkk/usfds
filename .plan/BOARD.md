@@ -33,3 +33,4 @@
 | [`remote_training_sandbox_hardening`](remote_training_sandbox_hardening.md) | ISS-009 (Đợt 1) | Done (26-11-28) | M1–M3 | `remote_training_compute` | per plan §3 |
 | [`raw_label_parsing_and_mapping`](raw_label_parsing_and_mapping.md) | ISS-047 | Done (26-11-28) | M1–M3 | `data_management_duckdb`, `large_data_analytics_duckdb`, `system_metadata_management` | per plan §3 |
 | [`insight_report_fds_upgrade`](insight_report_fds_upgrade.md) | ISS-046 | Done (26-11-28) | M1–M3 | `large_data_analytics_duckdb` | per plan §3 |
+| [`arch_docs_principles_english`](arch_docs_principles_english.md) | ISS-054 | Done (26-11-28) | M1–M3 | — | `usfds-core/tests/test_architecture_guards.py`, `docs/**`, `AGENTs.md`, `README.md`, `.claude/skills/**`, `.agents/skills/**` |
