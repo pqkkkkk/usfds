@@ -13,9 +13,20 @@ from usfds_core.services.data_management.duckdb_io import (
     register_file_view,
 )
 
+_FLOAT_TYPES = {"FLOAT", "FLOAT4", "FLOAT8", "DOUBLE", "REAL"}
+_MAX_DISTINCT_VALUES = 20
+
 
 class DataProfilingService:
     """Service providing core tabular data profiling statistics."""
+
+    @staticmethod
+    def _format_distinct_scalar(val: Any) -> str:
+        if hasattr(val, "item") and not isinstance(val, (bytes, str)):
+            val = val.item()
+        if isinstance(val, bool):
+            return "true" if val else "false"
+        return str(val).strip()
 
     def analyze(self, df: pd.DataFrame) -> DatasetProfilingSummary:
         """Analyzes a pandas DataFrame and generates basic data profiling statistics.
@@ -49,6 +60,20 @@ class DataProfilingService:
                 # Handle columns containing unhashable objects (e.g. lists/dicts)
                 unique_count = int(series.astype(str).nunique(dropna=True))
 
+            distinct_values: List[str] = []
+            if 1 <= unique_count <= _MAX_DISTINCT_VALUES:
+                try:
+                    raw_uniques = series.dropna().unique().tolist()
+                    distinct_values = sorted(
+                        {
+                            formatted
+                            for item in raw_uniques
+                            if (formatted := self._format_distinct_scalar(item)) != ""
+                        }
+                    )[:_MAX_DISTINCT_VALUES]
+                except Exception:
+                    distinct_values = []
+
             fields.append(
                 FieldProfilingSummary(
                     name=str(col),
@@ -56,6 +81,7 @@ class DataProfilingService:
                     unique_count=unique_count,
                     null_count=null_count,
                     null_percentage=null_percentage,
+                    distinct_values=distinct_values,
                 )
             )
 
@@ -110,13 +136,32 @@ class DataProfilingService:
             null_percentage = (
                 round((null_count / row_count) * 100.0, 2) if row_count > 0 else 0.0
             )
+            uniq_cnt = unique_counts.get(col, 0)
+            distinct_values: List[str] = []
+            if 1 <= uniq_cnt <= _MAX_DISTINCT_VALUES:
+                c = quote_ident(col)
+                t_up = col_types[col].strip().upper()
+                if t_up in _FLOAT_TYPES:
+                    where_cond = f"{c} IS NOT NULL AND NOT isnan({c}) AND trim(CAST({c} AS VARCHAR)) != ''"
+                else:
+                    where_cond = f"{c} IS NOT NULL AND trim(CAST({c} AS VARCHAR)) != ''"
+                try:
+                    rows = conn.execute(
+                        f"SELECT DISTINCT trim(CAST({c} AS VARCHAR)) AS val "
+                        f"FROM {v} WHERE {where_cond} ORDER BY 1 LIMIT {_MAX_DISTINCT_VALUES}"
+                    ).fetchall()
+                    distinct_values = [str(r[0]) for r in rows if r and r[0] is not None]
+                except Exception:
+                    distinct_values = []
+
             fields.append(
                 FieldProfilingSummary(
                     name=col,
                     dtype=duckdb_type_to_physical_dtype(col_types[col]),
-                    unique_count=unique_counts.get(col, 0),
+                    unique_count=uniq_cnt,
                     null_count=null_count,
                     null_percentage=null_percentage,
+                    distinct_values=distinct_values,
                 )
             )
 

@@ -17,9 +17,16 @@ import {
 	X,
 } from 'lucide-react';
 import { useSystemMetadata } from '@/hooks/useSystemMetadata';
+import {
+	buildLabelMappingEntries,
+	finalizeLabelValueMapping,
+	type LabelDraftAssignment,
+	type LabelMappingEntry,
+} from '@/utils/labelMapping';
 import type {
 	DatasetArtifactResponse,
 	DataMappingConfig,
+	FieldProfilingSummary,
 } from '../../../types/dataset';
 import type { SystemColumnMetadata } from '@/types/systemMetadata';
 
@@ -294,6 +301,7 @@ export const SchemaMappingWorkspace = ({
 	const [requiredDomainMap, setRequiredDomainMap] = useState<Record<string, string>>({});
 	const [optionalMappings, setOptionalMappings] = useState<Array<{ raw: string; target: string }>>([]);
 	const [columnSemanticTypes, setColumnSemanticTypes] = useState<Record<string, string>>({});
+	const [labelMappingEntries, setLabelMappingEntries] = useState<LabelMappingEntry[]>([]);
 	const [isBulkPickerOpen, setIsBulkPickerOpen] = useState(false);
 	const [bulkSearch, setBulkSearch] = useState('');
 	const [bulkTypeFilter, setBulkTypeFilter] = useState<BulkLogicalFilter>('ALL');
@@ -364,6 +372,43 @@ export const SchemaMappingWorkspace = ({
 	]);
 
 	const displayError = externalSaveError;
+	const distinctLabelValues = useMemo<string[]>(() => {
+		if (!targetCol) {
+			return [];
+		}
+		const profiling = rawArtifact?.validation_report?.profiling as
+			| { fields?: FieldProfilingSummary[] }
+			| undefined;
+		const field = profiling?.fields?.find((f) => f.name === targetCol);
+		return Array.isArray(field?.distinct_values) ? field.distinct_values : [];
+	}, [rawArtifact, targetCol]);
+
+	const labelInitSigRef = useRef<string>('');
+	useEffect(() => {
+		const distinctSig = distinctLabelValues.join('|');
+		const savedMap = mappedArtifact?.validation_report?.label_value_mapping as
+			| Record<string, number>
+			| undefined;
+		const savedSig = savedMap ? JSON.stringify(savedMap) : '';
+		const sig = `${rawArtifact?.artifact_id || 'fallback'}::${targetCol}::${distinctSig}::${savedSig}`;
+		if (labelInitSigRef.current === sig) {
+			return;
+		}
+		labelInitSigRef.current = sig;
+		const mappedColMap = mappedArtifact?.validation_report?.column_mapping as
+			| Record<string, string>
+			| undefined;
+		const savedTargetMatch = !mappedColMap || !targetCol || mappedColMap[targetCol] === 'label';
+		setLabelMappingEntries(
+			buildLabelMappingEntries(distinctLabelValues, savedTargetMatch ? savedMap : undefined)
+		);
+	}, [rawArtifact?.artifact_id, mappedArtifact, targetCol, distinctLabelValues]);
+
+	const labelMappingResult = useMemo(
+		() => finalizeLabelValueMapping(labelMappingEntries),
+		[labelMappingEntries]
+	);
+
 	const schemaDriftWarnings = useMemo(
 		() => detectSchemaDrift(mappedArtifact, activeColumns),
 		[mappedArtifact, activeColumns]
@@ -377,6 +422,7 @@ export const SchemaMappingWorkspace = ({
 	const totalMandatorySlots = 5 + requiredDomainColumns.length;
 	const mandatoryCount = coreSatisfiedCount + requiredDomainSatisfiedCount;
 	const isAllMandatorySatisfied = mandatoryCount === totalMandatorySlots;
+	const isFormValid = isAllMandatorySatisfied && labelMappingResult.isComplete;
 
 	const coreAndRequiredRawSet = useMemo(() => {
 		const s = new Set<string>();
@@ -501,10 +547,11 @@ export const SchemaMappingWorkspace = ({
 			target_column: targetCol,
 			optional_columns: optionalObj,
 			...(Object.keys(columnSemanticTypes).length > 0 ? { column_semantic_types: columnSemanticTypes } : {}),
+			...(labelMappingResult.mapping ? { label_value_mapping: labelMappingResult.mapping } : {}),
 			time_format: timeFormat,
 		};
 
-		onConfigChangeRef.current?.(payload, isAllMandatorySatisfied);
+		onConfigChangeRef.current?.(payload, isFormValid);
 	}, [
 		eventIdCol,
 		timeCol,
@@ -515,8 +562,9 @@ export const SchemaMappingWorkspace = ({
 		requiredDomainMap,
 		optionalMappings,
 		columnSemanticTypes,
+		labelMappingResult,
 		timeFormat,
-		isAllMandatorySatisfied,
+		isFormValid,
 	]);
 
 	const getMetaDescription = (key: string, fallback: string) =>
@@ -1032,10 +1080,135 @@ export const SchemaMappingWorkspace = ({
 										</td>
 										<td className="py-3.5 px-4">
 											<span className="font-mono text-xs text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-												&quot;0 / 1&quot;
+												{distinctLabelValues.length > 0
+													? distinctLabelValues.slice(0, 4).join(' / ')
+													: '"0 / 1"'}
 											</span>
 										</td>
 										<td className="py-3.5 px-4 text-center text-slate-600 font-mono text-xs">—</td>
+									</tr>
+
+									{/* Row 5b: Explicit label value-to-binary mapping */}
+									<tr className="bg-dark-900/30">
+										<td colSpan={5} className="px-4 py-3">
+											<div className="rounded-xl bg-dark-950/90 border border-dark-800 p-3 space-y-2.5">
+												<div className="flex flex-wrap items-center justify-between gap-2">
+													<div className="flex items-center gap-2">
+														<span className="text-[11px] font-semibold text-slate-200">
+															Ánh xạ giá trị nhãn nguồn → nhị phân chuẩn (0 = Hợp lệ, 1 = Gian lận)
+														</span>
+														{distinctLabelValues.length > 0 && labelMappingResult.isComplete && (
+															<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+																<CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+																Đã ánh xạ đủ {distinctLabelValues.length} giá trị
+															</span>
+														)}
+														{!labelMappingResult.isComplete && (
+															<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30">
+																<AlertTriangle className="w-3 h-3" aria-hidden="true" />
+																{labelMappingResult.unassignedCount > 0
+																	? `Còn ${labelMappingResult.unassignedCount} giá trị chưa gán`
+																	: 'Khóa nhãn nguồn không được rỗng hoặc trùng lặp'}
+															</span>
+														)}
+													</div>
+													{distinctLabelValues.length === 0 && (
+														<button
+															type="button"
+															onClick={() =>
+																setLabelMappingEntries((prev) => [
+																	...prev,
+																	{ raw: '', target: '', isManual: true },
+																])
+															}
+															className="px-2.5 py-1 rounded-lg bg-dark-800 hover:bg-dark-750 text-slate-200 border border-dark-700 text-[11px] font-medium transition flex items-center gap-1"
+														>
+															<Plus className="w-3 h-3 text-brand-400" aria-hidden="true" />
+															<span>Thêm giá trị nhãn</span>
+														</button>
+													)}
+												</div>
+
+												{labelMappingEntries.length === 0 ? (
+													<p className="text-[11px] text-slate-400">
+														Artifact RAW chưa có danh sách giá trị phân biệt — giữ trống nếu cột nhãn đã là{' '}
+														<code className="font-mono text-slate-300">0 / 1</code> hoặc nhấn &ldquo;Thêm giá trị nhãn&rdquo; để khai báo thủ công.
+													</p>
+												) : (
+													<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+														{labelMappingEntries.map((entry, idx) => (
+															<div
+																key={entry.isManual ? `manual-${idx}` : entry.raw}
+																className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-dark-900 border border-dark-800"
+															>
+																{entry.isManual ? (
+																	<input
+																		type="text"
+																		value={entry.raw}
+																		onChange={(e) => {
+																			const nextVal = e.target.value;
+																			setLabelMappingEntries((prev) =>
+																				prev.map((item, i) =>
+																					i === idx ? { ...item, raw: nextVal } : item
+																				)
+																			);
+																		}}
+																		placeholder="Giá trị nguồn (vd: Y)"
+																		className="w-28 px-2 py-1 bg-dark-950 border border-dark-700 rounded text-xs font-mono text-slate-200 focus:outline-none focus:border-brand-500"
+																	/>
+																) : (
+																	<code className="font-mono text-xs text-slate-200 bg-dark-950 px-2 py-0.5 rounded border border-dark-800 truncate max-w-[140px]">
+																		{entry.raw}
+																	</code>
+																)}
+																<ArrowRight className="w-3 h-3 text-slate-500 shrink-0" aria-hidden="true" />
+																<select
+																	aria-label={
+																		entry.isManual
+																			? 'Giá trị nhị phân thủ công'
+																			: `Ánh xạ giá trị nhãn ${entry.raw}`
+																	}
+																	value={entry.target === '' ? '' : String(entry.target)}
+																	onChange={(e) => {
+																		const val = e.target.value;
+																		const parsed: LabelDraftAssignment =
+																			val === '0' ? 0 : val === '1' ? 1 : '';
+																		setLabelMappingEntries((prev) =>
+																			prev.map((item, i) =>
+																				i === idx ? { ...item, target: parsed } : item
+																			)
+																		);
+																	}}
+																	className={`flex-1 px-2 py-1 bg-dark-950 border rounded text-xs font-mono focus:outline-none focus:border-brand-500 ${
+																		entry.target === ''
+																			? 'border-amber-500/50 text-amber-300'
+																			: 'border-dark-700 text-slate-200'
+																	}`}
+																>
+																	<option value="">Chưa gán</option>
+																	<option value="0">0 — Hợp lệ</option>
+																	<option value="1">1 — Gian lận</option>
+																</select>
+																{entry.isManual && (
+																	<button
+																		type="button"
+																		aria-label="Xóa giá trị nhãn thủ công"
+																		onClick={() =>
+																			setLabelMappingEntries((prev) =>
+																				prev.filter((_, i) => i !== idx)
+																			)
+																		}
+																		className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-500/10"
+																	>
+																		<Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+																	</button>
+																)}
+															</div>
+														))}
+													</div>
+												)}
+											</div>
+										</td>
 									</tr>
 
 									{/* Dynamic Required DOMAIN columns */}

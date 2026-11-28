@@ -9,6 +9,10 @@ class FieldProfilingSummary(BaseModel):
     unique_count: int = Field(..., description="Count of distinct/unique values in this field.")
     null_count: int = Field(..., description="Count of missing/null values in this field.")
     null_percentage: float = Field(..., description="Percentage of missing values relative to total rows (0.0 - 100.0).")
+    distinct_values: List[str] = Field(
+        default_factory=list,
+        description="Sorted distinct non-null string values when 1 <= unique_count <= 20; empty otherwise.",
+    )
 
 
 class DatasetProfilingSummary(BaseModel):

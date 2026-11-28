@@ -193,6 +193,11 @@ class DataQualityValidationService:
 				elif null_pct > 0.0:
 					warnings.append(f"Trường bắt buộc '{col}' có {null_count} giá trị thiếu ({null_pct}%).")
 					mandatory_null_penalties += null_pct * 0.5
+				if str(col) == SystemColumn.LABEL.value and unique_count == 1:
+					warnings.append(
+						"Cột nhãn 'label' chỉ có 1 lớp giá trị phân biệt sau ánh xạ; "
+						"cần ít nhất 2 lớp (0 và 1) để huấn luyện mô hình phân loại."
+					)
 			else:
 				optional_col_count += 1
 				if null_pct > 0.0:
@@ -428,6 +433,11 @@ class DataQualityValidationService:
 				elif null_pct > 0.0:
 					warnings.append(f"Trường bắt buộc '{col}' có {null_count} giá trị thiếu ({null_pct}%).")
 					mandatory_null_penalties += null_pct * 0.5
+				if str(col) == SystemColumn.LABEL.value and unique_count == 1:
+					warnings.append(
+						"Cột nhãn 'label' chỉ có 1 lớp giá trị phân biệt sau ánh xạ; "
+						"cần ít nhất 2 lớp (0 và 1) để huấn luyện mô hình phân loại."
+					)
 			else:
 				optional_col_count += 1
 				if null_pct > 0.0:
